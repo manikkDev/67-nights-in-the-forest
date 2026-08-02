@@ -7,10 +7,9 @@
     Server-authoritative lobby-to-game teleportation.
 
     @description
-    Provides a Knit Remote that the client can invoke (e.g. via a
-    "Play" button) to request teleportation from the lobby to the
-    base-map.  The server validates the request, calculates a random
-    position around the Campfire, and teleports the character.
+    Wires the lobby-map teleporter pads (Teleporter1/2/3 EnterPart)
+    to teleport players to the base-map Campfire on touch.  Also
+    exposes a Knit Remote for programmatic spawn requests.
 
     @exports
     - Knit Remote: RequestSpawn  -> void  (client -> server)
@@ -20,7 +19,9 @@
 -- // VARIABLES // --
 
 -- | Services | --
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -28,6 +29,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 -- | Constants | --
 local SPAWN_RADIUS = 12
 local SPAWN_HEIGHT = 5
+local TELEPORT_COOLDOWN = 3
 
 -- | Objects | --
 local SpawnService = Knit.CreateService({
@@ -40,6 +42,7 @@ local SpawnService = Knit.CreateService({
 -- | State | --
 local worldService: any? = nil
 local spawnedPlayers: { [Player]: boolean } = {}
+local teleportCooldowns: { [Player]: number } = {}
 
 -- // FUNCTIONS // --
 
@@ -78,6 +81,45 @@ function SpawnService:SpawnPlayer(player: Player)
 	primaryPart.CFrame = targetCFrame
 
 	spawnedPlayers[player] = true
+	print("[SpawnService] Teleported", player.Name, "to base-map")
+end
+
+--[[
+    @summary  Wire all teleporter EnterParts in the lobby-map for touch teleport.
+    @desc    Finds Teleporter1/2/3 models in the lobby-map and connects
+             Touched events on their EnterPart children.  When a player
+             touches an EnterPart, they are teleported to the base-map.
+]]
+local function wireTeleporters()
+	local lobbyMap = worldService:GetLobbyMap()
+	if not lobbyMap then
+		task.defer(wireTeleporters)
+		return
+	end
+
+	for _, child in ipairs(lobbyMap:GetChildren()) do
+		if child:IsA("Model") and child.Name:match("^Teleporter%d") then
+			local enterPart = child:FindFirstChild("EnterPart", true)
+			if enterPart and enterPart:IsA("BasePart") then
+				enterPart.Touched:Connect(function(hit)
+					local character = hit:FindFirstAncestorOfClass("Model")
+					if not character then return end
+					local player = Players:GetPlayerFromCharacter(character)
+					if not player then return end
+					if spawnedPlayers[player] then return end
+
+					local now = os.clock()
+					if teleportCooldowns[player] and (now - teleportCooldowns[player]) < TELEPORT_COOLDOWN then
+						return
+					end
+					teleportCooldowns[player] = now
+
+					SpawnService:SpawnPlayer(player)
+				end)
+				print("[SpawnService] Wired teleporter:", child.Name)
+			end
+		end
+	end
 end
 
 --[[
@@ -92,6 +134,9 @@ end
 
 -- // INITIALIZATION // --
 
-Knit.Start:Connect(function()
+function SpawnService:KnitStart()
 	worldService = Knit.GetService("WorldService")
-end)
+	wireTeleporters()
+end
+
+return SpawnService

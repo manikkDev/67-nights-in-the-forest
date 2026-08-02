@@ -72,8 +72,10 @@ end
 
 -- // INITIALIZATION // --
 
-Knit.Start:Connect(function()
+function TimeController:KnitStart()
 	local timeService = Knit.GetService("TimeService")
 	timeService.DayStarted:Connect(onDayStarted)
 	timeService.NightStarted:Connect(onNightStarted)
-end)
+end
+
+return TimeController

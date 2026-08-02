@@ -25,7 +25,12 @@ dependencies = [["Promise", "evaera/promise@4.0.0"]]
 [[package]]
 name = "manik/67-nights-in-the-forest"
 version = "0.1.0"
-dependencies = [["Janitor", "howmanysmall/janitor@1.18.3"], ["Knit", "sleitnick/knit@1.7.0"], ["Promise", "evaera/promise@4.0.0"], ["Signal", "sleitnick/signal@2.0.3"], ["ProfileService", "grilme99/profileservice@1.0.0"]]
+dependencies = [["Janitor", "howmanysmall/janitor@1.18.3"], ["Knit", "sleitnick/knit@1.7.0"], ["Promise", "evaera/promise@4.0.0"], ["Signal", "sleitnick/signal@2.0.3"], ["ZonePlus", "qvgk/zoneplus@3.2.1"], ["ProfileService", "grilme99/profileservice@1.0.0"]]
+
+[[package]]
+name = "qvgk/zoneplus"
+version = "3.2.1"
+dependencies = []
 
 [[package]]
 name = "sleitnick/comm"

@@ -29,17 +29,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local ProfileService = require(ServerScriptService.ServerPackages.ProfileService)
-local ProfileTemplate = require(script.Parent.Data.ProfileTemplate)
+local ProfileTemplate = require(script.Parent.Parent.Data.ProfileTemplate)
 
 -- | Constants | --
 local STORE_NAME = "67Nights_v1"
-local AUTO_LOAD_TIMEOUT = 5
 
 -- | Objects | --
 local PlayerDataService = Knit.CreateService({
 	Name = "PlayerDataService",
 	Client = {
-		GetData = Knit.CreateSignal(),
+		DataLoaded = Knit.CreateSignal(),
 	},
 })
 
@@ -93,7 +92,13 @@ end
     @param    player  Player  -- the Roblox player
 ]]
 local function loadProfile(player: Player)
-	profileStore:LoadAsync(player.UserId, function(profile)
+	local profile = profileStore:LoadProfileAsync(tostring(player.UserId), function(placeId, gameJobId)
+		if player.Parent then
+			player:Kick("Profile released by another server.")
+		end
+	end)
+
+	if profile then
 		profile:ListenToRelease(function()
 			profiles[player] = nil
 			if player.Parent then
@@ -103,13 +108,11 @@ local function loadProfile(player: Player)
 
 		if player.Parent then
 			profiles[player] = profile
-			PlayerDataService.Client.GetData:Fire(player, profile.Data)
+			PlayerDataService.Client.DataLoaded:Fire(player, table.clone(profile.Data))
 		else
 			profile:Release()
 		end
-	end, AUTO_LOAD_TIMEOUT)
-
-	if not profiles[player] and player.Parent then
+	elseif player.Parent then
 		player:Kick("Failed to load profile. Please rejoin.")
 	end
 end
@@ -152,3 +155,12 @@ end)
 for _, player in ipairs(Players:GetPlayers()) do
 	task.spawn(loadProfile, player)
 end
+
+game:BindToClose(function()
+	for player, profile in pairs(profiles) do
+		profile:Release()
+		profiles[player] = nil
+	end
+end)
+
+return PlayerDataService

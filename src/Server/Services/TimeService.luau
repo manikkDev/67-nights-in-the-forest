@@ -47,6 +47,7 @@ local TimeService = Knit.CreateService({
 	Client = {
 		DayStarted = Knit.CreateSignal(),
 		NightStarted = Knit.CreateSignal(),
+		GetPhaseState = Knit.CreateProperty("Day"),
 	},
 })
 
@@ -54,6 +55,7 @@ local TimeService = Knit.CreateService({
 local currentPhase: "Day" | "Night" = "Day"
 local phaseTimer = 0
 local clockTime = DAY_CLOCK_TIME
+local dayNumber = 1
 
 -- // FUNCTIONS // --
 
@@ -71,6 +73,14 @@ end
 ]]
 function TimeService:GetClockTime(): number
 	return clockTime
+end
+
+--[[
+    @summary  Return the current day number (starts at 1).
+    @returns  number
+]]
+function TimeService:GetDayNumber(): number
+	return dayNumber
 end
 
 --[[
@@ -114,9 +124,11 @@ end
 local function startDay()
 	currentPhase = "Day"
 	phaseTimer = 0
+	dayNumber += 1
 	transitionToDay()
+	TimeService.Client.GetPhaseState:SetValue("Day")
 	broadcastSignal(TimeService.Client.DayStarted)
-	print("[TimeService] Day started")
+	print("[TimeService] Day", dayNumber, "started")
 end
 
 --[[
@@ -126,8 +138,9 @@ local function startNight()
 	currentPhase = "Night"
 	phaseTimer = 0
 	transitionToNight()
+	TimeService.Client.GetPhaseState:SetValue("Night")
 	broadcastSignal(TimeService.Client.NightStarted)
-	print("[TimeService] Night started")
+	print("[TimeService] Night", dayNumber, "started")
 end
 
 --[[
@@ -163,3 +176,5 @@ Lighting.FogEnd = DAY_FOG_END
 RunService.Heartbeat:Connect(onHeartbeat)
 
 print("[TimeService] Initialised — starting in Day phase")
+
+return TimeService
