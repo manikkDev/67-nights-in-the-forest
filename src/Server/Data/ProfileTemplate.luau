@@ -14,8 +14,32 @@
 ]]
 
 return {
-	NightsSurvived = 0,
-	Hunger = 100,
-	MaxHunger = 100,
-	Inventory = {},
+	Resources = {
+		Wood = 0,
+		Stone = 0,
+		Berries = 0,
+		Mushrooms = 0,
+		RawMeat = 0,
+		CookedMeat = 0,
+	},
+	Survival = {
+		Health = 100,
+		Hunger = 100,
+		DeathCount = 0,
+		HighestNightSurvived = 0,
+	},
+	Base = {
+		BedCount = 0,
+		DayMultiplier = 1,
+		UnlockedStructures = {},
+	},
+	Rescue = {
+		ChildrenRescued = {},
+		CavesUnlocked = {},
+	},
+	Stats = {
+		TreesChopped = 0,
+		WolvesKilled = 0,
+		TotalPlaytime = 0,
+	},
 }

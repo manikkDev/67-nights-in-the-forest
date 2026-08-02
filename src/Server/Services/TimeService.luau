@@ -32,9 +32,8 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 -- | Constants | --
 local DAY_DURATION = 120
 local NIGHT_DURATION = 120
-local TIME_STEP_SCALE = 24
-local DAY_CLOCK_TIME = 14
-local NIGHT_CLOCK_TIME = 0
+local DAY_START_CLOCK = 6
+local DAY_END_CLOCK = 18
 local DAY_AMBIENT = Color3.fromRGB(128, 128, 128)
 local NIGHT_AMBIENT = Color3.fromRGB(20, 22, 32)
 local DAY_FOG_END = 100000
@@ -54,7 +53,7 @@ local TimeService = Knit.CreateService({
 -- | State | --
 local currentPhase: "Day" | "Night" = "Day"
 local phaseTimer = 0
-local clockTime = DAY_CLOCK_TIME
+local clockTime = DAY_START_CLOCK
 local dayNumber = 1
 
 -- // FUNCTIONS // --
@@ -89,7 +88,6 @@ end
 local function transitionToDay()
 	local tweenInfo = TweenInfo.new(TWEEN_DURATION, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 	TweenService:Create(Lighting, tweenInfo, {
-		ClockTime = DAY_CLOCK_TIME,
 		Ambient = DAY_AMBIENT,
 		FogEnd = DAY_FOG_END,
 	}):Play()
@@ -101,7 +99,6 @@ end
 local function transitionToNight()
 	local tweenInfo = TweenInfo.new(TWEEN_DURATION, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 	TweenService:Create(Lighting, tweenInfo, {
-		ClockTime = NIGHT_CLOCK_TIME,
 		Ambient = NIGHT_AMBIENT,
 		FogEnd = NIGHT_FOG_END,
 	}):Play()
@@ -126,7 +123,7 @@ local function startDay()
 	phaseTimer = 0
 	dayNumber += 1
 	transitionToDay()
-	TimeService.Client.GetPhaseState:SetValue("Day")
+	TimeService.Client.GetPhaseState:Set("Day")
 	broadcastSignal(TimeService.Client.DayStarted)
 	print("[TimeService] Day", dayNumber, "started")
 end
@@ -138,7 +135,7 @@ local function startNight()
 	currentPhase = "Night"
 	phaseTimer = 0
 	transitionToNight()
-	TimeService.Client.GetPhaseState:SetValue("Night")
+	TimeService.Client.GetPhaseState:Set("Night")
 	broadcastSignal(TimeService.Client.NightStarted)
 	print("[TimeService] Night", dayNumber, "started")
 end
@@ -153,8 +150,8 @@ local function onHeartbeat(dt: number)
 	local duration = if currentPhase == "Day" then DAY_DURATION else NIGHT_DURATION
 	local progress = phaseTimer / duration
 	clockTime = if currentPhase == "Day"
-		then DAY_CLOCK_TIME - (DAY_CLOCK_TIME - NIGHT_CLOCK_TIME) * progress
-		else NIGHT_CLOCK_TIME + (DAY_CLOCK_TIME - NIGHT_CLOCK_TIME) * progress
+		then DAY_START_CLOCK + (DAY_END_CLOCK - DAY_START_CLOCK) * progress
+		else (DAY_END_CLOCK + (DAY_END_CLOCK - DAY_START_CLOCK) * progress) % 24
 
 	Lighting.ClockTime = clockTime
 
@@ -169,7 +166,7 @@ end
 
 -- // INITIALIZATION // --
 
-Lighting.ClockTime = DAY_CLOCK_TIME
+Lighting.ClockTime = DAY_START_CLOCK
 Lighting.Ambient = DAY_AMBIENT
 Lighting.FogEnd = DAY_FOG_END
 

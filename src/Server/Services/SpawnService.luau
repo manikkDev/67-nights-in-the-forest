@@ -21,14 +21,13 @@
 -- | Services | --
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 
 -- | Constants | --
 local SPAWN_RADIUS = 12
-local SPAWN_HEIGHT = 5
+local SPAWN_HEIGHT = 3
 local TELEPORT_COOLDOWN = 3
 
 -- | Objects | --
@@ -67,7 +66,7 @@ function SpawnService:SpawnPlayer(player: Player)
 		return
 	end
 
-	local campfireCFrame = worldService:GetCampfireCFrame()
+	local campfireCFrame = worldService and worldService:GetCampfireCFrame() or nil
 	if not campfireCFrame then
 		warn("[SpawnService] Campfire CFrame not available")
 		return
@@ -91,6 +90,10 @@ end
              touches an EnterPart, they are teleported to the base-map.
 ]]
 local function wireTeleporters()
+	if not worldService then
+		task.defer(wireTeleporters)
+		return
+	end
 	local lobbyMap = worldService:GetLobbyMap()
 	if not lobbyMap then
 		task.defer(wireTeleporters)
@@ -99,25 +102,27 @@ local function wireTeleporters()
 
 	for _, child in ipairs(lobbyMap:GetChildren()) do
 		if child:IsA("Model") and child.Name:match("^Teleporter%d") then
-			local enterPart = child:FindFirstChild("EnterPart", true)
-			if enterPart and enterPart:IsA("BasePart") then
-				enterPart.Touched:Connect(function(hit)
-					local character = hit:FindFirstAncestorOfClass("Model")
-					if not character then return end
-					local player = Players:GetPlayerFromCharacter(character)
-					if not player then return end
-					if spawnedPlayers[player] then return end
+			-- Connect Touched on ALL EnterPart children (each teleporter has 4)
+			for _, desc in ipairs(child:GetDescendants()) do
+				if desc.Name == "EnterPart" and desc:IsA("BasePart") then
+					desc.Touched:Connect(function(hit)
+						local character = hit:FindFirstAncestorOfClass("Model")
+						if not character then return end
+						local player = Players:GetPlayerFromCharacter(character)
+						if not player then return end
+						if spawnedPlayers[player] then return end
 
-					local now = os.clock()
-					if teleportCooldowns[player] and (now - teleportCooldowns[player]) < TELEPORT_COOLDOWN then
-						return
-					end
-					teleportCooldowns[player] = now
+						local now = os.clock()
+						if teleportCooldowns[player] and (now - teleportCooldowns[player]) < TELEPORT_COOLDOWN then
+							return
+						end
+						teleportCooldowns[player] = now
 
-					SpawnService:SpawnPlayer(player)
-				end)
-				print("[SpawnService] Wired teleporter:", child.Name)
+						SpawnService:SpawnPlayer(player)
+					end)
+				end
 			end
+			print("[SpawnService] Wired teleporter:", child.Name)
 		end
 	end
 end

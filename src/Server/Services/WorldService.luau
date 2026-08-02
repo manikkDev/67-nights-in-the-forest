@@ -42,49 +42,59 @@ local bonfire: Model? = nil
 -- | Constants | --
 local ASSETS_PATH = ServerStorage.Assets["Assets maps items"]
 local ITEMS_PATH = ServerStorage.Assets["Assets Items"]
-local CAMPFIRE_OFFSET = Vector3.new(0, 3, 0)
-local CAMPFIRE_SIZE = Vector3.new(2, 2, 2)
+local CAMPFIRE_SIZE = Vector3.new(6, 3, 6)
+local GROUND_RAY_HEIGHT = 500
+local BONFIRE_SCALE = 2
 
 -- // FUNCTIONS // --
 
 --[[
     @summary  Return the lobby map model.
-    @returns  Model
+    @returns  Model?
 ]]
-function WorldService:GetLobbyMap(): Model
+function WorldService:GetLobbyMap(): Model?
 	return lobbyMap
 end
 
 --[[
     @summary  Return the base (game) map model.
-    @returns  Model
+    @returns  Model?
 ]]
-function WorldService:GetBaseMap(): Model
+function WorldService:GetBaseMap(): Model?
 	return baseMap
 end
 
 --[[
     @summary  Return the Campfire anchor part.
-    @returns  Part
+    @returns  Part?
 ]]
-function WorldService:GetCampfire(): Part
+function WorldService:GetCampfire(): Part?
 	return campfire
 end
 
 --[[
-    @summary  Return the CFrame of the Campfire anchor.
-    @returns  CFrame
+    @summary  Return the visual Bonfire model.
+    @returns  Model?
 ]]
-function WorldService:GetCampfireCFrame(): CFrame
+function WorldService:GetBonfire(): Model?
+	return bonfire
+end
+
+--[[
+    @summary  Return the CFrame of the Campfire anchor.
+    @returns  CFrame?
+]]
+function WorldService:GetCampfireCFrame(): CFrame?
+	if not campfire then return nil end
 	return campfire.CFrame
 end
 
 --[[
     @summary  Clone a map from ServerStorage into Workspace.
     @param    mapName  string  -- name of the model in ASSETS_PATH
-    @returns  Model            -- the cloned map, parented to Workspace
+    @returns  Model?           -- the cloned map, parented to Workspace
 ]]
-local function cloneMap(mapName: string): Model
+local function cloneMap(mapName: string): Model?
 	local source = ASSETS_PATH:FindFirstChild(mapName)
 	if not source then
 		warn(("[WorldService] Map '%s' not found in ServerStorage"):format(mapName))
@@ -112,21 +122,54 @@ local function ensurePrimaryPart(map: Model)
 end
 
 --[[
-    @summary  Create a Campfire anchor part at the base-map centre.
+    @summary  Find the ground-level CFrame at the map's centre.
+    @desc     Locates the large ground baseplate (named "Земля") inside
+              the map and returns a CFrame at its top surface centre.
+              Falls back to raycasting from the map pivot if the
+              ground part is not found.
+    @param    map  Model  -- the cloned map
+    @returns  CFrame       -- ground-level CFrame at map centre
+]]
+local function findGroundCFrame(map: Model): CFrame
+	-- Strategy 1: find the ground baseplate by name
+	for _, desc in ipairs(map:GetDescendants()) do
+		if desc:IsA("BasePart") and desc.Name == "Земля" then
+			local topY = desc.Position.Y + desc.Size.Y / 2
+			return CFrame.new(desc.Position.X, topY, desc.Position.Z)
+		end
+	end
+
+	-- Strategy 2: raycast from above the map pivot
+	local pivot = map:GetPivot()
+	local origin = CFrame.new(pivot.Position.X, GROUND_RAY_HEIGHT, pivot.Position.Z)
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Include
+	rayParams.FilterDescendantsInstances = {map}
+	local result = workspace:Raycast(origin.Position, Vector3.new(0, -GROUND_RAY_HEIGHT * 2, 0), rayParams)
+	if result then
+		return CFrame.new(result.Position.X, result.Position.Y, result.Position.Z)
+	end
+
+	-- Fallback: use the map pivot
+	return pivot
+end
+
+--[[
+    @summary  Create a Campfire anchor part at ground level on the base-map.
     @desc     The part is invisible and anchored; it exists solely as
               a CFrame reference for SpawnService.
-    @param    map  Model  -- the cloned base-map
+    @param    map     Model   -- the cloned base-map
+    @param    ground  CFrame  -- ground-level CFrame from findGroundCFrame
     @returns  Part
 ]]
-local function createCampfire(map: Model): Part
-	local pivot = map:GetPivot()
+local function createCampfire(map: Model, ground: CFrame): Part
 	local part = Instance.new("Part")
 	part.Name = "Campfire"
 	part.Anchored = true
 	part.CanCollide = false
 	part.Transparency = 1
 	part.Size = CAMPFIRE_SIZE
-	part.CFrame = pivot + CAMPFIRE_OFFSET
+	part.CFrame = ground
 	part.Parent = map
 	return part
 end
@@ -134,11 +177,13 @@ end
 --[[
     @summary  Clone and place the visual Bonfire model at the campfire anchor.
     @desc     Clones the Bonfire model from Assets Items and positions it
-              at the base-map's pivot point so players can see the fire.
-    @param    map  Model  -- the cloned base-map
-    @returns  Model
+              at the ground-level campfire position.  The bonfire's base
+              is offset so it sits flush on the ground.
+    @param    map     Model   -- the cloned base-map
+    @param    ground  CFrame  -- ground-level CFrame from findGroundCFrame
+    @returns  Model?
 ]]
-local function placeBonfire(map: Model): Model
+local function placeBonfire(map: Model, ground: CFrame): Model?
 	local source = ITEMS_PATH:FindFirstChild("Bonfire")
 	if not source then
 		warn("[WorldService] Bonfire model not found in Assets Items")
@@ -146,7 +191,40 @@ local function placeBonfire(map: Model): Model
 	end
 	local clone = source:Clone()
 	clone.Name = "Bonfire"
-	clone:PivotTo(map:GetPivot() + CAMPFIRE_OFFSET)
+
+	-- Scale up the bonfire model by applying ScaleTo on all parts
+	clone:ScaleTo(BONFIRE_SCALE)
+
+	-- The bonfire pivot is slightly above its base; place it so the
+	-- base rests on the ground surface after scaling.
+	local scaledPivot = clone:GetPivot()
+	local minY = math.huge
+	for _, desc in ipairs(clone:GetDescendants()) do
+		if desc:IsA("BasePart") and desc.Position.Y < minY then
+			minY = desc.Position.Y
+		end
+	end
+	local bonfireBaseOffset = scaledPivot.Position.Y - minY
+	clone:PivotTo(ground * CFrame.new(0, bonfireBaseOffset, 0))
+
+	-- Add a PointLight for night-time visibility
+	local lightPart = clone:FindFirstChildWhichIsA("BasePart", true)
+	if lightPart then
+		local pointLight = Instance.new("PointLight")
+		pointLight.Name = "BonfireLight"
+		pointLight.Color = Color3.fromRGB(255, 140, 50)
+		pointLight.Range = 30
+		pointLight.Brightness = 5
+		pointLight.Parent = lightPart
+	end
+
+	-- Anchor all parts so the bonfire doesn't fall
+	for _, desc in ipairs(clone:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			desc.Anchored = true
+		end
+	end
+
 	clone.Parent = map
 	return clone
 end
@@ -166,6 +244,10 @@ local function disableBrokenScripts(map: Model)
 				descendant.Disabled = true
 			end
 		end
+		-- Anchor all parts to prevent physics lag from decorative props
+		if descendant:IsA("BasePart") and not descendant.Anchored then
+			descendant.Anchored = true
+		end
 	end
 end
 
@@ -177,12 +259,14 @@ function WorldService:KnitStart()
 
 	if lobbyMap then
 		ensurePrimaryPart(lobbyMap)
+		disableBrokenScripts(lobbyMap)
 	end
 
 	if baseMap then
 		ensurePrimaryPart(baseMap)
-		campfire = createCampfire(baseMap)
-		bonfire = placeBonfire(baseMap)
+		local ground = findGroundCFrame(baseMap)
+		campfire = createCampfire(baseMap, ground)
+		bonfire = placeBonfire(baseMap, ground)
 		disableBrokenScripts(baseMap)
 	end
 

@@ -1,0 +1,17 @@
+--[[
+    @file    Constants.luau
+    @author  manik
+    @date    2025
+
+    @summary
+    Shared constants replicated to both client and server.
+
+    @description
+    Central place for game-wide constants that both sides need.
+    Add values here as the codebase grows across phases.
+]]
+
+return {
+	STORE_NAME = "67Nights_v1",
+	MAX_PLAYERS = 8,
+}

@@ -55,7 +55,7 @@ local function createPhaseLabel(gui: ScreenGui): TextLabel
 	label.Font = Enum.Font.GothamBold
 	label.TextSize = 18
 	label.Text = "Day 1"
-	label.Visible = false
+	label.Visible = true
 	label.Parent = gui
 	return label
 end
@@ -80,6 +80,8 @@ end
 local function showDay()
 	if dayLabelGui then dayLabelGui.Enabled = true end
 	if nightLabelGui then nightLabelGui.Enabled = false end
+	if dayTextLabel then dayTextLabel.Visible = true end
+	if nightTextLabel then nightTextLabel.Visible = false end
 	updateLabelText("Day")
 end
 
@@ -89,6 +91,8 @@ end
 local function showNight()
 	if dayLabelGui then dayLabelGui.Enabled = false end
 	if nightLabelGui then nightLabelGui.Enabled = true end
+	if dayTextLabel then dayTextLabel.Visible = false end
+	if nightTextLabel then nightTextLabel.Visible = true end
 	updateLabelText("Night")
 end
 
