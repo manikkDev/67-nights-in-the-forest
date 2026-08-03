@@ -99,6 +99,7 @@ local function loadProfile(player: Player)
 	end)
 
 	if profile then
+		profile:Reconcile()
 		profile:ListenToRelease(function()
 			profiles[player] = nil
 			if player.Parent then

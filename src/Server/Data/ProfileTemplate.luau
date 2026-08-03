@@ -24,7 +24,9 @@ return {
 	},
 	Survival = {
 		Health = 100,
+		MaxHealth = 100,
 		Hunger = 100,
+		MaxHunger = 100,
 		DeathCount = 0,
 		HighestNightSurvived = 0,
 	},
