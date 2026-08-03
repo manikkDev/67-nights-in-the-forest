@@ -50,13 +50,15 @@ local BONFIRE_SCALE = 2
 local TREE_CLEAR_RADIUS = 50
 local HOUSE_CLEAR_RADIUS = 25
 local EDGE_BUFFER = 20
-local MIN_TREE_SPACING = 6
+local MIN_TREE_SPACING = 12
 local SMALL_TREE_RATIO = 0.65
 local NUM_CLUSTERS = 18
 local TREES_PER_CLUSTER_MIN = 30
 local TREES_PER_CLUSTER_MAX = 55
 local CLUSTER_SPREAD = 35
 local STRUCTURE_MIN_SPACING = 60
+local SMALL_TREE_SCALE = 0.6
+local BIG_TREE_SCALE = 0.35
 
 local STRUCTURE_CONFIG = {
 	{name = "cabin", count = 3, minDist = 80, maxDist = 200},
@@ -273,13 +275,24 @@ end
               highest surface hit within the map.  Falls back to 1.
 ]]
 local function findGroundY(x: number, z: number, map: Model): number
-	local rayParams = RaycastParams.new()
-	rayParams.FilterType = Enum.RaycastFilterType.Include
-	rayParams.FilterDescendantsInstances = {map}
-	local result = workspace:Raycast(Vector3.new(x, 500, z), Vector3.new(0, -1000, 0), rayParams)
-	if result then
-		return result.Position.Y
+	-- Only raycast against the ground part (Земля) to avoid hitting trees/bushes
+	local groundPart = nil
+	for _, desc in ipairs(map:GetDescendants()) do
+		if desc:IsA("BasePart") and desc.Name == "Земля" then
+			groundPart = desc
+			break
+		end
 	end
+	if groundPart then
+		local rayParams = RaycastParams.new()
+		rayParams.FilterType = Enum.RaycastFilterType.Include
+		rayParams.FilterDescendantsInstances = {groundPart}
+		local result = workspace:Raycast(Vector3.new(x, 500, z), Vector3.new(0, -1000, 0), rayParams)
+		if result then
+			return result.Position.Y
+		end
+	end
+	-- Fallback: use the ground CFrame Y from findGroundCFrame
 	return 1
 end
 
@@ -289,7 +302,7 @@ end
 local function removeExistingTrees(map: Model)
 	local removed = 0
 	for _, child in ipairs(map:GetChildren()) do
-		if child:IsA("Model") and (child.Name == "Tree" or child.Name == "bigtree") then
+		if child:IsA("Model") and (child.Name == "Tree" or child.Name == "bigtree" or child.Name == "Дерево") then
 			child:Destroy()
 			removed += 1
 		end
@@ -303,15 +316,25 @@ end
 local function removeRoads(map: Model)
 	local removed = 0
 	for _, child in ipairs(map:GetChildren()) do
-		if child:IsA("BasePart") then
+		if child:IsA("Model") then
+			local name = child.Name
+			-- Remove Russian-named road and decorative models
+			if name == "Дорога" or name == "дом" or name:find("ОпорыЭлектропередач") then
+				child:Destroy()
+				removed += 1
+			end
+		elseif child:IsA("BasePart") then
 			local name = child.Name:lower()
 			if name:find("road") or name:find("path") or name:find("street") or name:find("bridge") or name:find("sidewalk") then
+				child:Destroy()
+				removed += 1
+			elseif child.Name == "Bush2" or child.Name == "Grass" then
 				child:Destroy()
 				removed += 1
 			end
 		end
 	end
-	print(("[WorldService] Removed %d road parts from base map"):format(removed))
+	print(("[WorldService] Removed %d road/decorative parts from base map"):format(removed))
 end
 
 --[[
@@ -326,7 +349,7 @@ end
     @param    removeScripts boolean -- if true, destroy all scripts in clone
     @returns  Model                 -- the placed clone
 ]]
-local function placeModel(source: Model, position: Vector3, rotation: number, parent: Instance, removeScripts: boolean?): Model
+local function placeModel(source: Model, position: Vector3, rotation: number, parent: Instance, removeScripts: boolean?, scale: number?): Model
 	local clone = source:Clone()
 	if removeScripts then
 		for _, desc in ipairs(clone:GetDescendants()) do
@@ -334,6 +357,9 @@ local function placeModel(source: Model, position: Vector3, rotation: number, pa
 				desc:Destroy()
 			end
 		end
+	end
+	if scale and scale ~= 1 then
+		clone:ScaleTo(scale)
 	end
 	local pivot = clone:GetPivot()
 	local minY = math.huge
@@ -475,10 +501,12 @@ local function generateForest(map: Model, campfirePos: Vector3, structurePositio
 			if tooCloseToTree then continue end
 
 			local gy = findGroundY(tx, tz, map)
-			local source = (math.random() < SMALL_TREE_RATIO) and treeSource or bigTreeSource
+			local isSmall = math.random() < SMALL_TREE_RATIO
+			local source = isSmall and treeSource or bigTreeSource
+			local treeScale = isSmall and SMALL_TREE_SCALE or BIG_TREE_SCALE
 			local rot = math.random(0, 359)
 
-			placeModel(source, Vector3.new(tx, gy, tz), rot, map, true)
+			placeModel(source, Vector3.new(tx, gy, tz), rot, map, true, treeScale)
 			table.insert(placedPositions, Vector3.new(tx, gy, tz))
 			totalPlaced += 1
 		end

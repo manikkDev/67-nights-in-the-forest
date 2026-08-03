@@ -35,7 +35,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 
 -- | Constants | --
 local ITEMS_PATH = ServerStorage.Assets["Assets Items"]
-local CHOP_RANGE = 10
+local CHOP_RANGE = 14
 local CHOP_COOLDOWN = 0.5
 local TREE_HEALTH = 6
 local WOOD_DROP_MIN = 3
@@ -273,24 +273,15 @@ local function registerTree(treeModel: Model)
 		return
 	end
 
-	-- Find the lowest BasePart (trunk base) so range checks use the
-	-- part closest to where the player stands, not the leaves/canopy
-	local lowestPart: BasePart? = nil
-	for _, desc in ipairs(treeModel:GetDescendants()) do
-		if desc:IsA("BasePart") then
-			if not lowestPart or desc.Position.Y < lowestPart.Position.Y then
-				lowestPart = desc
-			end
-		end
-	end
-	if not lowestPart then
-		return
-	end
+	-- Use the tree's pivot position (base of trunk at ground level)
+	-- for range checks. This is more reliable than finding the lowest
+	-- part, which can be a tiny root far from the trunk center.
+	local pivot = treeModel:GetPivot()
 
 	treeRegistry[treeModel] = {
 		health = TREE_HEALTH,
-		part = lowestPart,
-		pivot = treeModel:GetPivot(),
+		part = { Position = pivot.Position },
+		pivot = pivot,
 		felled = false,
 	}
 end
