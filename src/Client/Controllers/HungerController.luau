@@ -105,6 +105,10 @@ function HungerController:KnitInit()
 	healthFill = createBar(gui, 70, Color3.fromRGB(200, 40, 40), "Health")
 	hungerFill = createBar(gui, 100, Color3.fromRGB(210, 160, 40), "Hunger")
 
+	-- Set initial fill to full so bars don't flash empty before first server update
+	setFillRatio(hungerFill, 1)
+	setFillRatio(healthFill, 1)
+
 	if player.Character then
 		bindHumanoid(player.Character)
 	end

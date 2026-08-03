@@ -126,6 +126,40 @@ end
 function HungerService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 	RunService.Heartbeat:Connect(onHeartbeat)
+
+	-- Fire initial hunger update when player data is loaded so the
+	-- client's hunger bar doesn't start at zero
+	Players.PlayerAdded:Connect(function(player)
+		-- Wait for data to be available, then fire initial update
+		task.spawn(function()
+			-- Wait up to 10 seconds for data to load
+			local data = nil
+			for _ = 1, 100 do
+				data = playerDataService:GetData(player)
+				if data then break end
+				task.wait(0.1)
+			end
+			if data then
+				HungerService.Client.HungerChanged:Fire(player, data.Survival.Hunger, data.Survival.MaxHunger)
+			end
+		end)
+	end)
+
+	-- Also fire for players already in game
+	for _, player in ipairs(Players:GetPlayers()) do
+		task.spawn(function()
+			local data = nil
+			for _ = 1, 100 do
+				data = playerDataService:GetData(player)
+				if data then break end
+				task.wait(0.1)
+			end
+			if data then
+				HungerService.Client.HungerChanged:Fire(player, data.Survival.Hunger, data.Survival.MaxHunger)
+			end
+		end)
+	end
+
 	print("[HungerService] Initialised — hunger drain active")
 end
 

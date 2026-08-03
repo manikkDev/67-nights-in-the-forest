@@ -58,7 +58,7 @@ local HarvestService = Knit.CreateService({
 -- | State | --
 local worldService: any? = nil
 local playerDataService: any? = nil
-local treeRegistry: { [Model]: { health: number, part: BasePart, pivot: CFrame, prompt: ProximityPrompt, felled: boolean } } = {}
+local treeRegistry: { [Model]: { health: number, part: BasePart, pivot: CFrame, felled: boolean } } = {}
 local chopCooldowns: { [Player]: number } = {}
 local axeTemplate: Tool? = nil
 
@@ -95,13 +95,20 @@ local function buildAxeTool(): Tool?
 	local tool = Instance.new("Tool")
 	tool.Name = AXE_TOOL_NAME
 	tool.RequiresHandle = true
-	-- Hand grips the lower shaft: the axe mesh is ~4 studs tall along Y.
-	-- GripPos = 1.5 means the hand holds 1.5 studs up from the mesh center,
-	-- so the shaft extends below and the blade is above — natural grip.
-	tool.GripPos = Vector3.new(0, 1.5, 0)
+
+	-- The axe mesh has a built-in rotation of ~91° on Z and ~25° on Y,
+	-- which means the mesh's long axis (Y, 4 studs) is actually pointing
+	-- along the world X axis after the part's rotation is applied.
+	-- For a natural R15 grip, we need the hand to hold the bottom of the
+	-- shaft with the blade pointing up and slightly forward.
+	-- GripPos: hand sits 1.5 studs along the mesh's local Y (shaft bottom)
+	-- GripUp: mesh local Y maps to tool Up (blade points up)
+	-- GripForward: mesh local -Z maps to tool Forward (blade faces forward)
+	-- GripRight: mesh local X maps to tool Right
+	tool.GripPos = Vector3.new(0, -1.5, 0)
 	tool.GripUp = Vector3.new(0, 1, 0)
-	tool.GripForward = Vector3.new(0, 0, -1)
-	tool.GripRight = Vector3.new(1, 0, 0)
+	tool.GripForward = Vector3.new(-1, 0, 0)
+	tool.GripRight = Vector3.new(0, 0, -1)
 
 	local handle = sourceAxe:Clone()
 	handle.Name = "Handle"
@@ -220,7 +227,6 @@ local function fellTree(treeModel: Model, baseMap: Model)
 		return
 	end
 	registry.felled = true
-	registry.prompt.Enabled = false
 
 	local startPivot = registry.pivot
 	local yaw = math.random() * math.pi * 2
@@ -251,7 +257,6 @@ local function fellTree(treeModel: Model, baseMap: Model)
 			treeModel:PivotTo(startPivot)
 			registry.felled = false
 			registry.health = TREE_HEALTH
-			registry.prompt.Enabled = true
 		end)
 	end)
 
@@ -268,24 +273,24 @@ local function registerTree(treeModel: Model)
 		return
 	end
 
-	local part = treeModel:FindFirstChildWhichIsA("BasePart", true)
-	if not part then
+	-- Find the lowest BasePart (trunk base) so range checks use the
+	-- part closest to where the player stands, not the leaves/canopy
+	local lowestPart: BasePart? = nil
+	for _, desc in ipairs(treeModel:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			if not lowestPart or desc.Position.Y < lowestPart.Position.Y then
+				lowestPart = desc
+			end
+		end
+	end
+	if not lowestPart then
 		return
 	end
 
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "ChopPrompt"
-	prompt.ActionText = "Chop"
-	prompt.ObjectText = "Tree"
-	prompt.MaxActivationDistance = CHOP_RANGE + 2
-	prompt.HoldDuration = 0.15
-	prompt.Parent = part
-
 	treeRegistry[treeModel] = {
 		health = TREE_HEALTH,
-		part = part,
+		part = lowestPart,
 		pivot = treeModel:GetPivot(),
-		prompt = prompt,
 		felled = false,
 	}
 end
@@ -343,7 +348,8 @@ local function tryChop(treeModel: Model, registry, player: Player)
 		return
 	end
 
-	if (rootPart.Position - registry.part.Position).Magnitude > CHOP_RANGE then
+	local dist = (rootPart.Position - registry.part.Position).Magnitude
+	if dist > CHOP_RANGE then
 		return
 	end
 
@@ -402,14 +408,7 @@ end
     @param    player  Player           -- the triggering player
 ]]
 local function onPromptTriggered(prompt: ProximityPrompt, player: Player)
-	if prompt.Name == "ChopPrompt" then
-		for treeModel, registry in pairs(treeRegistry) do
-			if registry.prompt == prompt then
-				tryChop(treeModel, registry, player)
-				return
-			end
-		end
-	elseif prompt.Name == "PickupPrompt" then
+	if prompt.Name == "PickupPrompt" then
 		local logModel = prompt.Parent and prompt.Parent.Parent
 		if logModel and logModel:IsA("Model") then
 			tryPickup(logModel, player)
@@ -458,6 +457,27 @@ end
               KeyframeSequenceProvider and play the swing animation.
 ]]
 local function publishAxeAnimation()
+	-- Try R15 animation first (characters are R15)
+	local r15Model = ITEMS_PATH:FindFirstChild("R15 Sword Swing Animation")
+	if r15Model then
+		local dummy = r15Model:FindFirstChild("Dummy")
+		if dummy then
+			local animSaves = dummy:FindFirstChild("AnimSaves")
+			if animSaves then
+				local strikeSeq = animSaves:FindFirstChildWhichIsA("KeyframeSequence")
+				if strikeSeq then
+					local clone = strikeSeq:Clone()
+					clone.Name = "AxeStrikeKeyframeSequence"
+					clone.Priority = Enum.AnimationPriority.Action
+					clone.Parent = ReplicatedStorage
+					print("[HarvestService] R15 swing KeyframeSequence published to ReplicatedStorage")
+					return
+				end
+			end
+		end
+	end
+
+	-- Fallback: R6 animation from original asset
 	local animSaves = ITEMS_PATH:FindFirstChild("AxeAnimations")
 	if not animSaves then
 		warn("[HarvestService] AxeAnimations model not found in Assets Items")
@@ -487,7 +507,7 @@ local function publishAxeAnimation()
 	clone.Name = "AxeStrikeKeyframeSequence"
 	clone.Parent = ReplicatedStorage
 
-	print("[HarvestService] Axe Strike KeyframeSequence published to ReplicatedStorage")
+	print("[HarvestService] R6 Axe Strike KeyframeSequence published to ReplicatedStorage")
 end
 
 -- // INITIALIZATION // --
