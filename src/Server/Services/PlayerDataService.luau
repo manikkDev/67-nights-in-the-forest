@@ -100,6 +100,9 @@ local function loadProfile(player: Player)
 
 	if profile then
 		profile:Reconcile()
+		-- Reset vital stats to max on each join so players don't spawn starving
+		profile.Data.Survival.Hunger = profile.Data.Survival.MaxHunger
+		profile.Data.Survival.Health = profile.Data.Survival.MaxHealth
 		profile:ListenToRelease(function()
 			profiles[player] = nil
 			if player.Parent then

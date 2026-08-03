@@ -134,6 +134,12 @@ function HudController:KnitStart()
 		end
 	end
 
+	-- Consume CampfireService.FuelChanged to prevent dropped remote events
+	local campfireService = Knit.GetService("CampfireService")
+	campfireService.FuelChanged:Connect(function(_fuel, _fraction)
+		-- Fuel UI can be added here later
+	end)
+
 	print("[HudController] Initialised — bound to TimeService signals")
 end
 

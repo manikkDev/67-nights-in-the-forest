@@ -17,6 +17,7 @@
 
     @exports
     - Knit Signal: TreeChopped(position: Vector3)  (server -> client, VFX hook)
+    - Knit Remote: RequestChop(player)              (client -> server, click-to-chop)
 ]]
 
 -- // VARIABLES // --
@@ -36,7 +37,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 local ITEMS_PATH = ServerStorage.Assets["Assets Items"]
 local CHOP_RANGE = 10
 local CHOP_COOLDOWN = 0.5
-local TREE_HEALTH = 3
+local TREE_HEALTH = 6
 local WOOD_DROP_MIN = 3
 local WOOD_DROP_MAX = 5
 local WOOD_SCATTER_RADIUS = 4
@@ -64,44 +65,54 @@ local axeTemplate: Tool? = nil
 -- // FUNCTIONS // --
 
 --[[
-    @summary  Build a wearable Axe Tool from the raw mesh Model asset.
-    @desc     The source asset has no Handle/Tool wrapper, so the two
-              meshes are welded together under a synthetic Handle.
+    @summary  Build a wearable Axe Tool by cloning the pre-configured
+              axe MeshPart from the R6 Axe Animations asset.
+    @desc     The source MeshPart already has the correct MeshId,
+              TextureID, Size, and Material.  We clone it as the
+              Tool's Handle and set the grip so the hand holds the
+              lower portion of the shaft.
     @returns  Tool?
 ]]
 local function buildAxeTool(): Tool?
-	local source = ITEMS_PATH:FindFirstChild(AXE_TOOL_NAME)
-	if not source then
-		warn("[HarvestService] Axe model not found in Assets Items")
+	local animModel = ITEMS_PATH:FindFirstChild("AxeAnimations")
+	if not animModel then
+		warn("[HarvestService] AxeAnimations model not found in Assets Items")
 		return nil
 	end
 
-	local handle = source:FindFirstChild("meshpart")
-	local head = source:FindFirstChild("Union")
-	if not handle or not head then
-		warn("[HarvestService] Axe model missing expected mesh parts")
+	local r6Folder = animModel:FindFirstChild("R6 Axe Animations")
+	if not r6Folder then
+		warn("[HarvestService] R6 Axe Animations folder not found")
+		return nil
+	end
+
+	local sourceAxe = r6Folder:FindFirstChild("Axe")
+	if not sourceAxe or not sourceAxe:IsA("MeshPart") then
+		warn("[HarvestService] Axe MeshPart not found in R6 Axe Animations")
 		return nil
 	end
 
 	local tool = Instance.new("Tool")
 	tool.Name = AXE_TOOL_NAME
 	tool.RequiresHandle = true
+	-- Hand grips the lower shaft: the axe mesh is ~4 studs tall along Y.
+	-- GripPos = 1.5 means the hand holds 1.5 studs up from the mesh center,
+	-- so the shaft extends below and the blade is above — natural grip.
+	tool.GripPos = Vector3.new(0, 1.5, 0)
+	tool.GripUp = Vector3.new(0, 1, 0)
+	tool.GripForward = Vector3.new(0, 0, -1)
+	tool.GripRight = Vector3.new(1, 0, 0)
 
-	local handleClone = handle:Clone()
-	handleClone.Name = "Handle"
-	handleClone.Anchored = false
-	handleClone.CanCollide = false
-	handleClone.Parent = tool
-
-	local headClone = head:Clone()
-	headClone.Anchored = false
-	headClone.CanCollide = false
-	headClone.Parent = handleClone
-
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = handleClone
-	weld.Part1 = headClone
-	weld.Parent = handleClone
+	local handle = sourceAxe:Clone()
+	handle.Name = "Handle"
+	handle.CanCollide = false
+	handle.Anchored = false
+	handle.Transparency = 0
+	-- Remove any children from the source (Animation instances, Motor6Ds)
+	for _, child in ipairs(handle:GetChildren()) do
+		child:Destroy()
+	end
+	handle.Parent = tool
 
 	return tool
 end
@@ -406,6 +417,79 @@ local function onPromptTriggered(prompt: ProximityPrompt, player: Player)
 	end
 end
 
+--[[
+    @summary  Find the nearest registered tree within CHOP_RANGE of
+              the player's character root part.
+    @param    player  Player  -- the chopping player
+    @returns  Model, table  -- the tree model and its registry entry, or nil
+]]
+local function findNearestTree(player: Player)
+	local character = player.Character
+	if not character then
+		return nil, nil
+	end
+
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if not rootPart or not rootPart:IsA("BasePart") then
+		return nil, nil
+	end
+
+	local nearestModel: Model? = nil
+	local nearestRegistry = nil
+	local nearestDist = math.huge
+
+	for treeModel, registry in pairs(treeRegistry) do
+		if not registry.felled then
+			local dist = (rootPart.Position - registry.part.Position).Magnitude
+			if dist < nearestDist and dist <= CHOP_RANGE then
+				nearestDist = dist
+				nearestModel = treeModel
+				nearestRegistry = registry
+			end
+		end
+	end
+
+	return nearestModel, nearestRegistry
+end
+
+--[[
+    @summary  Clone the Axe Strike KeyframeSequence to ReplicatedStorage
+              so the client can register it locally via
+              KeyframeSequenceProvider and play the swing animation.
+]]
+local function publishAxeAnimation()
+	local animSaves = ITEMS_PATH:FindFirstChild("AxeAnimations")
+	if not animSaves then
+		warn("[HarvestService] AxeAnimations model not found in Assets Items")
+		return
+	end
+
+	local r6Folder = animSaves:FindFirstChild("R6 Axe Animations")
+	if not r6Folder then
+		warn("[HarvestService] R6 Axe Animations folder not found")
+		return
+	end
+
+	local saves = r6Folder:FindFirstChild("AnimSaves")
+	if not saves or not saves:IsA("ObjectValue") then
+		warn("[HarvestService] AnimSaves not found")
+		return
+	end
+
+	local strikeSeq = saves:FindFirstChild("Axe Strike")
+	if not strikeSeq or not strikeSeq:IsA("KeyframeSequence") then
+		warn("[HarvestService] Axe Strike KeyframeSequence not found")
+		return
+	end
+
+	-- Clone to ReplicatedStorage so the client can access and register it
+	local clone = strikeSeq:Clone()
+	clone.Name = "AxeStrikeKeyframeSequence"
+	clone.Parent = ReplicatedStorage
+
+	print("[HarvestService] Axe Strike KeyframeSequence published to ReplicatedStorage")
+end
+
 -- // INITIALIZATION // --
 
 function HarvestService:KnitStart()
@@ -413,6 +497,7 @@ function HarvestService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 
 	axeTemplate = buildAxeTool()
+	publishAxeAnimation()
 	registerAllTrees()
 
 	ProximityPromptService.PromptTriggered:Connect(onPromptTriggered)
@@ -423,6 +508,20 @@ function HarvestService:KnitStart()
 	end
 
 	print("[HarvestService] Initialised — chop/pickup wired")
+end
+
+-- // CLIENT REMOTES // --
+
+--[[
+    @summary  Client-to-server remote for click-to-chop.
+    @desc     Finds the nearest tree within range and processes the chop.
+    @param    player  Player  -- the requesting player (injected by Knit)
+]]
+function HarvestService.Client:RequestChop(player: Player)
+	local treeModel, registry = findNearestTree(player)
+	if treeModel and registry then
+		tryChop(treeModel, registry, player)
+	end
 end
 
 return HarvestService
