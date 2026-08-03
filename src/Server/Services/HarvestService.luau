@@ -107,8 +107,8 @@ local function buildAxeTool(): Tool?
 	-- GripRight: mesh local X maps to tool Right
 	tool.GripPos = Vector3.new(0, -1.5, 0)
 	tool.GripUp = Vector3.new(0, 1, 0)
-	tool.GripForward = Vector3.new(-1, 0, 0)
-	tool.GripRight = Vector3.new(0, 0, -1)
+	tool.GripForward = Vector3.new(1, 0, 0)
+	tool.GripRight = Vector3.new(0, 0, 1)
 
 	local handle = sourceAxe:Clone()
 	handle.Name = "Handle"

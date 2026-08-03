@@ -46,6 +46,28 @@ local CAMPFIRE_SIZE = Vector3.new(6, 3, 6)
 local GROUND_RAY_HEIGHT = 500
 local BONFIRE_SCALE = 2
 
+-- | Forest Generation Constants | --
+local TREE_CLEAR_RADIUS = 50
+local HOUSE_CLEAR_RADIUS = 25
+local EDGE_BUFFER = 20
+local MIN_TREE_SPACING = 6
+local SMALL_TREE_RATIO = 0.65
+local NUM_CLUSTERS = 18
+local TREES_PER_CLUSTER_MIN = 30
+local TREES_PER_CLUSTER_MAX = 55
+local CLUSTER_SPREAD = 35
+local STRUCTURE_MIN_SPACING = 60
+
+local STRUCTURE_CONFIG = {
+	{name = "cabin", count = 3, minDist = 80, maxDist = 200},
+	{name = "Hunters Lodge", count = 2, minDist = 60, maxDist = 160},
+	{name = "Tower", count = 2, minDist = 120, maxDist = 250},
+	{name = "modern-house", count = 1, minDist = 150, maxDist = 250},
+	{name = "mushroom-house", count = 1, minDist = 80, maxDist = 180},
+	{name = "Treehouse", count = 1, minDist = 80, maxDist = 180},
+	{name = "Crashed Plane", count = 1, minDist = 120, maxDist = 230},
+}
+
 -- // FUNCTIONS // --
 
 --[[
@@ -230,6 +252,242 @@ local function placeBonfire(map: Model, ground: CFrame): Model?
 end
 
 --[[
+    @summary  Return the map bounds from the Земля ground part.
+    @returns  minX, maxX, minZ, maxZ, groundY
+]]
+local function getMapBounds(map: Model)
+	for _, desc in ipairs(map:GetDescendants()) do
+		if desc:IsA("BasePart") and desc.Name == "Земля" then
+			local pos = desc.Position
+			local size = desc.Size
+			return pos.X - size.X / 2, pos.X + size.X / 2, pos.Z - size.Z / 2, pos.Z + size.Z / 2, pos.Y + size.Y / 2
+		end
+	end
+	local pivot = map:GetPivot()
+	return pivot.Position.X - 250, pivot.Position.X + 250, pivot.Position.Z - 250, pivot.Position.Z + 250, pivot.Position.Y
+end
+
+--[[
+    @summary  Find ground-level Y at a position by raycasting down.
+    @desc     Raycasts from Y=500 downward at the given X,Z to find the
+              highest surface hit within the map.  Falls back to 1.
+]]
+local function findGroundY(x: number, z: number, map: Model): number
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Include
+	rayParams.FilterDescendantsInstances = {map}
+	local result = workspace:Raycast(Vector3.new(x, 500, z), Vector3.new(0, -1000, 0), rayParams)
+	if result then
+		return result.Position.Y
+	end
+	return 1
+end
+
+--[[
+    @summary  Remove all existing Tree and bigtree models from the map.
+]]
+local function removeExistingTrees(map: Model)
+	local removed = 0
+	for _, child in ipairs(map:GetChildren()) do
+		if child:IsA("Model") and (child.Name == "Tree" or child.Name == "bigtree") then
+			child:Destroy()
+			removed += 1
+		end
+	end
+	print(("[WorldService] Removed %d existing trees from base map"):format(removed))
+end
+
+--[[
+    @summary  Remove road-like parts from the map.
+]]
+local function removeRoads(map: Model)
+	local removed = 0
+	for _, child in ipairs(map:GetChildren()) do
+		if child:IsA("BasePart") then
+			local name = child.Name:lower()
+			if name:find("road") or name:find("path") or name:find("street") or name:find("bridge") or name:find("sidewalk") then
+				child:Destroy()
+				removed += 1
+			end
+		end
+	end
+	print(("[WorldService] Removed %d road parts from base map"):format(removed))
+end
+
+--[[
+    @summary  Clone a model and place it at a position with base on ground.
+    @desc     Finds the model's lowest part Y, offsets the pivot so the
+              base sits at the target Y, applies a random Y rotation,
+              anchors all parts, and parents to the given parent.
+    @param    source        Model   -- the asset to clone
+    @param    position      Vector3 -- target ground position (X, groundY, Z)
+    @param    rotation      number  -- Y rotation in degrees
+    @param    parent        Instance -- parent for the clone
+    @param    removeScripts boolean -- if true, destroy all scripts in clone
+    @returns  Model                 -- the placed clone
+]]
+local function placeModel(source: Model, position: Vector3, rotation: number, parent: Instance, removeScripts: boolean?): Model
+	local clone = source:Clone()
+	if removeScripts then
+		for _, desc in ipairs(clone:GetDescendants()) do
+			if desc:IsA("Script") or desc:IsA("LocalScript") then
+				desc:Destroy()
+			end
+		end
+	end
+	local pivot = clone:GetPivot()
+	local minY = math.huge
+	for _, desc in ipairs(clone:GetDescendants()) do
+		if desc:IsA("BasePart") and desc.Position.Y < minY then
+			minY = desc.Position.Y
+		end
+	end
+	local baseOffset = pivot.Position.Y - minY
+	clone:PivotTo(CFrame.new(position.X, position.Y + baseOffset, position.Z) * CFrame.Angles(0, math.rad(rotation), 0))
+	for _, desc in ipairs(clone:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			desc.Anchored = true
+		end
+	end
+	clone.Parent = parent
+	return clone
+end
+
+--[[
+    @summary  Place structures (houses, landmarks) across the map.
+    @desc     Places structures at random angles and distances from the
+              campfire, ensuring minimum spacing between structures
+              and that they stay within map bounds.
+    @param    map          Model   -- the cloned base-map
+    @param    campfirePos  Vector3 -- campfire center position
+    @returns  {Vector3}            -- list of placed structure positions
+]]
+local function placeStructures(map: Model, campfirePos: Vector3): {Vector3}
+	local minX, maxX, minZ, maxZ = getMapBounds(map)
+	local placedPositions = {}
+
+	for _, config in ipairs(STRUCTURE_CONFIG) do
+		local source = ASSETS_PATH:FindFirstChild(config.name)
+		if not source then
+			warn(("[WorldService] Structure '%s' not found in assets"):format(config.name))
+			continue
+		end
+
+		for _ = 1, config.count do
+			local sx, sz
+			local attempts = 0
+			local valid = false
+			repeat
+				local angle = math.random() * math.pi * 2
+				local dist = config.minDist + math.random() * (config.maxDist - config.minDist)
+				sx = campfirePos.X + math.cos(angle) * dist
+				sz = campfirePos.Z + math.sin(angle) * dist
+				if sx >= minX + EDGE_BUFFER and sx <= maxX - EDGE_BUFFER
+					and sz >= minZ + EDGE_BUFFER and sz <= maxZ - EDGE_BUFFER then
+					local tooClose = false
+					for _, spos in ipairs(placedPositions) do
+						if (Vector3.new(sx, 0, sz) - Vector3.new(spos.X, 0, spos.Z)).Magnitude < STRUCTURE_MIN_SPACING then
+							tooClose = true
+							break
+						end
+					end
+					if not tooClose then
+						valid = true
+					end
+				end
+				attempts += 1
+			until valid or attempts > 30
+
+			if valid then
+				local gy = findGroundY(sx, sz, map)
+				local rot = math.random(0, 359)
+				placeModel(source, Vector3.new(sx, gy, sz), rot, map, true)
+				table.insert(placedPositions, Vector3.new(sx, gy, sz))
+			end
+		end
+	end
+
+	print(("[WorldService] Placed %d structures"):format(#placedPositions))
+	return placedPositions
+end
+
+--[[
+    @summary  Generate a natural forest by placing trees in clusters.
+    @desc     Creates NUM_CLUSTERS cluster centers across the map, then
+              places 25-45 trees around each center in a gaussian-like
+              distribution.  Trees are excluded from the campfire radius,
+              near structures, near map edges, and too close to each other.
+              Uses both small Tree and bigtree assets with random rotation.
+    @param    map                 Model       -- the cloned base-map
+    @param    campfirePos         Vector3     -- campfire center position
+    @param    structurePositions  {Vector3}   -- positions to avoid
+]]
+local function generateForest(map: Model, campfirePos: Vector3, structurePositions: {Vector3})
+	local minX, maxX, minZ, maxZ = getMapBounds(map)
+	local treeSource = ASSETS_PATH:FindFirstChild("Tree")
+	local bigTreeSource = ASSETS_PATH:FindFirstChild("bigtree")
+	if not treeSource or not bigTreeSource then
+		warn("[WorldService] Tree or bigtree asset not found")
+		return
+	end
+
+	local placedPositions = {}
+	local totalPlaced = 0
+
+	for _ = 1, NUM_CLUSTERS do
+		local cx, cz
+		local attempts = 0
+		repeat
+			cx = minX + EDGE_BUFFER + math.random() * (maxX - minX - 2 * EDGE_BUFFER)
+			cz = minZ + EDGE_BUFFER + math.random() * (maxZ - minZ - 2 * EDGE_BUFFER)
+			attempts += 1
+		until (Vector3.new(cx, 0, cz) - Vector3.new(campfirePos.X, 0, campfirePos.Z)).Magnitude > 80 or attempts > 20
+
+		local treeCount = math.random(TREES_PER_CLUSTER_MIN, TREES_PER_CLUSTER_MAX)
+		for _ = 1, treeCount do
+			local angle = math.random() * math.pi * 2
+			local dist = math.random() * CLUSTER_SPREAD + (math.random() - 0.5) * 20
+			local tx = cx + math.cos(angle) * dist
+			local tz = cz + math.sin(angle) * dist
+
+			if tx < minX + EDGE_BUFFER or tx > maxX - EDGE_BUFFER then continue end
+			if tz < minZ + EDGE_BUFFER or tz > maxZ - EDGE_BUFFER then continue end
+
+			local flatCampfire = Vector3.new(campfirePos.X, 0, campfirePos.Z)
+			if (Vector3.new(tx, 0, tz) - flatCampfire).Magnitude < TREE_CLEAR_RADIUS then continue end
+
+			local tooCloseToStructure = false
+			for _, spos in ipairs(structurePositions) do
+				if (Vector3.new(tx, 0, tz) - Vector3.new(spos.X, 0, spos.Z)).Magnitude < HOUSE_CLEAR_RADIUS then
+					tooCloseToStructure = true
+					break
+				end
+			end
+			if tooCloseToStructure then continue end
+
+			local tooCloseToTree = false
+			for _, ppos in ipairs(placedPositions) do
+				if (Vector3.new(tx, 0, tz) - Vector3.new(ppos.X, 0, ppos.Z)).Magnitude < MIN_TREE_SPACING then
+					tooCloseToTree = true
+					break
+				end
+			end
+			if tooCloseToTree then continue end
+
+			local gy = findGroundY(tx, tz, map)
+			local source = (math.random() < SMALL_TREE_RATIO) and treeSource or bigTreeSource
+			local rot = math.random(0, 359)
+
+			placeModel(source, Vector3.new(tx, gy, tz), rot, map, true)
+			table.insert(placedPositions, Vector3.new(tx, gy, tz))
+			totalPlaced += 1
+		end
+	end
+
+	print(("[WorldService] Generated %d trees in %d clusters"):format(totalPlaced, NUM_CLUSTERS))
+end
+
+--[[
     @summary  Disable known broken pre-existing scripts in cloned maps.
     @desc     Some asset models contain Scripts that reference workspace
               paths (e.g. workspace.Map, workspace.MusicPlayer) that don't
@@ -264,9 +522,13 @@ function WorldService:KnitStart()
 
 	if baseMap then
 		ensurePrimaryPart(baseMap)
+		removeExistingTrees(baseMap)
+		removeRoads(baseMap)
 		local ground = findGroundCFrame(baseMap)
 		campfire = createCampfire(baseMap, ground)
 		bonfire = placeBonfire(baseMap, ground)
+		local structurePositions = placeStructures(baseMap, ground.Position)
+		generateForest(baseMap, ground.Position, structurePositions)
 		disableBrokenScripts(baseMap)
 	end
 
