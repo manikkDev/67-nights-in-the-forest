@@ -52,22 +52,25 @@ local HOUSE_CLEAR_RADIUS = 25
 local EDGE_BUFFER = 20
 local MIN_TREE_SPACING = 12
 local SMALL_TREE_RATIO = 0.65
-local NUM_CLUSTERS = 18
-local TREES_PER_CLUSTER_MIN = 30
-local TREES_PER_CLUSTER_MAX = 55
-local CLUSTER_SPREAD = 35
-local STRUCTURE_MIN_SPACING = 60
-local SMALL_TREE_SCALE = 0.6
-local BIG_TREE_SCALE = 0.35
+local NUM_CLUSTERS = 70
+local TREES_PER_CLUSTER_MIN = 4
+local TREES_PER_CLUSTER_MAX = 9
+local CLUSTER_SPREAD = 50
+local STRUCTURE_MIN_SPACING = 80
+local SMALL_TREE_SCALE = 0.9
+local BIG_TREE_SCALE = 0.55
+local TREEHOUSE_SCALE = 0.5
+local GROUND_TARGET_SIZE = 1536
+local CAMPFIRE_CLUSTER_MIN_DIST = 150
 
 local STRUCTURE_CONFIG = {
-	{name = "cabin", count = 3, minDist = 80, maxDist = 200},
-	{name = "Hunters Lodge", count = 2, minDist = 60, maxDist = 160},
-	{name = "Tower", count = 2, minDist = 120, maxDist = 250},
-	{name = "modern-house", count = 1, minDist = 150, maxDist = 250},
-	{name = "mushroom-house", count = 1, minDist = 80, maxDist = 180},
-	{name = "Treehouse", count = 1, minDist = 80, maxDist = 180},
-	{name = "Crashed Plane", count = 1, minDist = 120, maxDist = 230},
+	{name = "cabin", count = 6, minDist = 150, maxDist = 500},
+	{name = "Hunters Lodge", count = 4, minDist = 120, maxDist = 450},
+	{name = "Tower", count = 4, minDist = 200, maxDist = 600},
+	{name = "modern-house", count = 2, minDist = 250, maxDist = 600},
+	{name = "mushroom-house", count = 2, minDist = 150, maxDist = 450},
+	{name = "Treehouse", count = 2, minDist = 150, maxDist = 450},
+	{name = "Crashed Plane", count = 2, minDist = 200, maxDist = 550},
 }
 
 -- // FUNCTIONS // --
@@ -301,9 +304,12 @@ end
 ]]
 local function removeExistingTrees(map: Model)
 	local removed = 0
-	for _, child in ipairs(map:GetChildren()) do
-		if child:IsA("Model") and (child.Name == "Tree" or child.Name == "bigtree" or child.Name == "Дерево") then
-			child:Destroy()
+	for _, desc in ipairs(map:GetDescendants()) do
+		if desc:IsA("Model") and (desc.Name == "Tree" or desc.Name == "bigtree" or desc.Name == "Дерево") then
+			desc:Destroy()
+			removed += 1
+		elseif desc:IsA("BasePart") and desc.Name == "Leaves" then
+			desc:Destroy()
 			removed += 1
 		end
 	end
@@ -328,13 +334,74 @@ local function removeRoads(map: Model)
 			if name:find("road") or name:find("path") or name:find("street") or name:find("bridge") or name:find("sidewalk") then
 				child:Destroy()
 				removed += 1
-			elseif child.Name == "Bush2" or child.Name == "Grass" then
+			elseif child.Name == "Grass" then
 				child:Destroy()
 				removed += 1
 			end
 		end
 	end
 	print(("[WorldService] Removed %d road/decorative parts from base map"):format(removed))
+end
+
+-- Bush and hedge templates for regeneration
+local bushTemplate: BasePart? = nil
+local hedgeTemplate: BasePart? = nil
+
+local function removeBushesAndHedges(map: Model)
+	local removed = 0
+	for _, desc in ipairs(map:GetDescendants()) do
+		if desc:IsA("BasePart") and desc.Name == "Bush2" then
+			if not bushTemplate then
+				bushTemplate = desc:Clone()
+			end
+			desc:Destroy()
+			removed += 1
+		end
+	end
+	for _, desc in ipairs(map:GetDescendants()) do
+		if desc:IsA("BasePart") and desc.Name == "Hedge1" then
+			if not hedgeTemplate then
+				hedgeTemplate = desc:Clone()
+			end
+			desc:Destroy()
+			removed += 1
+		end
+	end
+	print(("[WorldService] Removed %d bushes/hedges"):format(removed))
+end
+
+local function removeExistingStructures(map: Model)
+	local structureNames = { "cabin", "Hunters Lodge", "Tower", "modern-house", "mushroom-house", "Treehouse", "Crashed Plane" }
+	local removed = 0
+	for _, child in ipairs(map:GetChildren()) do
+		if child:IsA("Model") and table.find(structureNames, child.Name) then
+			child:Destroy()
+			removed += 1
+		end
+	end
+	print(("[WorldService] Removed %d existing structures from base map"):format(removed))
+end
+
+local function removeBorderParts(map: Model)
+	local removed = 0
+	for _, desc in ipairs(map:GetDescendants()) do
+		if desc:IsA("BasePart") and desc.Name:find("Border") then
+			desc:Destroy()
+			removed += 1
+		end
+	end
+	print(("[WorldService] Removed %d border parts"):format(removed))
+end
+
+local function resizeGroundPlate(map: Model)
+	for _, desc in ipairs(map:GetDescendants()) do
+		if desc:IsA("BasePart") and desc.Name == "Земля" then
+			desc.Size = Vector3.new(GROUND_TARGET_SIZE, desc.Size.Y, GROUND_TARGET_SIZE)
+			print(("[WorldService] Resized ground plate to %dx%d"):format(GROUND_TARGET_SIZE, GROUND_TARGET_SIZE))
+			return
+		end
+	end
+	warn("[WorldService] Ground plate 'Земля' not found for resize")
 end
 
 --[[
@@ -358,17 +425,26 @@ local function placeModel(source: Model, position: Vector3, rotation: number, pa
 			end
 		end
 	end
+	-- Remove any border parts labeled "Border (REMOVE!)" or similar
+	for _, desc in ipairs(clone:GetDescendants()) do
+		if desc:IsA("BasePart") and desc.Name:find("Border") then
+			desc:Destroy()
+		end
+	end
 	if scale and scale ~= 1 then
 		clone:ScaleTo(scale)
 	end
 	local pivot = clone:GetPivot()
-	local minY = math.huge
+	local minBottomY = math.huge
 	for _, desc in ipairs(clone:GetDescendants()) do
-		if desc:IsA("BasePart") and desc.Position.Y < minY then
-			minY = desc.Position.Y
+		if desc:IsA("BasePart") then
+			local bottomY = desc.Position.Y - desc.Size.Y / 2
+			if bottomY < minBottomY then
+				minBottomY = bottomY
+			end
 		end
 	end
-	local baseOffset = pivot.Position.Y - minY
+	local baseOffset = pivot.Position.Y - minBottomY
 	clone:PivotTo(CFrame.new(position.X, position.Y + baseOffset, position.Z) * CFrame.Angles(0, math.rad(rotation), 0))
 	for _, desc in ipairs(clone:GetDescendants()) do
 		if desc:IsA("BasePart") then
@@ -427,7 +503,8 @@ local function placeStructures(map: Model, campfirePos: Vector3): {Vector3}
 			if valid then
 				local gy = findGroundY(sx, sz, map)
 				local rot = math.random(0, 359)
-				placeModel(source, Vector3.new(sx, gy, sz), rot, map, true)
+				local structureScale = (config.name == "Treehouse") and TREEHOUSE_SCALE or nil
+				placeModel(source, Vector3.new(sx, gy, sz), rot, map, true, structureScale)
 				table.insert(placedPositions, Vector3.new(sx, gy, sz))
 			end
 		end
@@ -467,7 +544,7 @@ local function generateForest(map: Model, campfirePos: Vector3, structurePositio
 			cx = minX + EDGE_BUFFER + math.random() * (maxX - minX - 2 * EDGE_BUFFER)
 			cz = minZ + EDGE_BUFFER + math.random() * (maxZ - minZ - 2 * EDGE_BUFFER)
 			attempts += 1
-		until (Vector3.new(cx, 0, cz) - Vector3.new(campfirePos.X, 0, campfirePos.Z)).Magnitude > 80 or attempts > 20
+		until (Vector3.new(cx, 0, cz) - Vector3.new(campfirePos.X, 0, campfirePos.Z)).Magnitude > CAMPFIRE_CLUSTER_MIN_DIST or attempts > 20
 
 		local treeCount = math.random(TREES_PER_CLUSTER_MIN, TREES_PER_CLUSTER_MAX)
 		for _ = 1, treeCount do
@@ -550,8 +627,12 @@ function WorldService:KnitStart()
 
 	if baseMap then
 		ensurePrimaryPart(baseMap)
+		removeBushesAndHedges(baseMap)
 		removeExistingTrees(baseMap)
+		removeExistingStructures(baseMap)
 		removeRoads(baseMap)
+		resizeGroundPlate(baseMap)
+		removeBorderParts(baseMap)
 		local ground = findGroundCFrame(baseMap)
 		campfire = createCampfire(baseMap, ground)
 		bonfire = placeBonfire(baseMap, ground)

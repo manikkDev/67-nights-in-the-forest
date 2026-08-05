@@ -11,3 +11,6 @@ sourcemap.json
 /Packages
 /ServerPackages
 /DevPackages
+
+# Personal GitHub profile README (not part of this project)
+/profile-README.md

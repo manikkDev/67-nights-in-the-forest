@@ -43,6 +43,8 @@ local WOOD_DROP_MAX = 5
 local WOOD_SCATTER_RADIUS = 4
 local TREE_RESPAWN_TIME = 45
 local FELL_TWEEN_DURATION = 1.2
+local FELL_LIE_DURATION = 3
+local FELL_FADE_DURATION = 2
 local PICKUP_RANGE = 8
 local AXE_TOOL_NAME = "Axe"
 local TREE_MODEL_NAMES = { "Tree", "bigtree" }
@@ -193,14 +195,20 @@ local function spawnWoodDrops(position: Vector3, baseMap: Model)
 		local log = source:Clone()
 		local angle = math.random() * math.pi * 2
 		local radius = math.random() * WOOD_SCATTER_RADIUS
-		local offset = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
-		log:PivotTo(CFrame.new(position + offset))
+		local offset = Vector3.new(math.cos(angle) * radius, 2, math.sin(angle) * radius)
+		log:PivotTo(CFrame.new(position + offset) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
 
 		for _, descendant in ipairs(log:GetDescendants()) do
 			if descendant:IsA("BasePart") then
-				descendant.Anchored = true
+				descendant.Anchored = false
 				descendant.CanCollide = true
 			end
+		end
+
+		-- Apply a random impulse so logs scatter naturally
+		if log.PrimaryPart then
+			local impulseDir = Vector3.new(math.random() - 0.5, 0.3, math.random() - 0.5).Unit
+			log.PrimaryPart:ApplyImpulse(impulseDir * log.PrimaryPart.AssemblyMass * 8)
 		end
 
 		local prompt = Instance.new("ProximityPrompt")
@@ -253,10 +261,50 @@ local function fellTree(treeModel: Model, baseMap: Model)
 	tween.Completed:Connect(function()
 		fallAngle:Destroy()
 		spawnWoodDrops(startPivot.Position, baseMap)
-		task.delay(TREE_RESPAWN_TIME, function()
-			treeModel:PivotTo(startPivot)
-			registry.felled = false
-			registry.health = TREE_HEALTH
+
+		-- Lie on the ground for a moment, then fade out smoothly
+		task.delay(FELL_LIE_DURATION, function()
+			-- Collect all parts and their original transparency for fade-out
+			local parts = {}
+			for _, desc in ipairs(treeModel:GetDescendants()) do
+				if desc:IsA("BasePart") then
+					table.insert(parts, { part = desc, originalTransparency = desc.Transparency })
+				end
+			end
+
+			local fadeValue = Instance.new("NumberValue")
+			fadeValue.Value = 0
+			fadeValue:GetPropertyChangedSignal("Value"):Connect(function()
+				for _, entry in ipairs(parts) do
+					entry.part.Transparency = entry.originalTransparency + fadeValue.Value * (1 - entry.originalTransparency)
+				end
+			end)
+
+			local actualFadeTween = TweenService:Create(
+				fadeValue,
+				TweenInfo.new(FELL_FADE_DURATION, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{ Value = 1 }
+			)
+
+			actualFadeTween.Completed:Connect(function()
+				fadeValue:Destroy()
+				-- Unparent the tree to hide it during respawn timer
+				treeModel.Parent = nil
+				-- Restore transparency so the tree is visible when respawned
+				for _, entry in ipairs(parts) do
+					if entry.part then
+						entry.part.Transparency = entry.originalTransparency
+					end
+				end
+				task.delay(TREE_RESPAWN_TIME, function()
+					treeModel:PivotTo(startPivot)
+					treeModel.Parent = baseMap
+					registry.felled = false
+					registry.health = TREE_HEALTH
+				end)
+			end)
+
+			actualFadeTween:Play()
 		end)
 	end)
 
