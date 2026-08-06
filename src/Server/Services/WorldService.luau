@@ -47,7 +47,7 @@ local GROUND_RAY_HEIGHT = 500
 local BONFIRE_SCALE = 2
 
 -- | Forest Generation Constants | --
-local TREE_CLEAR_RADIUS = 50
+local TREE_CLEAR_RADIUS = 15
 local HOUSE_CLEAR_RADIUS = 25
 local EDGE_BUFFER = 20
 local MIN_TREE_SPACING = 12
@@ -57,11 +57,11 @@ local TREES_PER_CLUSTER_MIN = 4
 local TREES_PER_CLUSTER_MAX = 9
 local CLUSTER_SPREAD = 50
 local STRUCTURE_MIN_SPACING = 80
-local SMALL_TREE_SCALE = 0.9
-local BIG_TREE_SCALE = 0.55
+local SMALL_TREE_SCALE = 1.1
+local BIG_TREE_SCALE = 0.7
 local TREEHOUSE_SCALE = 0.5
 local GROUND_TARGET_SIZE = 1536
-local CAMPFIRE_CLUSTER_MIN_DIST = 150
+local CAMPFIRE_CLUSTER_MIN_DIST = 30
 
 local STRUCTURE_CONFIG = {
 	{name = "cabin", count = 6, minDist = 150, maxDist = 500},
@@ -350,10 +350,10 @@ local hedgeTemplate: BasePart? = nil
 local function removeBushesAndHedges(map: Model)
 	local removed = 0
 	for _, desc in ipairs(map:GetDescendants()) do
-		if desc:IsA("BasePart") and desc.Name == "Bush2" then
-			if not bushTemplate then
-				bushTemplate = desc:Clone()
-			end
+		if desc:IsA("BasePart") and (desc.Name == "Bush2" or desc.Name == "Кусты" or desc.Name:find("Куст")) then
+			desc:Destroy()
+			removed += 1
+		elseif desc:IsA("Model") and desc.Name:find("Куст") then
 			desc:Destroy()
 			removed += 1
 		end
