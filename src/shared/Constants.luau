@@ -14,4 +14,5 @@
 return {
 	STORE_NAME = "67Nights_v1",
 	MAX_PLAYERS = 8,
+	ITEMS_PATH = "Assets Items",
 }

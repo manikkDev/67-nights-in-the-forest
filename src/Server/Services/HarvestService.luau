@@ -32,37 +32,40 @@ local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
-
--- | Constants | --
-local ITEMS_PATH = ServerStorage.Assets["Assets Items"]
-local CHOP_RANGE = 14
-local CHOP_COOLDOWN = 0.5
-local TREE_HEALTH = 6
-local WOOD_DROP_MIN = 3
-local WOOD_DROP_MAX = 5
-local WOOD_SCATTER_RADIUS = 4
-local TREE_RESPAWN_TIME = 45
-local FELL_TWEEN_DURATION = 1.2
-local FELL_LIE_DURATION = 3
-local FELL_FADE_DURATION = 2
-local PICKUP_RANGE = 8
-local AXE_TOOL_NAME = "Axe"
-local TREE_MODEL_NAMES = { "Tree", "bigtree" }
+local Constants = require(ReplicatedStorage.Shared.Constants)
 
 -- | Objects | --
 local HarvestService = Knit.CreateService({
 	Name = "HarvestService",
 	Client = {
+		RequestChop = Knit.CreateSignal(),
 		TreeChopped = Knit.CreateSignal(),
 	},
 })
 
--- | State | --
+-- | Configuration | --
+local TREE_HEALTH = 6
+local CHOP_COOLDOWN = 0.5
+local CHOP_RANGE = 12
+local FELL_TWEEN_DURATION = 1.2
+local FELL_LIE_DURATION = 3
+local FELL_FADE_DURATION = 2
+local TREE_RESPAWN_TIME = 45
+local WOOD_SCATTER_RADIUS = 4
+local WOOD_DROP_MIN = 2
+local WOOD_DROP_MAX = 4
+local PICKUP_RANGE = 6
+local LOG_LIFETIME = 300
+local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
+local TREE_MODEL_NAMES = { "Tree", "bigtree" }
+local AXE_TOOL_NAME = "Axe"
+
+-- | State Management | --
 local worldService: any? = nil
 local playerDataService: any? = nil
+local axeTemplate: Tool? = nil
 local treeRegistry: { [Model]: { health: number, part: BasePart, pivot: CFrame, felled: boolean } } = {}
 local chopCooldowns: { [Player]: number } = {}
-local axeTemplate: Tool? = nil
 
 -- // FUNCTIONS // --
 
@@ -220,6 +223,7 @@ local function spawnWoodDrops(position: Vector3, baseMap: Model)
 		prompt.Parent = log.PrimaryPart
 
 		log.Parent = baseMap
+		Debris:AddItem(log, LOG_LIFETIME)
 	end
 end
 
@@ -297,6 +301,8 @@ local function fellTree(treeModel: Model, baseMap: Model)
 					end
 				end
 				task.delay(TREE_RESPAWN_TIME, function()
+					if not treeModel or not treeModel:GetChildren()[1] then return end
+					if not baseMap or not baseMap.Parent then return end
 					treeModel:PivotTo(startPivot)
 					treeModel.Parent = baseMap
 					registry.felled = false
@@ -572,6 +578,10 @@ function HarvestService:KnitStart()
 
 	print("[HarvestService] Initialised — chop/pickup wired")
 end
+
+Players.PlayerRemoving:Connect(function(player)
+	chopCooldowns[player] = nil
+end)
 
 -- // CLIENT REMOTES // --
 

@@ -4,21 +4,21 @@
 
 **Skills read:** `Skills/AI Roblox Game Development Guide.md`, `Skills/roblox-best-practices-skill-blob.md` (both fully ingested; no `references/*.md` sub-files exist in this repo, so the top-level blob is the complete ruleset — script section layout, UDD doc comments, server authority, memory/network rules all apply as written).
 
-**Rojo tree** (`default.project.json`): `ReplicatedStorage.Shared` → `src/shared`, `ServerScriptService.Server` → `src/server`, `StarterPlayer.StarterPlayerScripts.Client` → `src/client`. All three currently hold only stub files (`Hello.luau`, `init.server.luau`, `init.client.luau`).
+**Rojo tree** (`default.project.json`): `ReplicatedStorage.Shared` → `src/shared`, `ServerScriptService.Server` → `src/server`, `StarterPlayer.StarterPlayerScripts.Client` → `src/client`. All three hold the full game source — services, controllers, shared constants, and data templates.
 
-**Toolchain** (`rokit.toml`): only `rojo@7.6.1` pinned. Wally is not yet installed — Phase 1 adds `wally.toml` plus a `rokit add` entry for the Wally CLI itself before any package install.
+**Toolchain** (`rokit.toml`): `rojo@7.6.1` and `wally@0.3.2` pinned. Wally is installed with Knit, Janitor, Signal, Promise, ZonePlus (shared) and ProfileService (server).
 
 **Live DataModel audit (via MCP `search_game_tree` / `execute_luau`):**
 
-| Location | Contents |
-|---|---|
-| `ServerStorage.Assets.[Assets maps items]` | `Base-map` (3409 parts, spawn+stove+fridge+TV scripts already wired, no PrimaryPart set), `lobby-map` (2573 parts, teleporters/gates/lock/poster already present, no PrimaryPart set), `Tree`/`bigtree`/`Treehouse`, `cabin`, `mushroom-house`, `Log Wall`, `Ice Temple`, `Hunters Lodge`, `Crashed Plane`, `modern-house`, `Tower`, `crafting-table`, `basic-chest`/`Gold-chest` |
-| `ServerStorage.Assets.[Assets Npcs]` | `WolfModel`, `AlphaWolfModel` (Humanoid, no baked anims — procedural gait required), `Bear` (1 Attack anim), `Deer` (7 anims: Idle/Jumpscare/Stunned x3/Walk/Run — has a charge-stun state machine built in), `Cultist`/`Cultist2` (1 Attack anim each), `BunnyModel`, `Owl`, `Ram Monster` (no baked anims), `Dino Kid`/`Kraken Kid` (child rescue NPCs, no anims) |
-| `ServerStorage.Assets.[Assets Items]` | `Bonfire`, `Log` (wood pickup), `Carrot`, `rabbit-meat`, `wolf-meat` |
-| `StarterGui` | `DayLabel`, `NightLabel`, `HealthBarFill` (pre-wired ScreenGuis to hook into), plus 4 blank `ScreenGui` spares |
-| `Workspace` | Empty except `Baseplate`/`Terrain`/`Camera` — `base-map`/`lobby-map` are **not yet cloned into Workspace**, they live in `ServerStorage` only |
+| Location                                   | Contents                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ServerStorage.Assets.[Assets maps items]` | `Base-map` (pre-placed in Workspace with 8597 parts, structures/trees/campfire all anchored), `lobby-map` (pre-placed in Workspace with teleporters/gates/lock/poster), `Tree`/`bigtree`/`Treehouse`, `cabin`, `mushroom-house`, `Log Wall`, `Ice Temple`, `Hunters Lodge`, `Crashed Plane`, `modern-house`, `Tower`, `crafting-table`, `basic-chest`/`Gold-chest`  |
+| `ServerStorage.Assets.[Assets Npcs]`       | `WolfModel`, `AlphaWolfModel` (Humanoid, no baked anims — procedural gait required), `Bear` (1 Attack anim), `Deer` (7 anims: Idle/Jumpscare/Stunned x3/Walk/Run — has a charge-stun state machine built in), `Cultist`/`Cultist2` (1 Attack anim each), `BunnyModel`, `Owl`, `Ram Monster` (no baked anims), `Dino Kid`/`Kraken Kid` (child rescue NPCs, no anims) |
+| `ServerStorage.Assets.[Assets Items]`      | `Bonfire`, `Log` (wood pickup), `Axe`, `Spear`, `Coal`, `AxeAnimations`, `Carrot`, `rabbit-meat`, `wolf-meat`, `carry-bag`                                                                                                                                                                                                                                          |
+| `StarterGui`                               | `DayLabel`, `NightLabel`, `HealthBarFill` (pre-wired ScreenGuis to hook into), plus 4 blank `ScreenGui` spares                                                                                                                                                                                                                                                      |
+| `Workspace`                                | `Base-map` and `lobby-map` are **pre-placed in Workspace at edit time** (not cloned at runtime). Base-map contains 222 Trees, 109 bigtrees, 6 cabins, 2 modern-houses, 2 mushroom-houses, 2 Treehouses, 4 Towers, 4 Hunters Lodges, 2 Crashed Planes — all anchored, 0 disabled scripts.                                                                            |
 
-**Key finding:** the campfire the brief describes as "already burning in the base-map" is actually the standalone `ServerStorage.Assets.[Assets Items].Bonfire` model — it is not yet parented into `Base-map` or Workspace. Phase 1 must clone `Base-map`/`lobby-map` into `Workspace` and place/anchor the `Bonfire` at the camp origin as part of world bootstrap.
+**Key finding:** The Bonfire model from `ServerStorage.Assets.[Assets Items].Bonfire` is cloned and placed at the camp origin at runtime by `WorldService:placeBonfire()`. An invisible Campfire anchor part is also created for `SpawnService` to reference. Both maps are pre-placed in Workspace at edit time for performance (no runtime cloning lag).
 
 **Deer** model already ships a `Stunned` 3-phase animation set matching the "immune while charging, stunned when hit with fire/light" mechanic from the wiki — Phase 3 AI should read this as a signal the asset was prepped for that exact behavior.
 
@@ -30,30 +30,24 @@ Networking library: **Knit** (via Wally). One Service per bounded context, one C
 
 ### Server Services (`src/server/Services/`)
 
-| Service | Owns | Key Client-exposed methods |
-|---|---|---|
-| `DataService` | ProfileService session-locked profile load/save/release | none (internal only, other Services read `DataService:GetProfile(player)`) |
-| `WorldService` | Clones `Base-map`/`lobby-map` from ServerStorage into Workspace at boot, anchors Bonfire, terrain safe-zone setup (ZonePlus camp radius) | none |
-| `DayNightService` | Authoritative day/night clock, `CurrentPhase`/`DayNumber` state, drives `Lighting` tween, fires `PhaseChanged` signal | `GetPhaseState()` |
-| `CampfireService` | Fuel level (0-100), decay tick, fog-of-war radius tied to fuel tier | `RequestFuelCampfire(logCount)` |
-| `HungerService` | Per-player hunger/health decay ticks, starvation damage | `RequestEat(itemId)` |
-| `HarvestService` | Tree chop validation (proximity + tool + cooldown), spawns wood pickup, tree respawn timer | `RequestChopTree(treeInstance)` |
-| `CombatService` | Wolf/Cultist/Deer/Ram hit validation (ZonePlus hitbox + range + cooldown), damage application, loot drop (meat) | `RequestAttack(targetInstance)` |
-| `AnimalAIService` | Spawns/despawns Bunny/Deer/Wolf/AlphaWolf/Bear/RamMonster/Cultist per day-night population rules, drives PathfindingService state machines | none |
-| `BuildingService` | Bed/wall/structure placement validation (grid snap, ZonePlus camp bounds, resource cost), day-multiplier bed count | `RequestPlaceStructure(id, cframe)` |
-| `RescueService` | Missing Poster Board interaction, cave unlock (wolf-kill gate), rescued-children count, multiplier grant | `RequestOpenPosterBoard()` |
-| `TeleportService` (wrapper) | Lobby → base-map server assignment via `TeleportService` API | `RequestJoinGame()` |
+| Service             | Owns                                                                                                                  | Key Client-exposed methods                                                    |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `PlayerDataService` | ProfileService session-locked profile load/save/release, fires `ProfileLoaded` signal on load                         | none (internal only, other Services read `PlayerDataService:GetData(player)`) |
+| `WorldService`      | Finds pre-placed `Base-map`/`lobby-map` in Workspace, places Bonfire at camp origin, creates Campfire anchor part     | none                                                                          |
+| `TimeService`       | Authoritative day/night clock, `CurrentPhase`/`DayNumber` state, drives `Lighting` tween, fires `PhaseChanged` signal | `GetPhaseState()`                                                             |
+| `CampfireService`   | Fuel level (0-100), decay tick, fire/light scaling tied to fuel tier                                                  | `RequestFuelCampfire(logCount)`                                               |
+| `HungerService`     | Per-player hunger/health decay ticks, starvation damage, sprint drain                                                 | none (fires `HungerChanged` signal)                                           |
+| `HarvestService`    | Tree chop validation (proximity + tool + cooldown), spawns wood pickup, tree respawn timer, axe tool distribution     | `RequestChop()`                                                               |
+| `SpawnService`      | Lobby → base-map server teleport via teleporter pads                                                                  | `RequestSpawn()`                                                              |
 
 ### Client Controllers (`src/client/Controllers/`)
 
-| Controller | Owns |
-|---|---|
-| `HudController` | Binds `DayLabel`/`NightLabel`/`HealthBarFill`/Hunger bar/Inventory GUIs to Service signals — no UI created from scratch |
-| `InteractionController` | ProximityPrompt / raycast-based interact requests (tree, campfire, poster board, structures) → fires request to matching Service |
-| `CombatController` | Local swing input, client-side swing animation trigger (procedural, see §5), fires `CombatService:RequestAttack` |
-| `CameraController` | Night-time visibility falloff, fog-of-war radius shader/Lighting tie-in |
-| `ProceduralAnimController` | Drives CFrame/Motor6D procedural idle/walk/attack for the local character's tool-swing and any client-rendered NPC flourishes |
-| `AudioController` | Ambient day/night audio, campfire crackle, hit SFX triggers |
+| Controller          | Owns                                                                                           |
+| ------------------- | ---------------------------------------------------------------------------------------------- |
+| `HudController`     | Binds `DayLabel`/`NightLabel` to the live clock (no new UI built)                              |
+| `HungerController`  | Binds `HealthBarFill`/Hunger bar to `HungerService.HungerChanged` and `Humanoid.HealthChanged` |
+| `HarvestController` | Axe tool handling, swing animation, camera shake on chop, auto-equip axe                       |
+| `TimeController`    | Local hooks for day/night phase changes (UI/audio placeholders)                                |
 
 ---
 
@@ -72,7 +66,9 @@ Networking library: **Knit** (via Wally). One Service per bounded context, one C
     },
     Survival = {
         Health = 100,
+        MaxHealth = 100,
         Hunger = 100,
+        MaxHunger = 100,
         DeathCount = 0,
         HighestNightSurvived = 0,
     },
@@ -97,6 +93,7 @@ Networking library: **Knit** (via Wally). One Service per bounded context, one C
 - Session-locked via ProfileService `:LoadProfileAsync`, released on `PlayerRemoving`.
 - `UpdateAsync` semantics inherited from ProfileService; no raw `SetAsync` anywhere.
 - Save triggers: periodic autosave (interval, e.g. every 2 minutes — scheduled, not polled), `PlayerRemoving`, `game:BindToClose()`.
+- `PlayerDataService` fires a server-side `ProfileLoaded` signal on successful load so other services can react without polling.
 - Camp-shared state (campfire fuel, day number, structure placements) is **not** per-profile — it lives in a separate `CampProfile` keyed by server/place instance if persistence across sessions is wanted, or purely in-memory (`DayNightService`/`CampfireService` state) if the base resets every server. **Decision needed from user in Phase 1**: should base progress persist across server restarts, or reset per session (matches 99 Nights' per-run structure)?
 
 ---
@@ -105,13 +102,13 @@ Networking library: **Knit** (via Wally). One Service per bounded context, one C
 
 All remotes are Knit `Service:Client` methods (RemoteFunction/RemoteEvent under the hood), never raw `RemoteEvent` instances placed by hand.
 
-| Action | Server-side validation |
-|---|---|
-| **Tree chopping** (`HarvestService:RequestChopTree`) | 1) `treeInstance` is a live descendant of the current tree registry (not player-supplied arbitrary path — pass a registered id/ref, verify `CollectionService:HasTag`). 2) Distance check: player's `HumanoidRootPart` within chop range of tree CFrame. 3) Cooldown per player (debounce table, server-owned). 4) Player has required tool equipped (check `Character:FindFirstChildOfClass("Tool")`) if tools are required. 5) Tree not already depleted/on respawn timer. On pass: decrement tree health, grant `Wood` via `DataService`, spawn hit VFX (server-authoritative Instance creation, replicated). |
-| **Campfire fueling** (`CampfireService:RequestFuelCampfire`) | 1) `logCount` is a positive integer, capped at inventory's actual `Wood` count (server reads profile, never trusts client-sent amount as truth — clamps to `min(requested, owned)`). 2) Distance check: player within camp/campfire ZonePlus zone. 3) Rate limit (debounce) to prevent spam-fueling exploits. On pass: deduct `Wood` from profile, increment fuel level (capped at max), extend fog-of-war radius per fuel tier. |
-| **Combat / attack** (`CombatService:RequestAttack`) | 1) `targetInstance` resolves to a registered live NPC/Humanoid (tag-checked, not arbitrary Instance). 2) Range check between attacker `HumanoidRootPart` and target root, plus a max-angle/facing check to prevent behind-wall hits. 3) Attack cooldown per player (weapon-specific rate, server-tracked). 4) Target not already dead/despawned (re-validate after any yield). On pass: apply damage server-side to `Humanoid.Health`, apply knockback, spawn hit VFX/loot drop. Client never sends a damage number — server owns the damage table keyed by weapon/tool id. |
-| **Building placement** (`BuildingService:RequestPlaceStructure`) | 1) `structureId` in an allow-list, `cframe` within camp ZonePlus bounds and grid-snapped server-side (recompute snap, don't trust client's CFrame precision). 2) Resource cost check against profile (`Wood`/`Stone`), deduct only on success. 3) Overlap check against existing placed structures. |
-| **Poster board / rescue** (`RescueService:RequestOpenPosterBoard`) | 1) Distance check to the poster board Instance. 2) Server picks the next unrescued cave/child from server-owned state, never accepts a client-chosen target id. |
+| Action                                                             | Server-side validation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tree chopping** (`HarvestService:RequestChopTree`)               | 1) `treeInstance` is a live descendant of the current tree registry (not player-supplied arbitrary path — pass a registered id/ref, verify `CollectionService:HasTag`). 2) Distance check: player's `HumanoidRootPart` within chop range of tree CFrame. 3) Cooldown per player (debounce table, server-owned). 4) Player has required tool equipped (check `Character:FindFirstChildOfClass("Tool")`) if tools are required. 5) Tree not already depleted/on respawn timer. On pass: decrement tree health, grant `Wood` via `DataService`, spawn hit VFX (server-authoritative Instance creation, replicated). |
+| **Campfire fueling** (`CampfireService:RequestFuelCampfire`)       | 1) `logCount` is a positive integer, capped at inventory's actual `Wood` count (server reads profile, never trusts client-sent amount as truth — clamps to `min(requested, owned)`). 2) Distance check: player within camp/campfire ZonePlus zone. 3) Rate limit (debounce) to prevent spam-fueling exploits. On pass: deduct `Wood` from profile, increment fuel level (capped at max), extend fog-of-war radius per fuel tier.                                                                                                                                                                                 |
+| **Combat / attack** (`CombatService:RequestAttack`)                | 1) `targetInstance` resolves to a registered live NPC/Humanoid (tag-checked, not arbitrary Instance). 2) Range check between attacker `HumanoidRootPart` and target root, plus a max-angle/facing check to prevent behind-wall hits. 3) Attack cooldown per player (weapon-specific rate, server-tracked). 4) Target not already dead/despawned (re-validate after any yield). On pass: apply damage server-side to `Humanoid.Health`, apply knockback, spawn hit VFX/loot drop. Client never sends a damage number — server owns the damage table keyed by weapon/tool id.                                      |
+| **Building placement** (`BuildingService:RequestPlaceStructure`)   | 1) `structureId` in an allow-list, `cframe` within camp ZonePlus bounds and grid-snapped server-side (recompute snap, don't trust client's CFrame precision). 2) Resource cost check against profile (`Wood`/`Stone`), deduct only on success. 3) Overlap check against existing placed structures.                                                                                                                                                                                                                                                                                                              |
+| **Poster board / rescue** (`RescueService:RequestOpenPosterBoard`) | 1) Distance check to the poster board Instance. 2) Server picks the next unrescued cave/child from server-owned state, never accepts a client-chosen target id.                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 General rules applied to every remote: type-check every argument, re-validate liveness after any yield (per Rule 7), rate-limit via debounce tables, and never let the client dictate an outcome (damage, resource amount, position precision) that the server can compute itself.
 
@@ -131,12 +128,17 @@ General rules applied to every remote: type-check every argument, re-validate li
 
 ```toml
 [dependencies]
-Knit = "sleitnick/knit@1.7.0"
-ProfileService = "madstudioroblox/profileservice@1.4.2" # or ProfileStore per skill's community-libraries guidance
-ZonePlus = "1foreverhd/zoneplus@3.6.0"
-Janitor = "howmanysmall/janitor@1.15.0"
+Knit = "sleitnick/knit@^1.7.0"
+Janitor = "howmanysmall/janitor@^1.15.0"
+Signal = "sleitnick/signal@^2.0.1"
+Promise = "evaera/promise@^4.0.0"
+ZonePlus = "qvgk/zoneplus@^3.2.1"
+
+[server-dependencies]
+ProfileService = "grilme99/profileservice@^1.0.0"
 ```
-(exact versions pinned in Phase 1's `wally.toml`, verified against current Wally registry availability before install)
+
+(exact versions pinned in `wally.toml`, verified and installed)
 
 ---
 

@@ -26,15 +26,15 @@ local TweenService = game:GetService("TweenService")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 
--- | Constants | --
-local BAR_TWEEN_INFO = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-
 -- | Objects | --
 local HungerController = Knit.CreateController({
 	Name = "HungerController",
 })
 
--- | State | --
+-- | Configuration | --
+local BAR_TWEEN_INFO = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+-- | State Management | --
 local healthFill: Frame? = nil
 local hungerFill: Frame? = nil
 

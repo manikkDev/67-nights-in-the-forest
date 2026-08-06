@@ -25,11 +25,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 
--- | Constants | --
-local SPAWN_RADIUS = 12
-local SPAWN_HEIGHT = 3
-local TELEPORT_COOLDOWN = 3
-
 -- | Objects | --
 local SpawnService = Knit.CreateService({
 	Name = "SpawnService",
@@ -38,7 +33,12 @@ local SpawnService = Knit.CreateService({
 	},
 })
 
--- | State | --
+-- | Configuration | --
+local SPAWN_RADIUS = 12
+local SPAWN_HEIGHT = 3
+local TELEPORT_COOLDOWN = 3
+
+-- | State Management | --
 local worldService: any? = nil
 local spawnedPlayers: { [Player]: boolean } = {}
 local teleportCooldowns: { [Player]: number } = {}
@@ -143,5 +143,10 @@ function SpawnService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	wireTeleporters()
 end
+
+Players.PlayerRemoving:Connect(function(player)
+	spawnedPlayers[player] = nil
+	teleportCooldowns[player] = nil
+end)
 
 return SpawnService

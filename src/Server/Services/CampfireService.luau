@@ -25,6 +25,7 @@
 -- // VARIABLES // --
 
 -- | Services | --
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
@@ -32,7 +33,15 @@ local ProximityPromptService = game:GetService("ProximityPromptService")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 
--- | Constants | --
+-- | Objects | --
+local CampfireService = Knit.CreateService({
+	Name = "CampfireService",
+	Client = {
+		FuelChanged = Knit.CreateSignal(),
+	},
+})
+
+-- | Configuration | --
 local MAX_FUEL = 100
 local FUEL_DRAIN_PER_SEC = 100 / 600
 local WOOD_FUEL_VALUE = 20
@@ -48,15 +57,7 @@ local LIGHT_BRIGHTNESS_MIN = 0.5
 local LIGHT_BRIGHTNESS_MAX = 5
 local FUEL_BROADCAST_INTERVAL = 1
 
--- | Objects | --
-local CampfireService = Knit.CreateService({
-	Name = "CampfireService",
-	Client = {
-		FuelChanged = Knit.CreateSignal(),
-	},
-})
-
--- | State | --
+-- | State Management | --
 local worldService: any? = nil
 local playerDataService: any? = nil
 local fuel = MAX_FUEL
@@ -245,5 +246,9 @@ function CampfireService:KnitStart()
 
 	print("[CampfireService] Initialised — fuel drain active")
 end
+
+Players.PlayerRemoving:Connect(function(player)
+	feedCooldowns[player] = nil
+end)
 
 return CampfireService

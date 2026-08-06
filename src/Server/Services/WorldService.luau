@@ -4,13 +4,13 @@
     @date    2025
 
     @summary
-    Manages instantiation of game maps and the campfire anchor.
+    Manages pre-placed game maps and the campfire anchor.
 
     @description
-    Clones the lobby-map and base-map from ServerStorage.Assets into
-    Workspace at server start.  Places the visual Bonfire model at the
-    centre of the base-map and creates an invisible Campfire anchor part
-    for SpawnService to reference.
+    Finds the lobby-map and base-map pre-placed in Workspace at server
+    start.  Places the visual Bonfire model at the centre of the base-map
+    and creates an invisible Campfire anchor part for SpawnService to
+    reference.
 
     @exports
     - WorldService:GetLobbyMap()    -> Model
@@ -27,24 +27,25 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local Constants = require(ReplicatedStorage.Shared.Constants)
 
 -- | Objects | --
 local WorldService = Knit.CreateService({
 	Name = "WorldService",
 })
 
--- | State | --
+-- | Configuration | --
+local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
+local CAMPFIRE_SIZE = Vector3.new(6, 3, 6)
+local GROUND_RAY_HEIGHT = 500
+local BONFIRE_SCALE = 2
+
+-- | State Management | --
 local lobbyMap: Model? = nil
 local baseMap: Model? = nil
 local campfire: Part? = nil
 local bonfire: Model? = nil
 local forestReady: boolean = false
-
--- | Constants | --
-local ITEMS_PATH = ServerStorage.Assets["Assets Items"]
-local CAMPFIRE_SIZE = Vector3.new(6, 3, 6)
-local GROUND_RAY_HEIGHT = 500
-local BONFIRE_SCALE = 2
 
 -- // FUNCTIONS // --
 
@@ -240,11 +241,11 @@ local function placeBonfire(map: Model, ground: CFrame): Model?
 end
 
 --[[
-    @summary  Disable known broken pre-existing scripts in cloned maps.
+    @summary  Disable known broken pre-existing scripts in map models.
     @desc     Some asset models contain Scripts that reference workspace
-              paths (e.g. workspace.Map, workspace.MusicPlayer) that don't
-              exist in our setup.  This disables them to prevent runtime errors.
-    @param    map  Model  -- the cloned map
+              paths that don't exist in our setup.  This disables them to
+              prevent runtime errors.
+    @param    map  Model  -- the map to clean
 ]]
 local function disableBrokenScripts(map: Model)
 	for _, descendant in ipairs(map:GetDescendants()) do
@@ -253,10 +254,6 @@ local function disableBrokenScripts(map: Model)
 			if name == "FireSystem" or name == "FridgeRightDoorScript" or name == "FridgeLeftDoorScript" or name == "Script" then
 				descendant.Disabled = true
 			end
-		end
-		-- Anchor all parts to prevent physics lag from decorative props
-		if descendant:IsA("BasePart") and not descendant.Anchored then
-			descendant.Anchored = true
 		end
 	end
 end

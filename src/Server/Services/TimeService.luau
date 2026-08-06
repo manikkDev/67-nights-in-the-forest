@@ -29,17 +29,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 
--- | Constants | --
-local DAY_DURATION = 120
-local NIGHT_DURATION = 120
-local DAY_START_CLOCK = 6
-local DAY_END_CLOCK = 18
-local DAY_AMBIENT = Color3.fromRGB(128, 128, 128)
-local NIGHT_AMBIENT = Color3.fromRGB(20, 22, 32)
-local DAY_FOG_END = 100000
-local NIGHT_FOG_END = 80
-local TWEEN_DURATION = 8
-
 -- | Objects | --
 local TimeService = Knit.CreateService({
 	Name = "TimeService",
@@ -50,7 +39,18 @@ local TimeService = Knit.CreateService({
 	},
 })
 
--- | State | --
+-- | Configuration | --
+local DAY_DURATION = 120
+local NIGHT_DURATION = 120
+local DAY_START_CLOCK = 6
+local DAY_END_CLOCK = 18
+local DAY_AMBIENT = Color3.fromRGB(128, 128, 128)
+local NIGHT_AMBIENT = Color3.fromRGB(20, 22, 32)
+local DAY_FOG_END = 100000
+local NIGHT_FOG_END = 80
+local TWEEN_DURATION = 8
+
+-- | State Management | --
 local currentPhase: "Day" | "Night" = "Day"
 local phaseTimer = 0
 local clockTime = DAY_START_CLOCK

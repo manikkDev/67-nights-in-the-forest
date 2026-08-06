@@ -28,11 +28,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local Signal = require(ReplicatedStorage.Packages.Signal)
 local ProfileService = require(ServerScriptService.ServerPackages.ProfileService)
 local ProfileTemplate = require(script.Parent.Parent.Data.ProfileTemplate)
-
--- | Constants | --
-local STORE_NAME = "67Nights_v1"
+local Constants = require(ReplicatedStorage.Shared.Constants)
 
 -- | Objects | --
 local PlayerDataService = Knit.CreateService({
@@ -42,8 +41,10 @@ local PlayerDataService = Knit.CreateService({
 	},
 })
 
--- | State | --
-local profileStore = ProfileService.GetProfileStore(STORE_NAME, ProfileTemplate)
+PlayerDataService.ProfileLoaded = Signal.new()
+
+-- | State Management | --
+local profileStore = ProfileService.GetProfileStore(Constants.STORE_NAME, ProfileTemplate)
 local profiles = {}
 
 -- // FUNCTIONS // --
@@ -58,7 +59,7 @@ function PlayerDataService:GetProfile(player: Player)
 end
 
 --[[
-    @summary  Retrieve a shallow copy of the player's data table.
+    @summary  Retrieve the live data table for a loaded player profile.
     @param    player  Player  -- the Roblox player
     @returns  table | nil     -- nil if no profile is loaded
 ]]
@@ -77,7 +78,7 @@ end
     @param    player  Player    -- the Roblox player
     @param    fn      function  -- callback(data: table) -> void
 ]]
-function PlayerDataService:UpdateData(player: Player, fn: (data: table) -> ())
+function PlayerDataService:UpdateData(player: Player, fn: (data: { [string]: any }) -> ())
 	local profile = profiles[player]
 	if not profile then
 		return
@@ -112,6 +113,7 @@ local function loadProfile(player: Player)
 
 		if player.Parent then
 			profiles[player] = profile
+			PlayerDataService.ProfileLoaded:Fire(player)
 			PlayerDataService.Client.DataLoaded:Fire(player, table.clone(profile.Data))
 		else
 			profile:Release()

@@ -25,25 +25,24 @@ local KeyframeSequenceProvider = game:GetService("KeyframeSequenceProvider")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
-
--- | Constants | --
-local SHAKE_DURATION = 0.15
-local SHAKE_MAGNITUDE = 0.12
-local AXE_TOOL_NAME = "Axe"
-local CHOP_COOLDOWN = 0.5
+local Janitor = require(ReplicatedStorage.Packages.Janitor)
 
 -- | Objects | --
 local HarvestController = Knit.CreateController({
 	Name = "HarvestController",
 })
 
--- | State | --
+-- | Configuration | --
+local SHAKE_DURATION = 0.15
+local SHAKE_MAGNITUDE = 0.12
+local AXE_TOOL_NAME = "Axe"
+local CHOP_COOLDOWN = 0.5
+
+-- | State Management | --
+local janitor = Janitor.new()
+local toolJanitor = Janitor.new()
 local lastChopTime = 0
 local equippedTool: Tool? = nil
-local toolActivatedConnection: RBXScriptConnection? = nil
-local toolChildAddedConnection: RBXScriptConnection? = nil
-local backpackChildAddedConnection: RBXScriptConnection? = nil
-local characterAddedConnection: RBXScriptConnection? = nil
 local swingAnimationId: string? = nil
 local cachedAnimTrack: AnimationTrack? = nil
 
@@ -162,12 +161,9 @@ end
     @summary  Wire Tool.Activated on the given tool.
 ]]
 local function wireTool(tool: Tool)
-	if toolActivatedConnection then
-		toolActivatedConnection:Disconnect()
-		toolActivatedConnection = nil
-	end
+	toolJanitor:Clean()
 	equippedTool = tool
-	toolActivatedConnection = tool.Activated:Connect(onToolActivated)
+	toolJanitor:Add(tool.Activated:Connect(onToolActivated), "Disconnect")
 end
 
 --[[
@@ -176,60 +172,46 @@ end
 ]]
 local function watchForAxe(player: Player)
 	local function checkCharacter(character: Model)
-		-- Invalidate cached animation track on respawn
 		cachedAnimTrack = nil
-
-		if toolChildAddedConnection then
-			toolChildAddedConnection:Disconnect()
-			toolChildAddedConnection = nil
-		end
+		toolJanitor:Clean()
 
 		local tool = character:FindFirstChild(AXE_TOOL_NAME)
 		if tool and tool:IsA("Tool") then
 			wireTool(tool)
 		end
 
-		toolChildAddedConnection = character.ChildAdded:Connect(function(child)
+		toolJanitor:Add(character.ChildAdded:Connect(function(child)
 			if child:IsA("Tool") and child.Name == AXE_TOOL_NAME then
 				wireTool(child)
 			end
-		end)
+		end), "Disconnect")
 	end
 
-	if characterAddedConnection then
-		characterAddedConnection:Disconnect()
-	end
-	characterAddedConnection = player.CharacterAdded:Connect(checkCharacter)
+	janitor:Clean()
+	janitor:Add(player.CharacterAdded:Connect(checkCharacter), "Disconnect")
 
 	if player.Character then
 		checkCharacter(player.Character)
 	end
 
-	-- Watch backpack for axe — auto-equip it when added
-	if backpackChildAddedConnection then
-		backpackChildAddedConnection:Disconnect()
-	end
 	local backpack = player:FindFirstChildOfClass("Backpack")
 	if backpack then
-		-- Check if axe is already in backpack
 		local existingAxe = backpack:FindFirstChild(AXE_TOOL_NAME)
 		if existingAxe and existingAxe:IsA("Tool") then
-			-- Auto-equip by parenting to character
 			local char = player.Character
 			if char then
 				existingAxe.Parent = char
 			end
 		end
 
-		backpackChildAddedConnection = backpack.ChildAdded:Connect(function(child)
+		janitor:Add(backpack.ChildAdded:Connect(function(child)
 			if child:IsA("Tool") and child.Name == AXE_TOOL_NAME then
-				-- Auto-equip the axe when it's added to the backpack
 				local char = player.Character
 				if char then
 					child.Parent = char
 				end
 			end
-		end)
+		end), "Disconnect")
 	end
 end
 
