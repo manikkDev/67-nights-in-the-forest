@@ -38,6 +38,7 @@ local lobbyMap: Model? = nil
 local baseMap: Model? = nil
 local campfire: Part? = nil
 local bonfire: Model? = nil
+local forestReady: boolean = false
 
 -- | Constants | --
 local ASSETS_PATH = ServerStorage.Assets["Assets maps items"]
@@ -108,6 +109,14 @@ function WorldService:GetBonfire(): Model?
 end
 
 --[[
+    @summary  Return whether forest generation has completed.
+    @returns  boolean
+]]
+function WorldService:IsForestReady(): boolean
+	return forestReady
+end
+
+--[[
     @summary  Return the CFrame of the Campfire anchor.
     @returns  CFrame?
 ]]
@@ -117,19 +126,21 @@ function WorldService:GetCampfireCFrame(): CFrame?
 end
 
 --[[
-    @summary  Clone a map from ServerStorage into Workspace.
-    @param    mapName  string  -- name of the model in ASSETS_PATH
-    @returns  Model?           -- the cloned map, parented to Workspace
+    @summary  Find a pre-placed map in Workspace.
+    @desc     Maps are pre-placed in Workspace at edit time so they are
+              visible in Studio and don't need to be cloned at runtime.
+              Roblox reverts Workspace to its edit-time state when play
+              stops, so the clean map is always restored.
+    @param    mapName  string  -- name of the model in Workspace
+    @returns  Model?           -- the map model found in Workspace
 ]]
-local function cloneMap(mapName: string): Model?
-	local source = ASSETS_PATH:FindFirstChild(mapName)
-	if not source then
-		warn(("[WorldService] Map '%s' not found in ServerStorage"):format(mapName))
+local function findMap(mapName: string): Model?
+	local map = workspace:FindFirstChild(mapName)
+	if not map then
+		warn(("[WorldService] Map '%s' not found in Workspace"):format(mapName))
 		return nil
 	end
-	local clone = source:Clone()
-	clone.Parent = workspace
-	return clone
+	return map
 end
 
 --[[
@@ -406,9 +417,10 @@ end
 
 --[[
     @summary  Clone a model and place it at a position with base on ground.
-    @desc     Finds the model's lowest part Y, offsets the pivot so the
-              base sits at the target Y, applies a random Y rotation,
-              anchors all parts, and parents to the given parent.
+    @desc     Uses raycasting to find the model's actual lowest visible
+              surface (avoiding MeshPart/Union bounding-box inaccuracy),
+              offsets the pivot so the base sits at the target Y, applies
+              a random Y rotation, anchors all parts, and parents to parent.
     @param    source        Model   -- the asset to clone
     @param    position      Vector3 -- target ground position (X, groundY, Z)
     @param    rotation      number  -- Y rotation in degrees
@@ -434,17 +446,68 @@ local function placeModel(source: Model, position: Vector3, rotation: number, pa
 	if scale and scale ~= 1 then
 		clone:ScaleTo(scale)
 	end
+
+	-- Temporarily parent to workspace so we can raycast against the clone
+	clone.Parent = workspace
+	clone:PivotTo(CFrame.new(0, 0, 0))
+
 	local pivot = clone:GetPivot()
-	local minBottomY = math.huge
+
+	-- Find bounding-box extents to know where to raycast from
+	local minY = math.huge
+	local minX = math.huge
+	local maxX = -math.huge
+	local minZ = math.huge
+	local maxZ = -math.huge
 	for _, desc in ipairs(clone:GetDescendants()) do
 		if desc:IsA("BasePart") then
-			local bottomY = desc.Position.Y - desc.Size.Y / 2
-			if bottomY < minBottomY then
-				minBottomY = bottomY
+			local pos = desc.Position
+			local sz = desc.Size
+			local bY = pos.Y - sz.Y / 2
+			if bY < minY then minY = bY end
+			if pos.X - sz.X / 2 < minX then minX = pos.X - sz.X / 2 end
+			if pos.X + sz.X / 2 > maxX then maxX = pos.X + sz.X / 2 end
+			if pos.Z - sz.Z / 2 < minZ then minZ = pos.Z - sz.Z / 2 end
+			if pos.Z + sz.Z / 2 > maxZ then maxZ = pos.Z + sz.Z / 2 end
+		end
+	end
+
+	-- Raycast upward from below the model at multiple XZ points to find
+	-- the actual lowest visible surface (not bounding-box bottom)
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Include
+	rayParams.FilterDescendantsInstances = { clone }
+
+	local actualMinY = nil
+	local rayOriginY = minY - 50
+	local spanX = maxX - minX
+	local spanZ = maxZ - minZ
+	local stepsX = math.max(3, math.min(9, math.floor(spanX / 5)))
+	local stepsZ = math.max(3, math.min(9, math.floor(spanZ / 5)))
+
+	for ix = 0, stepsX do
+		for iz = 0, stepsZ do
+			local rx = minX + (spanX * ix / stepsX)
+			local rz = minZ + (spanZ * iz / stepsZ)
+			local origin = Vector3.new(rx, rayOriginY, rz)
+			local result = workspace:Raycast(origin, Vector3.new(0, 1000, 0), rayParams)
+			if result then
+				if not actualMinY or result.Position.Y < actualMinY then
+					actualMinY = result.Position.Y
+				end
 			end
 		end
 	end
-	local baseOffset = pivot.Position.Y - minBottomY
+
+	-- Fall back to bounding-box approach if raycast missed everything
+	if not actualMinY then
+		actualMinY = minY
+	end
+
+	local baseOffset = pivot.Position.Y - actualMinY
+
+	-- Detach from workspace, position at target, anchor, and reparent
+	clone.Parent = nil
 	clone:PivotTo(CFrame.new(position.X, position.Y + baseOffset, position.Z) * CFrame.Angles(0, math.rad(rotation), 0))
 	for _, desc in ipairs(clone:GetDescendants()) do
 		if desc:IsA("BasePart") then
@@ -525,18 +588,21 @@ end
     @param    campfirePos         Vector3     -- campfire center position
     @param    structurePositions  {Vector3}   -- positions to avoid
 ]]
-local function generateForest(map: Model, campfirePos: Vector3, structurePositions: {Vector3})
+local function generateForest(map: Model, campfirePos: Vector3, structurePositions: {Vector3}, onComplete: (() -> ())?)
 	local minX, maxX, minZ, maxZ = getMapBounds(map)
 	local treeSource = ASSETS_PATH:FindFirstChild("Tree")
 	local bigTreeSource = ASSETS_PATH:FindFirstChild("bigtree")
 	if not treeSource or not bigTreeSource then
 		warn("[WorldService] Tree or bigtree asset not found")
+		if onComplete then onComplete() end
 		return
 	end
 
 	local placedPositions = {}
 	local totalPlaced = 0
 
+	-- Build the list of cluster centers first (synchronous, fast)
+	local clusters = {}
 	for _ = 1, NUM_CLUSTERS do
 		local cx, cz
 		local attempts = 0
@@ -545,51 +611,79 @@ local function generateForest(map: Model, campfirePos: Vector3, structurePositio
 			cz = minZ + EDGE_BUFFER + math.random() * (maxZ - minZ - 2 * EDGE_BUFFER)
 			attempts += 1
 		until (Vector3.new(cx, 0, cz) - Vector3.new(campfirePos.X, 0, campfirePos.Z)).Magnitude > CAMPFIRE_CLUSTER_MIN_DIST or attempts > 20
+		table.insert(clusters, {cx = cx, cz = cz, count = math.random(TREES_PER_CLUSTER_MIN, TREES_PER_CLUSTER_MAX)})
+	end
 
-		local treeCount = math.random(TREES_PER_CLUSTER_MIN, TREES_PER_CLUSTER_MAX)
-		for _ = 1, treeCount do
-			local angle = math.random() * math.pi * 2
-			local dist = math.random() * CLUSTER_SPREAD + (math.random() - 0.5) * 20
-			local tx = cx + math.cos(angle) * dist
-			local tz = cz + math.sin(angle) * dist
+	-- Process trees asynchronously, yielding every BATCH_SIZE trees
+	local BATCH_SIZE = 10
+	local clusterIdx = 1
+	local treeInCluster = 0
 
-			if tx < minX + EDGE_BUFFER or tx > maxX - EDGE_BUFFER then continue end
-			if tz < minZ + EDGE_BUFFER or tz > maxZ - EDGE_BUFFER then continue end
+	local function processBatch()
+		local processed = 0
+		while clusterIdx <= #clusters and processed < BATCH_SIZE do
+			local cluster = clusters[clusterIdx]
+			if treeInCluster < cluster.count then
+				treeInCluster += 1
+				local angle = math.random() * math.pi * 2
+				local dist = math.random() * CLUSTER_SPREAD + (math.random() - 0.5) * 20
+				local tx = cluster.cx + math.cos(angle) * dist
+				local tz = cluster.cz + math.sin(angle) * dist
 
-			local flatCampfire = Vector3.new(campfirePos.X, 0, campfirePos.Z)
-			if (Vector3.new(tx, 0, tz) - flatCampfire).Magnitude < TREE_CLEAR_RADIUS then continue end
+				if tx >= minX + EDGE_BUFFER and tx <= maxX - EDGE_BUFFER
+					and tz >= minZ + EDGE_BUFFER and tz <= maxZ - EDGE_BUFFER then
 
-			local tooCloseToStructure = false
-			for _, spos in ipairs(structurePositions) do
-				if (Vector3.new(tx, 0, tz) - Vector3.new(spos.X, 0, spos.Z)).Magnitude < HOUSE_CLEAR_RADIUS then
-					tooCloseToStructure = true
-					break
+					local flatCampfire = Vector3.new(campfirePos.X, 0, campfirePos.Z)
+					if (Vector3.new(tx, 0, tz) - flatCampfire).Magnitude >= TREE_CLEAR_RADIUS then
+
+						local tooCloseToStructure = false
+						for _, spos in ipairs(structurePositions) do
+							if (Vector3.new(tx, 0, tz) - Vector3.new(spos.X, 0, spos.Z)).Magnitude < HOUSE_CLEAR_RADIUS then
+								tooCloseToStructure = true
+								break
+							end
+						end
+
+						if not tooCloseToStructure then
+							local tooCloseToTree = false
+							for _, ppos in ipairs(placedPositions) do
+								if (Vector3.new(tx, 0, tz) - Vector3.new(ppos.X, 0, ppos.Z)).Magnitude < MIN_TREE_SPACING then
+									tooCloseToTree = true
+									break
+								end
+							end
+
+							if not tooCloseToTree then
+								local gy = findGroundY(tx, tz, map)
+								local isSmall = math.random() < SMALL_TREE_RATIO
+								local source = isSmall and treeSource or bigTreeSource
+								local treeScale = isSmall and SMALL_TREE_SCALE or BIG_TREE_SCALE
+								local rot = math.random(0, 359)
+
+								placeModel(source, Vector3.new(tx, gy, tz), rot, map, true, treeScale)
+								table.insert(placedPositions, Vector3.new(tx, gy, tz))
+								totalPlaced += 1
+							end
+						end
+					end
 				end
+
+				processed += 1
+			else
+				clusterIdx += 1
+				treeInCluster = 0
 			end
-			if tooCloseToStructure then continue end
+		end
 
-			local tooCloseToTree = false
-			for _, ppos in ipairs(placedPositions) do
-				if (Vector3.new(tx, 0, tz) - Vector3.new(ppos.X, 0, ppos.Z)).Magnitude < MIN_TREE_SPACING then
-					tooCloseToTree = true
-					break
-				end
-			end
-			if tooCloseToTree then continue end
-
-			local gy = findGroundY(tx, tz, map)
-			local isSmall = math.random() < SMALL_TREE_RATIO
-			local source = isSmall and treeSource or bigTreeSource
-			local treeScale = isSmall and SMALL_TREE_SCALE or BIG_TREE_SCALE
-			local rot = math.random(0, 359)
-
-			placeModel(source, Vector3.new(tx, gy, tz), rot, map, true, treeScale)
-			table.insert(placedPositions, Vector3.new(tx, gy, tz))
-			totalPlaced += 1
+		if clusterIdx <= #clusters then
+			task.defer(processBatch)
+		else
+			print(("[WorldService] Generated %d trees in %d clusters"):format(totalPlaced, NUM_CLUSTERS))
+			if onComplete then onComplete() end
 		end
 	end
 
-	print(("[WorldService] Generated %d trees in %d clusters"):format(totalPlaced, NUM_CLUSTERS))
+	task.defer(processBatch)
 end
 
 --[[
@@ -617,8 +711,8 @@ end
 -- // INITIALIZATION // --
 
 function WorldService:KnitStart()
-	lobbyMap = cloneMap("lobby-map")
-	baseMap = cloneMap("Base-map")
+	lobbyMap = findMap("lobby-map")
+	baseMap = findMap("Base-map")
 
 	if lobbyMap then
 		ensurePrimaryPart(lobbyMap)
@@ -637,11 +731,12 @@ function WorldService:KnitStart()
 		campfire = createCampfire(baseMap, ground)
 		bonfire = placeBonfire(baseMap, ground)
 		local structurePositions = placeStructures(baseMap, ground.Position)
-		generateForest(baseMap, ground.Position, structurePositions)
-		disableBrokenScripts(baseMap)
+		generateForest(baseMap, ground.Position, structurePositions, function()
+			forestReady = true
+			disableBrokenScripts(baseMap)
+			print("[WorldService] Maps loaded")
+		end)
 	end
-
-	print("[WorldService] Maps loaded")
 end
 
 return WorldService

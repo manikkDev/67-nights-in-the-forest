@@ -349,6 +349,10 @@ local function registerAllTrees()
 		task.defer(registerAllTrees)
 		return
 	end
+	if not worldService:IsForestReady() then
+		task.defer(registerAllTrees)
+		return
+	end
 
 	local registeredCount = 0
 	for _, descendant in ipairs(baseMap:GetDescendants()) do
