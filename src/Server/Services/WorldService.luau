@@ -721,12 +721,9 @@ function WorldService:KnitStart()
 
 	if baseMap then
 		ensurePrimaryPart(baseMap)
-		removeBushesAndHedges(baseMap)
-		removeExistingTrees(baseMap)
-		removeExistingStructures(baseMap)
-		removeRoads(baseMap)
-		resizeGroundPlate(baseMap)
-		removeBorderParts(baseMap)
+		-- Map is already permanently cleaned in edit mode (bushes, trees,
+		-- roads, structures, borders removed; ground plate resized).
+		-- Only dynamic generation happens at runtime:
 		local ground = findGroundCFrame(baseMap)
 		campfire = createCampfire(baseMap, ground)
 		bonfire = placeBonfire(baseMap, ground)
