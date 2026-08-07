@@ -5,6 +5,7 @@
 /*.rbxlx.lock
 /*.rbxl.lock
 
+# Rojo / sourcemap
 sourcemap.json
 
 # Wally packages (regenerated via `wally install`, not source)
@@ -14,3 +15,18 @@ sourcemap.json
 
 # Personal GitHub profile README (not part of this project)
 /profile-README.md
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / editor folders
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Rojo / build artifacts
+/.rojo
+/build
