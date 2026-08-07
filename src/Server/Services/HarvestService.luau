@@ -1,0 +1,600 @@
+--[[
+    @file    HarvestService.luau
+    @author  manik
+    @date    2025
+
+    @summary
+    Server-authoritative tree chopping, felling, and wood pickup.
+
+    @description
+    Scans the cloned base-map for pre-placed Tree/bigtree models and
+    wires a ProximityPrompt onto each.  Validates chop requests against
+    range, cooldown, and an equipped Axe tool before decrementing a
+    per-tree health counter.  A depleted tree tweens over mathematically
+    (no physics), drops Log pickups, and respawns after a delay.  Also
+    issues every player an Axe tool built from the ServerStorage mesh
+    asset, since the source asset has no Handle/Tool wrapper.
+
+    @exports
+    - Knit Signal: TreeChopped(position: Vector3)  (server -> client, VFX hook)
+    - Knit Remote: RequestChop(player)              (client -> server, click-to-chop)
+]]
+
+-- // VARIABLES // --
+
+-- | Services | --
+local Players = game:GetService("Players")
+local ServerStorage = game:GetService("ServerStorage")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+
+-- | Modules | --
+local Knit = require(ReplicatedStorage.Packages.Knit)
+local Constants = require(ReplicatedStorage.Shared.Constants)
+
+-- | Objects | --
+local HarvestService = Knit.CreateService({
+	Name = "HarvestService",
+	Client = {
+		RequestChop = Knit.CreateSignal(),
+		TreeChopped = Knit.CreateSignal(),
+	},
+})
+
+-- | Configuration | --
+local TREE_HEALTH = 6
+local CHOP_COOLDOWN = 0.5
+local CHOP_RANGE = 12
+local FELL_TWEEN_DURATION = 1.2
+local FELL_LIE_DURATION = 3
+local FELL_FADE_DURATION = 2
+local TREE_RESPAWN_TIME = 45
+local WOOD_SCATTER_RADIUS = 4
+local WOOD_DROP_MIN = 2
+local WOOD_DROP_MAX = 4
+local PICKUP_RANGE = 6
+local LOG_LIFETIME = 300
+local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
+local TREE_MODEL_NAMES = { "Tree", "bigtree" }
+local AXE_TOOL_NAME = "Axe"
+
+-- | State Management | --
+local worldService: any? = nil
+local playerDataService: any? = nil
+local axeTemplate: Tool? = nil
+local treeRegistry: { [Model]: { health: number, part: BasePart, pivot: CFrame, felled: boolean } } = {}
+local chopCooldowns: { [Player]: number } = {}
+
+-- // FUNCTIONS // --
+
+--[[
+    @summary  Build a wearable Axe Tool by cloning the pre-configured
+              axe MeshPart from the R6 Axe Animations asset.
+    @desc     The source MeshPart already has the correct MeshId,
+              TextureID, Size, and Material.  We clone it as the
+              Tool's Handle and set the grip so the hand holds the
+              lower portion of the shaft.
+    @returns  Tool?
+]]
+local function buildAxeTool(): Tool?
+	local animModel = ITEMS_PATH:FindFirstChild("AxeAnimations")
+	if not animModel then
+		warn("[HarvestService] AxeAnimations model not found in Assets Items")
+		return nil
+	end
+
+	local r6Folder = animModel:FindFirstChild("R6 Axe Animations")
+	if not r6Folder then
+		warn("[HarvestService] R6 Axe Animations folder not found")
+		return nil
+	end
+
+	local sourceAxe = r6Folder:FindFirstChild("Axe")
+	if not sourceAxe or not sourceAxe:IsA("MeshPart") then
+		warn("[HarvestService] Axe MeshPart not found in R6 Axe Animations")
+		return nil
+	end
+
+	local tool = Instance.new("Tool")
+	tool.Name = AXE_TOOL_NAME
+	tool.RequiresHandle = true
+
+	-- The axe mesh has a built-in rotation of ~91° on Z and ~25° on Y,
+	-- which means the mesh's long axis (Y, 4 studs) is actually pointing
+	-- along the world X axis after the part's rotation is applied.
+	-- For a natural R15 grip, we need the hand to hold the bottom of the
+	-- shaft with the blade pointing up and slightly forward.
+	-- GripPos: hand sits 1.5 studs along the mesh's local Y (shaft bottom)
+	-- GripUp: mesh local Y maps to tool Up (blade points up)
+	-- GripForward: mesh local -Z maps to tool Forward (blade faces forward)
+	-- GripRight: mesh local X maps to tool Right
+	tool.GripPos = Vector3.new(0, -1.5, 0)
+	tool.GripUp = Vector3.new(0, 1, 0)
+	tool.GripForward = Vector3.new(1, 0, 0)
+	tool.GripRight = Vector3.new(0, 0, 1)
+
+	local handle = sourceAxe:Clone()
+	handle.Name = "Handle"
+	handle.CanCollide = false
+	handle.Anchored = false
+	handle.Transparency = 0
+	-- Remove any children from the source (Animation instances, Motor6Ds)
+	for _, child in ipairs(handle:GetChildren()) do
+		child:Destroy()
+	end
+	handle.Parent = tool
+
+	return tool
+end
+
+--[[
+    @summary  Grant the Axe tool to a player's Backpack and StarterGear
+              so it persists across respawns.
+    @param    player  Player  -- the Roblox player
+]]
+local function giveAxe(player: Player)
+	if not axeTemplate then
+		return
+	end
+
+	local backpack = player:WaitForChild("Backpack")
+	if not backpack:FindFirstChild(AXE_TOOL_NAME) then
+		local clone = axeTemplate:Clone()
+		clone.Parent = backpack
+	end
+
+	local starterGear = player:WaitForChild("StarterGear")
+	if not starterGear:FindFirstChild(AXE_TOOL_NAME) then
+		local clone = axeTemplate:Clone()
+		clone.Parent = starterGear
+	end
+end
+
+--[[
+    @summary  Spawn a short-lived wood-chip particle burst at a position.
+    @param    position  Vector3  -- world position of the chop impact
+]]
+local function spawnChopVFX(position: Vector3)
+	local anchor = Instance.new("Part")
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.Transparency = 1
+	anchor.Size = Vector3.new(0.2, 0.2, 0.2)
+	anchor.Position = position
+	anchor.Parent = workspace
+
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	emitter.Color = ColorSequence.new(Color3.fromRGB(120, 80, 45))
+	emitter.Lifetime = NumberRange.new(0.4, 0.8)
+	emitter.Speed = NumberRange.new(6, 12)
+	emitter.SpreadAngle = Vector2.new(45, 45)
+	emitter.Size = NumberSequence.new(0.3, 0.05)
+	emitter.Rate = 0
+	emitter.Parent = anchor
+
+	emitter:Emit(14)
+	Debris:AddItem(anchor, 2)
+end
+
+--[[
+    @summary  Scatter Log pickups around a felled tree's base and wire
+              a pickup ProximityPrompt on each.
+    @param    position  Vector3  -- ground position of the felled tree
+    @param    baseMap   Model    -- the cloned base-map to parent logs into
+]]
+local function spawnWoodDrops(position: Vector3, baseMap: Model)
+	local source = ITEMS_PATH:FindFirstChild("Log")
+	if not source then
+		warn("[HarvestService] Log model not found in Assets Items")
+		return
+	end
+
+	local count = math.random(WOOD_DROP_MIN, WOOD_DROP_MAX)
+	for _ = 1, count do
+		local log = source:Clone()
+		local angle = math.random() * math.pi * 2
+		local radius = math.random() * WOOD_SCATTER_RADIUS
+		local offset = Vector3.new(math.cos(angle) * radius, 2, math.sin(angle) * radius)
+		log:PivotTo(CFrame.new(position + offset) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+
+		for _, descendant in ipairs(log:GetDescendants()) do
+			if descendant:IsA("BasePart") then
+				descendant.Anchored = false
+				descendant.CanCollide = true
+			end
+		end
+
+		-- Apply a random impulse so logs scatter naturally
+		if log.PrimaryPart then
+			local impulseDir = Vector3.new(math.random() - 0.5, 0.3, math.random() - 0.5).Unit
+			log.PrimaryPart:ApplyImpulse(impulseDir * log.PrimaryPart.AssemblyMass * 8)
+		end
+
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "PickupPrompt"
+		prompt.ActionText = "Pick Up"
+		prompt.ObjectText = "Wood"
+		prompt.MaxActivationDistance = PICKUP_RANGE
+		prompt.HoldDuration = 0
+		prompt.Parent = log.PrimaryPart
+
+		log.Parent = baseMap
+		Debris:AddItem(log, LOG_LIFETIME)
+	end
+end
+
+--[[
+    @summary  Tween a felled tree over mathematically, then drop wood
+              and schedule its respawn.
+    @param    treeModel  Model   -- the tree to fell
+    @param    baseMap    Model   -- the cloned base-map, for wood drops
+]]
+local function fellTree(treeModel: Model, baseMap: Model)
+	local registry = treeRegistry[treeModel]
+	if not registry or registry.felled then
+		return
+	end
+	registry.felled = true
+
+	local startPivot = registry.pivot
+	local yaw = math.random() * math.pi * 2
+	local fallAngle = Instance.new("NumberValue")
+	fallAngle.Value = 0
+
+	local function applyFall(degrees: number)
+		local rad = math.rad(degrees)
+		treeModel:PivotTo(
+			startPivot * CFrame.Angles(0, yaw, 0) * CFrame.Angles(rad, 0, 0) * CFrame.Angles(0, -yaw, 0)
+		)
+	end
+
+	fallAngle:GetPropertyChangedSignal("Value"):Connect(function()
+		applyFall(fallAngle.Value)
+	end)
+
+	local tween = TweenService:Create(
+		fallAngle,
+		TweenInfo.new(FELL_TWEEN_DURATION, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+		{ Value = 88 }
+	)
+
+	tween.Completed:Connect(function()
+		fallAngle:Destroy()
+		spawnWoodDrops(startPivot.Position, baseMap)
+
+		-- Lie on the ground for a moment, then fade out smoothly
+		task.delay(FELL_LIE_DURATION, function()
+			-- Collect all parts and their original transparency for fade-out
+			local parts = {}
+			for _, desc in ipairs(treeModel:GetDescendants()) do
+				if desc:IsA("BasePart") then
+					table.insert(parts, { part = desc, originalTransparency = desc.Transparency })
+				end
+			end
+
+			local fadeValue = Instance.new("NumberValue")
+			fadeValue.Value = 0
+			fadeValue:GetPropertyChangedSignal("Value"):Connect(function()
+				for _, entry in ipairs(parts) do
+					entry.part.Transparency = entry.originalTransparency + fadeValue.Value * (1 - entry.originalTransparency)
+				end
+			end)
+
+			local actualFadeTween = TweenService:Create(
+				fadeValue,
+				TweenInfo.new(FELL_FADE_DURATION, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{ Value = 1 }
+			)
+
+			actualFadeTween.Completed:Connect(function()
+				fadeValue:Destroy()
+				-- Unparent the tree to hide it during respawn timer
+				treeModel.Parent = nil
+				-- Restore transparency so the tree is visible when respawned
+				for _, entry in ipairs(parts) do
+					if entry.part then
+						entry.part.Transparency = entry.originalTransparency
+					end
+				end
+				task.delay(TREE_RESPAWN_TIME, function()
+					if not treeModel or not treeModel:GetChildren()[1] then return end
+					if not baseMap or not baseMap.Parent then return end
+					treeModel:PivotTo(startPivot)
+					treeModel.Parent = baseMap
+					registry.felled = false
+					registry.health = TREE_HEALTH
+				end)
+			end)
+
+			actualFadeTween:Play()
+		end)
+	end)
+
+	tween:Play()
+end
+
+--[[
+    @summary  Wire a ProximityPrompt onto a single tree model and
+              register it for chop tracking.
+    @param    treeModel  Model  -- a Tree/bigtree descendant of base-map
+]]
+local function registerTree(treeModel: Model)
+	if treeRegistry[treeModel] then
+		return
+	end
+
+	-- Use the tree's pivot position (base of trunk at ground level)
+	-- for range checks. This is more reliable than finding the lowest
+	-- part, which can be a tiny root far from the trunk center.
+	local pivot = treeModel:GetPivot()
+
+	treeRegistry[treeModel] = {
+		health = TREE_HEALTH,
+		part = { Position = pivot.Position },
+		pivot = pivot,
+		felled = false,
+	}
+end
+
+--[[
+    @summary  Scan the base-map for Tree/bigtree descendants and
+              register each one for chopping.  Retries until the
+              base-map has finished loading.
+]]
+local function registerAllTrees()
+	if not worldService then
+		task.defer(registerAllTrees)
+		return
+	end
+	local baseMap = worldService:GetBaseMap()
+	if not baseMap then
+		task.defer(registerAllTrees)
+		return
+	end
+	if not worldService:IsForestReady() then
+		task.defer(registerAllTrees)
+		return
+	end
+
+	local registeredCount = 0
+	for _, descendant in ipairs(baseMap:GetDescendants()) do
+		if descendant:IsA("Model") and table.find(TREE_MODEL_NAMES, descendant.Name) then
+			registerTree(descendant)
+			registeredCount += 1
+		end
+	end
+
+	print("[HarvestService] Registered", registeredCount, "trees")
+end
+
+--[[
+    @summary  Validate and process a chop attempt against one tree.
+    @param    treeModel  Model   -- the tree being chopped
+    @param    registry   table   -- the tree's tracked state
+    @param    player     Player  -- the chopping player
+]]
+local function tryChop(treeModel: Model, registry, player: Player)
+	if registry.felled then
+		return
+	end
+
+	local character = player.Character
+	if not character then
+		return
+	end
+
+	local axe = character:FindFirstChild(AXE_TOOL_NAME)
+	if not axe or not axe:IsA("Tool") then
+		return
+	end
+
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if not rootPart or not rootPart:IsA("BasePart") then
+		return
+	end
+
+	local dist = (rootPart.Position - registry.part.Position).Magnitude
+	if dist > CHOP_RANGE then
+		return
+	end
+
+	local now = os.clock()
+	if chopCooldowns[player] and (now - chopCooldowns[player]) < CHOP_COOLDOWN then
+		return
+	end
+	chopCooldowns[player] = now
+
+	registry.health -= 1
+	spawnChopVFX(registry.part.Position)
+	HarvestService.Client.TreeChopped:Fire(player, registry.part.Position)
+
+	if registry.health <= 0 then
+		local baseMap = worldService:GetBaseMap()
+		if baseMap then
+			fellTree(treeModel, baseMap)
+		end
+	end
+end
+
+--[[
+    @summary  Validate and process a wood pickup attempt.
+    @param    logModel  Model   -- the dropped Log instance
+    @param    player    Player  -- the picking player
+]]
+local function tryPickup(logModel: Model, player: Player)
+	if not logModel.Parent then
+		return
+	end
+
+	local character = player.Character
+	if not character then
+		return
+	end
+
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if not rootPart or not rootPart:IsA("BasePart") then
+		return
+	end
+
+	if (rootPart.Position - logModel:GetPivot().Position).Magnitude > PICKUP_RANGE then
+		return
+	end
+
+	playerDataService:UpdateData(player, function(data)
+		data.Resources.Wood += 1
+	end)
+	logModel:Destroy()
+end
+
+--[[
+    @summary  Route a global ProximityPrompt trigger to the matching
+              chop or pickup handler.
+    @param    prompt  ProximityPrompt  -- the triggered prompt
+    @param    player  Player           -- the triggering player
+]]
+local function onPromptTriggered(prompt: ProximityPrompt, player: Player)
+	if prompt.Name == "PickupPrompt" then
+		local logModel = prompt.Parent and prompt.Parent.Parent
+		if logModel and logModel:IsA("Model") then
+			tryPickup(logModel, player)
+		end
+	end
+end
+
+--[[
+    @summary  Find the nearest registered tree within CHOP_RANGE of
+              the player's character root part.
+    @param    player  Player  -- the chopping player
+    @returns  Model, table  -- the tree model and its registry entry, or nil
+]]
+local function findNearestTree(player: Player)
+	local character = player.Character
+	if not character then
+		return nil, nil
+	end
+
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if not rootPart or not rootPart:IsA("BasePart") then
+		return nil, nil
+	end
+
+	local nearestModel: Model? = nil
+	local nearestRegistry = nil
+	local nearestDist = math.huge
+
+	for treeModel, registry in pairs(treeRegistry) do
+		if not registry.felled then
+			local dist = (rootPart.Position - registry.part.Position).Magnitude
+			if dist < nearestDist and dist <= CHOP_RANGE then
+				nearestDist = dist
+				nearestModel = treeModel
+				nearestRegistry = registry
+			end
+		end
+	end
+
+	return nearestModel, nearestRegistry
+end
+
+--[[
+    @summary  Clone the Axe Strike KeyframeSequence to ReplicatedStorage
+              so the client can register it locally via
+              KeyframeSequenceProvider and play the swing animation.
+]]
+local function publishAxeAnimation()
+	-- Try R15 animation first (characters are R15)
+	local r15Model = ITEMS_PATH:FindFirstChild("R15 Sword Swing Animation")
+	if r15Model then
+		local dummy = r15Model:FindFirstChild("Dummy")
+		if dummy then
+			local animSaves = dummy:FindFirstChild("AnimSaves")
+			if animSaves then
+				local strikeSeq = animSaves:FindFirstChildWhichIsA("KeyframeSequence")
+				if strikeSeq then
+					local clone = strikeSeq:Clone()
+					clone.Name = "AxeStrikeKeyframeSequence"
+					clone.Priority = Enum.AnimationPriority.Action
+					clone.Parent = ReplicatedStorage
+					print("[HarvestService] R15 swing KeyframeSequence published to ReplicatedStorage")
+					return
+				end
+			end
+		end
+	end
+
+	-- Fallback: R6 animation from original asset
+	local animSaves = ITEMS_PATH:FindFirstChild("AxeAnimations")
+	if not animSaves then
+		warn("[HarvestService] AxeAnimations model not found in Assets Items")
+		return
+	end
+
+	local r6Folder = animSaves:FindFirstChild("R6 Axe Animations")
+	if not r6Folder then
+		warn("[HarvestService] R6 Axe Animations folder not found")
+		return
+	end
+
+	local saves = r6Folder:FindFirstChild("AnimSaves")
+	if not saves or not saves:IsA("ObjectValue") then
+		warn("[HarvestService] AnimSaves not found")
+		return
+	end
+
+	local strikeSeq = saves:FindFirstChild("Axe Strike")
+	if not strikeSeq or not strikeSeq:IsA("KeyframeSequence") then
+		warn("[HarvestService] Axe Strike KeyframeSequence not found")
+		return
+	end
+
+	-- Clone to ReplicatedStorage so the client can access and register it
+	local clone = strikeSeq:Clone()
+	clone.Name = "AxeStrikeKeyframeSequence"
+	clone.Parent = ReplicatedStorage
+
+	print("[HarvestService] R6 Axe Strike KeyframeSequence published to ReplicatedStorage")
+end
+
+-- // INITIALIZATION // --
+
+function HarvestService:KnitStart()
+	worldService = Knit.GetService("WorldService")
+	playerDataService = Knit.GetService("PlayerDataService")
+
+	axeTemplate = buildAxeTool()
+	publishAxeAnimation()
+	registerAllTrees()
+
+	ProximityPromptService.PromptTriggered:Connect(onPromptTriggered)
+
+	Players.PlayerAdded:Connect(giveAxe)
+	for _, player in ipairs(Players:GetPlayers()) do
+		giveAxe(player)
+	end
+
+	print("[HarvestService] Initialised — chop/pickup wired")
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	chopCooldowns[player] = nil
+end)
+
+-- // CLIENT REMOTES // --
+
+--[[
+    @summary  Client-to-server remote for click-to-chop.
+    @desc     Finds the nearest tree within range and processes the chop.
+    @param    player  Player  -- the requesting player (injected by Knit)
+]]
+function HarvestService.Client:RequestChop(player: Player)
+	local treeModel, registry = findNearestTree(player)
+	if treeModel and registry then
+		tryChop(treeModel, registry, player)
+	end
+end
+
+return HarvestService

@@ -6,3 +6,11 @@
 /*.rbxl.lock
 
 sourcemap.json
+
+# Wally packages (regenerated via `wally install`, not source)
+/Packages
+/ServerPackages
+/DevPackages
+
+# Personal GitHub profile README (not part of this project)
+/profile-README.md
