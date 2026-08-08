@@ -162,7 +162,7 @@ end
     @summary  Wire Tool.Activated on the given tool.
 ]]
 local function wireTool(tool: Tool)
-	toolJanitor:Clean()
+	toolJanitor:Cleanup()
 	equippedTool = tool
 	toolJanitor:Add(tool.Activated:Connect(onToolActivated), "Disconnect")
 end
@@ -174,8 +174,8 @@ end
 local function watchForAxe(player: Player)
 	local function checkCharacter(character: Model)
 		cachedAnimTrack = nil
-		toolJanitor:Clean()
-		charJanitor:Clean()
+		toolJanitor:Cleanup()
+		charJanitor:Cleanup()
 
 		local tool = character:FindFirstChild(AXE_TOOL_NAME)
 		if tool and tool:IsA("Tool") then
@@ -189,7 +189,7 @@ local function watchForAxe(player: Player)
 		end), "Disconnect")
 	end
 
-	janitor:Clean()
+	janitor:Cleanup()
 	janitor:Add(player.CharacterAdded:Connect(checkCharacter), "Disconnect")
 
 	if player.Character then
