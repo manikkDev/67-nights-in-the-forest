@@ -41,6 +41,7 @@ local CHOP_COOLDOWN = 0.5
 -- | State Management | --
 local janitor = Janitor.new()
 local toolJanitor = Janitor.new()
+local charJanitor = Janitor.new()
 local lastChopTime = 0
 local equippedTool: Tool? = nil
 local swingAnimationId: string? = nil
@@ -174,13 +175,14 @@ local function watchForAxe(player: Player)
 	local function checkCharacter(character: Model)
 		cachedAnimTrack = nil
 		toolJanitor:Clean()
+		charJanitor:Clean()
 
 		local tool = character:FindFirstChild(AXE_TOOL_NAME)
 		if tool and tool:IsA("Tool") then
 			wireTool(tool)
 		end
 
-		toolJanitor:Add(character.ChildAdded:Connect(function(child)
+		charJanitor:Add(character.ChildAdded:Connect(function(child)
 			if child:IsA("Tool") and child.Name == AXE_TOOL_NAME then
 				wireTool(child)
 			end
