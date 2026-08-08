@@ -195,26 +195,6 @@ local function watchForAxe(player: Player)
 	if player.Character then
 		checkCharacter(player.Character)
 	end
-
-	local backpack = player:FindFirstChildOfClass("Backpack")
-	if backpack then
-		local existingAxe = backpack:FindFirstChild(AXE_TOOL_NAME)
-		if existingAxe and existingAxe:IsA("Tool") then
-			local char = player.Character
-			if char then
-				existingAxe.Parent = char
-			end
-		end
-
-		janitor:Add(backpack.ChildAdded:Connect(function(child)
-			if child:IsA("Tool") and child.Name == AXE_TOOL_NAME then
-				local char = player.Character
-				if char then
-					child.Parent = char
-				end
-			end
-		end), "Disconnect")
-	end
 end
 
 -- // INITIALIZATION // --
