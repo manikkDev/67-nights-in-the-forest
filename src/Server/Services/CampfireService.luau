@@ -93,6 +93,7 @@ local playerDataService: any? = nil
 local fuel = MAX_FUEL
 local campfirePart: BasePart? = nil
 local fireCenter: BasePart? = nil
+local groundPart: BasePart? = nil
 local fireInstance: Fire? = nil
 local pointLight: PointLight? = nil
 local feedPrompt: ProximityPrompt? = nil
@@ -194,6 +195,21 @@ local function setupCampfire()
 		pointLight.Parent = fireCenter
 	end
 
+	-- Identify the map's ground plane so the safe zone sits on the grass
+	if map then
+		for _, descendant in ipairs(map:GetDescendants()) do
+			if
+				descendant:IsA("BasePart")
+				and descendant.Size.Y < 50
+				and descendant.Size.X > 500
+				and descendant.Size.Z > 500
+			then
+				groundPart = descendant
+				break
+			end
+		end
+	end
+
 	-- Reuse an existing feed prompt if this is a hot reload
 	local existingPrompt = campfirePart:FindFirstChild("FeedFirePrompt")
 	if existingPrompt and existingPrompt:IsA("ProximityPrompt") then
@@ -257,11 +273,31 @@ end
     @param    active   boolean  -- whether the ring is visible
 ]]
 local function updateSafeZoneVisuals(radius: number, active: boolean)
-	if not safeZoneDots or not fireCenter then
+	if not safeZoneDots or not fireCenter or not campfirePart then
 		return
 	end
 
-	local groundY = fireCenter.Position.Y + SAFE_ZONE_LINE_HEIGHT
+	local groundY: number
+	if not groundPart then
+		local dotFolder = safeZoneDots[1].Parent
+		local map = dotFolder and dotFolder.Parent
+		if map then
+			groundPart = map:FindFirstChild("Земля") :: BasePart?
+			if not groundPart then
+				for _, d in ipairs(map:GetDescendants()) do
+					if d:IsA("BasePart") and d.Size.Y < 50 and d.Size.X > 500 and d.Size.Z > 500 then
+						groundPart = d :: BasePart
+						break
+					end
+				end
+			end
+		end
+	end
+	if groundPart then
+		groundY = groundPart.Position.Y + groundPart.Size.Y * 0.5 + SAFE_ZONE_LINE_HEIGHT
+	else
+		groundY = fireCenter.Position.Y + SAFE_ZONE_LINE_HEIGHT
+	end
 	local transparency = active and SAFE_ZONE_LINE_TRANSPARENCY or SAFE_ZONE_LINE_OFF_TRANSPARENCY
 	local circumference = 2 * math.pi * radius
 	local lineLength = (circumference / SAFE_ZONE_LINE_COUNT) * SAFE_ZONE_LINE_FILL
