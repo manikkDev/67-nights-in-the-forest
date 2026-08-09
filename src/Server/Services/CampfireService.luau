@@ -77,12 +77,13 @@ local LIGHT_BRIGHTNESS_MAX = 5
 local FUEL_BROADCAST_INTERVAL = 1
 local SAFE_ZONE_RADIUS_MIN = 12
 local SAFE_ZONE_RADIUS_MAX = 35
-local SAFE_ZONE_DOT_COUNT = 32
-local SAFE_ZONE_DOT_SIZE = 1.2
-local SAFE_ZONE_DOT_COLOR = Color3.fromRGB(255, 160, 40)
-local SAFE_ZONE_DOT_MATERIAL = Enum.Material.Neon
-local SAFE_ZONE_DOT_TRANSPARENCY = 0
-local SAFE_ZONE_DOT_OFF_TRANSPARENCY = 1
+local SAFE_ZONE_LINE_COUNT = 32
+local SAFE_ZONE_LINE_THICKNESS = 0.2
+local SAFE_ZONE_LINE_FILL = 0.8
+local SAFE_ZONE_LINE_COLOR = Color3.fromRGB(255, 160, 40)
+local SAFE_ZONE_LINE_MATERIAL = Enum.Material.Neon
+local SAFE_ZONE_LINE_TRANSPARENCY = 0
+local SAFE_ZONE_LINE_OFF_TRANSPARENCY = 1
 local SAFE_ZONE_BROADCAST_THRESHOLD = 0.5
 
 -- | State Management | --
@@ -211,24 +212,24 @@ local function setupCampfire()
 		oldDisc:Destroy()
 	end
 
-	-- Create the safe zone visual: a dotted ring of small glowing balls around the campfire
+	-- Create the safe zone visual: a dashed ring of slim glowing lines around the campfire
 	local dotFolder = Instance.new("Folder")
 	dotFolder.Name = "SafeZoneDots"
 	dotFolder.Parent = map
 
 	local dots = {}
-	for i = 1, SAFE_ZONE_DOT_COUNT do
+	for i = 1, SAFE_ZONE_LINE_COUNT do
 		local dot = Instance.new("Part")
-		dot.Name = "SafeZoneDot" .. i
-		dot.Shape = Enum.PartType.Ball
+		dot.Name = "SafeZoneLine" .. i
+		dot.Shape = Enum.PartType.Cylinder
 		dot.Anchored = true
 		dot.CanCollide = false
 		dot.CanQuery = false
 		dot.CanTouch = false
-		dot.Material = SAFE_ZONE_DOT_MATERIAL
-		dot.Color = SAFE_ZONE_DOT_COLOR
-		dot.Transparency = SAFE_ZONE_DOT_OFF_TRANSPARENCY
-		dot.Size = Vector3.one * SAFE_ZONE_DOT_SIZE
+		dot.Material = SAFE_ZONE_LINE_MATERIAL
+		dot.Color = SAFE_ZONE_LINE_COLOR
+		dot.Transparency = SAFE_ZONE_LINE_OFF_TRANSPARENCY
+		dot.Size = Vector3.new(SAFE_ZONE_LINE_THICKNESS, 1, SAFE_ZONE_LINE_THICKNESS)
 		dot.CastShadow = false
 		dot.Parent = dotFolder
 		table.insert(dots, dot)
@@ -242,8 +243,41 @@ local function setupCampfire()
 end
 
 --[[
+    @summary  Position/orient the slim glowing line segments as a dashed ring
+              around the campfire with the given radius and active state.
+    @param    radius   number   -- ring radius in studs
+    @param    active   boolean  -- whether the ring is visible
+]]
+local function updateSafeZoneVisuals(radius: number, active: boolean)
+	if not safeZoneDots or not campfirePart then
+		return
+	end
+
+	local groundY = campfirePart.Position.Y + 0.05
+	local transparency = active and SAFE_ZONE_LINE_TRANSPARENCY or SAFE_ZONE_LINE_OFF_TRANSPARENCY
+	local circumference = 2 * math.pi * radius
+	local lineLength = (circumference / SAFE_ZONE_LINE_COUNT) * SAFE_ZONE_LINE_FILL
+
+	for i, dot in ipairs(safeZoneDots) do
+		local angle = (i - 1) * (2 * math.pi / SAFE_ZONE_LINE_COUNT)
+		local normal = Vector3.new(math.cos(angle), 0, math.sin(angle))
+		local tangent = Vector3.new(-math.sin(angle), 0, math.cos(angle))
+		local binormal = Vector3.new(0, 1, 0):Cross(tangent).Unit
+		local position = Vector3.new(
+			campfirePart.Position.X + normal.X * radius,
+			groundY,
+			campfirePart.Position.Z + normal.Z * radius
+		)
+
+		dot.CFrame = CFrame.fromMatrix(position, binormal, tangent)
+		dot.Size = Vector3.new(SAFE_ZONE_LINE_THICKNESS, lineLength, SAFE_ZONE_LINE_THICKNESS)
+		dot.Transparency = transparency
+	end
+end
+
+--[[
     @summary  Validate and process a feed request, depositing all of
-              the player's owned Wood into the campfire's fuel.
+              the player owned Wood into the campfire's fuel.
     @param    player  Player  -- the feeding player
 ]]
 local function feedCampfire(player: Player)
@@ -286,18 +320,7 @@ local function feedCampfire(player: Player)
 	local newRadius = SAFE_ZONE_RADIUS_MIN + (SAFE_ZONE_RADIUS_MAX - SAFE_ZONE_RADIUS_MIN) * fraction
 	currentSafeZoneRadius = newRadius
 
-	if safeZoneDots and campfirePart then
-		local groundY = campfirePart.Position.Y + 0.2
-		for i, dot in ipairs(safeZoneDots) do
-			local angle = (i - 1) * (2 * math.pi / SAFE_ZONE_DOT_COUNT)
-			dot.Position = Vector3.new(
-				campfirePart.Position.X + math.cos(angle) * newRadius,
-				groundY,
-				campfirePart.Position.Z + math.sin(angle) * newRadius
-			)
-			dot.Transparency = fuel > 0 and SAFE_ZONE_DOT_TRANSPARENCY or SAFE_ZONE_DOT_OFF_TRANSPARENCY
-		end
-	end
+	updateSafeZoneVisuals(newRadius, fuel > 0)
 
 	print("[CampfireService]", player.Name, "fed", wood, "wood — fuel now", fuel)
 end
@@ -313,6 +336,7 @@ local function onPromptTriggered(prompt: ProximityPrompt, player: Player)
 		feedCampfire(player)
 	end
 end
+
 
 --[[
     @summary  Heartbeat-driven fuel drain and visual scaling.
@@ -336,19 +360,7 @@ local function onHeartbeat(dt: number)
 	local newRadius = SAFE_ZONE_RADIUS_MIN + (SAFE_ZONE_RADIUS_MAX - SAFE_ZONE_RADIUS_MIN) * fraction
 	currentSafeZoneRadius = newRadius
 
-	if safeZoneDots and campfirePart then
-		local groundY = campfirePart.Position.Y + 0.2
-		local dotTransparency = fuel > 0 and SAFE_ZONE_DOT_TRANSPARENCY or SAFE_ZONE_DOT_OFF_TRANSPARENCY
-		for i, dot in ipairs(safeZoneDots) do
-			local angle = (i - 1) * (2 * math.pi / SAFE_ZONE_DOT_COUNT)
-			dot.Position = Vector3.new(
-				campfirePart.Position.X + math.cos(angle) * newRadius,
-				groundY,
-				campfirePart.Position.Z + math.sin(angle) * newRadius
-			)
-			dot.Transparency = dotTransparency
-		end
-	end
+	updateSafeZoneVisuals(newRadius, fuel > 0)
 
 	fuelBroadcastTimer += dt
 	if fuelBroadcastTimer >= FUEL_BROADCAST_INTERVAL then
