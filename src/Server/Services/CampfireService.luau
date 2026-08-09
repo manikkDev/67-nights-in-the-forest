@@ -92,6 +92,7 @@ local worldService: any? = nil
 local playerDataService: any? = nil
 local fuel = MAX_FUEL
 local campfirePart: BasePart? = nil
+local fireCenter: BasePart? = nil
 local fireInstance: Fire? = nil
 local pointLight: PointLight? = nil
 local feedPrompt: ProximityPrompt? = nil
@@ -144,10 +145,10 @@ end
     @returns  boolean
 ]]
 function CampfireService:IsInSafeZone(position: Vector3): boolean
-	if fuel <= 0 or not campfirePart then
+	if fuel <= 0 or not fireCenter then
 		return false
 	end
-	local flatDist = (Vector3.new(position.X, 0, position.Z) - Vector3.new(campfirePart.Position.X, 0, campfirePart.Position.Z)).Magnitude
+	local flatDist = (Vector3.new(position.X, 0, position.Z) - Vector3.new(fireCenter.Position.X, 0, fireCenter.Position.Z)).Magnitude
 	return flatDist <= currentSafeZoneRadius
 end
 
@@ -175,8 +176,9 @@ local function setupCampfire()
 		return
 	end
 
-	local firePart = bonfire:FindFirstChild("Fire", true)
-	if firePart then
+	local firePart = bonfire:FindFirstChild("Fire")
+	if firePart and firePart:IsA("BasePart") then
+		fireCenter = firePart :: BasePart
 		fireInstance = firePart:FindFirstChildOfClass("Fire")
 	end
 
@@ -185,6 +187,11 @@ local function setupCampfire()
 			pointLight = descendant
 			break
 		end
+	end
+
+	-- Move the bonfire light onto the visual fire so it shines from the center
+	if pointLight and fireCenter then
+		pointLight.Parent = fireCenter
 	end
 
 	-- Reuse an existing feed prompt if this is a hot reload
@@ -250,11 +257,11 @@ end
     @param    active   boolean  -- whether the ring is visible
 ]]
 local function updateSafeZoneVisuals(radius: number, active: boolean)
-	if not safeZoneDots or not campfirePart then
+	if not safeZoneDots or not fireCenter then
 		return
 	end
 
-	local groundY = campfirePart.Position.Y + SAFE_ZONE_LINE_HEIGHT
+	local groundY = fireCenter.Position.Y + SAFE_ZONE_LINE_HEIGHT
 	local transparency = active and SAFE_ZONE_LINE_TRANSPARENCY or SAFE_ZONE_LINE_OFF_TRANSPARENCY
 	local circumference = 2 * math.pi * radius
 	local lineLength = (circumference / SAFE_ZONE_LINE_COUNT) * SAFE_ZONE_LINE_FILL
@@ -263,9 +270,9 @@ local function updateSafeZoneVisuals(radius: number, active: boolean)
 		local angle = (i - 1) * (2 * math.pi / SAFE_ZONE_LINE_COUNT)
 		local normal = Vector3.new(math.cos(angle), 0, math.sin(angle))
 		local position = Vector3.new(
-			campfirePart.Position.X + normal.X * radius,
+			fireCenter.Position.X + normal.X * radius,
 			groundY,
-			campfirePart.Position.Z + normal.Z * radius
+			fireCenter.Position.Z + normal.Z * radius
 		)
 
 		dot.CFrame = CFrame.fromMatrix(position, normal, Vector3.new(0, 1, 0))
