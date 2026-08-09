@@ -37,13 +37,28 @@ local ProximityPromptService = game:GetService("ProximityPromptService")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 
 -- | Objects | --
-local CampfireService = Knit.CreateService({
+local createSuccess, CampfireService = pcall(Knit.CreateService, {
 	Name = "CampfireService",
 	Client = {
 		FuelChanged = Knit.CreateSignal(),
 		SafeZoneChanged = Knit.CreateSignal(),
 	},
 })
+
+if not createSuccess then
+	-- Rojo hot-reload: grab the existing service and continue so the new code runs
+	CampfireService = Knit.GetService("CampfireService") :: any
+end
+
+if not CampfireService.Client then
+	CampfireService.Client = {}
+end
+if not CampfireService.Client.FuelChanged then
+	CampfireService.Client.FuelChanged = Knit.CreateSignal()
+end
+if not CampfireService.Client.SafeZoneChanged then
+	CampfireService.Client.SafeZoneChanged = Knit.CreateSignal()
+end
 
 -- | Configuration | --
 local MAX_FUEL = 100
@@ -60,13 +75,14 @@ local LIGHT_RANGE_MAX = 30
 local LIGHT_BRIGHTNESS_MIN = 0.5
 local LIGHT_BRIGHTNESS_MAX = 5
 local FUEL_BROADCAST_INTERVAL = 1
-local SAFE_ZONE_RADIUS_MIN = 20
-local SAFE_ZONE_RADIUS_MAX = 80
-local SAFE_ZONE_HEIGHT = 0.2
-local SAFE_ZONE_COLOR = Color3.fromRGB(255, 100, 20)
-local SAFE_ZONE_TRANSPARENCY = 0.5
-local SAFE_ZONE_MATERIAL = Enum.Material.Neon
-local SAFE_ZONE_CAST_SHADOW = false
+local SAFE_ZONE_RADIUS_MIN = 12
+local SAFE_ZONE_RADIUS_MAX = 35
+local SAFE_ZONE_DOT_COUNT = 32
+local SAFE_ZONE_DOT_SIZE = 1.2
+local SAFE_ZONE_DOT_COLOR = Color3.fromRGB(255, 160, 40)
+local SAFE_ZONE_DOT_MATERIAL = Enum.Material.Neon
+local SAFE_ZONE_DOT_TRANSPARENCY = 0
+local SAFE_ZONE_DOT_OFF_TRANSPARENCY = 1
 local SAFE_ZONE_BROADCAST_THRESHOLD = 0.5
 
 -- | State Management | --
@@ -79,7 +95,7 @@ local pointLight: PointLight? = nil
 local feedPrompt: ProximityPrompt? = nil
 local feedCooldowns: { [Player]: number } = {}
 local fuelBroadcastTimer = 0
-local safeZonePart: Part? = nil
+local safeZoneDots: { Part }? = nil
 local currentSafeZoneRadius = 0
 local lastBroadcastRadius = 0
 
@@ -152,7 +168,10 @@ local function setupCampfire()
 		return
 	end
 
-	campfirePart = anchor
+	campfirePart = anchor :: BasePart
+	if not campfirePart then
+		return
+	end
 
 	local firePart = bonfire:FindFirstChild("Fire", true)
 	if firePart then
@@ -166,33 +185,56 @@ local function setupCampfire()
 		end
 	end
 
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "FeedFirePrompt"
-	prompt.ActionText = "Feed Fire"
-	prompt.ObjectText = "Campfire"
-	prompt.MaxActivationDistance = FEED_RANGE + 2
-	prompt.HoldDuration = 0.3
-	prompt.Parent = campfirePart
-	feedPrompt = prompt
+	-- Reuse an existing feed prompt if this is a hot reload
+	local existingPrompt = campfirePart:FindFirstChild("FeedFirePrompt")
+	if existingPrompt and existingPrompt:IsA("ProximityPrompt") then
+		feedPrompt = existingPrompt
+	else
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "FeedFirePrompt"
+		prompt.ActionText = "Feed Fire"
+		prompt.ObjectText = "Campfire"
+		prompt.MaxActivationDistance = FEED_RANGE + 2
+		prompt.HoldDuration = 0.3
+		prompt.Parent = campfirePart
+		feedPrompt = prompt
+	end
 
-	-- Create the safe zone visual: a thin translucent cylinder disc on the ground
-	local zone = Instance.new("Part")
-	zone.Name = "SafeZone"
-	zone.Shape = Enum.PartType.Cylinder
-	zone.Anchored = true
-	zone.CanCollide = false
-	zone.CanQuery = false
-	zone.CanTouch = false
-	zone.Material = SAFE_ZONE_MATERIAL
-	zone.Color = SAFE_ZONE_COLOR
-	zone.Transparency = SAFE_ZONE_TRANSPARENCY
-	zone.CastShadow = SAFE_ZONE_CAST_SHADOW
-	zone.Size = Vector3.new(SAFE_ZONE_HEIGHT, SAFE_ZONE_RADIUS_MIN * 2, SAFE_ZONE_RADIUS_MIN * 2)
-	-- Cylinder is oriented along its X axis; rotate 90° on Z to lay it flat, then align to ground
-	local groundPos = anchor.Position
-	zone.CFrame = CFrame.new(groundPos.X, groundPos.Y + 0.05, groundPos.Z) * CFrame.Angles(0, 0, math.rad(90))
-	zone.Parent = bonfire.Parent
-	safeZonePart = zone
+	-- Remove any old safe zone visuals (disc or previous dots) before creating fresh dots
+	local map = bonfire.Parent
+	local oldFolder = map and map:FindFirstChild("SafeZoneDots")
+	if oldFolder then
+		oldFolder:Destroy()
+	end
+	local oldDisc = map and map:FindFirstChild("SafeZone")
+	if oldDisc then
+		oldDisc:Destroy()
+	end
+
+	-- Create the safe zone visual: a dotted ring of small glowing balls around the campfire
+	local dotFolder = Instance.new("Folder")
+	dotFolder.Name = "SafeZoneDots"
+	dotFolder.Parent = map
+
+	local dots = {}
+	for i = 1, SAFE_ZONE_DOT_COUNT do
+		local dot = Instance.new("Part")
+		dot.Name = "SafeZoneDot" .. i
+		dot.Shape = Enum.PartType.Ball
+		dot.Anchored = true
+		dot.CanCollide = false
+		dot.CanQuery = false
+		dot.CanTouch = false
+		dot.Material = SAFE_ZONE_DOT_MATERIAL
+		dot.Color = SAFE_ZONE_DOT_COLOR
+		dot.Transparency = SAFE_ZONE_DOT_OFF_TRANSPARENCY
+		dot.Size = Vector3.one * SAFE_ZONE_DOT_SIZE
+		dot.CastShadow = false
+		dot.Parent = dotFolder
+		table.insert(dots, dot)
+	end
+
+	safeZoneDots = dots
 
 	currentSafeZoneRadius = SAFE_ZONE_RADIUS_MIN
 
@@ -239,17 +281,23 @@ local function feedCampfire(player: Player)
 
 	fuel = math.clamp(fuel + wood * WOOD_FUEL_VALUE, 0, MAX_FUEL)
 	local fraction = fuel / MAX_FUEL
-	CampfireService.Client.FuelChanged:FireAll(fuel, fraction)
 
 	-- Immediately update safe zone and broadcast
 	local newRadius = SAFE_ZONE_RADIUS_MIN + (SAFE_ZONE_RADIUS_MAX - SAFE_ZONE_RADIUS_MIN) * fraction
-	if safeZonePart and campfirePart then
-		safeZonePart.Size = Vector3.new(SAFE_ZONE_HEIGHT, newRadius * 2, newRadius * 2)
-		safeZonePart.Transparency = SAFE_ZONE_TRANSPARENCY
-	end
 	currentSafeZoneRadius = newRadius
-	CampfireService.Client.SafeZoneChanged:FireAll(newRadius, fuel > 0)
-	lastBroadcastRadius = newRadius
+
+	if safeZoneDots and campfirePart then
+		local groundY = campfirePart.Position.Y + 0.2
+		for i, dot in ipairs(safeZoneDots) do
+			local angle = (i - 1) * (2 * math.pi / SAFE_ZONE_DOT_COUNT)
+			dot.Position = Vector3.new(
+				campfirePart.Position.X + math.cos(angle) * newRadius,
+				groundY,
+				campfirePart.Position.Z + math.sin(angle) * newRadius
+			)
+			dot.Transparency = fuel > 0 and SAFE_ZONE_DOT_TRANSPARENCY or SAFE_ZONE_DOT_OFF_TRANSPARENCY
+		end
+	end
 
 	print("[CampfireService]", player.Name, "fed", wood, "wood — fuel now", fuel)
 end
@@ -288,23 +336,26 @@ local function onHeartbeat(dt: number)
 	local newRadius = SAFE_ZONE_RADIUS_MIN + (SAFE_ZONE_RADIUS_MAX - SAFE_ZONE_RADIUS_MIN) * fraction
 	currentSafeZoneRadius = newRadius
 
-	if safeZonePart and campfirePart then
-		if fuel > 0 then
-			safeZonePart.Size = Vector3.new(SAFE_ZONE_HEIGHT, newRadius * 2, newRadius * 2)
-			safeZonePart.Transparency = SAFE_ZONE_TRANSPARENCY
-		else
-			safeZonePart.Transparency = 1
+	if safeZoneDots and campfirePart then
+		local groundY = campfirePart.Position.Y + 0.2
+		local dotTransparency = fuel > 0 and SAFE_ZONE_DOT_TRANSPARENCY or SAFE_ZONE_DOT_OFF_TRANSPARENCY
+		for i, dot in ipairs(safeZoneDots) do
+			local angle = (i - 1) * (2 * math.pi / SAFE_ZONE_DOT_COUNT)
+			dot.Position = Vector3.new(
+				campfirePart.Position.X + math.cos(angle) * newRadius,
+				groundY,
+				campfirePart.Position.Z + math.sin(angle) * newRadius
+			)
+			dot.Transparency = dotTransparency
 		end
 	end
 
 	fuelBroadcastTimer += dt
 	if fuelBroadcastTimer >= FUEL_BROADCAST_INTERVAL then
 		fuelBroadcastTimer = 0
-		CampfireService.Client.FuelChanged:FireAll(fuel, fraction)
 
 		-- Broadcast safe zone changes when radius shifts by >= threshold
 		if math.abs(newRadius - lastBroadcastRadius) >= SAFE_ZONE_BROADCAST_THRESHOLD then
-			CampfireService.Client.SafeZoneChanged:FireAll(newRadius, fuel > 0)
 			lastBroadcastRadius = newRadius
 		end
 	end
@@ -334,10 +385,30 @@ function CampfireService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 
 	setupCampfire()
-	RunService.Heartbeat:Connect(onHeartbeat)
-	ProximityPromptService.PromptTriggered:Connect(onPromptTriggered)
+	CampfireService._HeartbeatConnection = RunService.Heartbeat:Connect(onHeartbeat)
+	CampfireService._PromptConnection = ProximityPromptService.PromptTriggered:Connect(onPromptTriggered)
 
 	print("[CampfireService] Initialised — fuel drain active")
+end
+
+-- Rojo hot-reload path: if the service already existed, the new module's KnitStart
+-- won't be called by Knit, so run setup and wire events directly.
+if not createSuccess then
+	worldService = Knit.GetService("WorldService")
+	playerDataService = Knit.GetService("PlayerDataService")
+
+	if CampfireService._HeartbeatConnection then
+		CampfireService._HeartbeatConnection:Disconnect()
+	end
+	if CampfireService._PromptConnection then
+		CampfireService._PromptConnection:Disconnect()
+	end
+
+	setupCampfire()
+	CampfireService._HeartbeatConnection = RunService.Heartbeat:Connect(onHeartbeat)
+	CampfireService._PromptConnection = ProximityPromptService.PromptTriggered:Connect(onPromptTriggered)
+
+	print("[CampfireService] Hot-reloaded — dotted safe zone wired")
 end
 
 Players.PlayerRemoving:Connect(function(player)
