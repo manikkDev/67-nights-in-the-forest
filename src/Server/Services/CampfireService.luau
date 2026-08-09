@@ -75,12 +75,13 @@ local LIGHT_RANGE_MAX = 30
 local LIGHT_BRIGHTNESS_MIN = 0.5
 local LIGHT_BRIGHTNESS_MAX = 5
 local FUEL_BROADCAST_INTERVAL = 1
-local SAFE_ZONE_RADIUS_MIN = 12
-local SAFE_ZONE_RADIUS_MAX = 35
-local SAFE_ZONE_LINE_COUNT = 32
-local SAFE_ZONE_LINE_THICKNESS = 0.2
-local SAFE_ZONE_LINE_FILL = 0.8
-local SAFE_ZONE_LINE_COLOR = Color3.fromRGB(255, 160, 40)
+local SAFE_ZONE_RADIUS_MIN = 25
+local SAFE_ZONE_RADIUS_MAX = 70
+local SAFE_ZONE_LINE_COUNT = 40
+local SAFE_ZONE_LINE_THICKNESS = 0.5
+local SAFE_ZONE_LINE_HEIGHT = 0.05
+local SAFE_ZONE_LINE_FILL = 0.65
+local SAFE_ZONE_LINE_COLOR = Color3.fromRGB(220, 255, 220)
 local SAFE_ZONE_LINE_MATERIAL = Enum.Material.Neon
 local SAFE_ZONE_LINE_TRANSPARENCY = 0
 local SAFE_ZONE_LINE_OFF_TRANSPARENCY = 1
@@ -221,7 +222,7 @@ local function setupCampfire()
 	for i = 1, SAFE_ZONE_LINE_COUNT do
 		local dot = Instance.new("Part")
 		dot.Name = "SafeZoneLine" .. i
-		dot.Shape = Enum.PartType.Cylinder
+		dot.Shape = Enum.PartType.Block
 		dot.Anchored = true
 		dot.CanCollide = false
 		dot.CanQuery = false
@@ -229,7 +230,7 @@ local function setupCampfire()
 		dot.Material = SAFE_ZONE_LINE_MATERIAL
 		dot.Color = SAFE_ZONE_LINE_COLOR
 		dot.Transparency = SAFE_ZONE_LINE_OFF_TRANSPARENCY
-		dot.Size = Vector3.new(SAFE_ZONE_LINE_THICKNESS, 1, SAFE_ZONE_LINE_THICKNESS)
+		dot.Size = Vector3.new(SAFE_ZONE_LINE_THICKNESS, SAFE_ZONE_LINE_HEIGHT, 1)
 		dot.CastShadow = false
 		dot.Parent = dotFolder
 		table.insert(dots, dot)
@@ -253,7 +254,7 @@ local function updateSafeZoneVisuals(radius: number, active: boolean)
 		return
 	end
 
-	local groundY = campfirePart.Position.Y + 0.05
+	local groundY = campfirePart.Position.Y + SAFE_ZONE_LINE_HEIGHT
 	local transparency = active and SAFE_ZONE_LINE_TRANSPARENCY or SAFE_ZONE_LINE_OFF_TRANSPARENCY
 	local circumference = 2 * math.pi * radius
 	local lineLength = (circumference / SAFE_ZONE_LINE_COUNT) * SAFE_ZONE_LINE_FILL
@@ -261,16 +262,14 @@ local function updateSafeZoneVisuals(radius: number, active: boolean)
 	for i, dot in ipairs(safeZoneDots) do
 		local angle = (i - 1) * (2 * math.pi / SAFE_ZONE_LINE_COUNT)
 		local normal = Vector3.new(math.cos(angle), 0, math.sin(angle))
-		local tangent = Vector3.new(-math.sin(angle), 0, math.cos(angle))
-		local binormal = Vector3.new(0, 1, 0):Cross(tangent).Unit
 		local position = Vector3.new(
 			campfirePart.Position.X + normal.X * radius,
 			groundY,
 			campfirePart.Position.Z + normal.Z * radius
 		)
 
-		dot.CFrame = CFrame.fromMatrix(position, binormal, tangent)
-		dot.Size = Vector3.new(SAFE_ZONE_LINE_THICKNESS, lineLength, SAFE_ZONE_LINE_THICKNESS)
+		dot.CFrame = CFrame.fromMatrix(position, normal, Vector3.new(0, 1, 0))
+		dot.Size = Vector3.new(SAFE_ZONE_LINE_THICKNESS, SAFE_ZONE_LINE_HEIGHT, lineLength)
 		dot.Transparency = transparency
 	end
 end
