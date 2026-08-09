@@ -167,6 +167,7 @@ local function setupCampfire()
 
 	local bonfire = worldService:GetBonfire()
 	local anchor = worldService:GetCampfire()
+	local map = bonfire and bonfire.Parent
 	if not bonfire or not anchor then
 		task.defer(setupCampfire)
 		return
@@ -226,7 +227,6 @@ local function setupCampfire()
 	end
 
 	-- Remove any old safe zone visuals (disc or previous dots) before creating fresh dots
-	local map = bonfire.Parent
 	local oldFolder = map and map:FindFirstChild("SafeZoneDots")
 	if oldFolder then
 		oldFolder:Destroy()
@@ -280,11 +280,11 @@ local function updateSafeZoneVisuals(radius: number, active: boolean)
 	local groundY: number
 	if not groundPart then
 		local dotFolder = safeZoneDots[1].Parent
-		local map = dotFolder and dotFolder.Parent
-		if map then
-			groundPart = map:FindFirstChild("Земля") :: BasePart?
+		local dotMap = dotFolder and dotFolder.Parent
+		if dotMap then
+			groundPart = dotMap:FindFirstChild("Земля") :: BasePart?
 			if not groundPart then
-				for _, d in ipairs(map:GetDescendants()) do
+				for _, d in ipairs(dotMap:GetDescendants()) do
 					if d:IsA("BasePart") and d.Size.Y < 50 and d.Size.X > 500 and d.Size.Z > 500 then
 						groundPart = d :: BasePart
 						break
