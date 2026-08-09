@@ -186,15 +186,52 @@ local function createCampfire(map: Model, ground: CFrame): Part
 end
 
 --[[
-    @summary  Clone and place the visual Bonfire model at the campfire anchor.
-    @desc     Clones the Bonfire model from Assets Items and positions it
-              at the ground-level campfire position.  The bonfire's base
-              is offset so it sits flush on the ground.
-    @param    map     Model   -- the cloned base-map
+    @summary  Place the visual Bonfire model at the campfire anchor.
+    @desc     If a Bonfire model was pre-placed in the map at edit time,
+              reuses it (positioning, lighting, anchoring).  Otherwise
+              clones one from Assets Items.  The bonfire's base is
+              offset so it sits flush on the ground.
+    @param    map     Model   -- the base-map
     @param    ground  CFrame  -- ground-level CFrame from findGroundCFrame
     @returns  Model?
 ]]
 local function placeBonfire(map: Model, ground: CFrame): Model?
+	-- Reuse an existing Bonfire if one was pre-placed in the map at edit time
+	local existing = map:FindFirstChild("Bonfire")
+	if existing and existing:IsA("Model") then
+		-- Position it at ground level (in case the map was moved)
+		local scaledPivot = existing:GetPivot()
+		local minY = math.huge
+		for _, desc in ipairs(existing:GetDescendants()) do
+			if desc:IsA("BasePart") and desc.Position.Y < minY then
+				minY = desc.Position.Y
+			end
+		end
+		local bonfireBaseOffset = scaledPivot.Position.Y - minY
+		existing:PivotTo(ground * CFrame.new(0, bonfireBaseOffset, 0))
+
+		-- Add a PointLight for night-time visibility if not already present
+		local lightPart = existing:FindFirstChildWhichIsA("BasePart", true)
+		if lightPart and not lightPart:FindFirstChild("BonfireLight") then
+			local pointLight = Instance.new("PointLight")
+			pointLight.Name = "BonfireLight"
+			pointLight.Color = Color3.fromRGB(255, 140, 50)
+			pointLight.Range = 30
+			pointLight.Brightness = 5
+			pointLight.Parent = lightPart
+		end
+
+		-- Ensure all parts are anchored
+		for _, desc in ipairs(existing:GetDescendants()) do
+			if desc:IsA("BasePart") then
+				desc.Anchored = true
+			end
+		end
+
+		return existing
+	end
+
+	-- No pre-placed Bonfire — clone one from Assets Items
 	local source = ITEMS_PATH:FindFirstChild("Bonfire")
 	if not source then
 		warn("[WorldService] Bonfire model not found in Assets Items")
@@ -203,11 +240,8 @@ local function placeBonfire(map: Model, ground: CFrame): Model?
 	local clone = source:Clone()
 	clone.Name = "Bonfire"
 
-	-- Scale up the bonfire model by applying ScaleTo on all parts
 	clone:ScaleTo(BONFIRE_SCALE)
 
-	-- The bonfire pivot is slightly above its base; place it so the
-	-- base rests on the ground surface after scaling.
 	local scaledPivot = clone:GetPivot()
 	local minY = math.huge
 	for _, desc in ipairs(clone:GetDescendants()) do
@@ -218,7 +252,6 @@ local function placeBonfire(map: Model, ground: CFrame): Model?
 	local bonfireBaseOffset = scaledPivot.Position.Y - minY
 	clone:PivotTo(ground * CFrame.new(0, bonfireBaseOffset, 0))
 
-	-- Add a PointLight for night-time visibility
 	local lightPart = clone:FindFirstChildWhichIsA("BasePart", true)
 	if lightPart then
 		local pointLight = Instance.new("PointLight")
@@ -229,7 +262,6 @@ local function placeBonfire(map: Model, ground: CFrame): Model?
 		pointLight.Parent = lightPart
 	end
 
-	-- Anchor all parts so the bonfire doesn't fall
 	for _, desc in ipairs(clone:GetDescendants()) do
 		if desc:IsA("BasePart") then
 			desc.Anchored = true

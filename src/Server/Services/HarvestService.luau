@@ -242,7 +242,7 @@ local function fellTree(treeModel: Model, baseMap: Model)
 
 	local startPivot = registry.pivot
 
-	-- Find the lowest point of the tree so it rotates around its base,
+	-- Find the lowest point of the tree so we can rotate around its base,
 	-- not its geometric center (which causes floating).
 	local lowestY = math.huge
 	for _, desc in ipairs(treeModel:GetDescendants()) do
@@ -257,8 +257,9 @@ local function fellTree(treeModel: Model, baseMap: Model)
 		lowestY = startPivot.Position.Y
 	end
 
-	-- Build a ground-level pivot: same X/Z/rotation as the tree, but at the base Y
-	local basePivot = CFrame.new(startPivot.Position.X, lowestY, startPivot.Position.Z) * startPivot.Rotation
+	-- Base rotation point at ground level directly below the tree pivot
+	local basePos = Vector3.new(startPivot.Position.X, lowestY, startPivot.Position.Z)
+	local baseCFrame = CFrame.new(basePos)
 
 	local yaw = math.random() * math.pi * 2
 	local fallAngle = Instance.new("NumberValue")
@@ -266,9 +267,10 @@ local function fellTree(treeModel: Model, baseMap: Model)
 
 	local function applyFall(degrees: number)
 		local rad = math.rad(degrees)
-		treeModel:PivotTo(
-			basePivot * CFrame.Angles(0, yaw, 0) * CFrame.Angles(rad, 0, 0) * CFrame.Angles(0, -yaw, 0)
-		)
+		local rotation = CFrame.Angles(0, yaw, 0) * CFrame.Angles(rad, 0, 0) * CFrame.Angles(0, -yaw, 0)
+		-- Rotate the tree's original pivot around the base point:
+		-- translate to base, apply rotation, translate back
+		treeModel:PivotTo(baseCFrame * rotation * baseCFrame:Inverse() * startPivot)
 	end
 
 	fallAngle:GetPropertyChangedSignal("Value"):Connect(function()
