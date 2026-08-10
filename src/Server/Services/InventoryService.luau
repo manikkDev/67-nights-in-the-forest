@@ -30,6 +30,7 @@ local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
+local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -55,6 +56,9 @@ local PICKUP_RANGE = 12
 local DROP_SPACING = 2.2
 local DROP_LIFETIME = 300
 
+local DRAG_ATTACHMENT_OFFSET = Vector3.new(0, 1, -3)
+local DRAG_MAX_DISTANCE = 50
+
 -- Map resources to the asset name in ITEMS_PATH.  Mushrooms are built procedurally.
 local DROP_ASSETS: { [string]: string? } = {
 	Wood = "Log",
@@ -69,6 +73,9 @@ local playerDataService: any? = nil
 local worldService: any? = nil
 local bagTemplate: Tool? = nil
 
+local dragging: { [Player]: { model: Model, alignPos: AlignPosition, alignOri: AlignOrientation, playerAttach: Attachment, itemAttach: Attachment, originalCanCollide: { [BasePart]: boolean } } } = {}
+local draggedBy: { [Model]: Player } = {}
+
 -- // FUNCTIONS // --
 
 local function getPlayerData(player: Player): any?
@@ -76,6 +83,13 @@ local function getPlayerData(player: Player): any?
 		return nil
 	end
 	return playerDataService:GetData(player)
+end
+
+--[[
+    @summary  Returns true if the given model is already being dragged.
+]]
+local function isModelDragged(model: Model): boolean
+	return draggedBy[model] ~= nil
 end
 
 local function updatePlayerData(player: Player, fn: (data: any) -> ())
@@ -100,6 +114,15 @@ function InventoryService:GetCapacity(player: Player): number
 		capacity += BAG_CAPACITY_BONUS
 	end
 	return capacity
+end
+
+--[[
+    @summary  Sum every resource field into one carried total.
+    @param    player  Player  -- the Roblox player
+    @returns  number
+]]
+function InventoryService:IsModelDragged(model: Model): boolean
+	return draggedBy[model] ~= nil
 end
 
 --[[
@@ -324,6 +347,9 @@ local function tryPickup(model: Model, player: Player): boolean
 	if not model.Parent then
 		return false
 	end
+	if isModelDragged(model) then
+		return false
+	end
 
 	local resourceName = model:GetAttribute("Resource")
 		or model:GetAttribute("PickupResource")
@@ -494,6 +520,210 @@ local function tryDropOne(player: Player): boolean
 	return true
 end
 
+--[[
+    @summary  Remove a player's drag constraints and restore the item.
+    @param    player  Player
+]]
+local function stopDrag(player: Player)
+	local entry = dragging[player]
+	if not entry then
+		return
+	end
+
+	if entry.alignPos then
+		entry.alignPos:Destroy()
+	end
+	if entry.alignOri then
+		entry.alignOri:Destroy()
+	end
+	if entry.playerAttach then
+		entry.playerAttach:Destroy()
+	end
+	if entry.itemAttach then
+		entry.itemAttach:Destroy()
+	end
+
+	local model = entry.model
+	if model and model.Parent then
+		for _, desc in ipairs(model:GetDescendants()) do
+			if desc:IsA("BasePart") then
+				if entry.originalCanCollide[desc] ~= nil then
+					desc.CanCollide = entry.originalCanCollide[desc]
+				end
+			end
+		end
+
+		local primaryPart = model.PrimaryPart
+		if primaryPart and primaryPart.Parent then
+			pcall(function()
+				primaryPart:SetNetworkOwner(nil)
+			end)
+		end
+	end
+
+	dragging[player] = nil
+	if model then
+		draggedBy[model] = nil
+	end
+end
+
+--[[
+    @summary  Validate and start dragging a world item for a player.
+    @param    player  Player
+    @param    model   Model
+    @returns  boolean
+]]
+local function tryStartDrag(player: Player, model: Model): boolean
+	if not model or not model:IsA("Model") or not model.Parent then
+		return false
+	end
+
+	local resourceName = model:GetAttribute("Resource")
+		or model:GetAttribute("PickupResource")
+		or model:GetAttribute("ForageResource")
+	if not resourceName or typeof(resourceName) ~= "string" then
+		return false
+	end
+	if not table.find(RESOURCE_NAMES, resourceName) then
+		return false
+	end
+
+	-- Only allow dragging dropped items and felled logs, not live forage spawns.
+	if model:GetAttribute("ForageResource") and not model:GetAttribute("Resource") and not model:GetAttribute("PickupResource") then
+		return false
+	end
+
+	if not worldService then
+		return false
+	end
+	local baseMap = worldService:GetBaseMap()
+	if not baseMap or not model:IsDescendantOf(baseMap) then
+		return false
+	end
+	if dragging[player] then
+		return false
+	end
+	if draggedBy[model] then
+		return false
+	end
+
+	local character = player.Character
+	if not character then
+		return false
+	end
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp or not hrp:IsA("BasePart") then
+		return false
+	end
+	local primaryPart = model.PrimaryPart
+	if not primaryPart then
+		return false
+	end
+	if (hrp.Position - model:GetPivot().Position).Magnitude > PICKUP_RANGE then
+		return false
+	end
+
+	local originalCanCollide: { [BasePart]: boolean } = {}
+	for _, desc in ipairs(model:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			originalCanCollide[desc] = desc.CanCollide
+			desc.Anchored = false
+			desc.CanCollide = false
+		end
+	end
+
+	pcall(function()
+		primaryPart:SetNetworkOwner(player)
+	end)
+
+	local playerAttach = Instance.new("Attachment")
+	playerAttach.Name = "DragPlayerAttachment"
+	playerAttach.Position = DRAG_ATTACHMENT_OFFSET
+	playerAttach.Parent = hrp
+
+	local itemAttach = Instance.new("Attachment")
+	itemAttach.Name = "DragItemAttachment"
+	itemAttach.Position = Vector3.zero
+	itemAttach.Parent = primaryPart
+
+	local alignPos = Instance.new("AlignPosition")
+	alignPos.Name = "DragAlignPosition"
+	alignPos.Attachment0 = itemAttach
+	alignPos.Attachment1 = playerAttach
+	alignPos.RigidityEnabled = false
+	alignPos.Responsiveness = 25
+	alignPos.MaxForce = 1e5
+	alignPos.ApplyAtCenterOfMass = true
+	alignPos.Parent = primaryPart
+
+	local alignOri = Instance.new("AlignOrientation")
+	alignOri.Name = "DragAlignOrientation"
+	alignOri.Attachment0 = itemAttach
+	alignOri.Attachment1 = playerAttach
+	alignOri.RigidityEnabled = false
+	alignOri.Responsiveness = 20
+	alignOri.MaxTorque = 1e5
+	alignOri.Parent = primaryPart
+
+	dragging[player] = {
+		model = model,
+		alignPos = alignPos,
+		alignOri = alignOri,
+		playerAttach = playerAttach,
+		itemAttach = itemAttach,
+		originalCanCollide = originalCanCollide,
+	}
+	draggedBy[model] = player
+	return true
+end
+
+--[[
+    @summary  Drop any drag whose model, player, or distance has become invalid.
+]]
+local function cleanupDrags()
+	local toStop: { Player } = {}
+	for player, entry in pairs(dragging) do
+		local character = player.Character
+		local hrp = character and character:FindFirstChild("HumanoidRootPart")
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+		local model = entry.model
+		if not model or not model.Parent then
+			table.insert(toStop, player)
+			continue
+		end
+
+		if not hrp or not hrp:IsA("BasePart") or humanoid and humanoid.Health <= 0 then
+			table.insert(toStop, player)
+			continue
+		end
+
+		local primaryPart = model.PrimaryPart
+		if not primaryPart or not primaryPart:IsA("BasePart") or not primaryPart.Parent then
+			table.insert(toStop, player)
+			continue
+		end
+
+		if (hrp.Position - primaryPart.Position).Magnitude > DRAG_MAX_DISTANCE then
+			table.insert(toStop, player)
+			continue
+		end
+
+		if not worldService then
+			continue
+		end
+		local baseMap = worldService:GetBaseMap()
+		if not baseMap or not model:IsDescendantOf(baseMap) then
+			table.insert(toStop, player)
+			continue
+		end
+	end
+
+	for _, player in ipairs(toStop) do
+		stopDrag(player)
+	end
+end
+
 -- // CLIENT REMOTES // --
 
 --[[
@@ -525,6 +755,29 @@ end
 ]]
 function InventoryService.Client:RequestDropOne(player: Player): boolean
 	return tryDropOne(player)
+end
+
+--[[
+    @summary  Client-to-server remote to start dragging a world item.
+    @param    player  Player  -- injected by Knit
+    @param    model   Model   -- the item to drag
+    @returns  boolean
+]]
+function InventoryService.Client:RequestDragStart(player: Player, model: Model): boolean
+	return tryStartDrag(player, model)
+end
+
+--[[
+    @summary  Client-to-server remote to stop dragging and release the item.
+    @param    player  Player  -- injected by Knit
+    @returns  boolean
+]]
+function InventoryService.Client:RequestDragStop(player: Player): boolean
+	if not dragging[player] then
+		return false
+	end
+	stopDrag(player)
+	return true
 end
 
 --[[
@@ -645,6 +898,23 @@ function InventoryService:KnitStart()
 			giveCarryBag(player)
 		end
 	end
+
+	Players.PlayerRemoving:Connect(stopDrag)
+	local function onCharacterRemoving(player: Player)
+		stopDrag(player)
+	end
+	Players.PlayerAdded:Connect(function(player: Player)
+		player.CharacterRemoving:Connect(function()
+			onCharacterRemoving(player)
+		end)
+	end)
+	for _, player in ipairs(Players:GetPlayers()) do
+		player.CharacterRemoving:Connect(function()
+			onCharacterRemoving(player)
+		end)
+	end
+
+	RunService.Heartbeat:Connect(cleanupDrags)
 
 	print("[InventoryService] Initialised — capacity & carry-bag tool active")
 end

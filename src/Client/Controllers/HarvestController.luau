@@ -145,7 +145,13 @@ end
     @desc     Checks client-side cooldown, plays the swing animation,
               and fires the server RequestChop remote.
 ]]
+local CarryController = require(script.Parent.CarryController)
+
 local function onToolActivated()
+	if CarryController.IsDragging() or CarryController.GetHoveredModel() then
+		return
+	end
+
 	local now = os.clock()
 	if (now - lastChopTime) < CHOP_COOLDOWN then
 		return

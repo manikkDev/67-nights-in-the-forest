@@ -447,6 +447,9 @@ local function tryPickup(logModel: Model, player: Player): boolean
 	if not logModel.Parent then
 		return false
 	end
+	if inventoryService and inventoryService:IsModelDragged(logModel) then
+		return false
+	end
 
 	local character = player.Character
 	if not character then

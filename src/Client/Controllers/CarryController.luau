@@ -55,6 +55,9 @@ local hoveredModel: Model? = nil
 local hoverHighlight: Highlight? = nil
 local hoverNameGui: BillboardGui? = nil
 
+local draggingModel: Model? = nil
+local draggingResourceName: string? = nil
+
 -- // FUNCTIONS // --
 
 --[[
@@ -174,8 +177,17 @@ end
     @param    model        Model    -- the model to highlight
     @param    resourceName string   -- the display name
 ]]
-local function setHover(model: Model, resourceName: string)
-	if hoveredModel == model then
+local function setHover(model: Model, resourceName: string, promptText: string?)
+	promptText = promptText or "[F] Pickup"
+
+	if hoveredModel == model and hoverNameGui then
+		local background = hoverNameGui:FindFirstChild("LabelBackground")
+		if background then
+			local prompt = background:FindFirstChild("PromptLabel")
+			if prompt and prompt:IsA("TextLabel") then
+				prompt.Text = promptText
+			end
+		end
 		return
 	end
 	clearHover()
@@ -241,7 +253,7 @@ local function setHover(model: Model, resourceName: string)
 	prompt.Size = UDim2.new(1, -8, 0.4, 0)
 	prompt.Position = UDim2.new(0, 4, 0.55, 0)
 	prompt.BackgroundTransparency = 1
-	prompt.Text = "[F] Pickup"
+	prompt.Text = promptText
 	prompt.TextColor3 = Color3.fromRGB(180, 220, 255)
 	prompt.Font = Enum.Font.Gotham
 	prompt.TextSize = 12
@@ -254,6 +266,17 @@ end
     @summary  Per-frame hover check so items highlight as the cursor moves.
 ]]
 local function updateHover()
+	if draggingModel and draggingResourceName then
+		if not draggingModel.Parent then
+			draggingModel = nil
+			draggingResourceName = nil
+			clearHover()
+			return
+		end
+		setHover(draggingModel, draggingResourceName, "Release [LMB]")
+		return
+	end
+
 	if isMouseOverGui() then
 		clearHover()
 		return
@@ -267,7 +290,7 @@ local function updateHover()
 
 	local model, resourceName = findPickupModel(instance)
 	if model and resourceName then
-		setHover(model, resourceName)
+		setHover(model, resourceName, "[LMB] Drag | [F] Pickup")
 	else
 		clearHover()
 	end
@@ -324,13 +347,72 @@ local function dropOne()
 end
 
 --[[
+    @summary  Start dragging a world item with LMB.
+    @param    model         Model
+    @param    resourceName  string
+    @returns  boolean
+]]
+local function startDrag(model: Model, resourceName: string): boolean
+	if not isInRange(model) or not inventoryService then
+		return false
+	end
+
+	local ok = inventoryService:RequestDragStart(model)
+	if ok then
+		draggingModel = model
+		draggingResourceName = resourceName
+	end
+	return ok
+end
+
+--[[
+    @summary  Release the currently dragged item.
+]]
+local function stopDrag()
+	if inventoryService then
+		inventoryService:RequestDragStop()
+	end
+	draggingModel = nil
+	draggingResourceName = nil
+end
+
+--[[
     @summary  Handle keyboard input for the pickup/drop key.
 ]]
 local function onInputBegan(input: InputObject, gameProcessed: boolean)
 	if gameProcessed then
 		return
 	end
+
+	-- LMB drag start.
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if isMouseOverGui() then
+			return
+		end
+		if draggingModel then
+			return
+		end
+		if UserInputService:GetFocusedTextBox() then
+			return
+		end
+
+		local instance = getMouseRay()
+		if not instance then
+			return
+		end
+
+		local model, resourceName = findPickupModel(instance)
+		if model and resourceName then
+			startDrag(model, resourceName)
+		end
+		return
+	end
+
+	-- F key pickup/drop-one.
 	if input.KeyCode ~= PICKUP_KEY then
+		return
+	end
+	if draggingModel then
 		return
 	end
 	if isMouseOverGui() then
@@ -356,6 +438,17 @@ local function onInputBegan(input: InputObject, gameProcessed: boolean)
 	end
 end
 
+--[[
+    @summary  Release LMB drag.
+]]
+local function onInputEnded(input: InputObject)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if draggingModel then
+			stopDrag()
+		end
+	end
+end
+
 -- // INITIALIZATION // --
 
 function CarryController:KnitStart()
@@ -364,9 +457,21 @@ function CarryController:KnitStart()
 	inventoryService = Knit.GetService("InventoryService")
 
 	UserInputService.InputBegan:Connect(onInputBegan)
+	UserInputService.InputEnded:Connect(onInputEnded)
 	RunService.RenderStepped:Connect(updateHover)
 
 	print("[CarryController] Initialised — cursor F-pickup/drop active")
+end
+
+--[[
+    @summary  Expose drag/hover state so other controllers can be context-aware.
+]]
+function CarryController.IsDragging(): boolean
+	return draggingModel ~= nil
+end
+
+function CarryController.GetHoveredModel(): Model?
+	return hoveredModel
 end
 
 return CarryController

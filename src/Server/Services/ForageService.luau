@@ -194,6 +194,9 @@ local function tryForagePickup(model: Model, player: Player): boolean
 	if not model.Parent then
 		return false
 	end
+	if inventoryService and inventoryService:IsModelDragged(model) then
+		return false
+	end
 
 	local resourceName = model:GetAttribute("ForageResource")
 	if not resourceName then
