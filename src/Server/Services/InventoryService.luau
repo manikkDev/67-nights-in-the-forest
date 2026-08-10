@@ -67,7 +67,7 @@ function InventoryService:GetCapacity(player: Player): number
 		return BASE_CAPACITY
 	end
 	local capacity = BASE_CAPACITY
-	if data.Inventory and data.Inventory.HasBag then
+	if not data.Inventory or data.Inventory.HasBag ~= false then
 		capacity += BAG_CAPACITY_BONUS
 	end
 	return capacity
@@ -212,7 +212,7 @@ local function giveCarryBag(player: Player)
 	end
 
 	local data = playerDataService:GetData(player)
-	if not data or not data.Inventory or not data.Inventory.HasBag then
+	if data and data.Inventory and data.Inventory.HasBag == false then
 		return
 	end
 
