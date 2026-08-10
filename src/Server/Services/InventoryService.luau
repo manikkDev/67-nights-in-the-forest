@@ -645,7 +645,7 @@ local function tryStartDrag(player: Player, model: Model): boolean
 	dragTarget.Transparency = 1
 	dragTarget.CanCollide = false
 	dragTarget.Anchored = true
-	dragTarget.CFrame = CFrame.new(model:GetPivot().Position)
+	dragTarget.CFrame = primaryPart.CFrame
 	dragTarget.Parent = workspace
 
 	local dragTargetAttach = Instance.new("Attachment")
@@ -663,15 +663,24 @@ local function tryStartDrag(player: Player, model: Model): boolean
 	alignPos.Attachment0 = itemAttach
 	alignPos.Attachment1 = dragTargetAttach
 	alignPos.RigidityEnabled = false
-	alignPos.Responsiveness = 200
-	alignPos.MaxForce = 1e6
+	alignPos.Responsiveness = 80
+	alignPos.MaxForce = 2.5e5
 	alignPos.ApplyAtCenterOfMass = true
 	alignPos.Parent = primaryPart
+
+	local alignOri = Instance.new("AlignOrientation")
+	alignOri.Name = "DragAlignOrientation"
+	alignOri.Attachment0 = itemAttach
+	alignOri.Attachment1 = dragTargetAttach
+	alignOri.RigidityEnabled = false
+	alignOri.Responsiveness = 50
+	alignOri.MaxTorque = 1e5
+	alignOri.Parent = primaryPart
 
 	dragging[player] = {
 		model = model,
 		alignPos = alignPos,
-		alignOri = nil,
+		alignOri = alignOri,
 		dragTarget = dragTarget,
 		dragTargetAttach = dragTargetAttach,
 		itemAttach = itemAttach,
@@ -939,7 +948,7 @@ function InventoryService:KnitStart()
 		if (hrp.Position - pos).Magnitude > DRAG_MAX_DISTANCE then
 			return
 		end
-		dragTarget.CFrame = CFrame.new(pos)
+		dragTarget.CFrame = CFrame.new(pos) * dragTarget.CFrame.Rotation
 	end)
 
 	Players.PlayerRemoving:Connect(stopDrag)
