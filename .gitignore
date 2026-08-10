@@ -30,3 +30,7 @@ desktop.ini
 # Rojo / build artifacts
 /.rojo
 /build
+
+# Planning / architecture docs (local only)
+/roadmap*
+/architecture*
