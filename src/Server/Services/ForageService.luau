@@ -149,6 +149,10 @@ end
 ]]
 local function spawnForagePickup(resourceName: string)
 	local position = randomForagePosition()
+	if not worldService then
+		task.delay(2, spawnForagePickup, resourceName)
+		return
+	end
 	local baseMap = worldService:GetBaseMap()
 	if not position or not baseMap then
 		task.delay(2, spawnForagePickup, resourceName)
@@ -214,6 +218,9 @@ local function tryForagePickup(model: Model, player: Player)
 		return
 	end
 
+	if not inventoryService then
+		return
+	end
 	local added = inventoryService:AddResource(player, resourceName, 1)
 	if added <= 0 then
 		return
@@ -276,12 +283,17 @@ function ForageService.Client:RequestEat(player: Player, resourceName: string): 
 		return false
 	end
 
+	if not inventoryService then
+		return false
+	end
 	local consumed = inventoryService:ConsumeResource(player, resourceName, 1)
 	if not consumed then
 		return false
 	end
 
-	hungerService:RestoreHunger(player, restoreAmount)
+	if hungerService then
+		hungerService:RestoreHunger(player, restoreAmount)
+	end
 	return true
 end
 

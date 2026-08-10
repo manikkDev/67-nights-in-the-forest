@@ -64,7 +64,7 @@ local AXE_TOOL_NAME = "Axe"
 local worldService: any? = nil
 local inventoryService: any? = nil
 local axeTemplate: Tool? = nil
-local treeRegistry: { [Model]: { health: number, part: BasePart, pivot: CFrame, felled: boolean } } = {}
+local treeRegistry: { [Model]: { health: number, part: { Position: Vector3 }, pivot: CFrame, felled: boolean } } = {}
 local chopCooldowns: { [Player]: number } = {}
 
 -- // FUNCTIONS // --
@@ -434,6 +434,9 @@ local function tryChop(treeModel: Model, registry, player: Player)
 	HarvestService.Client.TreeChopped:Fire(player, registry.part.Position)
 
 	if registry.health <= 0 then
+		if not worldService then
+			return
+		end
 		local baseMap = worldService:GetBaseMap()
 		if baseMap then
 			fellTree(treeModel, baseMap)
@@ -465,6 +468,9 @@ local function tryPickup(logModel: Model, player: Player)
 		return
 	end
 
+	if not inventoryService then
+		return
+	end
 	local added = inventoryService:AddResource(player, "Wood", 1)
 	if added <= 0 then
 		return

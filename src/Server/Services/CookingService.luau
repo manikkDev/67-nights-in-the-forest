@@ -65,7 +65,7 @@ local function setupCookPrompt()
 
 	campfirePart = anchor :: BasePart
 
-	local existing = campfirePart:FindFirstChild("CookMeatPrompt")
+	local existing = anchor:FindFirstChild("CookMeatPrompt")
 	if existing and existing:IsA("ProximityPrompt") then
 		cookPrompt = existing
 		return
@@ -108,19 +108,22 @@ local function cookMeat(player: Player)
 		return
 	end
 
-	if not campfireService:IsLit() then
+	if not campfireService or not campfireService:IsLit() then
 		return
 	end
 
 	cookCooldowns[player] = now
 
+	if not playerDataService then
+		return
+	end
 	local data = playerDataService:GetData(player)
 	local rawMeat = data and data.Resources.RawMeat or 0
 	if rawMeat <= 0 then
 		return
 	end
 
-	if not inventoryService:ConsumeResource(player, "RawMeat", rawMeat) then
+	if not inventoryService or not inventoryService:ConsumeResource(player, "RawMeat", rawMeat) then
 		return
 	end
 	inventoryService:AddResource(player, "CookedMeat", rawMeat)

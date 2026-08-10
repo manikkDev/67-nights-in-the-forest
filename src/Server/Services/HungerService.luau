@@ -74,6 +74,9 @@ end
     @param    dt      number  -- delta time in seconds
 ]]
 local function tickPlayer(player: Player, dt: number)
+	if not playerDataService then
+		return
+	end
 	local data = playerDataService:GetData(player)
 	if not data then
 		return
@@ -109,6 +112,9 @@ function HungerService:RestoreHunger(player: Player, amount: number)
 		return
 	end
 
+	if not playerDataService then
+		return
+	end
 	local data = playerDataService:GetData(player)
 	if not data then
 		return
@@ -138,6 +144,9 @@ local function onHeartbeat(dt: number)
 	end
 	broadcastTimer = 0
 
+	if not playerDataService then
+		return
+	end
 	for _, player in ipairs(Players:GetPlayers()) do
 		local data = playerDataService:GetData(player)
 		if data then
@@ -154,6 +163,7 @@ function HungerService:KnitStart()
 
 	local function fireInitialHunger(player: Player)
 		if not player.Parent then return end
+		if not playerDataService then return end
 		local data = playerDataService:GetData(player)
 		if data then
 			HungerService.Client.HungerChanged:Fire(player, data.Survival.Hunger, data.Survival.MaxHunger)
