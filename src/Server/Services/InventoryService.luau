@@ -56,13 +56,27 @@ local bagTemplate: Tool? = nil
 
 -- // FUNCTIONS // --
 
+local function getPlayerData(player: Player): any?
+	if not playerDataService then
+		return nil
+	end
+	return playerDataService:GetData(player)
+end
+
+local function updatePlayerData(player: Player, fn: (data: any) -> ())
+	if not playerDataService then
+		return
+	end
+	playerDataService:UpdateData(player, fn)
+end
+
 --[[
     @summary  Return the maximum total resource units a player can carry.
     @param    player  Player  -- the Roblox player
     @returns  number
 ]]
 function InventoryService:GetCapacity(player: Player): number
-	local data = playerDataService:GetData(player)
+	local data = getPlayerData(player)
 	if not data then
 		return BASE_CAPACITY
 	end
@@ -79,7 +93,7 @@ end
     @returns  number
 ]]
 function InventoryService:GetTotalCarried(player: Player): number
-	local data = playerDataService:GetData(player)
+	local data = getPlayerData(player)
 	if not data then
 		return 0
 	end
@@ -95,7 +109,7 @@ end
     @param    player  Player  -- the Roblox player
 ]]
 local function broadcastSnapshot(player: Player)
-	local data = playerDataService:GetData(player)
+	local data = getPlayerData(player)
 	if not data then
 		return
 	end
@@ -114,7 +128,7 @@ function InventoryService:AddResource(player: Player, name: string, amount: numb
 		return 0
 	end
 
-	local data = playerDataService:GetData(player)
+	local data = getPlayerData(player)
 	if not data then
 		return 0
 	end
@@ -127,7 +141,7 @@ function InventoryService:AddResource(player: Player, name: string, amount: numb
 		return 0
 	end
 
-	playerDataService:UpdateData(player, function(playerData)
+	updatePlayerData(player, function(playerData)
 		playerData.Resources[name] += actualAmount
 	end)
 
@@ -147,12 +161,12 @@ function InventoryService:ConsumeResource(player: Player, name: string, amount: 
 		return false
 	end
 
-	local data = playerDataService:GetData(player)
+	local data = getPlayerData(player)
 	if not data or (data.Resources[name] or 0) < amount then
 		return false
 	end
 
-	playerDataService:UpdateData(player, function(playerData)
+	updatePlayerData(player, function(playerData)
 		playerData.Resources[name] -= amount
 	end)
 
@@ -179,8 +193,16 @@ local function buildCarryBagTool(): Tool?
 	tool.CanBeDropped = false
 
 	-- Hold the bag by its top so it hangs downward from the hand.
-	tool.GripPos = Vector3.new(0, -source.Size.Y / 2, 0)
-	tool.GripUp = Vector3.new(0, 1, 0)
+	-- The mesh is rendered with the opening at the top, but its local Y
+	-- is inverted relative to a held Tool, so we rotate the Handle 180°
+	-- around the X axis and offset it so the top sits in the palm.
+	local mesh = source:FindFirstChildWhichIsA("SpecialMesh")
+	local halfHeight = source.Size.Y / 2
+	if mesh and mesh:IsA("SpecialMesh") then
+		halfHeight *= mesh.Scale.Y
+	end
+	tool.GripPos = Vector3.new(0, -halfHeight, 0)
+	tool.GripUp = Vector3.new(0, -1, 0)
 	tool.GripForward = Vector3.new(0, 0, 1)
 	tool.GripRight = Vector3.new(1, 0, 0)
 
@@ -211,7 +233,7 @@ local function giveCarryBag(player: Player)
 		return
 	end
 
-	local data = playerDataService:GetData(player)
+	local data = getPlayerData(player)
 	if data and data.Inventory and data.Inventory.HasBag == false then
 		return
 	end
@@ -237,7 +259,7 @@ end
     @returns  { resources: table, capacity: number } | nil
 ]]
 function InventoryService.Client:GetSnapshot(player: Player)
-	local data = playerDataService:GetData(player)
+	local data = getPlayerData(player)
 	if not data then
 		local empty = {}
 		for _, name in ipairs(RESOURCE_NAMES) do
@@ -264,7 +286,7 @@ function InventoryService:KnitStart()
 	end)
 
 	for _, player in ipairs(Players:GetPlayers()) do
-		if playerDataService:GetData(player) then
+		if getPlayerData(player) then
 			giveCarryBag(player)
 		end
 	end
