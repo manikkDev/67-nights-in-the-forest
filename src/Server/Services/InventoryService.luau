@@ -47,10 +47,12 @@ local BASE_CAPACITY = 40
 local BAG_CAPACITY_BONUS = 40
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local CARRY_BAG_NAME = "carry-bag"
+local CARRY_BAG_TOOL_NAME = "Carry Bag"
 local RESOURCE_NAMES = { "Wood", "Stone", "Berries", "Mushrooms", "RawMeat", "CookedMeat" }
 
 -- | State Management | --
 local playerDataService: any? = nil
+local bagTemplate: Tool? = nil
 
 -- // FUNCTIONS // --
 
@@ -159,58 +161,72 @@ function InventoryService:ConsumeResource(player: Player, name: string, amount: 
 end
 
 --[[
-    @summary  Weld a cloned carry-bag onto a character's back.
-    @desc     Uses a manual Motor6D weld rather than the Accessory system
-              so it works regardless of rig type or attachment naming.
-    @param    character  Model  -- the player's character
+    @summary  Build an equippable Carry Bag Tool from the pre-placed mesh.
+    @desc     Clones the carry-bag Part as the Tool's Handle so the player
+              can equip and unequip it like the Axe.
+    @returns  Tool?
 ]]
-local function equipCarryBag(character: Model)
-	if character:FindFirstChild("CarryBag") then
-		return
-	end
-
-	local torso = character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
-	if not torso or not torso:IsA("BasePart") then
-		task.defer(function()
-			if character.Parent then
-				equipCarryBag(character)
-			end
-		end)
-		return
-	end
-
+local function buildCarryBagTool(): Tool?
 	local source = ITEMS_PATH:FindFirstChild(CARRY_BAG_NAME)
-	if not source then
+	if not source or not source:IsA("BasePart") then
 		warn("[InventoryService] carry-bag asset not found in Assets Items")
-		return
+		return nil
 	end
 
-	local bag = source:Clone()
-	bag.Name = "CarryBag"
-	bag.Anchored = false
-	bag.CanCollide = false
-	bag.CanQuery = false
-	bag.CanTouch = false
-	bag.Massless = true
-	bag.Parent = character
+	local tool = Instance.new("Tool")
+	tool.Name = CARRY_BAG_TOOL_NAME
+	tool.RequiresHandle = true
+	tool.CanBeDropped = false
 
-	local weld = Instance.new("Motor6D")
-	weld.Name = "CarryBagWeld"
-	weld.Part0 = torso
-	weld.Part1 = bag
-	weld.C0 = CFrame.new(0, 0.1, torso.Size.Z / 2 + bag.Size.Z / 2 - 0.3) * CFrame.Angles(0, math.rad(180), 0)
-	weld.Parent = torso
+	-- Hold the bag by its top so it hangs downward from the hand.
+	tool.GripPos = Vector3.new(0, -source.Size.Y / 2, 0)
+	tool.GripUp = Vector3.new(0, 1, 0)
+	tool.GripForward = Vector3.new(0, 0, 1)
+	tool.GripRight = Vector3.new(1, 0, 0)
+
+	local handle = source:Clone()
+	handle.Name = "Handle"
+	handle.Anchored = false
+	handle.CanCollide = false
+	handle.CanQuery = false
+	handle.CanTouch = false
+	handle.Massless = true
+	for _, child in ipairs(handle:GetChildren()) do
+		if child:IsA("JointInstance") or child:IsA("Motor6D") then
+			child:Destroy()
+		end
+	end
+	handle.Parent = tool
+
+	return tool
 end
 
 --[[
-    @summary  Equip the carry-bag on a player's current and future characters.
+    @summary  Grant the Carry Bag tool to a player's Backpack and StarterGear
+              so it persists across respawns.
     @param    player  Player  -- the Roblox player
 ]]
-local function watchForBag(player: Player)
-	if player.Character then
-		equipCarryBag(player.Character)
+local function giveCarryBag(player: Player)
+	if not bagTemplate then
+		return
 	end
-	player.CharacterAdded:Connect(equipCarryBag)
+
+	local data = playerDataService:GetData(player)
+	if not data or not data.Inventory or not data.Inventory.HasBag then
+		return
+	end
+
+	local backpack = player:WaitForChild("Backpack")
+	if not backpack:FindFirstChild(CARRY_BAG_TOOL_NAME) then
+		local clone = bagTemplate:Clone()
+		clone.Parent = backpack
+	end
+
+	local starterGear = player:WaitForChild("StarterGear")
+	if not starterGear:FindFirstChild(CARRY_BAG_TOOL_NAME) then
+		local clone = bagTemplate:Clone()
+		clone.Parent = starterGear
+	end
 end
 
 -- // CLIENT REMOTES // --
@@ -240,18 +256,20 @@ end
 function InventoryService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 
+	bagTemplate = buildCarryBagTool()
+
 	playerDataService.ProfileLoaded:Connect(function(player: Player)
-		watchForBag(player)
+		giveCarryBag(player)
 		broadcastSnapshot(player)
 	end)
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if playerDataService:GetData(player) then
-			watchForBag(player)
+			giveCarryBag(player)
 		end
 	end
 
-	print("[InventoryService] Initialised — capacity & carry-bag active")
+	print("[InventoryService] Initialised — capacity & carry-bag tool active")
 end
 
 return InventoryService
