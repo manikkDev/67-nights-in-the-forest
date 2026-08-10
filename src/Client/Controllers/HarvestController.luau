@@ -21,7 +21,6 @@
 -- | Services | --
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local KeyframeSequenceProvider = game:GetService("KeyframeSequenceProvider")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -77,25 +76,23 @@ local function shakeCamera()
 end
 
 --[[
-    @summary  Register the axe swing KeyframeSequence on the client and
-              cache the Animation instance for playback.
-    @desc     KeyframeSequenceProvider:RegisterKeyframeSequence must be
-              called on the CLIENT to produce a hash that the client's
-              Animator can actually load.  Server-registered hashes are
-              not valid on the client.
+    @summary  Cache the axe swing Animation asset for playback.
+    @desc     The server now publishes a short built-in R15 tool-slash
+              Animation (asset 522635514), which is a quick overhead
+              strike that fits an axe/pickaxe chop.
 ]]
 local function ensureSwingAnimation()
 	if swingAnimationId then
 		return
 	end
 
-	local kfs = ReplicatedStorage:FindFirstChild("AxeStrikeKeyframeSequence")
-	if not kfs or not kfs:IsA("KeyframeSequence") then
-		warn("[HarvestController] AxeStrikeKeyframeSequence not found in ReplicatedStorage")
+	local anim = ReplicatedStorage:FindFirstChild("AxeStrikeAnimation")
+	if not anim or not anim:IsA("Animation") then
+		warn("[HarvestController] AxeStrikeAnimation not found in ReplicatedStorage")
 		return
 	end
 
-	swingAnimationId = KeyframeSequenceProvider:RegisterKeyframeSequence(kfs)
+	swingAnimationId = anim.AnimationId
 end
 
 --[[

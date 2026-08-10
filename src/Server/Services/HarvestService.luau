@@ -527,62 +527,24 @@ local function findNearestTree(player: Player)
 end
 
 --[[
-    @summary  Clone the Axe Strike KeyframeSequence to ReplicatedStorage
-              so the client can register it locally via
-              KeyframeSequenceProvider and play the swing animation.
+    @summary  Publish a short, simple R15 tool-slash Animation to
+              ReplicatedStorage so the client can play the axe swing.
+    @desc     The default R15 tool-slash (asset 522635514) is a quick,
+              minimal overhead strike that works for an axe/pickaxe
+              without the exaggerated motion of a sword combo.
 ]]
 local function publishAxeAnimation()
-	-- Try R15 animation first (characters are R15)
-	local r15Model = ITEMS_PATH:FindFirstChild("R15 Sword Swing Animation")
-	if r15Model then
-		local dummy = r15Model:FindFirstChild("Dummy")
-		if dummy then
-			local animSaves = dummy:FindFirstChild("AnimSaves")
-			if animSaves then
-				local strikeSeq = animSaves:FindFirstChildWhichIsA("KeyframeSequence")
-				if strikeSeq then
-					local clone = strikeSeq:Clone()
-					clone.Name = "AxeStrikeKeyframeSequence"
-					clone.Priority = Enum.AnimationPriority.Action
-					clone.Parent = ReplicatedStorage
-					print("[HarvestService] R15 swing KeyframeSequence published to ReplicatedStorage")
-					return
-				end
-			end
-		end
+	local old = ReplicatedStorage:FindFirstChild("AxeStrikeKeyframeSequence")
+	if old then
+		old:Destroy()
 	end
 
-	-- Fallback: R6 animation from original asset
-	local animSaves = ITEMS_PATH:FindFirstChild("AxeAnimations")
-	if not animSaves then
-		warn("[HarvestService] AxeAnimations model not found in Assets Items")
-		return
-	end
+	local anim = Instance.new("Animation")
+	anim.Name = "AxeStrikeAnimation"
+	anim.AnimationId = "rbxassetid://522635514"
+	anim.Parent = ReplicatedStorage
 
-	local r6Folder = animSaves:FindFirstChild("R6 Axe Animations")
-	if not r6Folder then
-		warn("[HarvestService] R6 Axe Animations folder not found")
-		return
-	end
-
-	local saves = r6Folder:FindFirstChild("AnimSaves")
-	if not saves or not saves:IsA("ObjectValue") then
-		warn("[HarvestService] AnimSaves not found")
-		return
-	end
-
-	local strikeSeq = saves:FindFirstChild("Axe Strike")
-	if not strikeSeq or not strikeSeq:IsA("KeyframeSequence") then
-		warn("[HarvestService] Axe Strike KeyframeSequence not found")
-		return
-	end
-
-	-- Clone to ReplicatedStorage so the client can access and register it
-	local clone = strikeSeq:Clone()
-	clone.Name = "AxeStrikeKeyframeSequence"
-	clone.Parent = ReplicatedStorage
-
-	print("[HarvestService] R6 Axe Strike KeyframeSequence published to ReplicatedStorage")
+	print("[HarvestService] Axe strike animation published to ReplicatedStorage")
 end
 
 -- // INITIALIZATION // --
