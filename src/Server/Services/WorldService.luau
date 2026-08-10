@@ -216,9 +216,9 @@ local function placeBonfire(map: Model, ground: CFrame): Model?
 		if lightPart and not lightPart:FindFirstChild("BonfireLight") then
 			local pointLight = Instance.new("PointLight")
 			pointLight.Name = "BonfireLight"
-			pointLight.Color = Color3.fromRGB(255, 140, 50)
-			pointLight.Range = 30
-			pointLight.Brightness = 5
+			pointLight.Color = Color3.fromRGB(255, 100, 40)
+			pointLight.Range = 12
+			pointLight.Brightness = 1
 			pointLight.Parent = lightPart
 		end
 
@@ -257,9 +257,9 @@ local function placeBonfire(map: Model, ground: CFrame): Model?
 	if lightPart then
 		local pointLight = Instance.new("PointLight")
 		pointLight.Name = "BonfireLight"
-		pointLight.Color = Color3.fromRGB(255, 140, 50)
-		pointLight.Range = 30
-		pointLight.Brightness = 5
+		pointLight.Color = Color3.fromRGB(255, 100, 40)
+		pointLight.Range = 12
+		pointLight.Brightness = 1
 		pointLight.Parent = lightPart
 	end
 
