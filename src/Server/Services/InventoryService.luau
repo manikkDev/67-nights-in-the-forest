@@ -192,17 +192,14 @@ local function buildCarryBagTool(): Tool?
 	tool.RequiresHandle = true
 	tool.CanBeDropped = false
 
-	-- Hold the bag by its top so it hangs downward from the hand.
-	-- The mesh is rendered with the opening at the top, but its local Y
-	-- is inverted relative to a held Tool, so we rotate the Handle 180°
-	-- around the X axis and offset it so the top sits in the palm.
+	-- Hold the bag by its cinched top so it hangs downward from the hand.
 	local mesh = source:FindFirstChildWhichIsA("SpecialMesh")
 	local halfHeight = source.Size.Y / 2
 	if mesh and mesh:IsA("SpecialMesh") then
 		halfHeight *= mesh.Scale.Y
 	end
 	tool.GripPos = Vector3.new(0, -halfHeight, 0)
-	tool.GripUp = Vector3.new(0, -1, 0)
+	tool.GripUp = Vector3.new(0, 1, 0)
 	tool.GripForward = Vector3.new(0, 0, 1)
 	tool.GripRight = Vector3.new(1, 0, 0)
 
@@ -213,6 +210,8 @@ local function buildCarryBagTool(): Tool?
 	handle.CanQuery = false
 	handle.CanTouch = false
 	handle.Massless = true
+	-- Strip the source's in-world Y-180 rotation so the Tool grip controls it fully.
+	handle.CFrame = CFrame.new(handle.CFrame.Position)
 	for _, child in ipairs(handle:GetChildren()) do
 		if child:IsA("JointInstance") or child:IsA("Motor6D") then
 			child:Destroy()
