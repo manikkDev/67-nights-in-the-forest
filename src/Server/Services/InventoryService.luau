@@ -192,13 +192,15 @@ local function buildCarryBagTool(): Tool?
 	tool.RequiresHandle = true
 	tool.CanBeDropped = false
 
-	-- Hold the bag by its cinched top so it hangs downward from the hand.
+	-- Hold the bag by its opening (top) so the body hangs downward from the hand.
+	-- GripPos is in the Handle's local space: +Y is the top/opening of the mesh,
+	-- so we place the grip point at +halfHeight to put the hand at the opening.
 	local mesh = source:FindFirstChildWhichIsA("SpecialMesh")
 	local halfHeight = source.Size.Y / 2
 	if mesh and mesh:IsA("SpecialMesh") then
 		halfHeight *= mesh.Scale.Y
 	end
-	tool.GripPos = Vector3.new(0, -halfHeight, 0)
+	tool.GripPos = Vector3.new(0, halfHeight, 0)
 	tool.GripUp = Vector3.new(0, 1, 0)
 	tool.GripForward = Vector3.new(0, 0, 1)
 	tool.GripRight = Vector3.new(1, 0, 0)
