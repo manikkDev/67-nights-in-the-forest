@@ -214,13 +214,7 @@ local function spawnWoodDrops(position: Vector3, baseMap: Model)
 			log.PrimaryPart:ApplyImpulse(impulseDir * log.PrimaryPart.AssemblyMass * 8)
 		end
 
-		local prompt = Instance.new("ProximityPrompt")
-		prompt.Name = "PickupPrompt"
-		prompt.ActionText = "Pick Up"
-		prompt.ObjectText = "Wood"
-		prompt.MaxActivationDistance = PICKUP_RANGE
-		prompt.HoldDuration = 0
-		prompt.Parent = log.PrimaryPart
+		log:SetAttribute("PickupResource", "Wood")
 
 		log.Parent = baseMap
 		Debris:AddItem(log, LOG_LIFETIME)
@@ -449,33 +443,34 @@ end
     @param    logModel  Model   -- the dropped Log instance
     @param    player    Player  -- the picking player
 ]]
-local function tryPickup(logModel: Model, player: Player)
+local function tryPickup(logModel: Model, player: Player): boolean
 	if not logModel.Parent then
-		return
+		return false
 	end
 
 	local character = player.Character
 	if not character then
-		return
+		return false
 	end
 
 	local rootPart = character:FindFirstChild("HumanoidRootPart")
 	if not rootPart or not rootPart:IsA("BasePart") then
-		return
+		return false
 	end
 
 	if (rootPart.Position - logModel:GetPivot().Position).Magnitude > PICKUP_RANGE then
-		return
+		return false
 	end
 
 	if not inventoryService then
-		return
+		return false
 	end
 	local added = inventoryService:AddResource(player, "Wood", 1)
 	if added <= 0 then
-		return
+		return false
 	end
 	logModel:Destroy()
+	return true
 end
 
 --[[
@@ -610,6 +605,23 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	chopCooldowns[player] = nil
 end)
+
+function HarvestService.Client:RequestPickup(player: Player, model: Model): boolean
+	if not model or not model:IsA("Model") or not model.Parent then
+		return false
+	end
+	if model:GetAttribute("PickupResource") ~= "Wood" then
+		return false
+	end
+	if not worldService or not inventoryService then
+		return false
+	end
+	local baseMap = worldService:GetBaseMap()
+	if not baseMap or not model:IsDescendantOf(baseMap) then
+		return false
+	end
+	return tryPickup(model, player)
+end
 
 -- // CLIENT REMOTES // --
 

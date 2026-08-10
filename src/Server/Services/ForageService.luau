@@ -181,14 +181,6 @@ local function spawnForagePickup(resourceName: string)
 	model:PivotTo(CFrame.new(position))
 	model:SetAttribute("ForageResource", resourceName)
 
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "ForagePickupPrompt"
-	prompt.ActionText = "Forage"
-	prompt.ObjectText = resourceName
-	prompt.MaxActivationDistance = PICKUP_RANGE
-	prompt.HoldDuration = 0
-	prompt.Parent = model.PrimaryPart
-
 	model.Parent = baseMap
 	activePickups += 1
 end
@@ -198,37 +190,38 @@ end
     @param    model   Model   -- the forage pickup model
     @param    player  Player  -- the picking player
 ]]
-local function tryForagePickup(model: Model, player: Player)
+local function tryForagePickup(model: Model, player: Player): boolean
 	if not model.Parent then
-		return
+		return false
 	end
 
 	local resourceName = model:GetAttribute("ForageResource")
 	if not resourceName then
-		return
+		return false
 	end
 
 	local character = player.Character
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
 	if not rootPart or not rootPart:IsA("BasePart") then
-		return
+		return false
 	end
 
 	if (rootPart.Position - model:GetPivot().Position).Magnitude > PICKUP_RANGE then
-		return
+		return false
 	end
 
 	if not inventoryService then
-		return
+		return false
 	end
 	local added = inventoryService:AddResource(player, resourceName, 1)
 	if added <= 0 then
-		return
+		return false
 	end
 
 	model:Destroy()
 	activePickups -= 1
 	task.delay(RESPAWN_TIME, spawnForagePickup, resourceName)
+	return true
 end
 
 --[[
@@ -268,6 +261,32 @@ local function spawnInitialForage()
 end
 
 -- // CLIENT REMOTES // --
+
+--[[
+    @summary  Client-to-server remote for eating a carried food resource.
+    @desc     Consumes 1 unit of the resource and restores Hunger by a
+              fixed amount per resource type.
+    @param    player        Player  -- injected by Knit
+    @param    resourceName  string  -- one of EAT_HUNGER_RESTORE's keys
+    @returns  boolean               -- true if eaten successfully
+]]
+function ForageService.Client:RequestPickup(player: Player, model: Model): boolean
+	if not model or not model:IsA("Model") or not model.Parent then
+		return false
+	end
+	local resourceName = model:GetAttribute("ForageResource")
+	if not resourceName or typeof(resourceName) ~= "string" then
+		return false
+	end
+	if not worldService or not inventoryService then
+		return false
+	end
+	local baseMap = worldService:GetBaseMap()
+	if not baseMap or not model:IsDescendantOf(baseMap) then
+		return false
+	end
+	return tryForagePickup(model, player)
+end
 
 --[[
     @summary  Client-to-server remote for eating a carried food resource.
