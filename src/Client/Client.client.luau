@@ -29,7 +29,10 @@ local controllers = script.Parent.Controllers
 
 for _, module in ipairs(controllers:GetChildren()) do
 	if module:IsA("ModuleScript") then
-		require(module)
+		local ok, err = pcall(require, module)
+		if not ok then
+			warn("[Client] Failed to require controller", module.Name, "-", err)
+		end
 	end
 end
 

@@ -16,6 +16,7 @@
 
     @exports
     - Knit Signal: HungerChanged(hunger: number, maxHunger: number)  (server -> client)
+    - HungerService:RestoreHunger(player, amount)  -> void  (server only)
 ]]
 
 -- // VARIABLES // --
@@ -95,6 +96,30 @@ local function tickPlayer(player: Player, dt: number)
 			humanoid:TakeDamage(STARVE_DAMAGE_PER_SEC * dt)
 		end
 	end
+end
+
+--[[
+    @summary  Restore hunger for a player (e.g. after eating) and push
+              an immediate update to their client.
+    @param    player  Player  -- the Roblox player
+    @param    amount  number  -- hunger units to restore (positive)
+]]
+function HungerService:RestoreHunger(player: Player, amount: number)
+	if amount <= 0 then
+		return
+	end
+
+	local data = playerDataService:GetData(player)
+	if not data then
+		return
+	end
+
+	local newHunger = math.clamp(data.Survival.Hunger + amount, 0, data.Survival.MaxHunger)
+	playerDataService:UpdateData(player, function(playerData)
+		playerData.Survival.Hunger = newHunger
+	end)
+
+	HungerService.Client.HungerChanged:Fire(player, newHunger, data.Survival.MaxHunger)
 end
 
 --[[

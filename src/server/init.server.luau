@@ -1,2 +1,3 @@
-print("Hello world, from server!")
-print("Hello niggesh, from server!")
+-- Intentionally empty: this file only exists because Rojo turns the
+-- `src/server` folder into a Script when an init file is present.
+-- The actual bootstrap logic lives in `Server.server.luau`.

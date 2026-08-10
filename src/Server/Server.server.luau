@@ -29,7 +29,10 @@ local services = script.Parent.Services
 
 for _, module in ipairs(services:GetChildren()) do
 	if module:IsA("ModuleScript") then
-		require(module)
+		local ok, err = pcall(require, module)
+		if not ok then
+			warn("[Server] Failed to require service", module.Name, "-", err)
+		end
 	end
 end
 

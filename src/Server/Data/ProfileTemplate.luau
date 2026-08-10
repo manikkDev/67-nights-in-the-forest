@@ -35,6 +35,9 @@ return {
 		DayMultiplier = 1,
 		UnlockedStructures = {},
 	},
+	Inventory = {
+		HasBag = true,
+	},
 	Rescue = {
 		ChildrenRescued = {},
 		CavesUnlocked = {},

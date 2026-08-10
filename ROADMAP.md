@@ -36,23 +36,26 @@ Live check of `src/server/Services`, `src/Client/Controllers`, and `ProfileTempl
 
 ---
 
-## Phase 2 — Close the Survival Loop: Eating, Inventory UI, Camp Safety Feedback
+## Phase 2 — Close the Survival Loop: Eating, Inventory UI, Camp Safety Feedback ✅ DONE
 
 The only unfinished slice of "core survival." Everything else in this phase is UI/feedback polish on top of the already-working hunger/harvest/campfire services, plus the missing food loop that the reference game treats as a first-class resource (Berries, Mushrooms, cooked meat via campfire).
 
-**Build:**
+**Built:**
 
-- `ForageService`: spawns pickup-able `Berries`/`Mushrooms` world items around the base map at intervals (bush/mushroom-cluster spawn points, respawn timer mirroring `HarvestService`'s tree pattern), `RequestPickup`/`RequestEat` remotes that validate proximity + ownership and restore `Survival.Hunger` server-side.
-- `CookingService` (minimal): dropping raw meat (`rabbit-meat`, `wolf-meat`) on the lit Bonfire converts it to `Resources.CookedMeat` after a timer, mirroring the wiki's "campfire cooks food" rule; cooked meat restores more Hunger than raw pickups.
-- `InventoryController` + a real inventory/HUD panel: live-bound to `Resources` (Wood, Berries, Mushrooms, RawMeat, CookedMeat) via a `PlayerDataService` signal, replacing the current static placeholder GUIs.
-- `CampSafetyController`: visual/audio cue (screen vignette darken + ambient sting) when the player is outside `CampfireService:GetSafeZoneRadius()` at night, foreshadowing Phase 3 threat.
+- `InventoryService`: centralised resource capacity system (base 40 + carry-bag bonus 40 = 80 total), `AddResource`/`ConsumeResource` API used by all other services, `ResourcesChanged` signal to client, `GetSnapshot` remote. Welds the pre-placed `carry-bag` mesh onto every player's back as a visible backpack via Motor6D (works on R15 rigs).
+- `ForageService`: scatters 15 Berries (reusing `Carrot` mesh) and 15 Mushrooms (procedural cap+stem prop) near trees across the base-map, each with a ProximityPrompt pickup that routes through `InventoryService:AddResource`. `RequestEat` remote consumes a resource and restores Hunger via `HungerService:RestoreHunger` (Berries=12, Mushrooms=10, RawMeat=15, CookedMeat=30). Respawns on a 60s timer.
+- `CookingService`: "Cook Meat" ProximityPrompt on the Campfire anchor; converts all carried RawMeat to CookedMeat when the fire is lit, mirroring the reference game's campfire-cooks-food rule.
+- `InventoryController`: live inventory HUD panel (bottom-right) showing all 6 resources with colour-coded rows, carry-capacity readout ("Carrying X / 80"), and click-to-eat buttons on edible rows.
+- `CampSafetyController`: throttled Heartbeat distance check; darkens screen via `ColorCorrectionEffect` and shows a red "You are far from the firelight..." warning when outside the safe zone at night, tweens back to normal when inside or during day.
+- **Bug fixes along the way:** `CampfireService.SafeZoneChanged` signal was never actually fired (computed `lastBroadcastRadius` but never called `:Fire`) — fixed; `HungerService` gained a `RestoreHunger` method for eating; `HarvestService` wood pickup now routes through `InventoryService` for capacity enforcement instead of writing the profile directly; `WorldService` gained a `GetCampfirePosition` client remote; both server and client bootstrappers now use `pcall` per-require so one failing module can't halt the rest; `init.server.luau` debug prints cleaned up.
 
 **What you'll see when you play:**
 
-- Berries and mushrooms scattered near camp that you can walk up to and pick up; eating them (via prompt or hotbar) visibly refills your hunger bar.
-- Cooking raw meat you're carrying by tossing it into the lit Bonfire — it turns into cooked meat that heals more hunger than eating it raw.
-- A real inventory panel on-screen showing live counts of Wood/Berries/Mushrooms/Meat instead of the current static/blank GUI.
-- Standing outside the campfire's light at night visibly darkens your screen edges as a warning — nothing attacks you yet, but the game is telling you it's about to.
+- A visible backpack on your character's back (the `carry-bag` mesh, welded via Motor6D).
+- Berries and mushrooms scattered near trees across the map that you can walk up to and forage via ProximityPrompt; eating them from the inventory panel (click the row) visibly refills your hunger bar.
+- Cooking raw meat at the lit Bonfire via "Cook Meat" prompt converts it to cooked meat that restores more hunger when eaten.
+- A real inventory panel in the bottom-right showing live counts of Wood/Stone/Berries/Mushrooms/RawMeat/CookedMeat with a "Carrying X / 80" capacity readout.
+- Standing outside the campfire's light at night darkens your screen and shows a red warning; stepping back into the light clears it.
 
 ---
 

@@ -363,6 +363,10 @@ local function feedCampfire(player: Player)
 	currentSafeZoneRadius = newRadius
 
 	updateSafeZoneVisuals(newRadius, fuel > 0)
+	lastBroadcastRadius = newRadius
+	for _, p in ipairs(Players:GetPlayers()) do
+		CampfireService.Client.SafeZoneChanged:Fire(p, newRadius, fuel > 0)
+	end
 
 	print("[CampfireService]", player.Name, "fed", wood, "wood — fuel now", fuel)
 end
@@ -411,6 +415,9 @@ local function onHeartbeat(dt: number)
 		-- Broadcast safe zone changes when radius shifts by >= threshold
 		if math.abs(newRadius - lastBroadcastRadius) >= SAFE_ZONE_BROADCAST_THRESHOLD then
 			lastBroadcastRadius = newRadius
+			for _, player in ipairs(Players:GetPlayers()) do
+				CampfireService.Client.SafeZoneChanged:Fire(player, newRadius, fuel > 0)
+			end
 		end
 	end
 end
@@ -441,6 +448,13 @@ function CampfireService:KnitStart()
 	setupCampfire()
 	CampfireService._HeartbeatConnection = RunService.Heartbeat:Connect(onHeartbeat)
 	CampfireService._PromptConnection = ProximityPromptService.PromptTriggered:Connect(onPromptTriggered)
+
+	Players.PlayerAdded:Connect(function(player)
+		CampfireService.Client.SafeZoneChanged:Fire(player, currentSafeZoneRadius, fuel > 0)
+	end)
+	for _, player in ipairs(Players:GetPlayers()) do
+		CampfireService.Client.SafeZoneChanged:Fire(player, currentSafeZoneRadius, fuel > 0)
+	end
 
 	print("[CampfireService] Initialised — fuel drain active")
 end

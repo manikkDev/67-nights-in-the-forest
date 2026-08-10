@@ -32,6 +32,7 @@ local Constants = require(ReplicatedStorage.Shared.Constants)
 -- | Objects | --
 local WorldService = Knit.CreateService({
 	Name = "WorldService",
+	Client = {},
 })
 
 -- | Configuration | --
@@ -288,6 +289,21 @@ local function disableBrokenScripts(map: Model)
 			end
 		end
 	end
+end
+
+-- // CLIENT REMOTES // --
+
+--[[
+    @summary  Client-facing remote returning the Campfire anchor's world
+              position, so clients can compute distance locally instead
+              of polling the server every frame.
+    @returns  Vector3?
+]]
+function WorldService.Client:GetCampfirePosition(): Vector3?
+	if not campfire then
+		return nil
+	end
+	return campfire.Position
 end
 
 -- // INITIALIZATION // --

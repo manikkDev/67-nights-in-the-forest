@@ -62,7 +62,7 @@ local AXE_TOOL_NAME = "Axe"
 
 -- | State Management | --
 local worldService: any? = nil
-local playerDataService: any? = nil
+local inventoryService: any? = nil
 local axeTemplate: Tool? = nil
 local treeRegistry: { [Model]: { health: number, part: BasePart, pivot: CFrame, felled: boolean } } = {}
 local chopCooldowns: { [Player]: number } = {}
@@ -465,9 +465,10 @@ local function tryPickup(logModel: Model, player: Player)
 		return
 	end
 
-	playerDataService:UpdateData(player, function(data)
-		data.Resources.Wood += 1
-	end)
+	local added = inventoryService:AddResource(player, "Wood", 1)
+	if added <= 0 then
+		return
+	end
 	logModel:Destroy()
 end
 
@@ -584,7 +585,7 @@ end
 
 function HarvestService:KnitStart()
 	worldService = Knit.GetService("WorldService")
-	playerDataService = Knit.GetService("PlayerDataService")
+	inventoryService = Knit.GetService("InventoryService")
 
 	axeTemplate = buildAxeTool()
 	publishAxeAnimation()
