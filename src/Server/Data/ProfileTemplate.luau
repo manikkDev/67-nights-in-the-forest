@@ -37,6 +37,7 @@ return {
 	},
 	Inventory = {
 		HasBag = true,
+		PickupOrder = {},
 	},
 	Rescue = {
 		ChildrenRescued = {},

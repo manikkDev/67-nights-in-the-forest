@@ -51,7 +51,7 @@ local CARRY_BAG_NAME = "carry-bag"
 local CARRY_BAG_TOOL_NAME = "Carry Bag"
 local RESOURCE_NAMES = { "Wood", "Stone", "Berries", "Mushrooms", "RawMeat", "CookedMeat" }
 
-local PICKUP_RANGE = 6
+local PICKUP_RANGE = 12
 local DROP_SPACING = 2.2
 local DROP_LIFETIME = 300
 
@@ -158,6 +158,17 @@ function InventoryService:AddResource(player: Player, name: string, amount: numb
 
 	updatePlayerData(player, function(playerData)
 		playerData.Resources[name] += actualAmount
+
+		if typeof(playerData.Inventory) ~= "table" then
+			playerData.Inventory = {}
+		end
+		if typeof(playerData.Inventory.PickupOrder) ~= "table" then
+			playerData.Inventory.PickupOrder = {}
+		end
+		local order = playerData.Inventory.PickupOrder
+		for _ = 1, actualAmount do
+			table.insert(order, name)
+		end
 	end)
 
 	broadcastSnapshot(player)
@@ -183,6 +194,18 @@ function InventoryService:ConsumeResource(player: Player, name: string, amount: 
 
 	updatePlayerData(player, function(playerData)
 		playerData.Resources[name] -= amount
+
+		if typeof(playerData.Inventory) == "table" and typeof(playerData.Inventory.PickupOrder) == "table" then
+			local order = playerData.Inventory.PickupOrder
+			for _ = 1, amount do
+				for i = #order, 1, -1 do
+					if order[i] == name then
+						table.remove(order, i)
+						break
+					end
+				end
+			end
+		end
 	end)
 
 	broadcastSnapshot(player)
@@ -390,8 +413,84 @@ local function tryDropAll(player: Player): boolean
 	end
 
 	if droppedAny then
+		updatePlayerData(player, function(playerData)
+			if typeof(playerData.Inventory) == "table" then
+				playerData.Inventory.PickupOrder = {}
+			end
+		end)
 		broadcastSnapshot(player)
 	end
+	return true
+end
+
+--[[
+    @summary  Drop one item (the oldest from PickupOrder) at the player's feet.
+    @param    player  Player  -- the dropping player
+    @returns  boolean
+]]
+local function tryDropOne(player: Player): boolean
+	local data = getPlayerData(player)
+	if not data then
+		return false
+	end
+	if not worldService then
+		return false
+	end
+	local baseMap = worldService:GetBaseMap()
+	if not baseMap then
+		return false
+	end
+
+	local character = player.Character
+	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+	if not rootPart or not rootPart:IsA("BasePart") then
+		return false
+	end
+
+	local order = data.Inventory and data.Inventory.PickupOrder
+	if not order then
+		-- Backfill for profiles created before PickupOrder was added.
+		order = {}
+		for _, resourceName in ipairs(RESOURCE_NAMES) do
+			for _ = 1, (data.Resources[resourceName] or 0) do
+				table.insert(order, resourceName)
+			end
+		end
+		updatePlayerData(player, function(playerData)
+			if typeof(playerData.Inventory) ~= "table" then
+				playerData.Inventory = {}
+			end
+			playerData.Inventory.PickupOrder = order
+		end)
+	end
+	if #order == 0 then
+		return false
+	end
+
+	local resourceName = order[1]
+	local count = data.Resources[resourceName] or 0
+	if count <= 0 then
+		-- Stale entry; clean it up and try the next one.
+		updatePlayerData(player, function(playerData)
+			table.remove(playerData.Inventory.PickupOrder, 1)
+		end)
+		return tryDropOne(player)
+	end
+
+	local offset = rootPart.CFrame.LookVector * DROP_SPACING
+	local position = Vector3.new(rootPart.Position.X + offset.X, rootPart.Position.Y, rootPart.Position.Z + offset.Z)
+
+	local model = buildDropModel(resourceName)
+	model:PivotTo(CFrame.new(position) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+	model.Parent = baseMap
+	Debris:AddItem(model, DROP_LIFETIME)
+
+	updatePlayerData(player, function(playerData)
+		playerData.Resources[resourceName] -= 1
+		table.remove(playerData.Inventory.PickupOrder, 1)
+	end)
+
+	broadcastSnapshot(player)
 	return true
 end
 
@@ -417,6 +516,15 @@ end
 ]]
 function InventoryService.Client:RequestDropAll(player: Player): boolean
 	return tryDropAll(player)
+end
+
+--[[
+    @summary  Client-to-server remote to drop the oldest single item.
+    @param    player  Player  -- injected by Knit
+    @returns  boolean
+]]
+function InventoryService.Client:RequestDropOne(player: Player): boolean
+	return tryDropOne(player)
 end
 
 --[[

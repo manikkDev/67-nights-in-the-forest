@@ -40,7 +40,7 @@ local CarryController = Knit.CreateController({
 
 -- | Configuration | --
 local PICKUP_KEY = Enum.KeyCode.F
-local PICKUP_RANGE = 6
+local PICKUP_RANGE = 12
 local PICKUP_COOLDOWN = 0.2
 local RAY_LENGTH = 32
 local HOVER_EMISSIVE = Color3.fromRGB(160, 220, 255)
@@ -309,9 +309,9 @@ local function tryPickup(model: Model, resourceName: string): boolean
 end
 
 --[[
-    @summary  Drop every resource the player is currently carrying.
+    @summary  Drop the oldest item the player is currently carrying.
 ]]
-local function dropAll()
+local function dropOne()
 	local now = os.clock()
 	if now - lastPickupTime < PICKUP_COOLDOWN then
 		return
@@ -319,7 +319,7 @@ local function dropAll()
 	lastPickupTime = now
 
 	if inventoryService then
-		inventoryService:RequestDropAll()
+		inventoryService:RequestDropOne()
 	end
 end
 
@@ -339,13 +339,13 @@ local function onInputBegan(input: InputObject, gameProcessed: boolean)
 
 	local instance = getMouseRay()
 	if not instance then
-		dropAll()
+		dropOne()
 		return
 	end
 
 	local model, resourceName = findPickupModel(instance)
 	if not model or not resourceName then
-		dropAll()
+		dropOne()
 		return
 	end
 
