@@ -4,14 +4,18 @@
     @date    2025
 
     @summary
-    Cursor-aimed E-key pickup for dropped items (wood, berries, mushrooms).
+    Cursor-aimed F-key pickup and drop for resource items.
 
     @description
     Raycasts from the camera through the mouse/center of the screen. When
-    the player presses E while pointing at a pickup-able item within range,
+    the player presses F while pointing at a pickup-able item within range,
     it fires the appropriate server remote to add one unit to their bag
-    and destroy the world item. The inventory UI is updated automatically
-    by the server's ResourcesChanged signal.
+    and destroy the world item. Pressing F while NOT looking at a valid
+    target drops all carried items at the player's feet. The inventory UI
+    is updated automatically by the server's ResourcesChanged signal.
+
+    Hovering over a world item with the cursor highlights it and shows a
+    floating label with the item name and the F-key prompt.
 
     @exports
     - CarryController (Knit Controller)
@@ -23,6 +27,8 @@
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -33,15 +39,21 @@ local CarryController = Knit.CreateController({
 })
 
 -- | Configuration | --
-local PICKUP_KEY = Enum.KeyCode.E
+local PICKUP_KEY = Enum.KeyCode.F
 local PICKUP_RANGE = 6
 local PICKUP_COOLDOWN = 0.2
 local RAY_LENGTH = 32
+local HOVER_EMISSIVE = Color3.fromRGB(160, 220, 255)
 
 -- | State Management | --
+local localPlayer = Players.LocalPlayer
 local harvestService: any? = nil
 local forageService: any? = nil
+local inventoryService: any? = nil
 local lastPickupTime = 0
+local hoveredModel: Model? = nil
+local hoverHighlight: Highlight? = nil
+local hoverNameGui: BillboardGui? = nil
 
 -- // FUNCTIONS // --
 
@@ -53,11 +65,12 @@ local function findPickupModel(instance: Instance): (Model?, string?)
 	local current = instance
 	while current do
 		if current:IsA("Model") then
+			local resource = current:GetAttribute("Resource")
 			local wood = current:GetAttribute("PickupResource")
 			local forage = current:GetAttribute("ForageResource")
-			local resource = wood or forage
-			if resource and typeof(resource) == "string" then
-				return current, resource
+			local name = resource or wood or forage
+			if name and typeof(name) == "string" then
+				return current, name
 			end
 		end
 		current = current.Parent
@@ -96,6 +109,25 @@ local function getMouseRay(): (BasePart?, Vector3?)
 end
 
 --[[
+    @summary  Check whether the mouse cursor is currently over any UI element.
+    @returns  boolean
+]]
+local function isMouseOverGui(): boolean
+	local mouse = UserInputService:GetMouseLocation()
+	local playerGui = localPlayer:FindFirstChild("PlayerGui")
+	if not playerGui then
+		return false
+	end
+	local objects = playerGui:GetGuiObjectsAtPosition(mouse.X, mouse.Y)
+	for _, gui in ipairs(objects) do
+		if gui:IsA("GuiObject") and gui.Visible then
+			return true
+		end
+	end
+	return false
+end
+
+--[[
     @summary  Check whether the player is close enough to the pickup target.
     @returns  boolean
 ]]
@@ -112,54 +144,215 @@ local function isInRange(model: Model): boolean
 end
 
 --[[
-    @summary  Try to pick up the item the player is looking at.
+    @summary  Find the best BasePart in a model to use as the hover anchor.
+    @returns  BasePart?
 ]]
-local function tryPickup()
-	local now = os.clock()
-	if now - lastPickupTime < PICKUP_COOLDOWN then
+local function getModelAnchor(model: Model): BasePart?
+	if model.PrimaryPart then
+		return model.PrimaryPart
+	end
+	return model:FindFirstChildWhichIsA("BasePart", true)
+end
+
+--[[
+    @summary  Remove the current hover highlight and label.
+]]
+local function clearHover()
+	if hoverHighlight then
+		hoverHighlight:Destroy()
+		hoverHighlight = nil
+	end
+	if hoverNameGui then
+		hoverNameGui:Destroy()
+		hoverNameGui = nil
+	end
+	hoveredModel = nil
+end
+
+--[[
+    @summary  Show a soft blue outline and a floating name label on a model.
+    @param    model        Model    -- the model to highlight
+    @param    resourceName string   -- the display name
+]]
+local function setHover(model: Model, resourceName: string)
+	if hoveredModel == model then
+		return
+	end
+	clearHover()
+	hoveredModel = model
+
+	hoverHighlight = Instance.new("Highlight")
+	hoverHighlight.Name = "CarryHoverHighlight"
+	hoverHighlight.Adornee = model
+	hoverHighlight.FillColor = HOVER_EMISSIVE
+	hoverHighlight.OutlineColor = HOVER_EMISSIVE
+	hoverHighlight.FillTransparency = 0.85
+	hoverHighlight.OutlineTransparency = 0.3
+	hoverHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	hoverHighlight.Parent = model
+
+	local anchor = getModelAnchor(model)
+	if not anchor then
 		return
 	end
 
-	if UserInputService:GetFocusedTextBox() then
+	hoverNameGui = Instance.new("BillboardGui")
+	hoverNameGui.Name = "CarryHoverLabel"
+	hoverNameGui.Adornee = anchor
+	hoverNameGui.Size = UDim2.new(0, 200, 0, 48)
+	hoverNameGui.SizeOffset = Vector2.new(0, 0.5)
+	hoverNameGui.StudsOffset = Vector3.new(0, 2.2, 0)
+	hoverNameGui.AlwaysOnTop = true
+	hoverNameGui.ClipsDescendants = false
+	hoverNameGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+	local background = Instance.new("Frame")
+	background.Name = "LabelBackground"
+	background.Size = UDim2.new(1, 0, 1, 0)
+	background.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	background.BackgroundTransparency = 0.15
+	background.BorderSizePixel = 0
+	background.Parent = hoverNameGui
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 8)
+	corner.Parent = background
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = HOVER_EMISSIVE
+	stroke.Thickness = 1.5
+	stroke.Parent = background
+
+	local label = Instance.new("TextLabel")
+	label.Name = "NameLabel"
+	label.Size = UDim2.new(1, -8, 0.55, 0)
+	label.Position = UDim2.new(0, 4, 0, 4)
+	label.BackgroundTransparency = 1
+	label.Text = resourceName
+	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 16
+	label.TextXAlignment = Enum.TextXAlignment.Center
+	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.Parent = background
+
+	local prompt = Instance.new("TextLabel")
+	prompt.Name = "PromptLabel"
+	prompt.Size = UDim2.new(1, -8, 0.4, 0)
+	prompt.Position = UDim2.new(0, 4, 0.55, 0)
+	prompt.BackgroundTransparency = 1
+	prompt.Text = "[F] Pickup"
+	prompt.TextColor3 = Color3.fromRGB(180, 220, 255)
+	prompt.Font = Enum.Font.Gotham
+	prompt.TextSize = 12
+	prompt.TextXAlignment = Enum.TextXAlignment.Center
+	prompt.TextYAlignment = Enum.TextYAlignment.Center
+	prompt.Parent = background
+end
+
+--[[
+    @summary  Per-frame hover check so items highlight as the cursor moves.
+]]
+local function updateHover()
+	if isMouseOverGui() then
+		clearHover()
 		return
 	end
 
-	local instance, _ = getMouseRay()
+	local instance = getMouseRay()
 	if not instance then
+		clearHover()
 		return
 	end
 
 	local model, resourceName = findPickupModel(instance)
-	if not model or not resourceName then
-		return
-	end
-
-	if not isInRange(model) then
-		return
-	end
-
-	lastPickupTime = now
-
-	if resourceName == "Wood" then
-		if harvestService then
-			harvestService:RequestPickup(model)
-		end
-	elseif resourceName == "Berries" or resourceName == "Mushrooms" then
-		if forageService then
-			forageService:RequestPickup(model)
-		end
+	if model and resourceName then
+		setHover(model, resourceName)
+	else
+		clearHover()
 	end
 end
 
 --[[
-    @summary  Handle keyboard input for the pickup key.
+    @summary  Try to pick up the item the player is looking at.
+    @param    model         Model   -- the hovered pickup model
+    @param    resourceName  string  -- resource type on the model
+    @returns  boolean  -- true if a remote was fired
+]]
+local function tryPickup(model: Model, resourceName: string): boolean
+	local now = os.clock()
+	if now - lastPickupTime < PICKUP_COOLDOWN then
+		return false
+	end
+
+	if UserInputService:GetFocusedTextBox() then
+		return false
+	end
+
+	if not isInRange(model) then
+		return false
+	end
+
+	lastPickupTime = now
+
+	if resourceName == "Wood" and harvestService then
+		harvestService:RequestPickup(model)
+	elseif resourceName == "Berries" or resourceName == "Mushrooms" then
+		if forageService then
+			forageService:RequestPickup(model)
+		end
+	elseif inventoryService then
+		inventoryService:RequestPickup(model)
+	end
+
+	return true
+end
+
+--[[
+    @summary  Drop every resource the player is currently carrying.
+]]
+local function dropAll()
+	local now = os.clock()
+	if now - lastPickupTime < PICKUP_COOLDOWN then
+		return
+	end
+	lastPickupTime = now
+
+	if inventoryService then
+		inventoryService:RequestDropAll()
+	end
+end
+
+--[[
+    @summary  Handle keyboard input for the pickup/drop key.
 ]]
 local function onInputBegan(input: InputObject, gameProcessed: boolean)
 	if gameProcessed then
 		return
 	end
-	if input.KeyCode == PICKUP_KEY then
-		tryPickup()
+	if input.KeyCode ~= PICKUP_KEY then
+		return
+	end
+	if isMouseOverGui() then
+		return
+	end
+
+	local instance = getMouseRay()
+	if not instance then
+		dropAll()
+		return
+	end
+
+	local model, resourceName = findPickupModel(instance)
+	if not model or not resourceName then
+		dropAll()
+		return
+	end
+
+	local pickedUp = tryPickup(model, resourceName)
+	if not pickedUp then
+		-- A valid item is under the cursor but it could be out of range,
+		-- on cooldown, or the remote failed.  Do not drop in those cases.
 	end
 end
 
@@ -168,10 +361,12 @@ end
 function CarryController:KnitStart()
 	harvestService = Knit.GetService("HarvestService")
 	forageService = Knit.GetService("ForageService")
+	inventoryService = Knit.GetService("InventoryService")
 
 	UserInputService.InputBegan:Connect(onInputBegan)
+	RunService.RenderStepped:Connect(updateHover)
 
-	print("[CarryController] Initialised — cursor E-pickup active")
+	print("[CarryController] Initialised — cursor F-pickup/drop active")
 end
 
 return CarryController

@@ -29,6 +29,7 @@
 local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -50,8 +51,22 @@ local CARRY_BAG_NAME = "carry-bag"
 local CARRY_BAG_TOOL_NAME = "Carry Bag"
 local RESOURCE_NAMES = { "Wood", "Stone", "Berries", "Mushrooms", "RawMeat", "CookedMeat" }
 
+local PICKUP_RANGE = 6
+local DROP_SPACING = 2.2
+local DROP_LIFETIME = 300
+
+-- Map resources to the asset name in ITEMS_PATH.  Mushrooms are built procedurally.
+local DROP_ASSETS: { [string]: string? } = {
+	Wood = "Log",
+	Stone = "Coal",
+	Berries = "Carrot",
+	RawMeat = "rabbit-meat",
+	CookedMeat = "wolf-meat",
+}
+
 -- | State Management | --
 local playerDataService: any? = nil
+local worldService: any? = nil
 local bagTemplate: Tool? = nil
 
 -- // FUNCTIONS // --
@@ -174,6 +189,236 @@ function InventoryService:ConsumeResource(player: Player, name: string, amount: 
 	return true
 end
 
+-- // PICKUP / DROP // --
+
+--[[
+    @summary  Build a small procedural mushroom for dropping.
+    @returns  Model
+]]
+local function buildMushroomProp(): Model
+	local model = Instance.new("Model")
+	model.Name = "MushroomPickup"
+
+	local stem = Instance.new("Part")
+	stem.Name = "Stem"
+	stem.Shape = Enum.PartType.Cylinder
+	stem.Size = Vector3.new(0.6, 0.35, 0.35)
+	stem.Color = Color3.fromRGB(235, 225, 200)
+	stem.Material = Enum.Material.SmoothPlastic
+	stem.CFrame = CFrame.Angles(0, 0, math.rad(90))
+	stem.Parent = model
+
+	local cap = Instance.new("Part")
+	cap.Name = "Cap"
+	cap.Shape = Enum.PartType.Ball
+	cap.Size = Vector3.new(0.7, 0.45, 0.7)
+	cap.Color = Color3.fromRGB(170, 60, 55)
+	cap.Material = Enum.Material.SmoothPlastic
+	cap.CFrame = CFrame.new(0, 0.3, 0)
+	cap.Parent = model
+
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = stem
+	weld.Part1 = cap
+	weld.Parent = stem
+
+	model.PrimaryPart = stem
+	return model
+end
+
+--[[
+    @summary  Make a fresh clone of a resource asset (or build one) and tag
+              it with the attributes CarryController/HarvestService/ForageService
+              will look for.
+    @param    resourceName  string  -- one of RESOURCE_NAMES
+    @returns  Model
+]]
+local function buildDropModel(resourceName: string): Model
+	local model: Model
+
+	if resourceName == "Mushrooms" then
+		model = buildMushroomProp()
+	else
+		local assetName = DROP_ASSETS[resourceName]
+		local source = assetName and ITEMS_PATH:FindFirstChild(assetName)
+		if source and source:IsA("Model") then
+			model = source:Clone()
+			if not model.PrimaryPart then
+				local first = model:FindFirstChildWhichIsA("BasePart", true)
+				if first then
+					model.PrimaryPart = first
+				end
+			end
+		elseif source and source:IsA("BasePart") then
+			model = Instance.new("Model")
+			model.Name = source.Name .. "Pickup"
+			local clone = source:Clone()
+			clone.Anchored = false
+			clone.CanCollide = true
+			clone.Parent = model
+			model.PrimaryPart = clone
+		else
+			model = Instance.new("Model")
+			model.Name = resourceName .. "Pickup"
+			local fallback = Instance.new("Part")
+			fallback.Name = "Main"
+			fallback.Size = Vector3.new(1, 1, 1)
+			fallback.Color = Color3.fromRGB(180, 180, 180)
+			fallback.Material = Enum.Material.SmoothPlastic
+			fallback.Parent = model
+			model.PrimaryPart = fallback
+		end
+	end
+
+	-- Prepare physics: let them fall and rest on the ground.
+	for _, descendant in ipairs(model:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			descendant.Anchored = false
+			descendant.CanCollide = true
+		end
+	end
+
+	-- Generic identifier used by CarryController.
+	model:SetAttribute("Resource", resourceName)
+
+	-- Legacy identifiers so existing services can still handle their own items.
+	if resourceName == "Wood" then
+		model:SetAttribute("PickupResource", "Wood")
+	elseif resourceName == "Berries" or resourceName == "Mushrooms" then
+		model:SetAttribute("ForageResource", resourceName)
+	end
+
+	return model
+end
+
+--[[
+    @summary  Validate and process a generic resource pickup.
+    @param    model   Model   -- the world item to pick up
+    @param    player  Player  -- the picking player
+    @returns  boolean
+]]
+local function tryPickup(model: Model, player: Player): boolean
+	if not model.Parent then
+		return false
+	end
+
+	local resourceName = model:GetAttribute("Resource")
+		or model:GetAttribute("PickupResource")
+		or model:GetAttribute("ForageResource")
+	if not resourceName or typeof(resourceName) ~= "string" then
+		return false
+	end
+	if not table.find(RESOURCE_NAMES, resourceName) then
+		return false
+	end
+
+	local character = player.Character
+	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+	if not rootPart or not rootPart:IsA("BasePart") then
+		return false
+	end
+
+	if (rootPart.Position - model:GetPivot().Position).Magnitude > PICKUP_RANGE then
+		return false
+	end
+
+	if not worldService then
+		return false
+	end
+	local baseMap = worldService:GetBaseMap()
+	if not baseMap or not model:IsDescendantOf(baseMap) then
+		return false
+	end
+
+	local added = InventoryService:AddResource(player, resourceName, 1)
+	if added <= 0 then
+		return false
+	end
+
+	model:Destroy()
+	return true
+end
+
+--[[
+    @summary  Drop every carried resource at the player's feet.
+    @param    player  Player  -- the dropping player
+    @returns  boolean
+]]
+local function tryDropAll(player: Player): boolean
+	local data = getPlayerData(player)
+	if not data then
+		return false
+	end
+
+	if not worldService then
+		return false
+	end
+	local baseMap = worldService:GetBaseMap()
+	if not baseMap then
+		return false
+	end
+
+	local character = player.Character
+	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+	if not rootPart or not rootPart:IsA("BasePart") then
+		return false
+	end
+
+	local origin = rootPart.Position
+	local droppedAny = false
+
+	for _, resourceName in ipairs(RESOURCE_NAMES) do
+		local count = data.Resources[resourceName] or 0
+		if count > 0 then
+			droppedAny = true
+			for i = 1, count do
+				local golden = i * 2.3999632297
+				local radius = math.sqrt(i) * DROP_SPACING
+				local offset = Vector3.new(math.cos(golden) * radius, 0, math.sin(golden) * radius)
+				local position = Vector3.new(origin.X + offset.X, origin.Y, origin.Z + offset.Z)
+
+				local model = buildDropModel(resourceName)
+				model:PivotTo(CFrame.new(position) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+				model.Parent = baseMap
+				Debris:AddItem(model, DROP_LIFETIME)
+			end
+
+			updatePlayerData(player, function(playerData)
+				playerData.Resources[resourceName] = 0
+			end)
+		end
+	end
+
+	if droppedAny then
+		broadcastSnapshot(player)
+	end
+	return true
+end
+
+-- // CLIENT REMOTES // --
+
+--[[
+    @summary  Client-to-server remote for picking up a generic resource drop.
+    @param    player  Player  -- injected by Knit
+    @param    model   Model   -- the resource model in the world
+    @returns  boolean
+]]
+function InventoryService.Client:RequestPickup(player: Player, model: Model): boolean
+	if not model or not model:IsA("Model") or not model.Parent then
+		return false
+	end
+	return tryPickup(model, player)
+end
+
+--[[
+    @summary  Client-to-server remote to drop the entire inventory.
+    @param    player  Player  -- injected by Knit
+    @returns  boolean
+]]
+function InventoryService.Client:RequestDropAll(player: Player): boolean
+	return tryDropAll(player)
+end
+
 --[[
     @summary  Build an equippable Carry Bag Tool from the pre-placed mesh.
     @desc     Clones the carry-bag Part as the Tool's Handle so the player
@@ -278,6 +523,7 @@ end
 
 function InventoryService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
+	worldService = Knit.GetService("WorldService")
 
 	bagTemplate = buildCarryBagTool()
 
