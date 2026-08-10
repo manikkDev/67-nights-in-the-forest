@@ -41,6 +41,7 @@ local InventoryService = Knit.CreateService({
 	Name = "InventoryService",
 	Client = {
 		ResourcesChanged = Knit.CreateSignal(),
+		DragTargetMoved = Knit.CreateSignal(),
 	},
 })
 
@@ -56,7 +57,6 @@ local PICKUP_RANGE = 12
 local DROP_SPACING = 2.2
 local DROP_LIFETIME = 300
 
-local DRAG_ATTACHMENT_OFFSET = Vector3.new(0, 1, -3)
 local DRAG_MAX_DISTANCE = 50
 
 -- Map resources to the asset name in ITEMS_PATH.  Mushrooms are built procedurally.
@@ -73,7 +73,7 @@ local playerDataService: any? = nil
 local worldService: any? = nil
 local bagTemplate: Tool? = nil
 
-local dragging: { [Player]: { model: Model, alignPos: AlignPosition, alignOri: AlignOrientation, playerAttach: Attachment, itemAttach: Attachment, originalCanCollide: { [BasePart]: boolean } } } = {}
+local dragging: { [Player]: { model: Model, alignPos: AlignPosition, alignOri: AlignOrientation?, dragTarget: BasePart, dragTargetAttach: Attachment, itemAttach: Attachment, originalCanCollide: { [BasePart]: boolean } } } = {}
 local draggedBy: { [Model]: Player } = {}
 
 -- // FUNCTIONS // --
@@ -536,11 +536,14 @@ local function stopDrag(player: Player)
 	if entry.alignOri then
 		entry.alignOri:Destroy()
 	end
-	if entry.playerAttach then
-		entry.playerAttach:Destroy()
+	if entry.dragTargetAttach then
+		entry.dragTargetAttach:Destroy()
 	end
 	if entry.itemAttach then
 		entry.itemAttach:Destroy()
+	end
+	if entry.dragTarget then
+		entry.dragTarget:Destroy()
 	end
 
 	local model = entry.model
@@ -628,7 +631,7 @@ local function tryStartDrag(player: Player, model: Model): boolean
 		if desc:IsA("BasePart") then
 			originalCanCollide[desc] = desc.CanCollide
 			desc.Anchored = false
-			desc.CanCollide = false
+			-- Keep original CanCollide so the item slides against the map like the real game.
 		end
 	end
 
@@ -636,10 +639,19 @@ local function tryStartDrag(player: Player, model: Model): boolean
 		primaryPart:SetNetworkOwner(player)
 	end)
 
-	local playerAttach = Instance.new("Attachment")
-	playerAttach.Name = "DragPlayerAttachment"
-	playerAttach.Position = DRAG_ATTACHMENT_OFFSET
-	playerAttach.Parent = hrp
+	local dragTarget = Instance.new("Part")
+	dragTarget.Name = "DragTarget_" .. tostring(player.UserId)
+	dragTarget.Size = Vector3.new(1, 1, 1)
+	dragTarget.Transparency = 1
+	dragTarget.CanCollide = false
+	dragTarget.Anchored = true
+	dragTarget.CFrame = CFrame.new(model:GetPivot().Position)
+	dragTarget.Parent = workspace
+
+	local dragTargetAttach = Instance.new("Attachment")
+	dragTargetAttach.Name = "DragTargetAttachment"
+	dragTargetAttach.Position = Vector3.zero
+	dragTargetAttach.Parent = dragTarget
 
 	local itemAttach = Instance.new("Attachment")
 	itemAttach.Name = "DragItemAttachment"
@@ -649,27 +661,19 @@ local function tryStartDrag(player: Player, model: Model): boolean
 	local alignPos = Instance.new("AlignPosition")
 	alignPos.Name = "DragAlignPosition"
 	alignPos.Attachment0 = itemAttach
-	alignPos.Attachment1 = playerAttach
+	alignPos.Attachment1 = dragTargetAttach
 	alignPos.RigidityEnabled = false
-	alignPos.Responsiveness = 25
-	alignPos.MaxForce = 1e5
+	alignPos.Responsiveness = 200
+	alignPos.MaxForce = 1e6
 	alignPos.ApplyAtCenterOfMass = true
 	alignPos.Parent = primaryPart
-
-	local alignOri = Instance.new("AlignOrientation")
-	alignOri.Name = "DragAlignOrientation"
-	alignOri.Attachment0 = itemAttach
-	alignOri.Attachment1 = playerAttach
-	alignOri.RigidityEnabled = false
-	alignOri.Responsiveness = 20
-	alignOri.MaxTorque = 1e5
-	alignOri.Parent = primaryPart
 
 	dragging[player] = {
 		model = model,
 		alignPos = alignPos,
-		alignOri = alignOri,
-		playerAttach = playerAttach,
+		alignOri = nil,
+		dragTarget = dragTarget,
+		dragTargetAttach = dragTargetAttach,
 		itemAttach = itemAttach,
 		originalCanCollide = originalCanCollide,
 	}
@@ -705,6 +709,22 @@ local function cleanupDrags()
 		end
 
 		if (hrp.Position - primaryPart.Position).Magnitude > DRAG_MAX_DISTANCE then
+			table.insert(toStop, player)
+			continue
+		end
+
+		local dragTarget = entry.dragTarget
+		if not dragTarget or not dragTarget.Parent then
+			table.insert(toStop, player)
+			continue
+		end
+
+		if (hrp.Position - dragTarget.Position).Magnitude > DRAG_MAX_DISTANCE then
+			table.insert(toStop, player)
+			continue
+		end
+
+		if (dragTarget.Position - primaryPart.Position).Magnitude > 30 then
 			table.insert(toStop, player)
 			continue
 		end
@@ -898,6 +918,29 @@ function InventoryService:KnitStart()
 			giveCarryBag(player)
 		end
 	end
+
+	InventoryService.Client.DragTargetMoved:Connect(function(player: Player, pos: any)
+		if typeof(pos) ~= "Vector3" then
+			return
+		end
+		local entry = dragging[player]
+		if not entry then
+			return
+		end
+		local dragTarget = entry.dragTarget
+		if not dragTarget or not dragTarget.Parent then
+			return
+		end
+		local character = player.Character
+		local hrp = character and character:FindFirstChild("HumanoidRootPart")
+		if not hrp or not hrp:IsA("BasePart") then
+			return
+		end
+		if (hrp.Position - pos).Magnitude > DRAG_MAX_DISTANCE then
+			return
+		end
+		dragTarget.CFrame = CFrame.new(pos)
+	end)
 
 	Players.PlayerRemoving:Connect(stopDrag)
 	local function onCharacterRemoving(player: Player)

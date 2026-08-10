@@ -57,6 +57,8 @@ local hoverNameGui: BillboardGui? = nil
 
 local draggingModel: Model? = nil
 local draggingResourceName: string? = nil
+local dragTarget: BasePart? = nil
+local lastDragTargetSent = 0
 
 -- // FUNCTIONS // --
 
@@ -263,17 +265,74 @@ local function setHover(model: Model, resourceName: string, promptText: string?)
 end
 
 --[[
+    @summary  Release the currently dragged item.
+]]
+local function stopDrag()
+	if inventoryService then
+		inventoryService:RequestDragStop()
+	end
+	draggingModel = nil
+	draggingResourceName = nil
+	dragTarget = nil
+end
+
+--[[
+    @summary  Move the invisible drag target to the current mouse position in 3D space.
+]]
+local function updateDragTarget()
+	if not dragTarget or not dragTarget.Parent then
+		return
+	end
+
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return
+	end
+
+	local mousePos = UserInputService:GetMouseLocation()
+	local ray = camera:ViewportPointToRay(mousePos.X, mousePos.Y, 0)
+
+	local raycastParams = RaycastParams.new()
+	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+	local filterList = {}
+	if dragTarget then
+		table.insert(filterList, dragTarget)
+	end
+	if draggingModel then
+		table.insert(filterList, draggingModel)
+	end
+	local character = localPlayer.Character
+	if character then
+		table.insert(filterList, character)
+	end
+	raycastParams.FilterDescendantsInstances = filterList
+
+	local result = workspace:Raycast(ray.Origin, ray.Direction * RAY_LENGTH, raycastParams)
+	local targetPos = result and result.Position or (ray.Origin + ray.Direction * RAY_LENGTH)
+
+	local now = os.clock()
+	if now - lastDragTargetSent < 0.03 then
+		return
+	end
+	lastDragTargetSent = now
+
+	if inventoryService then
+		inventoryService.DragTargetMoved:Fire(targetPos)
+	end
+end
+
+--[[
     @summary  Per-frame hover check so items highlight as the cursor moves.
 ]]
 local function updateHover()
 	if draggingModel and draggingResourceName then
 		if not draggingModel.Parent then
-			draggingModel = nil
-			draggingResourceName = nil
+			stopDrag()
 			clearHover()
 			return
 		end
 		setHover(draggingModel, draggingResourceName, "Release [LMB]")
+		updateDragTarget()
 		return
 	end
 
@@ -358,22 +417,23 @@ local function startDrag(model: Model, resourceName: string): boolean
 	end
 
 	local ok = inventoryService:RequestDragStart(model)
-	if ok then
-		draggingModel = model
-		draggingResourceName = resourceName
+	if not ok then
+		return false
 	end
-	return ok
-end
 
---[[
-    @summary  Release the currently dragged item.
-]]
-local function stopDrag()
-	if inventoryService then
-		inventoryService:RequestDragStop()
+	draggingModel = model
+	draggingResourceName = resourceName
+
+	local targetName = "DragTarget_" .. tostring(localPlayer.UserId)
+	local target = workspace:WaitForChild(targetName, 2)
+	if target and target:IsA("BasePart") then
+		dragTarget = target
+		updateDragTarget()
+	else
+		stopDrag()
+		return false
 	end
-	draggingModel = nil
-	draggingResourceName = nil
+	return true
 end
 
 --[[
