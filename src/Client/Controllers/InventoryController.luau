@@ -41,17 +41,21 @@ local BAG_TOOL_NAME = "Carry Bag"
 local PANEL_WIDTH = 220
 local PANEL_MARGIN = 16
 local ROW_HEIGHT = 38
+local ROW_GAP = 4
+local PANEL_PADDING = 10
+local PANEL_GAP = 8
 local ICON_SIZE = 28
+local HEADER_HEIGHT = 18
+local CAPACITY_CONTAINER_HEIGHT = 24
+local DROP_ALL_HEIGHT = 28
 local ROW_PADDING_X = 8
 local ROW_PADDING_Y = 5
 local ACTION_BUTTON_WIDTH = 36
 local ACTION_GAP = 5
 local CAPACITY_HEIGHT = 4
-local CAPACITY_MARGIN = 8
 
 -- Tween timings
 local TWEEN_SLIDE = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local TWEEN_EXPAND = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local TWEEN_HOVER = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local TWEEN_FADE = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local TWEEN_COUNT_POP = TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
@@ -94,7 +98,6 @@ type RowEntry = {
 
 local rowEntries: { [string]: RowEntry } = {}
 
-local bagGui: ScreenGui? = nil
 local bagPanel: Frame? = nil
 local capacityFill: Frame? = nil
 local capacityText: TextLabel? = nil
@@ -270,13 +273,14 @@ end
 --[[
     @summary  Build the capacity bar with numeric label at the bottom of the panel.
 ]]
-local function buildCapacityBar(parent: Frame)
+local function buildCapacityBar(parent: Frame, y: number)
+	local contentW = PANEL_WIDTH - 2 * PANEL_PADDING
 	local container = Instance.new("Frame")
 	container.Name = "CapacityContainer"
-	container.Size = UDim2.new(1, 0, 0, CAPACITY_HEIGHT + 20)
+	container.Position = UDim2.new(0, PANEL_PADDING, 0, y)
+	container.Size = UDim2.new(0, contentW, 0, CAPACITY_HEIGHT + 20)
 	container.BackgroundTransparency = 1
 	container.BorderSizePixel = 0
-	container.LayoutOrder = 2
 	container.Parent = parent
 
 	local barBackground = Instance.new("Frame")
@@ -324,13 +328,14 @@ end
 --[[
     @summary  Build the Drop All button that lives at the bottom of the panel.
 ]]
-local function buildDropAllButton(parent: Frame): TextButton
+local function buildDropAllButton(parent: Frame, y: number): TextButton
+	local contentW = PANEL_WIDTH - 2 * PANEL_PADDING
 	local container = Instance.new("Frame")
 	container.Name = "DropAllContainer"
-	container.Size = UDim2.new(1, 0, 0, 28)
+	container.Position = UDim2.new(0, PANEL_PADDING, 0, y)
+	container.Size = UDim2.new(0, contentW, 0, 28)
 	container.BackgroundTransparency = 1
 	container.BorderSizePixel = 0
-	container.LayoutOrder = 3
 	container.Parent = parent
 
 	local button = Instance.new("TextButton")
@@ -571,74 +576,47 @@ local function buildBagGui(): ScreenGui
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.Enabled = true
 
-	bagGui = gui
+	-- Compute total height explicitly.
+	local rowsHeight = #ROW_ORDER * ROW_HEIGHT + (#ROW_ORDER - 1) * ROW_GAP
+	local totalHeight = PANEL_PADDING + HEADER_HEIGHT + PANEL_GAP + rowsHeight
+		+ PANEL_GAP + CAPACITY_CONTAINER_HEIGHT + PANEL_GAP + DROP_ALL_HEIGHT + PANEL_PADDING
 
 	local panel = Instance.new("Frame")
 	panel.Name = "BagPanel"
-	panel.AnchorPoint = Vector2.new(1, 0)
-	panel.Position = UDim2.new(1, PANEL_WIDTH + PANEL_MARGIN, 0, PANEL_MARGIN)
-	panel.Size = UDim2.new(0, PANEL_WIDTH, 0, 0)
-	panel.AutomaticSize = Enum.AutomaticSize.Y
-	panel.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
-	panel.BackgroundTransparency = 0.08
+	panel.AnchorPoint = Vector2.new(1, 1)
+	panel.Position = UDim2.new(1, PANEL_WIDTH + PANEL_MARGIN, 1, -PANEL_MARGIN)
+	panel.Size = UDim2.new(0, PANEL_WIDTH, 0, totalHeight)
+	panel.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+	panel.BackgroundTransparency = 0.06
 	panel.BorderSizePixel = 0
-	panel.ClipsDescendants = true
+	panel.ClipsDescendants = false
 	panel.Active = true
+	panel.ZIndex = 1
 	panel.Parent = gui
 
 	bagPanel = panel
-
-	local gradient = Instance.new("UIGradient")
-	gradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(32, 32, 38)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(18, 18, 22)),
-	})
-	gradient.Rotation = 90
-	gradient.Parent = panel
 
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 16)
 	corner.Parent = panel
 
 	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(70, 70, 85)
+	stroke.Color = Color3.fromRGB(110, 110, 125)
 	stroke.Thickness = 1
 	stroke.Parent = panel
 
-	-- Soft shadow.
-	local shadow = Instance.new("Frame")
-	shadow.Name = "Shadow"
-	shadow.AnchorPoint = Vector2.new(0.5, 0.5)
-	shadow.Position = UDim2.new(0.5, 5, 0.5, 5)
-	shadow.Size = UDim2.new(1, 20, 1, 20)
-	shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-	shadow.BackgroundTransparency = 0.75
-	shadow.BorderSizePixel = 0
-	shadow.ZIndex = -1
-	shadow.Parent = panel
+	local contentW = PANEL_WIDTH - 2 * PANEL_PADDING
+	local function nextY(y: number, h: number): number
+		return y + h + PANEL_GAP
+	end
 
-	local shadowCorner = Instance.new("UICorner")
-	shadowCorner.CornerRadius = UDim.new(0, 16)
-	shadowCorner.Parent = shadow
-
-	local padding = Instance.new("UIPadding")
-	padding.PaddingTop = UDim.new(0, 10)
-	padding.PaddingBottom = UDim.new(0, 10)
-	padding.PaddingLeft = UDim.new(0, 10)
-	padding.PaddingRight = UDim.new(0, 10)
-	padding.Parent = panel
-
-	local layout = Instance.new("UIListLayout")
-	layout.Name = "PanelLayout"
-	layout.Padding = UDim.new(0, CAPACITY_MARGIN)
-	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	layout.Parent = panel
+	local y = PANEL_PADDING
 
 	-- Header.
 	local header = Instance.new("TextLabel")
 	header.Name = "Header"
-	header.Size = UDim2.new(1, 0, 0, 18)
+	header.Position = UDim2.new(0, PANEL_PADDING, 0, y)
+	header.Size = UDim2.new(0, contentW, 0, HEADER_HEIGHT)
 	header.BackgroundTransparency = 1
 	header.Text = "CARRY BAG"
 	header.TextColor3 = Color3.fromRGB(245, 245, 245)
@@ -646,20 +624,21 @@ local function buildBagGui(): ScreenGui
 	header.TextSize = 12
 	header.TextXAlignment = Enum.TextXAlignment.Left
 	header.TextYAlignment = Enum.TextYAlignment.Center
-	header.LayoutOrder = 0
 	header.Parent = panel
+	y = nextY(y, HEADER_HEIGHT)
 
+	-- Rows container.
 	local rowsContainer = Instance.new("Frame")
 	rowsContainer.Name = "RowsContainer"
-	rowsContainer.Size = UDim2.new(1, 0, 0, 0)
-	rowsContainer.AutomaticSize = Enum.AutomaticSize.Y
+	rowsContainer.Position = UDim2.new(0, PANEL_PADDING, 0, y)
+	rowsContainer.Size = UDim2.new(0, contentW, 0, rowsHeight)
 	rowsContainer.BackgroundTransparency = 1
 	rowsContainer.BorderSizePixel = 0
-	rowsContainer.LayoutOrder = 1
 	rowsContainer.Parent = panel
+	y = nextY(y, rowsHeight)
 
 	local rowsLayout = Instance.new("UIListLayout")
-	rowsLayout.Padding = UDim.new(0, 4)
+	rowsLayout.Padding = UDim.new(0, ROW_GAP)
 	rowsLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	rowsLayout.Parent = rowsContainer
 
@@ -667,8 +646,10 @@ local function buildBagGui(): ScreenGui
 		buildRow(resourceName, i, rowsContainer)
 	end
 
-	buildCapacityBar(panel)
-	buildDropAllButton(panel)
+	buildCapacityBar(panel, y)
+	y = nextY(y, CAPACITY_CONTAINER_HEIGHT)
+
+	buildDropAllButton(panel, y)
 
 	tooltipFrame = buildTooltip(gui)
 
@@ -701,11 +682,11 @@ end
     @summary  Update all count labels, badges, capacity, and play count pop.
 ]]
 local function updateDisplay(resources: { [string]: number }?, capacity: number?)
-	resources = resources or {}
+	local resourceCounts = resources or {}
 
 	local total = 0
 	for resourceName, entry in pairs(rowEntries) do
-		local count = resources[resourceName] or 0
+		local count = resourceCounts[resourceName] or 0
 		total += count
 
 		entry.countLabel.Text = tostring(count)
@@ -737,7 +718,7 @@ local function showBag()
 	end
 	isOpen = true
 
-	TweenService:Create(bagPanel, TWEEN_SLIDE, { Position = UDim2.new(1, -PANEL_MARGIN, 0, PANEL_MARGIN) }):Play()
+	TweenService:Create(bagPanel, TWEEN_SLIDE, { Position = UDim2.new(1, -PANEL_MARGIN, 1, -PANEL_MARGIN) }):Play()
 end
 
 --[[
@@ -750,7 +731,7 @@ local function hideBag()
 	isOpen = false
 
 	hideTooltip()
-	TweenService:Create(bagPanel, TWEEN_SLIDE, { Position = UDim2.new(1, PANEL_WIDTH + PANEL_MARGIN, 0, PANEL_MARGIN) }):Play()
+	TweenService:Create(bagPanel, TWEEN_SLIDE, { Position = UDim2.new(1, PANEL_WIDTH + PANEL_MARGIN, 1, -PANEL_MARGIN) }):Play()
 end
 
 --[[
@@ -860,26 +841,37 @@ end
 
 function InventoryController:KnitInit()
 	local playerGui = localPlayer:WaitForChild("PlayerGui")
-	local gui = buildBagGui()
+	local ok, gui = pcall(buildBagGui)
+	if not ok or not gui then
+		warn("[InventoryController] Failed to build bag GUI:", gui)
+		return
+	end
 	gui.Parent = playerGui
+	print("[InventoryController] Bag GUI built and parented")
 end
 
 function InventoryController:KnitStart()
 	local inventoryService = Knit.GetService("InventoryService")
 
-	wireInteractions()
-	watchBagTool()
+	local ok, err = pcall(function()
+		wireInteractions()
+		watchBagTool()
 
-	inventoryService.ResourcesChanged:Connect(function(resources, capacity)
-		updateDisplay(resources, capacity)
+		inventoryService.ResourcesChanged:Connect(function(resources, capacity)
+			updateDisplay(resources, capacity)
+		end)
+
+		local snapshot = inventoryService.GetSnapshot()
+		if snapshot then
+			updateDisplay(snapshot.resources, snapshot.capacity)
+		end
 	end)
 
-	local snapshot = inventoryService.GetSnapshot()
-	if snapshot then
-		updateDisplay(snapshot.resources, snapshot.capacity)
+	if not ok then
+		warn("[InventoryController] KnitStart error:", err)
+	else
+		print("[InventoryController] Initialised — professional carry bag UI bound")
 	end
-
-	print("[InventoryController] Initialised — professional carry bag UI bound")
 end
 
 return InventoryController

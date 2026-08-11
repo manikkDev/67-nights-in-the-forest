@@ -42,7 +42,6 @@ local janitor = Janitor.new()
 local toolJanitor = Janitor.new()
 local charJanitor = Janitor.new()
 local lastChopTime = 0
-local equippedTool: Tool? = nil
 local swingAnimationId: string? = nil
 local cachedAnimTrack: AnimationTrack? = nil
 
@@ -133,8 +132,10 @@ local function playSwingAnimation()
 	animInstance.AnimationId = swingAnimationId
 
 	cachedAnimTrack = animator:LoadAnimation(animInstance)
-	cachedAnimTrack.Priority = Enum.AnimationPriority.Action
-	cachedAnimTrack:Play()
+	if cachedAnimTrack then
+		cachedAnimTrack.Priority = Enum.AnimationPriority.Action
+		cachedAnimTrack:Play()
+	end
 end
 
 --[[
@@ -166,7 +167,6 @@ end
 ]]
 local function wireTool(tool: Tool)
 	toolJanitor:Cleanup()
-	equippedTool = tool
 	toolJanitor:Add(tool.Activated:Connect(onToolActivated), "Disconnect")
 end
 
