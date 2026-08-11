@@ -787,6 +787,78 @@ function InventoryService.Client:RequestDropOne(player: Player): boolean
 end
 
 --[[
+    @summary  Client-to-server remote to drop a specific amount of a resource.
+    @param    player        Player  -- injected by Knit
+    @param    resourceName  string  -- one of RESOURCE_NAMES
+    @param    amount        number  -- units to drop (default 1)
+    @returns  boolean
+]]
+function InventoryService.Client:RequestDrop(player: Player, resourceName: string, amount: number?): boolean
+	if not resourceName or typeof(resourceName) ~= "string" then
+		return false
+	end
+	if not table.find(RESOURCE_NAMES, resourceName) then
+		return false
+	end
+
+	local dropAmount = math.max(1, math.floor(amount or 1))
+	local data = getPlayerData(player)
+	if not data then
+		return false
+	end
+	if (data.Resources[resourceName] or 0) < dropAmount then
+		return false
+	end
+	if not worldService then
+		return false
+	end
+	local baseMap = worldService:GetBaseMap()
+	if not baseMap then
+		return false
+	end
+
+	local character = player.Character
+	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+	if not rootPart or not rootPart:IsA("BasePart") then
+		return false
+	end
+
+	local origin = rootPart.Position
+	local dropped = 0
+	for i = 1, dropAmount do
+		local golden = i * 2.3999632297
+		local radius = math.sqrt(i) * DROP_SPACING
+		local offset = Vector3.new(math.cos(golden) * radius, 0, math.sin(golden) * radius)
+		local position = Vector3.new(origin.X + offset.X, origin.Y, origin.Z + offset.Z)
+
+		local model = buildDropModel(resourceName)
+		model:PivotTo(CFrame.new(position) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+		model.Parent = baseMap
+		Debris:AddItem(model, DROP_LIFETIME)
+		dropped += 1
+	end
+
+	if dropped > 0 then
+		updatePlayerData(player, function(playerData)
+			playerData.Resources[resourceName] -= dropped
+			if typeof(playerData.Inventory) == "table" and typeof(playerData.Inventory.PickupOrder) == "table" then
+				local order = playerData.Inventory.PickupOrder
+				for _ = 1, dropped do
+					for i = #order, 1, -1 do
+						if order[i] == resourceName then
+							table.remove(order, i)
+							break
+						end
+					end
+				end
+			end
+		end)
+		broadcastSnapshot(player)
+	end
+	return dropped > 0
+end
+
+--[[
     @summary  Client-to-server remote to start dragging a world item.
     @param    player  Player  -- injected by Knit
     @param    model   Model   -- the item to drag
