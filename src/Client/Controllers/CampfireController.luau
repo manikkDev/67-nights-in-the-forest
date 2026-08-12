@@ -51,6 +51,7 @@ local levelUpGui: ScreenGui? = nil
 local levelUpBanner: CanvasGroup? = nil
 local levelUpTitle: TextLabel? = nil
 local levelUpSubtitle: TextLabel? = nil
+local levelUpShowingLevel: number = 0
 
 -- // FUNCTIONS // --
 
@@ -157,6 +158,7 @@ local function buildLevelUpBanner(): CanvasGroup
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
 	gui.DisplayOrder = 10
+	gui.Enabled = false
 	gui.Parent = playerGui
 	levelUpGui = gui
 
@@ -405,32 +407,57 @@ end
     @param    maxFuel       number
 ]]
 local function showLevelUp(newLevel: number, previousLevel: number, radius: number, maxFuel: number)
-	if not levelUpBanner or not levelUpTitle or not levelUpSubtitle then
+	if not levelUpGui or not levelUpBanner or not levelUpTitle or not levelUpSubtitle then
 		return
 	end
 
+	-- Ignore duplicate level-up spams; only a new level should restart.
+	if newLevel == levelUpShowingLevel then
+		return
+	end
+	levelUpShowingLevel = newLevel
+
 	levelUpTitle.Text = "CAMPFIRE LEVEL " .. tostring(newLevel) .. "!"
-	levelUpSubtitle.Text = "Safe zone expanded to " .. tostring(math.round(radius)) .. " studs"
+	levelUpSubtitle.Text = "Safe zone expanded to " .. tostring(math.round(radius or 0)) .. " studs"
 
 	-- Keep the size non-zero: CanvasGroup can bug out if it is ever
 	-- scaled to (0, 0).  We fade/slide instead.
 	levelUpBanner.Position = UDim2.new(0.5, 0, 0.5, 60)
 	levelUpBanner.Size = UDim2.new(0, 360, 0, 80)
 	levelUpBanner.GroupTransparency = 1
+	levelUpGui.Enabled = true
 
-	TweenService:Create(levelUpBanner, LEVELUP_TWEEN_INFO, {
+	local inTween = TweenService:Create(levelUpBanner, LEVELUP_TWEEN_INFO, {
 		Position = UDim2.new(0.5, 0, 0.5, -40),
 		GroupTransparency = 0,
-	}):Play()
+	})
+	inTween:Play()
 
-	task.delay(LEVELUP_HOLD_TIME, function()
-		if not levelUpBanner then
+	task.spawn(function()
+		local expectedLevel = newLevel
+		inTween.Completed:Wait()
+
+		if levelUpShowingLevel ~= expectedLevel then
 			return
 		end
-		TweenService:Create(levelUpBanner, LEVELUP_TWEEN_INFO, {
+		task.wait(LEVELUP_HOLD_TIME)
+		if levelUpShowingLevel ~= expectedLevel or not levelUpBanner then
+			return
+		end
+
+		local outTween = TweenService:Create(levelUpBanner, LEVELUP_TWEEN_INFO, {
 			Position = UDim2.new(0.5, 0, 0.5, -90),
 			GroupTransparency = 1,
-		}):Play()
+		})
+		outTween:Play()
+		outTween.Completed:Wait()
+
+		-- Always force the GUI off in case CanvasGroup GroupTransparency
+		-- gets stuck (a known Roblox UI rendering issue).
+		if levelUpGui and levelUpShowingLevel == expectedLevel then
+			levelUpGui.Enabled = false
+			levelUpShowingLevel = 0
+		end
 	end)
 end
 
