@@ -36,9 +36,7 @@ local Constants = require(ReplicatedStorage.Shared.Constants)
 -- | Objects | --
 local PlayerDataService = Knit.CreateService({
 	Name = "PlayerDataService",
-	Client = {
-		DataLoaded = Knit.CreateSignal(),
-	},
+	Client = {},
 })
 
 PlayerDataService.ProfileLoaded = Signal.new()
@@ -114,7 +112,6 @@ local function loadProfile(player: Player)
 		if player.Parent then
 			profiles[player] = profile
 			PlayerDataService.ProfileLoaded:Fire(player)
-			PlayerDataService.Client.DataLoaded:Fire(player, table.clone(profile.Data))
 		else
 			profile:Release()
 		end

@@ -103,6 +103,8 @@ local SAFE_ZONE_LINE_MATERIAL = Enum.Material.Neon
 local SAFE_ZONE_LINE_TRANSPARENCY = 0
 local SAFE_ZONE_LINE_OFF_TRANSPARENCY = 1
 local SAFE_ZONE_BROADCAST_THRESHOLD = 0.5
+local LOG_SCAN_INTERVAL = 0.2
+local LOG_SCAN_RADIUS = 4
 
 -- | State Management | --
 local worldService: any? = nil
@@ -120,8 +122,10 @@ local groundPart: BasePart? = nil
 local fireInstance: Fire? = nil
 local pointLight: PointLight? = nil
 local feedPrompt: ProximityPrompt? = nil
+local feedPromptConnection: RBXScriptConnection? = nil
 local feedCooldowns: { [Player]: number } = {}
 local fuelBroadcastTimer = 0
+local logScanTimer = 0
 local safeZoneDots: { Part }? = nil
 local currentSafeZoneRadius = 0
 local lastBroadcastRadius = 0
@@ -492,8 +496,59 @@ end
     @param    player  Player           -- the triggering player
 ]]
 local function onPromptTriggered(prompt: ProximityPrompt, player: Player)
-	if prompt == feedPrompt then
+	if prompt == feedPrompt or (prompt and prompt:IsA("ProximityPrompt") and prompt.Name == "FeedFirePrompt") then
 		feedCampfire(player, 1)
+	end
+end
+
+--[[
+    @summary  Scan the area around the campfire for loose Log models and
+              consume them as fuel.  This lets players literally place
+              dragged/dropped logs onto the fire as an alternative to the
+              ProximityPrompt.
+]]
+local function scanForLogFuel()
+	if not campfirePart or not inventoryService or not worldService then
+		return
+	end
+
+	local baseMap = worldService:GetBaseMap()
+	if not baseMap then
+		return
+	end
+
+	local params = OverlapParams.new()
+	params.FilterDescendantsInstances = { baseMap }
+	params.FilterType = Enum.RaycastFilterType.Include
+
+	local parts = workspace:GetPartBoundsInRadius(campfirePart.Position, LOG_SCAN_RADIUS, params)
+	local consumedThisScan = {}
+	for _, part in ipairs(parts) do
+		if not part:IsA("BasePart") then
+			continue
+		end
+
+		local model = part:FindFirstAncestorOfClass("Model")
+		if not model then
+			continue
+		end
+		if consumedThisScan[model] then
+			continue
+		end
+
+		local resourceName = model:GetAttribute("Resource")
+			or model:GetAttribute("PickupResource")
+			or model:GetAttribute("ForageResource")
+		if resourceName ~= "Wood" or typeof(resourceName) ~= "string" then
+			continue
+		end
+		if inventoryService:IsModelDragged(model) then
+			continue
+		end
+
+		consumedThisScan[model] = true
+		addFuel(1)
+		model:Destroy()
 	end
 end
 
@@ -513,6 +568,12 @@ local function onHeartbeat(dt: number)
 	updateFireVisuals()
 	updateSafeZone()
 	broadcastSafeZone()
+
+	logScanTimer += dt
+	if logScanTimer >= LOG_SCAN_INTERVAL then
+		logScanTimer = 0
+		scanForLogFuel()
+	end
 
 	fuelBroadcastTimer += dt
 	if fuelBroadcastTimer >= FUEL_BROADCAST_INTERVAL then
@@ -592,6 +653,16 @@ local function setupCampfire()
 		prompt.HoldDuration = 0.3
 		prompt.Parent = campfirePart
 		feedPrompt = prompt
+	end
+
+	if feedPrompt then
+		feedPrompt.Exclusivity = Enum.ProximityPromptExclusivity.AlwaysShow
+		if feedPromptConnection then
+			feedPromptConnection:Disconnect()
+		end
+		feedPromptConnection = feedPrompt.Triggered:Connect(function(player)
+			onPromptTriggered(feedPrompt, player)
+		end)
 	end
 
 	-- Remove any old safe zone visuals (disc or previous dots) before creating fresh dots

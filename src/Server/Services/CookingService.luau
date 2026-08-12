@@ -23,6 +23,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ProximityPromptService = game:GetService("ProximityPromptService")
+local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -43,6 +44,7 @@ local campfireService: any? = nil
 local playerDataService: any? = nil
 local campfirePart: BasePart? = nil
 local cookPrompt: ProximityPrompt? = nil
+local cookPromptConnection: RBXScriptConnection? = nil
 local cookCooldowns: { [Player]: number } = {}
 
 -- // FUNCTIONS // --
@@ -77,6 +79,7 @@ local function setupCookPrompt()
 	prompt.ObjectText = "Campfire"
 	prompt.MaxActivationDistance = COOK_RANGE + 2
 	prompt.HoldDuration = 0.3
+	prompt.Exclusivity = Enum.ProximityPromptExclusivity.OnePerButton
 	prompt.Parent = campfirePart
 	cookPrompt = prompt
 
@@ -142,6 +145,21 @@ local function onPromptTriggered(prompt: ProximityPrompt, player: Player)
 	end
 end
 
+--[[
+    @summary  Keep the Cook Meat prompt hidden when the fire is not lit so
+              it cannot block the Feed prompt.
+]]
+local function updateCookPromptEnabled()
+	if not cookPrompt then
+		return
+	end
+	if not campfireService then
+		cookPrompt.Enabled = true
+		return
+	end
+	cookPrompt.Enabled = campfireService:IsLit()
+end
+
 -- // INITIALIZATION // --
 
 function CookingService:KnitStart()
@@ -151,6 +169,17 @@ function CookingService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 
 	setupCookPrompt()
+	if cookPrompt then
+		if cookPromptConnection then
+			cookPromptConnection:Disconnect()
+		end
+		cookPromptConnection = cookPrompt.Triggered:Connect(function(player)
+			onPromptTriggered(cookPrompt, player)
+		end)
+	end
+	RunService.Heartbeat:Connect(updateCookPromptEnabled)
+	updateCookPromptEnabled()
+
 	ProximityPromptService.PromptTriggered:Connect(onPromptTriggered)
 
 	print("[CookingService] Initialised — cooking active")
