@@ -338,6 +338,16 @@ local function buildDropModel(resourceName: string): Model
 end
 
 --[[
+    @summary  Public wrapper for buildDropModel so other services can spawn
+              world items without duplicating drop logic.
+    @param    resourceName  string
+    @returns  Model
+]]
+function InventoryService:BuildDropModel(resourceName: string): Model
+	return buildDropModel(resourceName)
+end
+
+--[[
     @summary  Validate and process a generic resource pickup.
     @param    model   Model   -- the world item to pick up
     @param    player  Player  -- the picking player
@@ -426,7 +436,7 @@ local function tryDropAll(player: Player): boolean
 				local offset = Vector3.new(math.cos(golden) * radius, 0, math.sin(golden) * radius)
 				local position = Vector3.new(origin.X + offset.X, origin.Y, origin.Z + offset.Z)
 
-				local model = buildDropModel(resourceName)
+				local model = buildDropModel(resourceName); model:SetAttribute("DroppedBy", player.UserId)
 				model:PivotTo(CFrame.new(position) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
 				model.Parent = baseMap
 				Debris:AddItem(model, DROP_LIFETIME)
@@ -506,7 +516,7 @@ local function tryDropOne(player: Player): boolean
 	local offset = rootPart.CFrame.LookVector * DROP_SPACING
 	local position = Vector3.new(rootPart.Position.X + offset.X, rootPart.Position.Y, rootPart.Position.Z + offset.Z)
 
-	local model = buildDropModel(resourceName)
+	local model = buildDropModel(resourceName); model:SetAttribute("DroppedBy", player.UserId)
 	model:PivotTo(CFrame.new(position) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
 	model.Parent = baseMap
 	Debris:AddItem(model, DROP_LIFETIME)
@@ -831,7 +841,7 @@ function InventoryService.Client:RequestDrop(player: Player, resourceName: strin
 		local offset = Vector3.new(math.cos(golden) * radius, 0, math.sin(golden) * radius)
 		local position = Vector3.new(origin.X + offset.X, origin.Y, origin.Z + offset.Z)
 
-		local model = buildDropModel(resourceName)
+		local model = buildDropModel(resourceName); model:SetAttribute("DroppedBy", player.UserId)
 		model:PivotTo(CFrame.new(position) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
 		model.Parent = baseMap
 		Debris:AddItem(model, DROP_LIFETIME)
