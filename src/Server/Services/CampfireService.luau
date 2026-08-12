@@ -104,7 +104,7 @@ local SAFE_ZONE_LINE_TRANSPARENCY = 0
 local SAFE_ZONE_LINE_OFF_TRANSPARENCY = 1
 local SAFE_ZONE_BROADCAST_THRESHOLD = 0.5
 local LOG_SCAN_INTERVAL = 0.2
-local LOG_SCAN_RADIUS = 4
+local LOG_SCAN_RADIUS = 8
 
 -- | State Management | --
 local worldService: any? = nil
@@ -486,8 +486,6 @@ local function feedCampfire(player: Player, amount: number)
 
 	feedCooldowns[player] = now
 	addFuel(amount)
-
-	print("[CampfireService]", player.Name, "fed", amount, "wood — fuel", fuel, "/", maxFuel, "level", level, "progress", levelProgress)
 end
 
 --[[
@@ -639,9 +637,10 @@ local function setupCampfire()
 		end
 	end
 
-	-- Parent the feed prompt to the visible fire center if it exists so the
-	-- prompt is positioned at the actual flame, not the invisible anchor.
-	local promptParent = fireCenter or campfirePart
+	-- Parent the feed prompt to the PromptAnchor (or visible fire center) so
+	-- it has a properly-sized BasePart parent and is positioned at the flame.
+	local promptAnchor = bonfire:FindFirstChild("PromptAnchor")
+	local promptParent = (promptAnchor and promptAnchor:IsA("BasePart")) and promptAnchor or fireCenter or campfirePart
 
 	-- Reuse an existing feed prompt if this is a hot reload
 	local existingPrompt = promptParent:FindFirstChild("FeedFirePrompt")
@@ -649,11 +648,12 @@ local function setupCampfire()
 		existingPrompt = campfirePart:FindFirstChild("FeedFirePrompt")
 	end
 	if existingPrompt and existingPrompt:IsA("ProximityPrompt") then
-		feedPrompt = existingPrompt
-		feedPrompt.ActionText = "Add Wood"
+		local prompt = existingPrompt :: ProximityPrompt
+		prompt.ActionText = "Add Wood"
 		if promptParent then
-			feedPrompt.Parent = promptParent
+			prompt.Parent = promptParent
 		end
+		feedPrompt = prompt
 	else
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.Name = "FeedFirePrompt"

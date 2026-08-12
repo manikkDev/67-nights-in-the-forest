@@ -67,21 +67,41 @@ local function setupCookPrompt()
 
 	campfirePart = anchor :: BasePart
 
-	local existing = anchor:FindFirstChild("CookMeatPrompt")
+	-- Parent the cook prompt to the PromptAnchor (or fire center) so it
+	-- shares a properly-sized BasePart parent with the feed prompt.
+	local bonfire = worldService:GetBonfire()
+	local promptAnchor = bonfire and bonfire:FindFirstChild("PromptAnchor")
+	local fireCenter = bonfire and bonfire:FindFirstChild("Fire")
+	local promptParent = (promptAnchor and promptAnchor:IsA("BasePart")) and promptAnchor or (fireCenter and fireCenter:IsA("BasePart")) and fireCenter or campfirePart
+
+	local existing = promptParent:FindFirstChild("CookMeatPrompt")
+	if not (existing and existing:IsA("ProximityPrompt")) and campfirePart then
+		existing = campfirePart:FindFirstChild("CookMeatPrompt")
+	end
 	if existing and existing:IsA("ProximityPrompt") then
-		cookPrompt = existing
-		return
+		local prompt = existing :: ProximityPrompt
+		prompt.Parent = promptParent
+		cookPrompt = prompt
+	else
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "CookMeatPrompt"
+		prompt.ActionText = "Cook Meat"
+		prompt.ObjectText = "Campfire"
+		prompt.MaxActivationDistance = COOK_RANGE + 2
+		prompt.HoldDuration = 0.3
+		prompt.Exclusivity = Enum.ProximityPromptExclusivity.OnePerButton
+		prompt.KeyboardKeyCode = Enum.KeyCode.R
+		prompt.GamepadKeyCode = Enum.KeyCode.ButtonB
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = promptParent
+		cookPrompt = prompt
 	end
 
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "CookMeatPrompt"
-	prompt.ActionText = "Cook Meat"
-	prompt.ObjectText = "Campfire"
-	prompt.MaxActivationDistance = COOK_RANGE + 2
-	prompt.HoldDuration = 0.3
-	prompt.Exclusivity = Enum.ProximityPromptExclusivity.OnePerButton
-	prompt.Parent = campfirePart
-	cookPrompt = prompt
+	if cookPrompt then
+		cookPrompt.RequiresLineOfSight = false
+		cookPrompt.KeyboardKeyCode = Enum.KeyCode.R
+		cookPrompt.GamepadKeyCode = Enum.KeyCode.ButtonB
+	end
 
 	print("[CookingService] Cook Meat prompt wired")
 end
@@ -130,8 +150,6 @@ local function cookMeat(player: Player)
 		return
 	end
 	inventoryService:AddResource(player, "CookedMeat", rawMeat)
-
-	print("[CookingService]", player.Name, "cooked", rawMeat, "meat")
 end
 
 --[[

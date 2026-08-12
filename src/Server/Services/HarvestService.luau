@@ -571,11 +571,11 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 function HarvestService.Client:RequestPickup(player: Player, model: Model): boolean
-	print("[RequestPickup] called for", player.Name, model and model.Name or nil, "attr:", model and model:GetAttribute("PickupResource"))
+	local resourceName = model and model:IsA("Model") and (model:GetAttribute("Resource") or model:GetAttribute("PickupResource") or model:GetAttribute("ForageResource"))
 	if not model or not model:IsA("Model") or not model.Parent then
 		return false
 	end
-	if model:GetAttribute("PickupResource") ~= "Wood" then
+	if resourceName ~= "Wood" then
 		return false
 	end
 	if not worldService or not inventoryService then

@@ -229,6 +229,25 @@ local function placeBonfire(map: Model, ground: CFrame): Model?
 			end
 		end
 
+		-- Create a large, nearly-invisible anchor so campfire prompts have a
+		-- properly-sized BasePart parent (the tiny Fire part is too small).
+		local firePart = existing:FindFirstChild("Fire")
+		if firePart and firePart:IsA("BasePart") and not existing:FindFirstChild("PromptAnchor") then
+			local promptAnchor = Instance.new("Part")
+			promptAnchor.Name = "PromptAnchor"
+			promptAnchor.CFrame = firePart.CFrame
+			promptAnchor.Size = Vector3.new(2, 2, 2)
+			promptAnchor.Transparency = 0.99
+			promptAnchor.Color = Color3.fromRGB(100, 100, 100)
+			promptAnchor.Material = Enum.Material.SmoothPlastic
+			promptAnchor.Anchored = true
+			promptAnchor.CanCollide = false
+			promptAnchor.CanTouch = false
+			promptAnchor.CanQuery = false
+			promptAnchor.CastShadow = false
+			promptAnchor.Parent = existing
+		end
+
 		return existing
 	end
 
@@ -267,6 +286,25 @@ local function placeBonfire(map: Model, ground: CFrame): Model?
 		if desc:IsA("BasePart") then
 			desc.Anchored = true
 		end
+	end
+
+	-- Create a large, nearly-invisible anchor so campfire prompts have a
+	-- properly-sized BasePart parent (the tiny Fire part is too small).
+	local firePart = clone:FindFirstChild("Fire")
+	if firePart and firePart:IsA("BasePart") and not clone:FindFirstChild("PromptAnchor") then
+		local promptAnchor = Instance.new("Part")
+		promptAnchor.Name = "PromptAnchor"
+		promptAnchor.CFrame = firePart.CFrame
+		promptAnchor.Size = Vector3.new(2, 2, 2)
+		promptAnchor.Transparency = 0.99
+		promptAnchor.Color = Color3.fromRGB(100, 100, 100)
+		promptAnchor.Material = Enum.Material.SmoothPlastic
+		promptAnchor.Anchored = true
+		promptAnchor.CanCollide = false
+		promptAnchor.CanTouch = false
+		promptAnchor.CanQuery = false
+		promptAnchor.CastShadow = false
+		promptAnchor.Parent = clone
 	end
 
 	clone.Parent = map
