@@ -230,7 +230,9 @@ local function processLevelUps()
 		maxFuel = MAX_FUEL_BY_LEVEL[level]
 		fuel = math.clamp(fuel, 0, maxFuel)
 		currentSafeZoneRadius = if isLit then SAFE_ZONE_RADIUS_BY_LEVEL[level] else 0
-		CampfireService.Client.LevelUp:Fire(nil, level, level - 1, currentSafeZoneRadius, maxFuel)
+		for _, player in ipairs(Players:GetPlayers()) do
+			CampfireService.Client.LevelUp:Fire(player, level, level - 1, currentSafeZoneRadius, maxFuel)
+		end
 	end
 
 	-- Cap progress at the final level's requirement so the bar sits at 100%.
