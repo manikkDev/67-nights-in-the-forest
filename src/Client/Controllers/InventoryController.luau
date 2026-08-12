@@ -450,7 +450,7 @@ local function buildDropAllButton(parent: Frame, y: number): TextButton
 	button.Text = "DROP ALL"
 	button.TextColor3 = Color3.fromRGB(255, 255, 255)
 	button.Font = Enum.Font.GothamBlack
-	button.TextSize = 13
+	button.TextSize = 14
 	button.Parent = container
 
 	local corner = Instance.new("UICorner")
@@ -470,8 +470,8 @@ local function buildDropAllButton(parent: Frame, y: number): TextButton
 	})
 	gradient.Rotation = 90
 	gradient.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.86),
-		NumberSequenceKeypoint.new(1, 0.92),
+		NumberSequenceKeypoint.new(0, 0.15),
+		NumberSequenceKeypoint.new(1, 0.3),
 	})
 	gradient.Parent = button
 
