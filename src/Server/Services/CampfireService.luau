@@ -647,9 +647,11 @@ local function setupCampfire()
 		return
 	end
 
+	-- Use the anchor as the safe-zone centre so it matches the spawn point.
+	fireCenter = campfirePart
+
 	local firePart = bonfire:FindFirstChild("Fire")
 	if firePart and firePart:IsA("BasePart") then
-		fireCenter = firePart :: BasePart
 		fireInstance = firePart:FindFirstChildOfClass("Fire")
 	end
 

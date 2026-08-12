@@ -332,19 +332,14 @@ end
 -- // CLIENT REMOTES // --
 
 --[[
-    @summary  Client-facing remote returning the fire's world position,
+    @summary  Client-facing remote returning the campfire's world position,
               so clients can compute distance locally instead of polling
-              the server every frame.  Uses the visible Fire part when
-              available; falls back to the invisible anchor.
+              the server every frame.  Returns the invisible Campfire
+              anchor, which is the same centre used by the safe-zone
+              logic on the server and the player spawn point.
     @returns  Vector3?
 ]]
 function WorldService.Client:GetCampfirePosition(): Vector3?
-	if bonfire then
-		local firePart = bonfire:FindFirstChild("Fire")
-		if firePart and firePart:IsA("BasePart") then
-			return firePart.Position
-		end
-	end
 	if not campfire then
 		return nil
 	end
