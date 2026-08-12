@@ -163,8 +163,8 @@ local function buildLevelUpBanner(): CanvasGroup
 	local banner = Instance.new("CanvasGroup")
 	banner.Name = "Banner"
 	banner.AnchorPoint = Vector2.new(0.5, 0.5)
-	banner.Position = UDim2.new(0.5, 0, 0.5, 20)
-	banner.Size = UDim2.new(0, 0, 0, 0)
+	banner.Position = UDim2.new(0.5, 0, 0.5, -40)
+	banner.Size = UDim2.new(0, 360, 0, 80)
 	banner.BackgroundTransparency = 1
 	banner.GroupTransparency = 1
 	banner.Parent = gui
@@ -412,13 +412,14 @@ local function showLevelUp(newLevel: number, previousLevel: number, radius: numb
 	levelUpTitle.Text = "CAMPFIRE LEVEL " .. tostring(newLevel) .. "!"
 	levelUpSubtitle.Text = "Safe zone expanded to " .. tostring(math.round(radius)) .. " studs"
 
-	levelUpBanner.Position = UDim2.new(0.5, 0, 0.5, 20)
-	levelUpBanner.Size = UDim2.new(0, 0, 0, 0)
+	-- Keep the size non-zero: CanvasGroup can bug out if it is ever
+	-- scaled to (0, 0).  We fade/slide instead.
+	levelUpBanner.Position = UDim2.new(0.5, 0, 0.5, 60)
+	levelUpBanner.Size = UDim2.new(0, 360, 0, 80)
 	levelUpBanner.GroupTransparency = 1
 
 	TweenService:Create(levelUpBanner, LEVELUP_TWEEN_INFO, {
 		Position = UDim2.new(0.5, 0, 0.5, -40),
-		Size = UDim2.new(0, 360, 0, 80),
 		GroupTransparency = 0,
 	}):Play()
 
@@ -428,7 +429,6 @@ local function showLevelUp(newLevel: number, previousLevel: number, radius: numb
 		end
 		TweenService:Create(levelUpBanner, LEVELUP_TWEEN_INFO, {
 			Position = UDim2.new(0.5, 0, 0.5, -90),
-			Size = UDim2.new(0, 320, 0, 0),
 			GroupTransparency = 1,
 		}):Play()
 	end)
