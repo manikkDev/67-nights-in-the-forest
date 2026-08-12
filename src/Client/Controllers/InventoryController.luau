@@ -56,6 +56,7 @@ local CAPACITY_HEIGHT = 4
 
 -- Tween timings
 local TWEEN_SLIDE = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local TWEEN_BOUNCE = TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local TWEEN_HOVER = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local TWEEN_FADE = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local TWEEN_COUNT_POP = TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
@@ -99,6 +100,7 @@ type RowEntry = {
 local rowEntries: { [string]: RowEntry } = {}
 
 local bagPanel: Frame? = nil
+local bagShadow: Frame? = nil
 local capacityFill: Frame? = nil
 local capacityText: TextLabel? = nil
 local tooltipFrame: Frame? = nil
@@ -117,23 +119,56 @@ local useHover = UserInputService.MouseEnabled and not UserInputService.TouchEna
 local function buildTooltip(parent: ScreenGui): Frame
 	local tooltip = Instance.new("Frame")
 	tooltip.Name = "CarryBagTooltip"
-	tooltip.Size = UDim2.new(0, 180, 0, 0)
+	tooltip.Size = UDim2.new(0, 200, 0, 0)
 	tooltip.AutomaticSize = Enum.AutomaticSize.Y
 	tooltip.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
-	tooltip.BackgroundTransparency = 0.06
+	tooltip.BackgroundTransparency = 0
 	tooltip.BorderSizePixel = 0
 	tooltip.ZIndex = 50
 	tooltip.Visible = false
 	tooltip.Parent = parent
 
+	local tooltipGradient = Instance.new("UIGradient")
+	tooltipGradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(235, 235, 245)),
+	})
+	tooltipGradient.Rotation = 90
+	tooltipGradient.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.96),
+		NumberSequenceKeypoint.new(1, 0.99),
+	})
+	tooltipGradient.Parent = tooltip
+
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 10)
+	corner.CornerRadius = UDim.new(0, 12)
 	corner.Parent = tooltip
 
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = Color3.fromRGB(100, 100, 115)
 	stroke.Thickness = 1
+	stroke.Transparency = 0.2
 	stroke.Parent = tooltip
+
+	local arrow = Instance.new("Frame")
+	arrow.Name = "Arrow"
+	arrow.Size = UDim2.new(0, 12, 0, 12)
+	arrow.Position = UDim2.new(0, -6, 0, 8)
+	arrow.Rotation = 45
+	arrow.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+	arrow.BorderSizePixel = 0
+	arrow.ZIndex = 49
+	arrow.Parent = tooltip
+
+	local arrowCorner = Instance.new("UICorner")
+	arrowCorner.CornerRadius = UDim.new(0, 2)
+	arrowCorner.Parent = arrow
+
+	local arrowStroke = Instance.new("UIStroke")
+	arrowStroke.Color = Color3.fromRGB(100, 100, 115)
+	arrowStroke.Thickness = 1
+	arrowStroke.Transparency = 0.2
+	arrowStroke.Parent = arrow
 
 	local layout = Instance.new("UIListLayout")
 	layout.Padding = UDim.new(0, 2)
@@ -141,10 +176,10 @@ local function buildTooltip(parent: ScreenGui): Frame
 	layout.Parent = tooltip
 
 	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft = UDim.new(0, 10)
-	padding.PaddingRight = UDim.new(0, 10)
-	padding.PaddingTop = UDim.new(0, 8)
-	padding.PaddingBottom = UDim.new(0, 8)
+	padding.PaddingLeft = UDim.new(0, 12)
+	padding.PaddingRight = UDim.new(0, 12)
+	padding.PaddingTop = UDim.new(0, 10)
+	padding.PaddingBottom = UDim.new(0, 10)
 	padding.Parent = tooltip
 
 	local title = Instance.new("TextLabel")
@@ -152,7 +187,7 @@ local function buildTooltip(parent: ScreenGui): Frame
 	title.Size = UDim2.new(1, 0, 0, 16)
 	title.BackgroundTransparency = 1
 	title.TextColor3 = Color3.fromRGB(245, 245, 245)
-	title.Font = Enum.Font.GothamBold
+	title.Font = Enum.Font.GothamBlack
 	title.TextSize = 13
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.TextYAlignment = Enum.TextYAlignment.Top
@@ -163,8 +198,8 @@ local function buildTooltip(parent: ScreenGui): Frame
 	count.Name = "Count"
 	count.Size = UDim2.new(1, 0, 0, 14)
 	count.BackgroundTransparency = 1
-	count.TextColor3 = Color3.fromRGB(180, 180, 190)
-	count.Font = Enum.Font.Gotham
+	count.TextColor3 = Color3.fromRGB(200, 200, 210)
+	count.Font = Enum.Font.GothamBold
 	count.TextSize = 11
 	count.TextXAlignment = Enum.TextXAlignment.Left
 	count.TextYAlignment = Enum.TextYAlignment.Top
@@ -176,7 +211,7 @@ local function buildTooltip(parent: ScreenGui): Frame
 	desc.Size = UDim2.new(1, 0, 0, 0)
 	desc.AutomaticSize = Enum.AutomaticSize.Y
 	desc.BackgroundTransparency = 1
-	desc.TextColor3 = Color3.fromRGB(160, 160, 170)
+	desc.TextColor3 = Color3.fromRGB(170, 170, 185)
 	desc.Font = Enum.Font.Gotham
 	desc.TextSize = 11
 	desc.TextWrapped = true
@@ -204,24 +239,45 @@ local function showTooltip(row: Frame, resourceName: string, count: number)
 	tooltipCount.Text = "Count: " .. tostring(count)
 	tooltipDesc.Text = ROW_DESCRIPTIONS[resourceName] or ""
 
+	local color = ROW_COLORS[resourceName] or Color3.fromRGB(245, 245, 245)
+	tooltipTitle.TextColor3 = color
+
+	local arrow = tooltipFrame:FindFirstChild("Arrow")
+	if arrow and arrow:IsA("Frame") then
+		arrow.BackgroundColor3 = color
+		local arrowStroke = arrow:FindFirstChildOfClass("UIStroke")
+		if arrowStroke then
+			arrowStroke.Color = color
+		end
+	end
+
+	local stroke = tooltipFrame:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Color = color
+	end
+
 	local rowPos = row.AbsolutePosition
 	local rowSize = row.AbsoluteSize
 
-	-- Tooltip width is fixed at 180, height is automatic.
-	local targetX = rowPos.X - 180 - 10
+	-- Tooltip width is fixed at 200, height is automatic.
+	local targetX = rowPos.X - 200 - 14
 	local targetY = rowPos.Y + (rowSize.Y - 60) / 2
 
 	-- Clamp to screen edges.
 	local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
 	if viewport then
-		targetX = math.max(8, math.min(targetX, viewport.X - 188))
+		targetX = math.max(8, math.min(targetX, viewport.X - 208))
 		targetY = math.max(8, math.min(targetY, viewport.Y - 60))
 	end
 
 	tooltipFrame.Position = UDim2.fromOffset(targetX, targetY)
 	tooltipFrame.Visible = true
 
-	TweenService:Create(tooltipFrame, TWEEN_FADE, { BackgroundTransparency = 0.06 }):Play()
+	TweenService:Create(tooltipFrame, TWEEN_FADE, { BackgroundTransparency = 0 }):Play()
+	local arrowObj = tooltipFrame:FindFirstChild("Arrow")
+	if arrowObj then
+		arrowObj.Position = UDim2.new(0, -6, 0, math.clamp(rowSize.Y / 2 - 6, 8, 80))
+	end
 end
 
 --[[
@@ -260,11 +316,23 @@ local function buildPillButton(name: string, text: string, color: Color3, hoverC
 	corner.CornerRadius = UDim.new(1, 0)
 	corner.Parent = button
 
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = hoverColor
+	stroke.Thickness = 1
+	stroke.Transparency = 0.7
+	stroke.Parent = button
+
 	button.MouseEnter:Connect(function()
-		TweenService:Create(button, TWEEN_HOVER, { BackgroundColor3 = hoverColor }):Play()
+		TweenService:Create(button, TWEEN_HOVER, { BackgroundColor3 = hoverColor, Size = UDim2.new(0, ACTION_BUTTON_WIDTH + 4, 0, 22) }):Play()
 	end)
 	button.MouseLeave:Connect(function()
-		TweenService:Create(button, TWEEN_HOVER, { BackgroundColor3 = color }):Play()
+		TweenService:Create(button, TWEEN_HOVER, { BackgroundColor3 = color, Size = UDim2.new(0, ACTION_BUTTON_WIDTH, 0, 22) }):Play()
+	end)
+	button.MouseButton1Down:Connect(function()
+		TweenService:Create(button, TWEEN_HOVER, { Size = UDim2.new(0, ACTION_BUTTON_WIDTH - 2, 0, 20) }):Play()
+	end)
+	button.MouseButton1Up:Connect(function()
+		TweenService:Create(button, TWEEN_HOVER, { Size = UDim2.new(0, ACTION_BUTTON_WIDTH, 0, 22) }):Play()
 	end)
 
 	return button
@@ -287,8 +355,8 @@ local function buildCapacityBar(parent: Frame, y: number)
 	barBackground.Name = "CapacityBarBackground"
 	barBackground.Size = UDim2.new(1, 0, 0, CAPACITY_HEIGHT)
 	barBackground.Position = UDim2.new(0, 0, 0, 0)
-	barBackground.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-	barBackground.BackgroundTransparency = 0.3
+	barBackground.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+	barBackground.BackgroundTransparency = 0.2
 	barBackground.BorderSizePixel = 0
 	barBackground.Parent = container
 
@@ -300,13 +368,47 @@ local function buildCapacityBar(parent: Frame, y: number)
 	fill.Name = "CapacityFill"
 	fill.Size = UDim2.new(0, 0, 1, 0)
 	fill.BackgroundColor3 = Color3.fromRGB(110, 210, 130)
-	fill.BackgroundTransparency = 0.1
+	fill.BackgroundTransparency = 0.05
 	fill.BorderSizePixel = 0
 	fill.Parent = barBackground
+
+	local fillGradient = Instance.new("UIGradient")
+	fillGradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 200, 200)),
+	})
+	fillGradient.Rotation = 90
+	fillGradient.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.7),
+		NumberSequenceKeypoint.new(1, 0.9),
+	})
+	fillGradient.Parent = fill
 
 	local fillCorner = Instance.new("UICorner")
 	fillCorner.CornerRadius = UDim.new(1, 0)
 	fillCorner.Parent = fill
+
+	local glow = Instance.new("Frame")
+	glow.Name = "CapacityGlow"
+	glow.Size = UDim2.new(1, 0, 1, 6)
+	glow.Position = UDim2.new(0, 0, 0, -3)
+	glow.BackgroundColor3 = Color3.fromRGB(110, 210, 130)
+	glow.BackgroundTransparency = 0.6
+	glow.BorderSizePixel = 0
+	glow.ZIndex = 0
+	glow.Parent = fill
+
+	local glowCorner = Instance.new("UICorner")
+	glowCorner.CornerRadius = UDim.new(1, 0)
+	glowCorner.Parent = glow
+
+	local glowGradient = Instance.new("UIGradient")
+	glowGradient.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.7),
+		NumberSequenceKeypoint.new(0.5, 0.9),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	glowGradient.Parent = glow
 
 	local label = Instance.new("TextLabel")
 	label.Name = "CapacityText"
@@ -347,24 +449,45 @@ local function buildDropAllButton(parent: Frame, y: number): TextButton
 	button.AutoButtonColor = false
 	button.Text = "DROP ALL"
 	button.TextColor3 = Color3.fromRGB(255, 255, 255)
-	button.Font = Enum.Font.GothamBold
+	button.Font = Enum.Font.GothamBlack
 	button.TextSize = 11
 	button.Parent = container
 
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 8)
+	corner.CornerRadius = UDim.new(1, 0)
 	corner.Parent = button
 
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = Color3.fromRGB(190, 75, 75)
 	stroke.Thickness = 1
+	stroke.Transparency = 0.3
 	stroke.Parent = button
 
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 200, 200)),
+	})
+	gradient.Rotation = 90
+	gradient.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.86),
+		NumberSequenceKeypoint.new(1, 0.92),
+	})
+	gradient.Parent = button
+
 	button.MouseEnter:Connect(function()
-		TweenService:Create(button, TWEEN_HOVER, { BackgroundColor3 = Color3.fromRGB(185, 70, 70) }):Play()
+		TweenService:Create(button, TWEEN_HOVER, { BackgroundColor3 = Color3.fromRGB(190, 75, 75), Size = UDim2.new(1, 4, 1, 4) }):Play()
+		TweenService:Create(stroke, TWEEN_HOVER, { Color = Color3.fromRGB(210, 95, 95) }):Play()
 	end)
 	button.MouseLeave:Connect(function()
-		TweenService:Create(button, TWEEN_HOVER, { BackgroundColor3 = Color3.fromRGB(160, 60, 60) }):Play()
+		TweenService:Create(button, TWEEN_HOVER, { BackgroundColor3 = Color3.fromRGB(160, 60, 60), Size = UDim2.new(1, 0, 1, 0) }):Play()
+		TweenService:Create(stroke, TWEEN_HOVER, { Color = Color3.fromRGB(190, 75, 75) }):Play()
+	end)
+	button.MouseButton1Down:Connect(function()
+		TweenService:Create(button, TWEEN_HOVER, { Size = UDim2.new(1, -2, 1, -2) }):Play()
+	end)
+	button.MouseButton1Up:Connect(function()
+		TweenService:Create(button, TWEEN_HOVER, { Size = UDim2.new(1, 0, 1, 0) }):Play()
 	end)
 
 	return button
@@ -407,8 +530,26 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	icon.BorderSizePixel = 0
 	icon.Parent = row
 
+	local iconGradient = Instance.new("UIGradient")
+	iconGradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 200, 200)),
+	})
+	iconGradient.Rotation = -45
+	iconGradient.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.75),
+		NumberSequenceKeypoint.new(1, 0.9),
+	})
+	iconGradient.Parent = icon
+
+	local iconStroke = Instance.new("UIStroke")
+	iconStroke.Color = Color3.fromRGB(255, 255, 255)
+	iconStroke.Thickness = 1
+	iconStroke.Transparency = 0.75
+	iconStroke.Parent = icon
+
 	local iconCorner = Instance.new("UICorner")
-	iconCorner.CornerRadius = UDim.new(0, 6)
+	iconCorner.CornerRadius = UDim.new(0, 8)
 	iconCorner.Parent = icon
 
 	local iconInitial = Instance.new("TextLabel")
@@ -417,8 +558,8 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	iconInitial.BackgroundTransparency = 1
 	iconInitial.Text = string.sub(resourceName, 1, 1)
 	iconInitial.TextColor3 = Color3.fromRGB(255, 255, 255)
-	iconInitial.Font = Enum.Font.GothamBold
-	iconInitial.TextSize = 14
+	iconInitial.Font = Enum.Font.GothamBlack
+	iconInitial.TextSize = 15
 	iconInitial.TextXAlignment = Enum.TextXAlignment.Center
 	iconInitial.TextYAlignment = Enum.TextYAlignment.Center
 	iconInitial.Parent = icon
@@ -529,8 +670,11 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	-- Row hover interactions (desktop only).
 	if useHover then
 		local function onEnter()
-			TweenService:Create(row, TWEEN_HOVER, { BackgroundColor3 = Color3.fromRGB(45, 45, 55), BackgroundTransparency = 0.35 }):Play()
-			TweenService:Create(icon, TWEEN_HOVER, { BackgroundTransparency = 0.05 }):Play()
+			TweenService:Create(row, TWEEN_HOVER, { BackgroundColor3 = Color3.fromRGB(48, 48, 58), BackgroundTransparency = 0.3 }):Play()
+			TweenService:Create(icon, TWEEN_HOVER, { BackgroundTransparency = 0.05, Size = UDim2.new(0, ICON_SIZE + 4, 0, ICON_SIZE + 4), Position = UDim2.new(0, -2, 0.5, -(ICON_SIZE + 4) / 2) }):Play()
+			TweenService:Create(iconStroke, TWEEN_HOVER, { Transparency = 0.35 }):Play()
+			TweenService:Create(entry.nameLabel, TWEEN_HOVER, { TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
+			TweenService:Create(entry.countLabel, TWEEN_HOVER, { TextColor3 = Color3.fromRGB(225, 225, 235) }):Play()
 
 			if EDIBLE_RESOURCES[resourceName] then
 				eatButton.Visible = true
@@ -542,7 +686,10 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 
 		local function onLeave()
 			TweenService:Create(row, TWEEN_HOVER, { BackgroundColor3 = Color3.fromRGB(35, 35, 42), BackgroundTransparency = 0.5 }):Play()
-			TweenService:Create(icon, TWEEN_HOVER, { BackgroundTransparency = 0.15 }):Play()
+			TweenService:Create(icon, TWEEN_HOVER, { BackgroundTransparency = 0.15, Size = UDim2.new(0, ICON_SIZE, 0, ICON_SIZE), Position = UDim2.new(0, 0, 0.5, -ICON_SIZE / 2) }):Play()
+			TweenService:Create(iconStroke, TWEEN_HOVER, { Transparency = 0.75 }):Play()
+			TweenService:Create(entry.nameLabel, TWEEN_HOVER, { TextColor3 = Color3.fromRGB(225, 225, 235) }):Play()
+			TweenService:Create(entry.countLabel, TWEEN_HOVER, { TextColor3 = Color3.fromRGB(180, 180, 190) }):Play()
 
 			if EDIBLE_RESOURCES[resourceName] then
 				eatButton.Visible = false
@@ -584,10 +731,22 @@ local function buildBagGui(): ScreenGui
 	local panel = Instance.new("Frame")
 	panel.Name = "BagPanel"
 	panel.AnchorPoint = Vector2.new(1, 1)
-	panel.Position = UDim2.new(1, PANEL_WIDTH + PANEL_MARGIN, 1, -PANEL_MARGIN)
+	panel.Position = UDim2.new(1, PANEL_WIDTH + PANEL_MARGIN + 20, 1, -PANEL_MARGIN)
 	panel.Size = UDim2.new(0, PANEL_WIDTH, 0, totalHeight)
 	panel.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
 	panel.BackgroundTransparency = 0.06
+
+	local panelGradient = Instance.new("UIGradient")
+	panelGradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(220, 220, 230)),
+	})
+	panelGradient.Rotation = 90
+	panelGradient.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.92),
+		NumberSequenceKeypoint.new(1, 0.97),
+	})
+	panelGradient.Parent = panel
 	panel.BorderSizePixel = 0
 	panel.ClipsDescendants = false
 	panel.Active = true
@@ -595,6 +754,24 @@ local function buildBagGui(): ScreenGui
 	panel.Parent = gui
 
 	bagPanel = panel
+
+	-- Shadow behind the panel.
+	local shadow = Instance.new("Frame")
+	shadow.Name = "BagShadow"
+	shadow.AnchorPoint = Vector2.new(1, 1)
+	shadow.Position = UDim2.new(1, PANEL_WIDTH + PANEL_MARGIN + 26, 1, -PANEL_MARGIN + 6)
+	shadow.Size = UDim2.new(0, PANEL_WIDTH + 12, 0, totalHeight + 12)
+	shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	shadow.BackgroundTransparency = 0.45
+	shadow.BorderSizePixel = 0
+	shadow.ZIndex = 0
+	shadow.Parent = gui
+
+	local shadowCorner = Instance.new("UICorner")
+	shadowCorner.CornerRadius = UDim.new(0, 18)
+	shadowCorner.Parent = shadow
+
+	bagShadow = shadow
 
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 16)
@@ -625,6 +802,16 @@ local function buildBagGui(): ScreenGui
 	header.TextXAlignment = Enum.TextXAlignment.Left
 	header.TextYAlignment = Enum.TextYAlignment.Center
 	header.Parent = panel
+
+	local hairline = Instance.new("Frame")
+	hairline.Name = "HeaderHairline"
+	hairline.Position = UDim2.new(0, PANEL_PADDING, 0, y + HEADER_HEIGHT - 2)
+	hairline.Size = UDim2.new(0, contentW, 0, 1)
+	hairline.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	hairline.BackgroundTransparency = 0.9
+	hairline.BorderSizePixel = 0
+	hairline.Parent = panel
+
 	y = nextY(y, HEADER_HEIGHT)
 
 	-- Rows container.
@@ -675,6 +862,12 @@ local function updateCapacity(total: number, capacity: number)
 	end
 
 	TweenService:Create(capacityFill, TWEEN_CAPACITY, { Size = UDim2.new(ratio, 0, 1, 0), BackgroundColor3 = color }):Play()
+
+	local glow = capacityFill:FindFirstChild("CapacityGlow")
+	if glow and glow:IsA("Frame") then
+		TweenService:Create(glow, TWEEN_CAPACITY, { BackgroundColor3 = color }):Play()
+	end
+
 	capacityText.Text = string.format("%d/%d", total, capacity)
 end
 
@@ -691,6 +884,7 @@ local function updateDisplay(resources: { [string]: number }?, capacity: number?
 
 		entry.countLabel.Text = tostring(count)
 		entry.countBadge.Text = tostring(count)
+		entry.countBadge.Visible = count > 0
 
 		-- Count pop animation when a value changes.
 		if count ~= entry.lastCount then
@@ -698,6 +892,19 @@ local function updateDisplay(resources: { [string]: number }?, capacity: number?
 			local originalSize = entry.countLabel.TextSize
 			entry.countLabel.TextSize = 14
 			TweenService:Create(entry.countLabel, TWEEN_COUNT_POP, { TextSize = originalSize }):Play()
+		end
+
+		-- Empty row dimming.
+		local dim = count == 0
+		local rowTrans = dim and 0.65 or 0.5
+		local iconTrans = dim and 0.55 or 0.15
+		local nameColor = dim and Color3.fromRGB(160, 160, 170) or Color3.fromRGB(225, 225, 235)
+		local countColor = dim and Color3.fromRGB(130, 130, 140) or Color3.fromRGB(180, 180, 190)
+		if isOpen then
+			TweenService:Create(entry.row, TWEEN_FADE, { BackgroundTransparency = rowTrans }):Play()
+			TweenService:Create(entry.icon, TWEEN_FADE, { BackgroundTransparency = iconTrans }):Play()
+			TweenService:Create(entry.nameLabel, TWEEN_FADE, { TextColor3 = nameColor }):Play()
+			TweenService:Create(entry.countLabel, TWEEN_FADE, { TextColor3 = countColor }):Play()
 		end
 
 		-- Update tooltip if currently visible for this row.
@@ -718,7 +925,25 @@ local function showBag()
 	end
 	isOpen = true
 
-	TweenService:Create(bagPanel, TWEEN_SLIDE, { Position = UDim2.new(1, -PANEL_MARGIN, 1, -PANEL_MARGIN) }):Play()
+	for i, resourceName in ipairs(ROW_ORDER) do
+		local entry = rowEntries[resourceName]
+		if entry then
+			entry.row.BackgroundTransparency = 1
+			entry.icon.BackgroundTransparency = 1
+			task.delay(i * 0.04, function()
+				if not isOpen then
+					return
+				end
+				TweenService:Create(entry.row, TWEEN_FADE, { BackgroundTransparency = 0.5 }):Play()
+				TweenService:Create(entry.icon, TWEEN_FADE, { BackgroundTransparency = 0.15 }):Play()
+			end)
+		end
+	end
+
+	TweenService:Create(bagPanel, TWEEN_BOUNCE, { Position = UDim2.new(1, -PANEL_MARGIN, 1, -PANEL_MARGIN) }):Play()
+	if bagShadow then
+		TweenService:Create(bagShadow, TWEEN_BOUNCE, { Position = UDim2.new(1, -PANEL_MARGIN + 6, 1, -PANEL_MARGIN + 6) }):Play()
+	end
 end
 
 --[[
@@ -731,7 +956,21 @@ local function hideBag()
 	isOpen = false
 
 	hideTooltip()
-	TweenService:Create(bagPanel, TWEEN_SLIDE, { Position = UDim2.new(1, PANEL_WIDTH + PANEL_MARGIN, 1, -PANEL_MARGIN) }):Play()
+
+	for i, resourceName in ipairs(ROW_ORDER) do
+		local entry = rowEntries[resourceName]
+		if entry then
+			task.delay(i * 0.02, function()
+				TweenService:Create(entry.row, TWEEN_FADE, { BackgroundTransparency = 1 }):Play()
+				TweenService:Create(entry.icon, TWEEN_FADE, { BackgroundTransparency = 1 }):Play()
+			end)
+		end
+	end
+
+	TweenService:Create(bagPanel, TWEEN_SLIDE, { Position = UDim2.new(1, PANEL_WIDTH + PANEL_MARGIN + 20, 1, -PANEL_MARGIN) }):Play()
+	if bagShadow then
+		TweenService:Create(bagShadow, TWEEN_SLIDE, { Position = UDim2.new(1, PANEL_WIDTH + PANEL_MARGIN + 26, 1, -PANEL_MARGIN + 6) }):Play()
+	end
 end
 
 --[[
