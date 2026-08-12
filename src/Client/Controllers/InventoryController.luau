@@ -119,10 +119,10 @@ local useHover = UserInputService.MouseEnabled and not UserInputService.TouchEna
 local function buildTooltip(parent: ScreenGui): Frame
 	local tooltip = Instance.new("Frame")
 	tooltip.Name = "CarryBagTooltip"
-	tooltip.Size = UDim2.new(0, 200, 0, 0)
+	tooltip.Size = UDim2.new(0, 220, 0, 0)
 	tooltip.AutomaticSize = Enum.AutomaticSize.Y
 	tooltip.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
-	tooltip.BackgroundTransparency = 0
+	tooltip.BackgroundTransparency = 1
 	tooltip.BorderSizePixel = 0
 	tooltip.ZIndex = 50
 	tooltip.Visible = false
@@ -135,8 +135,8 @@ local function buildTooltip(parent: ScreenGui): Frame
 	})
 	tooltipGradient.Rotation = 90
 	tooltipGradient.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.96),
-		NumberSequenceKeypoint.new(1, 0.99),
+		NumberSequenceKeypoint.new(0, 0.15),
+		NumberSequenceKeypoint.new(1, 0.35),
 	})
 	tooltipGradient.Parent = tooltip
 
@@ -147,7 +147,7 @@ local function buildTooltip(parent: ScreenGui): Frame
 	local stroke = Instance.new("UIStroke")
 	stroke.Color = Color3.fromRGB(100, 100, 115)
 	stroke.Thickness = 1
-	stroke.Transparency = 0.2
+	stroke.Transparency = 0.1
 	stroke.Parent = tooltip
 
 	local arrow = Instance.new("Frame")
@@ -167,11 +167,11 @@ local function buildTooltip(parent: ScreenGui): Frame
 	local arrowStroke = Instance.new("UIStroke")
 	arrowStroke.Color = Color3.fromRGB(100, 100, 115)
 	arrowStroke.Thickness = 1
-	arrowStroke.Transparency = 0.2
+	arrowStroke.Transparency = 0.1
 	arrowStroke.Parent = arrow
 
 	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 2)
+	layout.Padding = UDim.new(0, 4)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = tooltip
 
@@ -184,11 +184,11 @@ local function buildTooltip(parent: ScreenGui): Frame
 
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
-	title.Size = UDim2.new(1, 0, 0, 16)
+	title.Size = UDim2.new(1, 0, 0, 18)
 	title.BackgroundTransparency = 1
 	title.TextColor3 = Color3.fromRGB(245, 245, 245)
 	title.Font = Enum.Font.GothamBlack
-	title.TextSize = 13
+	title.TextSize = 16
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.TextYAlignment = Enum.TextYAlignment.Top
 	title.LayoutOrder = 1
@@ -196,11 +196,11 @@ local function buildTooltip(parent: ScreenGui): Frame
 
 	local count = Instance.new("TextLabel")
 	count.Name = "Count"
-	count.Size = UDim2.new(1, 0, 0, 14)
+	count.Size = UDim2.new(1, 0, 0, 16)
 	count.BackgroundTransparency = 1
 	count.TextColor3 = Color3.fromRGB(200, 200, 210)
 	count.Font = Enum.Font.GothamBold
-	count.TextSize = 11
+	count.TextSize = 13
 	count.TextXAlignment = Enum.TextXAlignment.Left
 	count.TextYAlignment = Enum.TextYAlignment.Top
 	count.LayoutOrder = 2
@@ -213,7 +213,7 @@ local function buildTooltip(parent: ScreenGui): Frame
 	desc.BackgroundTransparency = 1
 	desc.TextColor3 = Color3.fromRGB(170, 170, 185)
 	desc.Font = Enum.Font.Gotham
-	desc.TextSize = 11
+	desc.TextSize = 13
 	desc.TextWrapped = true
 	desc.TextXAlignment = Enum.TextXAlignment.Left
 	desc.TextYAlignment = Enum.TextYAlignment.Top
@@ -260,13 +260,13 @@ local function showTooltip(row: Frame, resourceName: string, count: number)
 	local rowSize = row.AbsoluteSize
 
 	-- Tooltip width is fixed at 200, height is automatic.
-	local targetX = rowPos.X - 200 - 14
+	local targetX = rowPos.X - 220 - 14
 	local targetY = rowPos.Y + (rowSize.Y - 60) / 2
 
 	-- Clamp to screen edges.
 	local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
 	if viewport then
-		targetX = math.max(8, math.min(targetX, viewport.X - 208))
+		targetX = math.max(8, math.min(targetX, viewport.X - 228))
 		targetY = math.max(8, math.min(targetY, viewport.Y - 60))
 	end
 
@@ -309,7 +309,7 @@ local function buildPillButton(name: string, text: string, color: Color3, hoverC
 	button.Text = text
 	button.TextColor3 = Color3.fromRGB(255, 255, 255)
 	button.Font = Enum.Font.GothamBold
-	button.TextSize = 10
+	button.TextSize = 11
 	button.Parent = parent
 
 	local corner = Instance.new("UICorner")
@@ -418,7 +418,7 @@ local function buildCapacityBar(parent: Frame, y: number)
 	label.Text = "0/5"
 	label.TextColor3 = Color3.fromRGB(200, 200, 210)
 	label.Font = Enum.Font.GothamBold
-	label.TextSize = 11
+	label.TextSize = 13
 	label.TextXAlignment = Enum.TextXAlignment.Right
 	label.TextYAlignment = Enum.TextYAlignment.Center
 	label.Parent = container
@@ -450,7 +450,7 @@ local function buildDropAllButton(parent: Frame, y: number): TextButton
 	button.Text = "DROP ALL"
 	button.TextColor3 = Color3.fromRGB(255, 255, 255)
 	button.Font = Enum.Font.GothamBlack
-	button.TextSize = 11
+	button.TextSize = 13
 	button.Parent = container
 
 	local corner = Instance.new("UICorner")
@@ -503,7 +503,7 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	row.Name = resourceName .. "Row"
 	row.Size = UDim2.new(1, 0, 0, ROW_HEIGHT)
 	row.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
-	row.BackgroundTransparency = 0.5
+	row.BackgroundTransparency = 0.3
 	row.BorderSizePixel = 0
 	row.LayoutOrder = index
 	row.ClipsDescendants = true
@@ -537,15 +537,15 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	})
 	iconGradient.Rotation = -45
 	iconGradient.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.75),
-		NumberSequenceKeypoint.new(1, 0.9),
+		NumberSequenceKeypoint.new(0, 0.1),
+		NumberSequenceKeypoint.new(1, 0.25),
 	})
 	iconGradient.Parent = icon
 
 	local iconStroke = Instance.new("UIStroke")
 	iconStroke.Color = Color3.fromRGB(255, 255, 255)
 	iconStroke.Thickness = 1
-	iconStroke.Transparency = 0.75
+	iconStroke.Transparency = 0.5
 	iconStroke.Parent = icon
 
 	local iconCorner = Instance.new("UICorner")
@@ -575,7 +575,7 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	badge.Text = "0"
 	badge.TextColor3 = Color3.fromRGB(255, 255, 255)
 	badge.Font = Enum.Font.GothamBold
-	badge.TextSize = 9
+	badge.TextSize = 11
 	badge.TextXAlignment = Enum.TextXAlignment.Center
 	badge.TextYAlignment = Enum.TextYAlignment.Center
 	badge.Parent = icon
@@ -602,7 +602,7 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	nameLabel.Text = resourceName
 	nameLabel.TextColor3 = Color3.fromRGB(225, 225, 235)
 	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.TextSize = 12
+	nameLabel.TextSize = 13
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 	nameLabel.TextYAlignment = Enum.TextYAlignment.Bottom
 	nameLabel.Parent = textContainer
@@ -615,7 +615,7 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	countLabel.Text = "0"
 	countLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
 	countLabel.Font = Enum.Font.Gotham
-	countLabel.TextSize = 11
+	countLabel.TextSize = 12
 	countLabel.TextXAlignment = Enum.TextXAlignment.Left
 	countLabel.TextYAlignment = Enum.TextYAlignment.Top
 	countLabel.Parent = textContainer
@@ -685,9 +685,9 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 		end
 
 		local function onLeave()
-			TweenService:Create(row, TWEEN_HOVER, { BackgroundColor3 = Color3.fromRGB(35, 35, 42), BackgroundTransparency = 0.5 }):Play()
+			TweenService:Create(row, TWEEN_HOVER, { BackgroundColor3 = Color3.fromRGB(35, 35, 42), BackgroundTransparency = 0.3 }):Play()
 			TweenService:Create(icon, TWEEN_HOVER, { BackgroundTransparency = 0.15, Size = UDim2.new(0, ICON_SIZE, 0, ICON_SIZE), Position = UDim2.new(0, 0, 0.5, -ICON_SIZE / 2) }):Play()
-			TweenService:Create(iconStroke, TWEEN_HOVER, { Transparency = 0.75 }):Play()
+			TweenService:Create(iconStroke, TWEEN_HOVER, { Transparency = 0.5 }):Play()
 			TweenService:Create(entry.nameLabel, TWEEN_HOVER, { TextColor3 = Color3.fromRGB(225, 225, 235) }):Play()
 			TweenService:Create(entry.countLabel, TWEEN_HOVER, { TextColor3 = Color3.fromRGB(180, 180, 190) }):Play()
 
@@ -734,7 +734,7 @@ local function buildBagGui(): ScreenGui
 	panel.Position = UDim2.new(1, PANEL_WIDTH + PANEL_MARGIN + 20, 1, -PANEL_MARGIN)
 	panel.Size = UDim2.new(0, PANEL_WIDTH, 0, totalHeight)
 	panel.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-	panel.BackgroundTransparency = 0.06
+	panel.BackgroundTransparency = 0.15
 
 	local panelGradient = Instance.new("UIGradient")
 	panelGradient.Color = ColorSequence.new({
@@ -743,8 +743,8 @@ local function buildBagGui(): ScreenGui
 	})
 	panelGradient.Rotation = 90
 	panelGradient.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.92),
-		NumberSequenceKeypoint.new(1, 0.97),
+		NumberSequenceKeypoint.new(0, 0.15),
+		NumberSequenceKeypoint.new(1, 0.35),
 	})
 	panelGradient.Parent = panel
 	panel.BorderSizePixel = 0
@@ -778,8 +778,9 @@ local function buildBagGui(): ScreenGui
 	corner.Parent = panel
 
 	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(110, 110, 125)
-	stroke.Thickness = 1
+	stroke.Color = Color3.fromRGB(170, 170, 190)
+	stroke.Thickness = 1.5
+	stroke.Transparency = 0.3
 	stroke.Parent = panel
 
 	local contentW = PANEL_WIDTH - 2 * PANEL_PADDING
@@ -798,7 +799,7 @@ local function buildBagGui(): ScreenGui
 	header.Text = "CARRY BAG"
 	header.TextColor3 = Color3.fromRGB(245, 245, 245)
 	header.Font = Enum.Font.GothamBlack
-	header.TextSize = 12
+	header.TextSize = 15
 	header.TextXAlignment = Enum.TextXAlignment.Left
 	header.TextYAlignment = Enum.TextYAlignment.Center
 	header.Parent = panel
@@ -890,14 +891,14 @@ local function updateDisplay(resources: { [string]: number }?, capacity: number?
 		if count ~= entry.lastCount then
 			entry.lastCount = count
 			local originalSize = entry.countLabel.TextSize
-			entry.countLabel.TextSize = 14
+			entry.countLabel.TextSize = 16
 			TweenService:Create(entry.countLabel, TWEEN_COUNT_POP, { TextSize = originalSize }):Play()
 		end
 
 		-- Empty row dimming.
 		local dim = count == 0
-		local rowTrans = dim and 0.65 or 0.5
-		local iconTrans = dim and 0.55 or 0.15
+		local rowTrans = dim and 0.6 or 0.3
+		local iconTrans = dim and 0.45 or 0.15
 		local nameColor = dim and Color3.fromRGB(160, 160, 170) or Color3.fromRGB(225, 225, 235)
 		local countColor = dim and Color3.fromRGB(130, 130, 140) or Color3.fromRGB(180, 180, 190)
 		if isOpen then
@@ -934,7 +935,7 @@ local function showBag()
 				if not isOpen then
 					return
 				end
-				TweenService:Create(entry.row, TWEEN_FADE, { BackgroundTransparency = 0.5 }):Play()
+				TweenService:Create(entry.row, TWEEN_FADE, { BackgroundTransparency = 0.3 }):Play()
 				TweenService:Create(entry.icon, TWEEN_FADE, { BackgroundTransparency = 0.15 }):Play()
 			end)
 		end

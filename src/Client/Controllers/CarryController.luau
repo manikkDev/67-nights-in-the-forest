@@ -213,7 +213,7 @@ local function setHover(model: Model, resourceName: string, promptText: string?)
 	hoverNameGui = Instance.new("BillboardGui")
 	hoverNameGui.Name = "CarryHoverLabel"
 	hoverNameGui.Adornee = anchor
-	hoverNameGui.Size = UDim2.new(0, 200, 0, 48)
+	hoverNameGui.Size = UDim2.new(0, 220, 0, 52)
 	hoverNameGui.SizeOffset = Vector2.new(0, 0.5)
 	hoverNameGui.StudsOffset = Vector3.new(0, 2.2, 0)
 	hoverNameGui.AlwaysOnTop = true
@@ -223,7 +223,7 @@ local function setHover(model: Model, resourceName: string, promptText: string?)
 	local background = Instance.new("Frame")
 	background.Name = "LabelBackground"
 	background.Size = UDim2.new(1, 0, 1, 0)
-	background.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	background.BackgroundColor3 = Color3.fromRGB(32, 34, 40)
 	background.BackgroundTransparency = 0.15
 	background.BorderSizePixel = 0
 	background.Parent = hoverNameGui
@@ -245,7 +245,7 @@ local function setHover(model: Model, resourceName: string, promptText: string?)
 	label.Text = resourceName
 	label.TextColor3 = Color3.fromRGB(255, 255, 255)
 	label.Font = Enum.Font.GothamBold
-	label.TextSize = 16
+	label.TextSize = 18
 	label.TextXAlignment = Enum.TextXAlignment.Center
 	label.TextYAlignment = Enum.TextYAlignment.Center
 	label.Parent = background
@@ -257,8 +257,8 @@ local function setHover(model: Model, resourceName: string, promptText: string?)
 	prompt.BackgroundTransparency = 1
 	prompt.Text = promptText
 	prompt.TextColor3 = Color3.fromRGB(180, 220, 255)
-	prompt.Font = Enum.Font.Gotham
-	prompt.TextSize = 12
+	prompt.Font = Enum.Font.GothamBold
+	prompt.TextSize = 14
 	prompt.TextXAlignment = Enum.TextXAlignment.Center
 	prompt.TextYAlignment = Enum.TextYAlignment.Center
 	prompt.Parent = background

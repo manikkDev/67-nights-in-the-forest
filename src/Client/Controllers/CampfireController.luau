@@ -35,6 +35,8 @@ local PANEL_MARGIN = 20
 local BAR_HEIGHT = 18
 local BAR_TWEEN_INFO = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local WARNING_TWEEN_INFO = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local LEVELUP_TWEEN_INFO = TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local LEVELUP_HOLD_TIME = 3
 
 -- | State Management | --
 local campfireGui: ScreenGui? = nil
@@ -44,6 +46,11 @@ local levelFill: Frame? = nil
 local levelLabel: TextLabel? = nil
 local statusLabel: TextLabel? = nil
 local warningLabel: TextLabel? = nil
+
+local levelUpGui: ScreenGui? = nil
+local levelUpBanner: CanvasGroup? = nil
+local levelUpTitle: TextLabel? = nil
+local levelUpSubtitle: TextLabel? = nil
 
 -- // FUNCTIONS // --
 
@@ -132,6 +139,96 @@ local function buildWarning(): TextLabel
 
 	warningLabel = label
 	return label
+end
+
+--[[
+    @summary  Build the centered level-up banner.
+    @returns  CanvasGroup
+]]
+local function buildLevelUpBanner(): CanvasGroup
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local existing = playerGui:FindFirstChild("CampfireLevelUpGui")
+	if existing then
+		existing:Destroy()
+	end
+
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "CampfireLevelUpGui"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 10
+	gui.Parent = playerGui
+	levelUpGui = gui
+
+	local banner = Instance.new("CanvasGroup")
+	banner.Name = "Banner"
+	banner.AnchorPoint = Vector2.new(0.5, 0.5)
+	banner.Position = UDim2.new(0.5, 0, 0.5, 20)
+	banner.Size = UDim2.new(0, 0, 0, 0)
+	banner.BackgroundTransparency = 1
+	banner.GroupTransparency = 1
+	banner.Parent = gui
+	levelUpBanner = banner
+
+	local background = Instance.new("Frame")
+	background.Name = "Background"
+	background.Size = UDim2.new(1, 0, 1, 0)
+	background.BackgroundColor3 = Color3.fromRGB(42, 44, 54)
+	background.BackgroundTransparency = 0.05
+	background.BorderSizePixel = 0
+	background.Parent = banner
+
+	local bgCorner = Instance.new("UICorner")
+	bgCorner.CornerRadius = UDim.new(0, 10)
+	bgCorner.Parent = background
+
+	local bgStroke = Instance.new("UIStroke")
+	bgStroke.Color = Color3.fromRGB(230, 160, 70)
+	bgStroke.Transparency = 0.3
+	bgStroke.Thickness = 2
+	bgStroke.Parent = background
+
+	local bgGradient = Instance.new("UIGradient")
+	bgGradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(220, 210, 200)),
+	})
+	bgGradient.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.2),
+		NumberSequenceKeypoint.new(1, 0.4),
+	})
+	bgGradient.Rotation = 90
+	bgGradient.Parent = background
+
+	local title = Instance.new("TextLabel")
+	title.Name = "Title"
+	title.Size = UDim2.new(1, 0, 0.6, 0)
+	title.Position = UDim2.new(0, 0, 0, 0)
+	title.BackgroundTransparency = 1
+	title.Text = "CAMPFIRE LEVEL 2!"
+	title.TextColor3 = Color3.fromRGB(255, 230, 180)
+	title.Font = Enum.Font.GothamBlack
+	title.TextSize = 24
+	title.TextXAlignment = Enum.TextXAlignment.Center
+	title.TextYAlignment = Enum.TextYAlignment.Bottom
+	title.Parent = banner
+	levelUpTitle = title
+
+	local subtitle = Instance.new("TextLabel")
+	subtitle.Name = "Subtitle"
+	subtitle.Size = UDim2.new(1, 0, 0.4, 0)
+	subtitle.Position = UDim2.new(0, 0, 0.6, 0)
+	subtitle.BackgroundTransparency = 1
+	subtitle.Text = "Safe zone expanded"
+	subtitle.TextColor3 = Color3.fromRGB(240, 240, 245)
+	subtitle.Font = Enum.Font.GothamBold
+	subtitle.TextSize = 15
+	subtitle.TextXAlignment = Enum.TextXAlignment.Center
+	subtitle.TextYAlignment = Enum.TextYAlignment.Top
+	subtitle.Parent = banner
+	levelUpSubtitle = subtitle
+
+	return banner
 end
 
 --[[
@@ -300,14 +397,60 @@ local function onLevelChanged(level: number, progress: number, requirement: numb
 	setLevelBar(level, progress, requirement)
 end
 
+--[[
+    @summary  Show the level-up banner then fade it out after a hold.
+    @param    newLevel      number
+    @param    previousLevel number
+    @param    radius        number
+    @param    maxFuel       number
+]]
+local function showLevelUp(newLevel: number, previousLevel: number, radius: number, maxFuel: number)
+	if not levelUpBanner or not levelUpTitle or not levelUpSubtitle then
+		return
+	end
+
+	levelUpTitle.Text = "CAMPFIRE LEVEL " .. tostring(newLevel) .. "!"
+	levelUpSubtitle.Text = "Safe zone expanded to " .. tostring(math.round(radius)) .. " studs"
+
+	levelUpBanner.Position = UDim2.new(0.5, 0, 0.5, 20)
+	levelUpBanner.Size = UDim2.new(0, 0, 0, 0)
+	levelUpBanner.GroupTransparency = 1
+
+	TweenService:Create(levelUpBanner, LEVELUP_TWEEN_INFO, {
+		Position = UDim2.new(0.5, 0, 0.5, -40),
+		Size = UDim2.new(0, 360, 0, 80),
+		GroupTransparency = 0,
+	}):Play()
+
+	task.delay(LEVELUP_HOLD_TIME, function()
+		if not levelUpBanner then
+			return
+		end
+		TweenService:Create(levelUpBanner, LEVELUP_TWEEN_INFO, {
+			Position = UDim2.new(0.5, 0, 0.5, -90),
+			Size = UDim2.new(0, 320, 0, 0),
+			GroupTransparency = 1,
+		}):Play()
+	end)
+end
+
+--[[
+    @summary  Handler for the LevelUp signal.
+]]
+local function onLevelUp(level: number, previousLevel: number, radius: number, maxFuel: number)
+	showLevelUp(level, previousLevel, radius, maxFuel)
+end
+
 -- // INITIALIZATION // --
 
 function CampfireController:KnitStart()
 	buildGui()
+	buildLevelUpBanner()
 
 	local campfireService = Knit.GetService("CampfireService")
 	campfireService.FuelChanged:Connect(onFuelChanged)
 	campfireService.LevelChanged:Connect(onLevelChanged)
+	campfireService.LevelUp:Connect(onLevelUp)
 
 	-- The initial state is sent by the server through the signal connections.
 	print("[CampfireController] Initialised")

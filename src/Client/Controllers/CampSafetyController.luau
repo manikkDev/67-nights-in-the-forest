@@ -40,6 +40,8 @@ local CampSafetyController = Knit.CreateController({
 local CHECK_INTERVAL = 0.25
 local SAFE_TWEEN_INFO = TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 local UNSAFE_TWEEN_INFO = TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+local SAFE_BRIGHTNESS = 0.12
+local SAFE_TINT = Color3.fromRGB(255, 245, 235)
 local UNSAFE_BRIGHTNESS = -0.2
 local UNSAFE_SATURATION = -0.4
 local UNSAFE_TINT = Color3.fromRGB(180, 190, 220)
@@ -47,11 +49,14 @@ local UNSAFE_TINT = Color3.fromRGB(180, 190, 220)
 -- | State Management | --
 local colorCorrection: ColorCorrectionEffect? = nil
 local warningLabel: TextLabel? = nil
+local worldService: any? = nil
 local campfirePosition: Vector3? = nil
 local safeZoneRadius = 0
 local isNight = false
 local isFireActive = false
-local isCurrentlyUnsafe = false
+local currentState: "day" | "safeNight" | "unsafeNight" | "fireOut" = "day"
+local currentCcTween: Tween? = nil
+local currentWarningTween: Tween? = nil
 local checkTimer = 0
 
 -- // FUNCTIONS // --
@@ -104,43 +109,66 @@ local function buildWarningLabel(): TextLabel
 end
 
 --[[
-    @summary  Tween into the unsafe (darkened) visual state.
+    @summary  Cancel any running tweens so state changes don't fight each other.
 ]]
-local function enterUnsafeState()
-	if isCurrentlyUnsafe or not colorCorrection then
-		return
+local function cancelVisualTweens()
+	if currentCcTween then
+		currentCcTween:Cancel()
+		currentCcTween = nil
 	end
-	isCurrentlyUnsafe = true
-
-	TweenService:Create(colorCorrection, UNSAFE_TWEEN_INFO, {
-		Brightness = UNSAFE_BRIGHTNESS,
-		Saturation = UNSAFE_SATURATION,
-		TintColor = UNSAFE_TINT,
-	}):Play()
-
-	if warningLabel then
-		TweenService:Create(warningLabel, UNSAFE_TWEEN_INFO, { TextTransparency = 0 }):Play()
+	if currentWarningTween then
+		currentWarningTween:Cancel()
+		currentWarningTween = nil
 	end
 end
 
 --[[
-    @summary  Tween back into the safe (neutral) visual state.
+    @summary  Tween the screen and warning to the appropriate visual state.
 ]]
-local function exitUnsafeState()
-	if not isCurrentlyUnsafe or not colorCorrection then
+local function updateVisuals(state: "day" | "safeNight" | "unsafeNight" | "fireOut")
+	if not colorCorrection or not warningLabel then
 		return
 	end
-	isCurrentlyUnsafe = false
-
-	TweenService:Create(colorCorrection, SAFE_TWEEN_INFO, {
-		Brightness = 0,
-		Saturation = 0,
-		TintColor = Color3.fromRGB(255, 255, 255),
-	}):Play()
-
-	if warningLabel then
-		TweenService:Create(warningLabel, SAFE_TWEEN_INFO, { TextTransparency = 1 }):Play()
+	if currentState == state then
+		return
 	end
+
+	currentState = state
+	cancelVisualTweens()
+
+	local ccTarget = {}
+	local warningTrans = 1
+	local warningText = nil
+	local tweenInfo = SAFE_TWEEN_INFO
+
+	if state == "unsafeNight" then
+		ccTarget = { Brightness = UNSAFE_BRIGHTNESS, Saturation = UNSAFE_SATURATION, TintColor = UNSAFE_TINT }
+		warningText = "You are far from the firelight..."
+		warningTrans = 0
+		tweenInfo = UNSAFE_TWEEN_INFO
+	elseif state == "fireOut" then
+		ccTarget = { Brightness = UNSAFE_BRIGHTNESS, Saturation = UNSAFE_SATURATION, TintColor = UNSAFE_TINT }
+		warningText = "The campfire has gone out..."
+		warningTrans = 0
+		tweenInfo = UNSAFE_TWEEN_INFO
+	elseif state == "safeNight" then
+		ccTarget = { Brightness = SAFE_BRIGHTNESS, Saturation = 0, TintColor = SAFE_TINT }
+		warningTrans = 1
+		tweenInfo = SAFE_TWEEN_INFO
+	else -- day
+		ccTarget = { Brightness = 0, Saturation = 0, TintColor = Color3.fromRGB(255, 255, 255) }
+		warningTrans = 1
+		tweenInfo = SAFE_TWEEN_INFO
+	end
+
+	currentCcTween = TweenService:Create(colorCorrection, tweenInfo, ccTarget)
+	currentCcTween:Play()
+
+	if warningText then
+		warningLabel.Text = warningText
+	end
+	currentWarningTween = TweenService:Create(warningLabel, tweenInfo, { TextTransparency = warningTrans })
+	currentWarningTween:Play()
 end
 
 --[[
@@ -156,16 +184,21 @@ local function onHeartbeat(dt: number)
 	end
 	checkTimer = 0
 
-	if not isNight or not campfirePosition then
-		exitUnsafeState()
+	if not isNight then
+		updateVisuals("day")
+		return
+	end
+
+	if not campfirePosition then
+		campfirePosition = worldService:GetCampfirePosition()
+	end
+	if not campfirePosition then
+		updateVisuals("fireOut")
 		return
 	end
 
 	if not isFireActive then
-		enterUnsafeState()
-		if warningLabel then
-			warningLabel.Text = "The campfire has gone out..."
-		end
+		updateVisuals("fireOut")
 		return
 	end
 
@@ -179,12 +212,9 @@ local function onHeartbeat(dt: number)
 		- Vector3.new(campfirePosition.X, 0, campfirePosition.Z)).Magnitude
 
 	if flatDist > safeZoneRadius then
-		enterUnsafeState()
-		if warningLabel then
-			warningLabel.Text = "You are far from the firelight..."
-		end
+		updateVisuals("unsafeNight")
 	else
-		exitUnsafeState()
+		updateVisuals("safeNight")
 	end
 end
 
@@ -196,11 +226,11 @@ function CampSafetyController:KnitInit()
 end
 
 function CampSafetyController:KnitStart()
-	local worldService = Knit.GetService("WorldService")
+	worldService = Knit.GetService("WorldService")
 	local campfireService = Knit.GetService("CampfireService")
 	local timeService = Knit.GetService("TimeService")
 
-	campfirePosition = worldService.GetCampfirePosition()
+	campfirePosition = worldService:GetCampfirePosition()
 
 	campfireService.SafeZoneChanged:Connect(function(radius, isActive)
 		isFireActive = isActive

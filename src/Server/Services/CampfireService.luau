@@ -37,7 +37,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local ProximityPromptService = game:GetService("ProximityPromptService")
+local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -49,6 +49,7 @@ local createSuccess, CampfireService = pcall(Knit.CreateService, {
 		FuelChanged = Knit.CreateSignal(),
 		LevelChanged = Knit.CreateSignal(),
 		SafeZoneChanged = Knit.CreateSignal(),
+		LevelUp = Knit.CreateSignal(),
 	},
 })
 
@@ -68,6 +69,9 @@ if not CampfireService.Client.LevelChanged then
 end
 if not CampfireService.Client.SafeZoneChanged then
 	CampfireService.Client.SafeZoneChanged = Knit.CreateSignal()
+end
+if not CampfireService.Client.LevelUp then
+	CampfireService.Client.LevelUp = Knit.CreateSignal()
 end
 
 -- | Configuration | --
@@ -121,8 +125,6 @@ local fireCenter: BasePart? = nil
 local groundPart: BasePart? = nil
 local fireInstance: Fire? = nil
 local pointLight: PointLight? = nil
-local feedPrompt: ProximityPrompt? = nil
-local feedPromptConnection: RBXScriptConnection? = nil
 local feedCooldowns: { [Player]: number } = {}
 local fuelBroadcastTimer = 0
 local logScanTimer = 0
@@ -227,6 +229,8 @@ local function processLevelUps()
 		level += 1
 		maxFuel = MAX_FUEL_BY_LEVEL[level]
 		fuel = math.clamp(fuel, 0, maxFuel)
+		currentSafeZoneRadius = if isLit then SAFE_ZONE_RADIUS_BY_LEVEL[level] else 0
+		CampfireService.Client.LevelUp:Fire(nil, level, level - 1, currentSafeZoneRadius, maxFuel)
 	end
 
 	-- Cap progress at the final level's requirement so the bar sits at 100%.
@@ -308,8 +312,9 @@ local function updateFireVisuals()
 
 	if pointLight then
 		pointLight.Enabled = isLit
-		pointLight.Range = LIGHT_RANGE_MIN + (lightMax - LIGHT_RANGE_MIN) * fraction
-		pointLight.Brightness = LIGHT_BRIGHTNESS_MIN + (LIGHT_BRIGHTNESS_MAX - LIGHT_BRIGHTNESS_MIN) * fraction
+		local targetRange = math.clamp(currentSafeZoneRadius * 1.2, LIGHT_RANGE_MIN, 60)
+		pointLight.Range = if isLit then targetRange else 0
+		pointLight.Brightness = if isLit then LIGHT_BRIGHTNESS_MIN + (LIGHT_BRIGHTNESS_MAX - LIGHT_BRIGHTNESS_MIN) * fraction + 0.5 else 0
 	end
 end
 
@@ -465,6 +470,10 @@ local function feedCampfire(player: Player, amount: number)
 		return
 	end
 
+	if amount <= 0 then
+		return
+	end
+
 	local now = os.clock()
 	if feedCooldowns[player] and (now - feedCooldowns[player]) < FEED_COOLDOWN then
 		return
@@ -488,22 +497,47 @@ local function feedCampfire(player: Player, amount: number)
 	addFuel(amount)
 end
 
+
 --[[
-    @summary  Route a global ProximityPrompt trigger to the feed handler.
-    @param    prompt  ProximityPrompt  -- the triggered prompt
-    @param    player  Player           -- the triggering player
+    @summary  Convert a dropped RawMeat model into CookedMeat, either adding
+              it to the original owner's inventory or spawning a pickup.
 ]]
-local function onPromptTriggered(prompt: ProximityPrompt, player: Player)
-	if prompt == feedPrompt or (prompt and prompt:IsA("ProximityPrompt") and prompt.Name == "FeedFirePrompt") then
-		feedCampfire(player, 1)
+local function cookRawMeat(model: Model)
+	if not isLit or fuel <= 0 or not inventoryService then
+		return
 	end
+
+	local ownerId = model:GetAttribute("DroppedBy")
+	local owner: Player? = nil
+	if ownerId and typeof(ownerId) == "number" then
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player.UserId == ownerId then
+				owner = player
+				break
+			end
+		end
+	end
+
+	if owner then
+		local added = inventoryService:AddResource(owner, "CookedMeat", 1)
+		if added > 0 then
+			model:Destroy()
+			return
+		end
+	end
+
+	local cooked = inventoryService:BuildDropModel("CookedMeat")
+	if cooked then
+		cooked:PivotTo(model:GetPivot())
+		cooked.Parent = model.Parent
+		Debris:AddItem(cooked, 300)
+	end
+	model:Destroy()
 end
 
 --[[
     @summary  Scan the area around the campfire for loose Log models and
-              consume them as fuel.  This lets players literally place
-              dragged/dropped logs onto the fire as an alternative to the
-              ProximityPrompt.
+              consume them as fuel, or cook RawMeat drops.
 ]]
 local function scanForLogFuel()
 	if not campfirePart or not inventoryService or not worldService then
@@ -537,16 +571,21 @@ local function scanForLogFuel()
 		local resourceName = model:GetAttribute("Resource")
 			or model:GetAttribute("PickupResource")
 			or model:GetAttribute("ForageResource")
-		if resourceName ~= "Wood" or typeof(resourceName) ~= "string" then
+		if not resourceName or typeof(resourceName) ~= "string" then
 			continue
 		end
 		if inventoryService:IsModelDragged(model) then
 			continue
 		end
 
-		consumedThisScan[model] = true
-		addFuel(1)
-		model:Destroy()
+		if resourceName == "Wood" then
+			consumedThisScan[model] = true
+			addFuel(1)
+			model:Destroy()
+		elseif resourceName == "RawMeat" then
+			consumedThisScan[model] = true
+			cookRawMeat(model)
+		end
 	end
 end
 
@@ -637,45 +676,7 @@ local function setupCampfire()
 		end
 	end
 
-	-- Parent the feed prompt to the PromptAnchor (or visible fire center) so
-	-- it has a properly-sized BasePart parent and is positioned at the flame.
-	local promptAnchor = bonfire:FindFirstChild("PromptAnchor")
-	local promptParent = (promptAnchor and promptAnchor:IsA("BasePart")) and promptAnchor or fireCenter or campfirePart
-
-	-- Reuse an existing feed prompt if this is a hot reload
-	local existingPrompt = promptParent:FindFirstChild("FeedFirePrompt")
-	if not (existingPrompt and existingPrompt:IsA("ProximityPrompt")) and campfirePart then
-		existingPrompt = campfirePart:FindFirstChild("FeedFirePrompt")
-	end
-	if existingPrompt and existingPrompt:IsA("ProximityPrompt") then
-		local prompt = existingPrompt :: ProximityPrompt
-		prompt.ActionText = "Add Wood"
-		if promptParent then
-			prompt.Parent = promptParent
-		end
-		feedPrompt = prompt
-	else
-		local prompt = Instance.new("ProximityPrompt")
-		prompt.Name = "FeedFirePrompt"
-		prompt.ActionText = "Add Wood"
-		prompt.ObjectText = "Campfire"
-		prompt.MaxActivationDistance = FEED_RANGE + 2
-		prompt.HoldDuration = 0.3
-		prompt.Parent = promptParent
-		feedPrompt = prompt
-	end
-
-	if feedPrompt then
-		feedPrompt.Exclusivity = Enum.ProximityPromptExclusivity.AlwaysShow
-		feedPrompt.RequiresLineOfSight = false
-		feedPrompt.ClickablePrompt = true
-		if feedPromptConnection then
-			feedPromptConnection:Disconnect()
-		end
-		feedPromptConnection = feedPrompt.Triggered:Connect(function(player)
-			onPromptTriggered(feedPrompt, player)
-		end)
-	end
+	-- Drop-only interaction: no Add Wood / Cook Meat proximity prompts.
 
 	-- Remove any old safe zone visuals (disc or previous dots) before creating fresh dots
 	local oldFolder = map and map:FindFirstChild("SafeZoneDots")
@@ -774,7 +775,6 @@ function CampfireService:KnitStart()
 
 	setupCampfire()
 	CampfireService._HeartbeatConnection = RunService.Heartbeat:Connect(onHeartbeat)
-	CampfireService._PromptConnection = ProximityPromptService.PromptTriggered:Connect(onPromptTriggered)
 
 	Players.PlayerAdded:Connect(function(player)
 		if not stateLoaded then
@@ -829,17 +829,16 @@ if not createSuccess then
 	if not CampfireService.Client.SafeZoneChanged then
 		CampfireService.Client.SafeZoneChanged = Knit.CreateSignal()
 	end
+	if not CampfireService.Client.LevelUp then
+		CampfireService.Client.LevelUp = Knit.CreateSignal()
+	end
 
 	if CampfireService._HeartbeatConnection then
 		CampfireService._HeartbeatConnection:Disconnect()
 	end
-	if CampfireService._PromptConnection then
-		CampfireService._PromptConnection:Disconnect()
-	end
 
 	setupCampfire()
 	CampfireService._HeartbeatConnection = RunService.Heartbeat:Connect(onHeartbeat)
-	CampfireService._PromptConnection = ProximityPromptService.PromptTriggered:Connect(onPromptTriggered)
 
 	print("[CampfireService] Hot-reloaded — level/fuel system wired")
 end
