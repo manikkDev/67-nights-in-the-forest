@@ -7,14 +7,13 @@
     Server-authoritative raw-meat-to-cooked-meat conversion at the Bonfire.
 
     @description
-    Wires a "Cook Meat" ProximityPrompt onto the Campfire anchor.  While
-    the fire is lit, triggering it converts all of the player's carried
-    RawMeat into CookedMeat (which restores more Hunger when eaten via
-    ForageService's RequestEat).  Mirrors CampfireService's all-at-once
-    feed pattern for consistency.
+    Raw meat is converted to cooked meat automatically when it is dropped
+    onto the lit Campfire.  Cooked meat restores more Hunger when eaten via
+    ForageService's RequestEat.  The actual cooking logic is handled inside
+    CampfireService so fueling and cooking share one drop-only interaction.
 
     @exports
-    - (no public API; entirely ProximityPrompt driven)
+    - (no public API; auto-cook handled by CampfireService)
 ]]
 
 -- // VARIABLES // --

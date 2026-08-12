@@ -8,8 +8,8 @@
 
     @description
     Tracks a shared campfire Level (1-6) and a current Fuel value that
-    drains over time. Players feed the fire one Wood at a time via a
-    ProximityPrompt on the Campfire anchor; each log adds both current
+    drains over time. Players feed the fire by dropping Wood near the
+    Campfire anchor; each log adds both current
     fuel and progress toward the next campfire level. Every level raises
     the campfire's max fuel, safe-zone radius, fire size/light range, and
     slows fuel drain. If Fuel reaches 0 the fire goes out, the safe zone
@@ -622,7 +622,7 @@ end
 
 --[[
     @summary  Locate the Bonfire's Fire effect and PointLight, and
-              wire the Feed ProximityPrompt onto the campfire anchor.
+              prepare the campfire anchor for drop-only fueling.
               Retries until WorldService has finished placing the
               campfire and bonfire.
 ]]
