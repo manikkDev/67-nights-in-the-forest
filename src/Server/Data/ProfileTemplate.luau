@@ -48,4 +48,9 @@ return {
 		WolvesKilled = 0,
 		TotalPlaytime = 0,
 	},
+	Campfire = {
+		Level = 1,
+		Progress = 0,
+		Fuel = 0,
+	},
 }

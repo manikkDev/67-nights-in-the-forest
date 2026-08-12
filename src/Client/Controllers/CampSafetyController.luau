@@ -50,6 +50,7 @@ local warningLabel: TextLabel? = nil
 local campfirePosition: Vector3? = nil
 local safeZoneRadius = 0
 local isNight = false
+local isFireActive = false
 local isCurrentlyUnsafe = false
 local checkTimer = 0
 
@@ -155,8 +156,16 @@ local function onHeartbeat(dt: number)
 	end
 	checkTimer = 0
 
-	if not isNight or not campfirePosition or safeZoneRadius <= 0 then
+	if not isNight or not campfirePosition then
 		exitUnsafeState()
+		return
+	end
+
+	if not isFireActive then
+		enterUnsafeState()
+		if warningLabel then
+			warningLabel.Text = "The campfire has gone out..."
+		end
 		return
 	end
 
@@ -171,6 +180,9 @@ local function onHeartbeat(dt: number)
 
 	if flatDist > safeZoneRadius then
 		enterUnsafeState()
+		if warningLabel then
+			warningLabel.Text = "You are far from the firelight..."
+		end
 	else
 		exitUnsafeState()
 	end
@@ -191,6 +203,7 @@ function CampSafetyController:KnitStart()
 	campfirePosition = worldService.GetCampfirePosition()
 
 	campfireService.SafeZoneChanged:Connect(function(radius, isActive)
+		isFireActive = isActive
 		safeZoneRadius = isActive and radius or 0
 	end)
 

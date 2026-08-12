@@ -4,25 +4,31 @@
     @date    2025
 
     @summary
-    Server-authoritative campfire fuel level and dynamic fire visuals.
+    Server-authoritative campfire fuel, level-up, and dynamic fire visuals.
 
     @description
-    Tracks a single shared Fuel value that drains over time.  Players
-    can deposit their entire Wood inventory via a ProximityPrompt on
-    the Campfire anchor, which is clamped server-side to their actual
-    owned amount.  The Bonfire's built-in Fire effect and PointLight
-    are scaled continuously to reflect the current fuel fraction, so
-    the flame visibly shrinks toward embers as fuel depletes.
+    Tracks a shared campfire Level (1-6) and a current Fuel value that
+    drains over time. Players feed the fire one Wood at a time via a
+    ProximityPrompt on the Campfire anchor; each log adds both current
+    fuel and progress toward the next campfire level. Every level raises
+    the campfire's max fuel, safe-zone radius, fire size/light range, and
+    slows fuel drain. If Fuel reaches 0 the fire goes out, the safe zone
+    disappears, and a warning is broadcast.
 
     @exports
-    - CampfireService:GetFuel()           -> number
-    - CampfireService:GetFuelFraction()   -> number
-    - CampfireService:IsLit()             -> boolean
-    - CampfireService:GetSafeZoneRadius() -> number
-    - CampfireService:IsInSafeZone(pos)   -> boolean
-    - Knit Signal: FuelChanged(fuel, fraction)              (server -> client)
-    - Knit Signal: SafeZoneChanged(radius, isActive)        (server -> client)
-    - Knit Remote: RequestFuelCampfire  -> void  (client -> server)
+    - CampfireService:GetFuel()            -> number
+    - CampfireService:GetFuelLimit()       -> number
+    - CampfireService:GetFuelFraction()    -> number
+    - CampfireService:GetLevel()           -> number
+    - CampfireService:GetLevelProgress()   -> number, number, number
+    - CampfireService:IsLit()              -> boolean
+    - CampfireService:GetSafeZoneRadius()  -> number
+    - CampfireService:IsInSafeZone(pos)    -> boolean
+    - Knit Signal: FuelChanged(fuel, maxFuel, fraction, isLit)
+    - Knit Signal: LevelChanged(level, progress, requirement, levelFraction)
+    - Knit Signal: SafeZoneChanged(radius, isActive)
+    - Knit Remote: RequestFuelCampfire(amount)
+    - Knit Remote: GetState() -> fuel, maxFuel, level, progress, requirement, isLit
 ]]
 
 -- // VARIABLES // --
@@ -41,6 +47,7 @@ local createSuccess, CampfireService = pcall(Knit.CreateService, {
 	Name = "CampfireService",
 	Client = {
 		FuelChanged = Knit.CreateSignal(),
+		LevelChanged = Knit.CreateSignal(),
 		SafeZoneChanged = Knit.CreateSignal(),
 	},
 })
@@ -56,27 +63,37 @@ end
 if not CampfireService.Client.FuelChanged then
 	CampfireService.Client.FuelChanged = Knit.CreateSignal()
 end
+if not CampfireService.Client.LevelChanged then
+	CampfireService.Client.LevelChanged = Knit.CreateSignal()
+end
 if not CampfireService.Client.SafeZoneChanged then
 	CampfireService.Client.SafeZoneChanged = Knit.CreateSignal()
 end
 
 -- | Configuration | --
-local MAX_FUEL = 100
-local FUEL_DRAIN_PER_SEC = 100 / 600
-local WOOD_FUEL_VALUE = 20
 local FEED_RANGE = 10
 local FEED_COOLDOWN = 1
+local WOOD_FUEL_VALUE = 25
+local WOOD_LEVEL_VALUE_BASE = 12
+local WOOD_LEVEL_VALUE_DECAY = 2.2
+
+local MAX_FUEL_BY_LEVEL = { 100, 130, 170, 220, 280, 350 }
+local SAFE_ZONE_RADIUS_BY_LEVEL = { 20, 26, 34, 44, 56, 70 }
+local FUEL_DRAIN_BASE = 100 / 600
+local FUEL_DRAIN_MULTIPLIER_BY_LEVEL = { 1.0, 0.9, 0.82, 0.75, 0.68, 0.6 }
+local LEVEL_REQUIREMENTS = { 50, 120, 220, 360, 560, 820 }
+
 local FIRE_SIZE_MIN = 0.5
 local FIRE_SIZE_MAX = 12
+local FIRE_SIZE_LEVEL_MULTIPLIER = { 0.85, 1.0, 1.08, 1.16, 1.24, 1.4 }
 local FIRE_HEAT_MIN = 1
 local FIRE_HEAT_MAX = 10
 local LIGHT_RANGE_MIN = 4
 local LIGHT_RANGE_MAX = 12
+local LIGHT_RANGE_LEVEL_MULTIPLIER = { 0.85, 1.0, 1.08, 1.16, 1.24, 1.4 }
 local LIGHT_BRIGHTNESS_MIN = 0.3
 local LIGHT_BRIGHTNESS_MAX = 1
 local FUEL_BROADCAST_INTERVAL = 1
-local SAFE_ZONE_RADIUS_MIN = 20
-local SAFE_ZONE_RADIUS_MAX = 50
 local SAFE_ZONE_LINE_COUNT = 40
 local SAFE_ZONE_LINE_THICKNESS = 0.5
 local SAFE_ZONE_LINE_HEIGHT = 0.05
@@ -90,7 +107,13 @@ local SAFE_ZONE_BROADCAST_THRESHOLD = 0.5
 -- | State Management | --
 local worldService: any? = nil
 local playerDataService: any? = nil
-local fuel = MAX_FUEL
+local inventoryService: any? = nil
+local stateLoaded = false
+local level = 1
+local levelProgress = 0
+local maxFuel = MAX_FUEL_BY_LEVEL[1]
+local fuel = 0
+local isLit = false
 local campfirePart: BasePart? = nil
 local fireCenter: BasePart? = nil
 local groundPart: BasePart? = nil
@@ -107,18 +130,47 @@ local lastBroadcastRadius = 0
 
 --[[
     @summary  Return the current fuel level.
-    @returns  number  -- 0 to MAX_FUEL
+    @returns  number
 ]]
 function CampfireService:GetFuel(): number
 	return fuel
 end
 
 --[[
-    @summary  Return the current fuel level as a 0-1 fraction.
+    @summary  Return the current maximum fuel (fuel limit).
+    @returns  number
+]]
+function CampfireService:GetFuelLimit(): number
+	return maxFuel
+end
+
+--[[
+    @summary  Return the current fuel as a 0-1 fraction of the limit.
     @returns  number
 ]]
 function CampfireService:GetFuelFraction(): number
-	return fuel / MAX_FUEL
+	if maxFuel <= 0 then
+		return 0
+	end
+	return fuel / maxFuel
+end
+
+--[[
+    @summary  Return the current campfire level (1-6).
+    @returns  number
+]]
+function CampfireService:GetLevel(): number
+	return level
+end
+
+--[[
+    @summary  Return the current level progress.
+    @returns  number, number, number  -- progress, requirement, fraction
+]]
+function CampfireService:GetLevelProgress(): (number, number, number)
+	local requirement = LEVEL_REQUIREMENTS[level] or LEVEL_REQUIREMENTS[#LEVEL_REQUIREMENTS]
+	local fraction = if requirement > 0 then math.clamp(levelProgress / requirement, 0, 1) else 1
+	return levelProgress, requirement, fraction
 end
 
 --[[
@@ -126,15 +178,15 @@ end
     @returns  boolean
 ]]
 function CampfireService:IsLit(): boolean
-	return fuel > 0
+	return isLit
 end
 
 --[[
     @summary  Return the current safe zone radius in studs.
-    @returns  number  -- 0 if fire is out, otherwise SAFE_ZONE_RADIUS_MIN..MAX
+    @returns  number  -- 0 if fire is out
 ]]
 function CampfireService:GetSafeZoneRadius(): number
-	if fuel <= 0 then
+	if not isLit then
 		return 0
 	end
 	return currentSafeZoneRadius
@@ -146,7 +198,7 @@ end
     @returns  boolean
 ]]
 function CampfireService:IsInSafeZone(position: Vector3): boolean
-	if fuel <= 0 or not fireCenter then
+	if not isLit or not fireCenter then
 		return false
 	end
 	local flatDist = (Vector3.new(position.X, 0, position.Z) - Vector3.new(fireCenter.Position.X, 0, fireCenter.Position.Z)).Magnitude
@@ -154,116 +206,107 @@ function CampfireService:IsInSafeZone(position: Vector3): boolean
 end
 
 --[[
-    @summary  Locate the Bonfire's Fire effect and PointLight, and
-              wire the Feed ProximityPrompt onto the campfire anchor.
-              Retries until WorldService has finished placing the
-              campfire and bonfire.
+    @summary  Compute the level-progress value of one log at the current level.
+    @returns  number
 ]]
-local function setupCampfire()
-	if not worldService then
-		task.defer(setupCampfire)
-		return
+local function getWoodLevelValue(): number
+	return WOOD_LEVEL_VALUE_BASE / (WOOD_LEVEL_VALUE_DECAY ^ (level - 1))
+end
+
+--[[
+    @summary  Process level-ups when the level bar overflows.
+]]
+local function processLevelUps()
+	while level < #MAX_FUEL_BY_LEVEL and levelProgress >= (LEVEL_REQUIREMENTS[level] or math.huge) do
+		local requirement = LEVEL_REQUIREMENTS[level] :: number
+		levelProgress -= requirement
+		level += 1
+		maxFuel = MAX_FUEL_BY_LEVEL[level]
+		fuel = math.clamp(fuel, 0, maxFuel)
 	end
 
-	local bonfire = worldService:GetBonfire()
-	local anchor = worldService:GetCampfire()
-	local map = bonfire and bonfire.Parent
-	if not bonfire or not anchor then
-		task.defer(setupCampfire)
-		return
-	end
-
-	campfirePart = anchor :: BasePart
-	if not campfirePart then
-		return
-	end
-
-	local firePart = bonfire:FindFirstChild("Fire")
-	if firePart and firePart:IsA("BasePart") then
-		fireCenter = firePart :: BasePart
-		fireInstance = firePart:FindFirstChildOfClass("Fire")
-	end
-
-	for _, descendant in ipairs(bonfire:GetDescendants()) do
-		if descendant:IsA("PointLight") then
-			pointLight = descendant
-			break
+	-- Cap progress at the final level's requirement so the bar sits at 100%.
+	if level == #MAX_FUEL_BY_LEVEL then
+		local cap = LEVEL_REQUIREMENTS[level] or 0
+		if levelProgress > cap then
+			levelProgress = cap
 		end
 	end
+end
 
-	-- Move the bonfire light onto the visual fire so it shines from the center
-	if pointLight and fireCenter then
-		pointLight.Parent = fireCenter
+--[[
+    @summary  Load the shared campfire state from a player's profile.
+    @param    player  Player
+]]
+local function loadCampfireStateFromPlayer(player: Player)
+	if not playerDataService then
+		stateLoaded = true
+		return
 	end
 
-	-- Identify the map's ground plane so the safe zone sits on the grass
-	if map then
-		for _, descendant in ipairs(map:GetDescendants()) do
-			if
-				descendant:IsA("BasePart")
-				and descendant.Size.Y < 50
-				and descendant.Size.X > 500
-				and descendant.Size.Z > 500
-			then
-				groundPart = descendant
-				break
-			end
-		end
+	local ok, data = pcall(playerDataService.GetData, playerDataService, player)
+	if ok and data and data.Campfire then
+		level = math.clamp(data.Campfire.Level, 1, #MAX_FUEL_BY_LEVEL)
+		maxFuel = MAX_FUEL_BY_LEVEL[level]
+		levelProgress = math.clamp(data.Campfire.Progress, 0, (LEVEL_REQUIREMENTS[level] or math.huge))
+		fuel = math.clamp(data.Campfire.Fuel, 0, maxFuel)
+		isLit = fuel > 0
 	end
 
-	-- Reuse an existing feed prompt if this is a hot reload
-	local existingPrompt = campfirePart:FindFirstChild("FeedFirePrompt")
-	if existingPrompt and existingPrompt:IsA("ProximityPrompt") then
-		feedPrompt = existingPrompt
-	else
-		local prompt = Instance.new("ProximityPrompt")
-		prompt.Name = "FeedFirePrompt"
-		prompt.ActionText = "Feed Fire"
-		prompt.ObjectText = "Campfire"
-		prompt.MaxActivationDistance = FEED_RANGE + 2
-		prompt.HoldDuration = 0.3
-		prompt.Parent = campfirePart
-		feedPrompt = prompt
+	stateLoaded = true
+end
+
+--[[
+    @summary  Save the shared campfire state into a single player's profile.
+    @param    player  Player
+]]
+local function saveCampfireStateToPlayer(player: Player)
+	if not playerDataService then
+		return
 	end
 
-	-- Remove any old safe zone visuals (disc or previous dots) before creating fresh dots
-	local oldFolder = map and map:FindFirstChild("SafeZoneDots")
-	if oldFolder then
-		oldFolder:Destroy()
-	end
-	local oldDisc = map and map:FindFirstChild("SafeZone")
-	if oldDisc then
-		oldDisc:Destroy()
-	end
+	local ok = pcall(playerDataService.UpdateData, playerDataService, player, function(data)
+		data.Campfire = { Level = level, Progress = levelProgress, Fuel = fuel }
+	end)
 
-	-- Create the safe zone visual: a dashed ring of slim glowing lines around the campfire
-	local dotFolder = Instance.new("Folder")
-	dotFolder.Name = "SafeZoneDots"
-	dotFolder.Parent = map
+	if not ok then
+		warn("[CampfireService] Failed to save campfire state for", player.Name)
+	end
+end
 
-	local dots = {}
-	for i = 1, SAFE_ZONE_LINE_COUNT do
-		local dot = Instance.new("Part")
-		dot.Name = "SafeZoneLine" .. i
-		dot.Shape = Enum.PartType.Block
-		dot.Anchored = true
-		dot.CanCollide = false
-		dot.CanQuery = false
-		dot.CanTouch = false
-		dot.Material = SAFE_ZONE_LINE_MATERIAL
-		dot.Color = SAFE_ZONE_LINE_COLOR
-		dot.Transparency = SAFE_ZONE_LINE_OFF_TRANSPARENCY
-		dot.Size = Vector3.new(SAFE_ZONE_LINE_THICKNESS, SAFE_ZONE_LINE_HEIGHT, 1)
-		dot.CastShadow = false
-		dot.Parent = dotFolder
-		table.insert(dots, dot)
+--[[
+    @summary  Save the shared campfire state to every player's profile.
+]]
+local function saveCampfireState()
+	for _, player in ipairs(Players:GetPlayers()) do
+		saveCampfireStateToPlayer(player)
+	end
+end
+
+--[[
+    @summary  Update the Fire effect and PointLight to match current fuel and level.
+]]
+local function updateFireVisuals()
+	if not fireInstance and not pointLight then
+		return
 	end
 
-	safeZoneDots = dots
+	local fraction = if maxFuel > 0 then fuel / maxFuel else 0
+	local sizeMax = FIRE_SIZE_MAX * FIRE_SIZE_LEVEL_MULTIPLIER[level]
+	local heatMax = FIRE_HEAT_MAX * FIRE_SIZE_LEVEL_MULTIPLIER[level]
+	local lightMax = LIGHT_RANGE_MAX * LIGHT_RANGE_LEVEL_MULTIPLIER[level]
 
-	currentSafeZoneRadius = SAFE_ZONE_RADIUS_MIN
+	if fireInstance then
+		fireInstance.Enabled = isLit and fuel > 0
+		fireInstance.Size = FIRE_SIZE_MIN + (sizeMax - FIRE_SIZE_MIN) * fraction
+		fireInstance.Heat = FIRE_HEAT_MIN + (heatMax - FIRE_HEAT_MIN) * fraction
+	end
 
-	print("[CampfireService] Campfire wired — fuel:", fuel)
+	if pointLight then
+		pointLight.Enabled = isLit
+		pointLight.Range = LIGHT_RANGE_MIN + (lightMax - LIGHT_RANGE_MIN) * fraction
+		pointLight.Brightness = LIGHT_BRIGHTNESS_MIN + (LIGHT_BRIGHTNESS_MAX - LIGHT_BRIGHTNESS_MIN) * fraction
+	end
 end
 
 --[[
@@ -318,12 +361,103 @@ local function updateSafeZoneVisuals(radius: number, active: boolean)
 end
 
 --[[
-    @summary  Validate and process a feed request, depositing all of
-              the player owned Wood into the campfire's fuel.
-    @param    player  Player  -- the feeding player
+    @summary  Recompute safe zone radius and refresh the visual ring.
 ]]
-local function feedCampfire(player: Player)
-	if not campfirePart then
+local function updateSafeZone()
+	currentSafeZoneRadius = if isLit then SAFE_ZONE_RADIUS_BY_LEVEL[level] else 0
+	updateSafeZoneVisuals(currentSafeZoneRadius, isLit)
+end
+
+--[[
+    @summary  Broadcast the current fuel state to a player (or all players if omitted).
+    @param    target  Player?  -- nil to broadcast to all
+]]
+local function broadcastFuel(target: Player?)
+	local fraction = if maxFuel > 0 then fuel / maxFuel else 0
+	if target then
+		CampfireService.Client.FuelChanged:Fire(target, fuel, maxFuel, fraction, isLit)
+		return
+	end
+	for _, player in ipairs(Players:GetPlayers()) do
+		CampfireService.Client.FuelChanged:Fire(player, fuel, maxFuel, fraction, isLit)
+	end
+end
+
+--[[
+    @summary  Broadcast the current level state to a player (or all players if omitted).
+    @param    target  Player?  -- nil to broadcast to all
+]]
+local function broadcastLevel(target: Player?)
+	local requirement = LEVEL_REQUIREMENTS[level] or LEVEL_REQUIREMENTS[#LEVEL_REQUIREMENTS]
+	local levelFraction = if requirement > 0 then math.clamp(levelProgress / requirement, 0, 1) else 1
+	if target then
+		CampfireService.Client.LevelChanged:Fire(target, level, levelProgress, requirement, levelFraction)
+		return
+	end
+	for _, player in ipairs(Players:GetPlayers()) do
+		CampfireService.Client.LevelChanged:Fire(player, level, levelProgress, requirement, levelFraction)
+	end
+end
+
+--[[
+    @summary  Broadcast the current safe zone to a player (or all players if omitted).
+    @param    target  Player?  -- nil to broadcast to all
+    @param    force   boolean? -- true to bypass the radius-change throttle
+]]
+local function broadcastSafeZone(target: Player?, force: boolean?)
+	updateSafeZone()
+
+	local shouldBroadcast = force
+		or math.abs(currentSafeZoneRadius - lastBroadcastRadius) >= SAFE_ZONE_BROADCAST_THRESHOLD
+		or (isLit and lastBroadcastRadius <= 0)
+		or (not isLit and lastBroadcastRadius > 0)
+
+	if not shouldBroadcast then
+		return
+	end
+	lastBroadcastRadius = currentSafeZoneRadius
+
+	if target then
+		CampfireService.Client.SafeZoneChanged:Fire(target, currentSafeZoneRadius, isLit)
+		return
+	end
+	for _, player in ipairs(Players:GetPlayers()) do
+		CampfireService.Client.SafeZoneChanged:Fire(player, currentSafeZoneRadius, isLit)
+	end
+end
+
+--[[
+    @summary  Add fuel and level progress from a given number of logs.
+    @param    woodAmount  number
+]]
+local function addFuel(woodAmount: number)
+	if woodAmount <= 0 then
+		return
+	end
+
+	isLit = true
+	fuel += woodAmount * WOOD_FUEL_VALUE
+	fuel = math.clamp(fuel, 0, maxFuel)
+
+	levelProgress += woodAmount * getWoodLevelValue()
+	processLevelUps()
+
+	updateFireVisuals()
+	updateSafeZone()
+	broadcastSafeZone(nil, true)
+	broadcastFuel()
+	broadcastLevel()
+	saveCampfireState()
+end
+
+--[[
+    @summary  Validate and process a feed request, consuming Wood and
+              adding both current fuel and level progress.
+    @param    player  Player  -- the feeding player
+    @param    amount  number  -- logs to feed (default 1)
+]]
+local function feedCampfire(player: Player, amount: number)
+	if not campfirePart or not inventoryService then
 		return
 	end
 
@@ -342,101 +476,204 @@ local function feedCampfire(player: Player)
 		return
 	end
 
-	local dataService = playerDataService :: any
-	local data = dataService:GetData(player)
-	if not data or data.Resources.Wood <= 0 then
+	if not inventoryService:ConsumeResource(player, "Wood", amount) then
 		return
 	end
 
 	feedCooldowns[player] = now
-	local wood = data.Resources.Wood
+	addFuel(amount)
 
-	dataService:UpdateData(player, function(playerData)
-		playerData.Resources.Wood = 0
-	end)
-
-	fuel = math.clamp(fuel + wood * WOOD_FUEL_VALUE, 0, MAX_FUEL)
-	local fraction = fuel / MAX_FUEL
-
-	-- Immediately update safe zone and broadcast
-	local newRadius = SAFE_ZONE_RADIUS_MIN + (SAFE_ZONE_RADIUS_MAX - SAFE_ZONE_RADIUS_MIN) * fraction
-	currentSafeZoneRadius = newRadius
-
-	updateSafeZoneVisuals(newRadius, fuel > 0)
-	lastBroadcastRadius = newRadius
-	for _, p in ipairs(Players:GetPlayers()) do
-		CampfireService.Client.SafeZoneChanged:Fire(p, newRadius, fuel > 0)
-	end
-
-	print("[CampfireService]", player.Name, "fed", wood, "wood — fuel now", fuel)
+	print("[CampfireService]", player.Name, "fed", amount, "wood — fuel", fuel, "/", maxFuel, "level", level, "progress", levelProgress)
 end
 
 --[[
-    @summary  Route a global ProximityPrompt trigger to the feed
-              handler if it matches the campfire's prompt.
+    @summary  Route a global ProximityPrompt trigger to the feed handler.
     @param    prompt  ProximityPrompt  -- the triggered prompt
     @param    player  Player           -- the triggering player
 ]]
 local function onPromptTriggered(prompt: ProximityPrompt, player: Player)
 	if prompt == feedPrompt then
-		feedCampfire(player)
+		feedCampfire(player, 1)
 	end
 end
-
 
 --[[
     @summary  Heartbeat-driven fuel drain and visual scaling.
     @param    dt  number  -- delta time in seconds
 ]]
 local function onHeartbeat(dt: number)
-	fuel = math.clamp(fuel - FUEL_DRAIN_PER_SEC * dt, 0, MAX_FUEL)
-	local fraction = fuel / MAX_FUEL
-
-	if fireInstance then
-		fireInstance.Size = FIRE_SIZE_MIN + (FIRE_SIZE_MAX - FIRE_SIZE_MIN) * fraction
-		fireInstance.Heat = FIRE_HEAT_MIN + (FIRE_HEAT_MAX - FIRE_HEAT_MIN) * fraction
+	if isLit then
+		local drain = FUEL_DRAIN_BASE * (FUEL_DRAIN_MULTIPLIER_BY_LEVEL[level] or 1) * dt
+		fuel = math.clamp(fuel - drain, 0, maxFuel)
+		if fuel <= 0 then
+			isLit = false
+		end
 	end
 
-	if pointLight then
-		pointLight.Range = LIGHT_RANGE_MIN + (LIGHT_RANGE_MAX - LIGHT_RANGE_MIN) * fraction
-		pointLight.Brightness = LIGHT_BRIGHTNESS_MIN + (LIGHT_BRIGHTNESS_MAX - LIGHT_BRIGHTNESS_MIN) * fraction
-	end
-
-	-- Update safe zone radius and visual
-	local newRadius = SAFE_ZONE_RADIUS_MIN + (SAFE_ZONE_RADIUS_MAX - SAFE_ZONE_RADIUS_MIN) * fraction
-	currentSafeZoneRadius = newRadius
-
-	updateSafeZoneVisuals(newRadius, fuel > 0)
+	updateFireVisuals()
+	updateSafeZone()
+	broadcastSafeZone()
 
 	fuelBroadcastTimer += dt
 	if fuelBroadcastTimer >= FUEL_BROADCAST_INTERVAL then
 		fuelBroadcastTimer = 0
+		broadcastFuel()
+		broadcastLevel()
+	end
+end
 
-		-- Broadcast safe zone changes when radius shifts by >= threshold
-		if math.abs(newRadius - lastBroadcastRadius) >= SAFE_ZONE_BROADCAST_THRESHOLD then
-			lastBroadcastRadius = newRadius
-			for _, player in ipairs(Players:GetPlayers()) do
-				CampfireService.Client.SafeZoneChanged:Fire(player, newRadius, fuel > 0)
+--[[
+    @summary  Locate the Bonfire's Fire effect and PointLight, and
+              wire the Feed ProximityPrompt onto the campfire anchor.
+              Retries until WorldService has finished placing the
+              campfire and bonfire.
+]]
+local function setupCampfire()
+	if not worldService then
+		task.defer(setupCampfire)
+		return
+	end
+
+	local bonfire = worldService:GetBonfire()
+	local anchor = worldService:GetCampfire()
+	local map = bonfire and bonfire.Parent
+	if not bonfire or not anchor then
+		task.defer(setupCampfire)
+		return
+	end
+
+	campfirePart = anchor :: BasePart
+	if not campfirePart then
+		return
+	end
+
+	local firePart = bonfire:FindFirstChild("Fire")
+	if firePart and firePart:IsA("BasePart") then
+		fireCenter = firePart :: BasePart
+		fireInstance = firePart:FindFirstChildOfClass("Fire")
+	end
+
+	for _, descendant in ipairs(bonfire:GetDescendants()) do
+		if descendant:IsA("PointLight") then
+			pointLight = descendant
+			break
+		end
+	end
+
+	if pointLight and fireCenter then
+		pointLight.Parent = fireCenter
+	end
+
+	if map then
+		for _, descendant in ipairs(map:GetDescendants()) do
+			if
+				descendant:IsA("BasePart")
+				and descendant.Size.Y < 50
+				and descendant.Size.X > 500
+				and descendant.Size.Z > 500
+			then
+				groundPart = descendant
+				break
 			end
 		end
 	end
+
+	-- Reuse an existing feed prompt if this is a hot reload
+	local existingPrompt = campfirePart:FindFirstChild("FeedFirePrompt")
+	if existingPrompt and existingPrompt:IsA("ProximityPrompt") then
+		feedPrompt = existingPrompt
+		feedPrompt.ActionText = "Add Wood"
+	else
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "FeedFirePrompt"
+		prompt.ActionText = "Add Wood"
+		prompt.ObjectText = "Campfire"
+		prompt.MaxActivationDistance = FEED_RANGE + 2
+		prompt.HoldDuration = 0.3
+		prompt.Parent = campfirePart
+		feedPrompt = prompt
+	end
+
+	-- Remove any old safe zone visuals (disc or previous dots) before creating fresh dots
+	local oldFolder = map and map:FindFirstChild("SafeZoneDots")
+	if oldFolder then
+		oldFolder:Destroy()
+	end
+	local oldDisc = map and map:FindFirstChild("SafeZone")
+	if oldDisc then
+		oldDisc:Destroy()
+	end
+
+	-- Create the safe zone visual: a dashed ring of slim glowing lines around the campfire
+	local dotFolder = Instance.new("Folder")
+	dotFolder.Name = "SafeZoneDots"
+	dotFolder.Parent = map
+
+	local dots = {}
+	for i = 1, SAFE_ZONE_LINE_COUNT do
+		local dot = Instance.new("Part")
+		dot.Name = "SafeZoneLine" .. i
+		dot.Shape = Enum.PartType.Block
+		dot.Anchored = true
+		dot.CanCollide = false
+		dot.CanQuery = false
+		dot.CanTouch = false
+		dot.Material = SAFE_ZONE_LINE_MATERIAL
+		dot.Color = SAFE_ZONE_LINE_COLOR
+		dot.Transparency = SAFE_ZONE_LINE_OFF_TRANSPARENCY
+		dot.Size = Vector3.new(SAFE_ZONE_LINE_THICKNESS, SAFE_ZONE_LINE_HEIGHT, 1)
+		dot.CastShadow = false
+		dot.Parent = dotFolder
+		table.insert(dots, dot)
+	end
+
+	safeZoneDots = dots
+
+	maxFuel = MAX_FUEL_BY_LEVEL[level]
+	if not stateLoaded and fuel <= 0 then
+		fuel = maxFuel * 0.5
+	end
+	fuel = math.clamp(fuel, 0, maxFuel)
+	isLit = fuel > 0
+
+	updateFireVisuals()
+	updateSafeZone()
+	broadcastSafeZone(nil, true)
+
+	print("[CampfireService] Campfire wired — level", level, "fuel", fuel, "/", maxFuel)
 end
 
 --[[
     @summary  Client-facing remote requesting the campfire be fed.
     @param    player  Player  -- injected by Knit
+    @param    amount  number? -- logs to feed (default 1)
 ]]
-function CampfireService.Client:RequestFuelCampfire(player: Player)
-	self.Server:_FeedCampfire(player)
+function CampfireService.Client:RequestFuelCampfire(player: Player, amount: number?)
+	if not amount or typeof(amount) ~= "number" or amount < 1 then
+		amount = 1
+	end
+	amount = math.floor(amount)
+	self.Server:_FeedCampfire(player, amount)
 end
 
 --[[
     @summary  Internal server-only wrapper so both the Knit remote and
               the ProximityPrompt handler share one code path.
     @param    player  Player  -- the feeding player
+    @param    amount  number
 ]]
-function CampfireService:_FeedCampfire(player: Player)
-	feedCampfire(player)
+function CampfireService:_FeedCampfire(player: Player, amount: number)
+	feedCampfire(player, amount)
+end
+
+--[[
+    @summary  Client-facing remote to fetch the full campfire state.
+    @param    player  Player  -- injected by Knit
+    @returns  number, number, number, number, number, boolean
+]]
+function CampfireService.Client:GetState(player: Player): (number, number, number, number, number, boolean)
+	local requirement = LEVEL_REQUIREMENTS[level] or LEVEL_REQUIREMENTS[#LEVEL_REQUIREMENTS]
+	return fuel, maxFuel, level, levelProgress, requirement, isLit
 end
 
 -- // INITIALIZATION // --
@@ -444,19 +681,50 @@ end
 function CampfireService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	playerDataService = Knit.GetService("PlayerDataService")
+	inventoryService = Knit.GetService("InventoryService")
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		if not stateLoaded then
+			loadCampfireStateFromPlayer(player)
+		end
+	end
 
 	setupCampfire()
 	CampfireService._HeartbeatConnection = RunService.Heartbeat:Connect(onHeartbeat)
 	CampfireService._PromptConnection = ProximityPromptService.PromptTriggered:Connect(onPromptTriggered)
 
 	Players.PlayerAdded:Connect(function(player)
-		CampfireService.Client.SafeZoneChanged:Fire(player, currentSafeZoneRadius, fuel > 0)
+		if not stateLoaded then
+			loadCampfireStateFromPlayer(player)
+			updateFireVisuals()
+			updateSafeZone()
+			broadcastSafeZone(nil, true)
+			broadcastFuel()
+			broadcastLevel()
+		elseif playerDataService then
+			saveCampfireStateToPlayer(player)
+		end
+
+		local fraction = if maxFuel > 0 then fuel / maxFuel else 0
+		local requirement = LEVEL_REQUIREMENTS[level] or LEVEL_REQUIREMENTS[#LEVEL_REQUIREMENTS]
+		CampfireService.Client.SafeZoneChanged:Fire(player, currentSafeZoneRadius, isLit)
+		CampfireService.Client.FuelChanged:Fire(player, fuel, maxFuel, fraction, isLit)
+		CampfireService.Client.LevelChanged:Fire(player, level, levelProgress, requirement, math.clamp(levelProgress / requirement, 0, 1))
 	end)
+
 	for _, player in ipairs(Players:GetPlayers()) do
-		CampfireService.Client.SafeZoneChanged:Fire(player, currentSafeZoneRadius, fuel > 0)
+		local fraction = if maxFuel > 0 then fuel / maxFuel else 0
+		local requirement = LEVEL_REQUIREMENTS[level] or LEVEL_REQUIREMENTS[#LEVEL_REQUIREMENTS]
+		CampfireService.Client.SafeZoneChanged:Fire(player, currentSafeZoneRadius, isLit)
+		CampfireService.Client.FuelChanged:Fire(player, fuel, maxFuel, fraction, isLit)
+		CampfireService.Client.LevelChanged:Fire(player, level, levelProgress, requirement, math.clamp(levelProgress / requirement, 0, 1))
+
+		if playerDataService then
+			saveCampfireStateToPlayer(player)
+		end
 	end
 
-	print("[CampfireService] Initialised — fuel drain active")
+	print("[CampfireService] Initialised — fuel/level drain active")
 end
 
 -- Rojo hot-reload path: if the service already existed, the new module's KnitStart
@@ -464,6 +732,20 @@ end
 if not createSuccess then
 	worldService = Knit.GetService("WorldService")
 	playerDataService = Knit.GetService("PlayerDataService")
+	inventoryService = Knit.GetService("InventoryService")
+
+	if not CampfireService.Client then
+		CampfireService.Client = {}
+	end
+	if not CampfireService.Client.FuelChanged then
+		CampfireService.Client.FuelChanged = Knit.CreateSignal()
+	end
+	if not CampfireService.Client.LevelChanged then
+		CampfireService.Client.LevelChanged = Knit.CreateSignal()
+	end
+	if not CampfireService.Client.SafeZoneChanged then
+		CampfireService.Client.SafeZoneChanged = Knit.CreateSignal()
+	end
 
 	if CampfireService._HeartbeatConnection then
 		CampfireService._HeartbeatConnection:Disconnect()
@@ -476,11 +758,17 @@ if not createSuccess then
 	CampfireService._HeartbeatConnection = RunService.Heartbeat:Connect(onHeartbeat)
 	CampfireService._PromptConnection = ProximityPromptService.PromptTriggered:Connect(onPromptTriggered)
 
-	print("[CampfireService] Hot-reloaded — dotted safe zone wired")
+	print("[CampfireService] Hot-reloaded — level/fuel system wired")
 end
 
 Players.PlayerRemoving:Connect(function(player)
 	feedCooldowns[player] = nil
+end)
+
+game:BindToClose(function()
+	if playerDataService then
+		saveCampfireState()
+	end
 end)
 
 return CampfireService
