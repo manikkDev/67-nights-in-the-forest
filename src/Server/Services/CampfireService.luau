@@ -762,6 +762,17 @@ function CampfireService.Client:GetState(player: Player): (number, number, numbe
 	return fuel, maxFuel, level, levelProgress, requirement, isLit
 end
 
+--[[
+    @summary  Client-facing remote returning the current safe-zone radius
+              and whether the fire is lit, so the client can initialise
+              its state even if it missed the SafeZoneChanged signal.
+    @returns  number, boolean  -- radius, isLit
+]]
+function CampfireService.Client:GetSafeZoneInfo(player: Player): (number, boolean)
+	updateSafeZone()
+	return currentSafeZoneRadius, isLit
+end
+
 -- // INITIALIZATION // --
 
 function CampfireService:KnitStart()

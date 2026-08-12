@@ -237,6 +237,14 @@ function CampSafetyController:KnitStart()
 		safeZoneRadius = isActive and radius or 0
 	end)
 
+	-- Request the current safe-zone state in case the initial signal was
+	-- fired before this controller connected.
+	local ok, radius, lit = pcall(campfireService.GetSafeZoneInfo, campfireService)
+	if ok then
+		isFireActive = lit == true
+		safeZoneRadius = if isFireActive then radius else 0
+	end
+
 	timeService.DayStarted:Connect(function()
 		isNight = false
 	end)
@@ -250,6 +258,12 @@ function CampSafetyController:KnitStart()
 	end
 
 	RunService.Heartbeat:Connect(onHeartbeat)
+
+	-- Force an immediate state evaluation so the initial warning/darkness
+	-- reflects the values we just fetched.
+	task.defer(function()
+		onHeartbeat(CHECK_INTERVAL)
+	end)
 
 	print("[CampSafetyController] Initialised — safe zone warning active")
 end
