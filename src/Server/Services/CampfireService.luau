@@ -639,11 +639,21 @@ local function setupCampfire()
 		end
 	end
 
+	-- Parent the feed prompt to the visible fire center if it exists so the
+	-- prompt is positioned at the actual flame, not the invisible anchor.
+	local promptParent = fireCenter or campfirePart
+
 	-- Reuse an existing feed prompt if this is a hot reload
-	local existingPrompt = campfirePart:FindFirstChild("FeedFirePrompt")
+	local existingPrompt = promptParent:FindFirstChild("FeedFirePrompt")
+	if not (existingPrompt and existingPrompt:IsA("ProximityPrompt")) and campfirePart then
+		existingPrompt = campfirePart:FindFirstChild("FeedFirePrompt")
+	end
 	if existingPrompt and existingPrompt:IsA("ProximityPrompt") then
 		feedPrompt = existingPrompt
 		feedPrompt.ActionText = "Add Wood"
+		if promptParent then
+			feedPrompt.Parent = promptParent
+		end
 	else
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.Name = "FeedFirePrompt"
@@ -651,12 +661,14 @@ local function setupCampfire()
 		prompt.ObjectText = "Campfire"
 		prompt.MaxActivationDistance = FEED_RANGE + 2
 		prompt.HoldDuration = 0.3
-		prompt.Parent = campfirePart
+		prompt.Parent = promptParent
 		feedPrompt = prompt
 	end
 
 	if feedPrompt then
 		feedPrompt.Exclusivity = Enum.ProximityPromptExclusivity.AlwaysShow
+		feedPrompt.RequiresLineOfSight = false
+		feedPrompt.ClickablePrompt = true
 		if feedPromptConnection then
 			feedPromptConnection:Disconnect()
 		end

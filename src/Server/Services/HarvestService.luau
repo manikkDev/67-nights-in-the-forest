@@ -38,7 +38,6 @@ local Constants = require(ReplicatedStorage.Shared.Constants)
 local HarvestService = Knit.CreateService({
 	Name = "HarvestService",
 	Client = {
-		RequestChop = Knit.CreateSignal(),
 		TreeChopped = Knit.CreateSignal(),
 	},
 })
@@ -572,6 +571,7 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 function HarvestService.Client:RequestPickup(player: Player, model: Model): boolean
+	print("[RequestPickup] called for", player.Name, model and model.Name or nil, "attr:", model and model:GetAttribute("PickupResource"))
 	if not model or not model:IsA("Model") or not model.Parent then
 		return false
 	end
@@ -585,7 +585,9 @@ function HarvestService.Client:RequestPickup(player: Player, model: Model): bool
 	if not baseMap or not model:IsDescendantOf(baseMap) then
 		return false
 	end
-	return tryPickup(model, player)
+	local ok = tryPickup(model, player)
+	print("[RequestPickup] tryPickup returned", ok)
+	return ok
 end
 
 -- // CLIENT REMOTES // --
