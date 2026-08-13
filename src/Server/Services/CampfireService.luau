@@ -82,7 +82,7 @@ local WOOD_LEVEL_VALUE_BASE = 12
 local WOOD_LEVEL_VALUE_DECAY = 2.2
 
 local MAX_FUEL_BY_LEVEL = { 100, 130, 170, 220, 280, 350 }
-local SAFE_ZONE_RADIUS_BY_LEVEL = { 20, 26, 34, 44, 56, 70 }
+local SAFE_ZONE_RADIUS_BY_LEVEL = { 28, 36, 48, 62, 78, 98 }
 local FUEL_DRAIN_BASE = 100 / 600
 local FUEL_DRAIN_MULTIPLIER_BY_LEVEL = { 1.0, 0.9, 0.82, 0.75, 0.68, 0.6 }
 local LEVEL_REQUIREMENTS = { 50, 120, 220, 360, 560, 820 }
@@ -99,7 +99,7 @@ local LIGHT_BRIGHTNESS_MIN = 0.3
 local LIGHT_BRIGHTNESS_MAX = 1
 local FUEL_BROADCAST_INTERVAL = 1
 local SAFE_ZONE_LINE_COUNT = 40
-local SAFE_ZONE_LINE_THICKNESS = 0.5
+local SAFE_ZONE_LINE_THICKNESS = 0.8
 local SAFE_ZONE_LINE_HEIGHT = 0.05
 local SAFE_ZONE_LINE_FILL = 0.65
 local SAFE_ZONE_LINE_COLOR = Color3.fromRGB(220, 255, 220)
@@ -446,15 +446,27 @@ local function addFuel(woodAmount: number)
 		return
 	end
 
+	local wasLit = isLit
+	local previousLevel = level
+
 	isLit = true
 	fuel += woodAmount * WOOD_FUEL_VALUE
 	fuel = math.clamp(fuel, 0, maxFuel)
 
 	levelProgress += woodAmount * getWoodLevelValue()
 	processLevelUps()
+	updateSafeZone()
+
+	-- If this was the spark that lit the fire and no real level-up happened,
+	-- show the Campfire Level banner for the current level so the player
+	-- gets clear feedback the campfire is now burning.
+	if not wasLit and level == previousLevel then
+		for _, player in ipairs(Players:GetPlayers()) do
+			CampfireService.Client.LevelUp:Fire(player, level, level - 1, currentSafeZoneRadius, maxFuel)
+		end
+	end
 
 	updateFireVisuals()
-	updateSafeZone()
 	broadcastSafeZone(nil, true)
 	broadcastFuel()
 	broadcastLevel()
@@ -718,9 +730,6 @@ local function setupCampfire()
 	safeZoneDots = dots
 
 	maxFuel = MAX_FUEL_BY_LEVEL[level]
-	if not stateLoaded and fuel <= 0 then
-		fuel = maxFuel * 0.5
-	end
 	fuel = math.clamp(fuel, 0, maxFuel)
 	isLit = fuel > 0
 

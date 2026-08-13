@@ -29,7 +29,7 @@ local CampfireController = Knit.CreateController({
 })
 
 -- | Configuration | --
-local PANEL_WIDTH = 240
+local PANEL_WIDTH = 250
 local PANEL_HEIGHT = 130
 local PANEL_MARGIN = 14
 local BAR_HEIGHT = 10
@@ -48,6 +48,7 @@ local levelValueLabel: TextLabel? = nil
 local levelLabel: TextLabel? = nil
 local statusLabel: TextLabel? = nil
 local warningLabel: TextLabel? = nil
+local hasFuelState = false
 
 local levelUpGui: ScreenGui? = nil
 local levelUpBanner: Frame? = nil
@@ -350,7 +351,7 @@ local function buildStatRow(name: string, y: number, labelText: string, color: C
 	local valueLabel = Instance.new("TextLabel")
 	valueLabel.Name = name .. "Value"
 	valueLabel.Size = UDim2.new(0, 48, 0, 16)
-	valueLabel.Position = UDim2.new(0, PANEL_MARGIN + 70 + 100 + 8, 0, y + 2)
+	valueLabel.Position = UDim2.new(0, PANEL_WIDTH - PANEL_MARGIN - 48, 0, y + 2)
 	valueLabel.BackgroundTransparency = 1
 	valueLabel.Text = "0/0"
 	valueLabel.TextColor3 = Color3.fromRGB(240, 240, 245)
@@ -449,7 +450,14 @@ end
 ]]
 local function onFuelChanged(fuel: number, maxFuel: number, fraction: number, isLit: boolean)
 	setFuelBar(fuel, maxFuel, isLit)
-	setWarning(isLit)
+
+	-- Keep the warning hidden until we have seen a lit state at least once.
+	if hasFuelState then
+		setWarning(isLit)
+	else
+		setWarning(true)
+		hasFuelState = true
+	end
 end
 
 --[[
