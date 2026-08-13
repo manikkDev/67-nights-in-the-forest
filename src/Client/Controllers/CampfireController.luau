@@ -48,7 +48,9 @@ local statusLabel: TextLabel? = nil
 local warningLabel: TextLabel? = nil
 
 local levelUpGui: ScreenGui? = nil
-local levelUpBanner: CanvasGroup? = nil
+local levelUpBanner: Frame? = nil
+local levelUpBackground: Frame? = nil
+local levelUpStroke: UIStroke? = nil
 local levelUpTitle: TextLabel? = nil
 local levelUpSubtitle: TextLabel? = nil
 local levelUpShowingLevel: number = 0
@@ -146,7 +148,7 @@ end
     @summary  Build the centered level-up banner.
     @returns  CanvasGroup
 ]]
-local function buildLevelUpBanner(): CanvasGroup
+local function buildLevelUpBanner(): Frame
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 	local existing = playerGui:FindFirstChild("CampfireLevelUpGui")
 	if existing then
@@ -162,13 +164,13 @@ local function buildLevelUpBanner(): CanvasGroup
 	gui.Parent = playerGui
 	levelUpGui = gui
 
-	local banner = Instance.new("CanvasGroup")
+	local banner = Instance.new("Frame")
 	banner.Name = "Banner"
 	banner.AnchorPoint = Vector2.new(0.5, 0.5)
 	banner.Position = UDim2.new(0.5, 0, 0.5, -40)
 	banner.Size = UDim2.new(0, 360, 0, 80)
 	banner.BackgroundTransparency = 1
-	banner.GroupTransparency = 1
+	banner.BorderSizePixel = 0
 	banner.Parent = gui
 	levelUpBanner = banner
 
@@ -176,9 +178,10 @@ local function buildLevelUpBanner(): CanvasGroup
 	background.Name = "Background"
 	background.Size = UDim2.new(1, 0, 1, 0)
 	background.BackgroundColor3 = Color3.fromRGB(42, 44, 54)
-	background.BackgroundTransparency = 0.05
+	background.BackgroundTransparency = 1
 	background.BorderSizePixel = 0
 	background.Parent = banner
+	levelUpBackground = background
 
 	local bgCorner = Instance.new("UICorner")
 	bgCorner.CornerRadius = UDim.new(0, 10)
@@ -186,9 +189,10 @@ local function buildLevelUpBanner(): CanvasGroup
 
 	local bgStroke = Instance.new("UIStroke")
 	bgStroke.Color = Color3.fromRGB(230, 160, 70)
-	bgStroke.Transparency = 0.3
+	bgStroke.Transparency = 1
 	bgStroke.Thickness = 2
 	bgStroke.Parent = background
+	levelUpStroke = bgStroke
 
 	local bgGradient = Instance.new("UIGradient")
 	bgGradient.Color = ColorSequence.new({
@@ -207,6 +211,7 @@ local function buildLevelUpBanner(): CanvasGroup
 	title.Size = UDim2.new(1, 0, 0.6, 0)
 	title.Position = UDim2.new(0, 0, 0, 0)
 	title.BackgroundTransparency = 1
+	title.TextTransparency = 1
 	title.Text = "CAMPFIRE LEVEL 2!"
 	title.TextColor3 = Color3.fromRGB(255, 230, 180)
 	title.Font = Enum.Font.GothamBlack
@@ -221,6 +226,7 @@ local function buildLevelUpBanner(): CanvasGroup
 	subtitle.Size = UDim2.new(1, 0, 0.4, 0)
 	subtitle.Position = UDim2.new(0, 0, 0.6, 0)
 	subtitle.BackgroundTransparency = 1
+	subtitle.TextTransparency = 1
 	subtitle.Text = "Safe zone expanded"
 	subtitle.TextColor3 = Color3.fromRGB(240, 240, 245)
 	subtitle.Font = Enum.Font.GothamBold
@@ -407,7 +413,7 @@ end
     @param    maxFuel       number
 ]]
 local function showLevelUp(newLevel: number, previousLevel: number, radius: number, maxFuel: number)
-	if not levelUpGui or not levelUpBanner or not levelUpTitle or not levelUpSubtitle then
+	if not levelUpGui or not levelUpBanner or not levelUpBackground or not levelUpStroke or not levelUpTitle or not levelUpSubtitle then
 		return
 	end
 
@@ -420,22 +426,38 @@ local function showLevelUp(newLevel: number, previousLevel: number, radius: numb
 	levelUpTitle.Text = "CAMPFIRE LEVEL " .. tostring(newLevel) .. "!"
 	levelUpSubtitle.Text = "Safe zone expanded to " .. tostring(math.round(radius or 0)) .. " studs"
 
-	-- Keep the size non-zero: CanvasGroup can bug out if it is ever
-	-- scaled to (0, 0).  We fade/slide instead.
+	-- Start fully transparent and slide up while fading in.
 	levelUpBanner.Position = UDim2.new(0.5, 0, 0.5, 60)
 	levelUpBanner.Size = UDim2.new(0, 360, 0, 80)
-	levelUpBanner.GroupTransparency = 1
+	levelUpBackground.BackgroundTransparency = 1
+	levelUpStroke.Transparency = 1
+	levelUpTitle.TextTransparency = 1
+	levelUpSubtitle.TextTransparency = 1
 	levelUpGui.Enabled = true
 
-	local inTween = TweenService:Create(levelUpBanner, LEVELUP_TWEEN_INFO, {
+	local inTweens: { Tween } = {}
+	table.insert(inTweens, TweenService:Create(levelUpBanner, LEVELUP_TWEEN_INFO, {
 		Position = UDim2.new(0.5, 0, 0.5, -40),
-		GroupTransparency = 0,
-	})
-	inTween:Play()
+	}))
+	table.insert(inTweens, TweenService:Create(levelUpBackground, LEVELUP_TWEEN_INFO, {
+		BackgroundTransparency = 0.05,
+	}))
+	table.insert(inTweens, TweenService:Create(levelUpStroke, LEVELUP_TWEEN_INFO, {
+		Transparency = 0.3,
+	}))
+	table.insert(inTweens, TweenService:Create(levelUpTitle, LEVELUP_TWEEN_INFO, {
+		TextTransparency = 0,
+	}))
+	table.insert(inTweens, TweenService:Create(levelUpSubtitle, LEVELUP_TWEEN_INFO, {
+		TextTransparency = 0,
+	}))
+	for _, tween in ipairs(inTweens) do
+		tween:Play()
+	end
 
 	task.spawn(function()
 		local expectedLevel = newLevel
-		inTween.Completed:Wait()
+		inTweens[1].Completed:Wait()
 
 		if levelUpShowingLevel ~= expectedLevel then
 			return
@@ -445,15 +467,27 @@ local function showLevelUp(newLevel: number, previousLevel: number, radius: numb
 			return
 		end
 
-		local outTween = TweenService:Create(levelUpBanner, LEVELUP_TWEEN_INFO, {
+		local outTweens: { Tween } = {}
+		table.insert(outTweens, TweenService:Create(levelUpBanner, LEVELUP_TWEEN_INFO, {
 			Position = UDim2.new(0.5, 0, 0.5, -90),
-			GroupTransparency = 1,
-		})
-		outTween:Play()
-		outTween.Completed:Wait()
+		}))
+		table.insert(outTweens, TweenService:Create(levelUpBackground, LEVELUP_TWEEN_INFO, {
+			BackgroundTransparency = 1,
+		}))
+		table.insert(outTweens, TweenService:Create(levelUpStroke, LEVELUP_TWEEN_INFO, {
+			Transparency = 1,
+		}))
+		table.insert(outTweens, TweenService:Create(levelUpTitle, LEVELUP_TWEEN_INFO, {
+			TextTransparency = 1,
+		}))
+		table.insert(outTweens, TweenService:Create(levelUpSubtitle, LEVELUP_TWEEN_INFO, {
+			TextTransparency = 1,
+		}))
+		for _, tween in ipairs(outTweens) do
+			tween:Play()
+		end
+		outTweens[1].Completed:Wait()
 
-		-- Always force the GUI off in case CanvasGroup GroupTransparency
-		-- gets stuck (a known Roblox UI rendering issue).
 		if levelUpGui and levelUpShowingLevel == expectedLevel then
 			levelUpGui.Enabled = false
 			levelUpShowingLevel = 0
