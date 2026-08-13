@@ -46,7 +46,7 @@ local InventoryService = Knit.CreateService({
 })
 
 -- | Configuration | --
-local BASE_CAPACITY = 5
+local BASE_CAPACITY = 10
 local BAG_CAPACITY_BONUS = 0
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local CARRY_BAG_NAME = "carry-bag"
