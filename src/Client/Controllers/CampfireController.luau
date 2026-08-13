@@ -29,10 +29,10 @@ local CampfireController = Knit.CreateController({
 })
 
 -- | Configuration | --
-local PANEL_WIDTH = 210
-local PANEL_HEIGHT = 126
-local PANEL_MARGIN = 20
-local BAR_HEIGHT = 18
+local PANEL_WIDTH = 240
+local PANEL_HEIGHT = 130
+local PANEL_MARGIN = 14
+local BAR_HEIGHT = 10
 local BAR_TWEEN_INFO = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local WARNING_TWEEN_INFO = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local LEVELUP_TWEEN_INFO = TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -43,6 +43,8 @@ local campfireGui: ScreenGui? = nil
 local warningGui: ScreenGui? = nil
 local fuelFill: Frame? = nil
 local levelFill: Frame? = nil
+local fuelValueLabel: TextLabel? = nil
+local levelValueLabel: TextLabel? = nil
 local levelLabel: TextLabel? = nil
 local statusLabel: TextLabel? = nil
 local warningLabel: TextLabel? = nil
@@ -69,10 +71,26 @@ local function setFuelBar(fuel: number, maxFuel: number, isLit: boolean)
 	end
 
 	local fraction = if maxFuel > 0 then math.clamp(fuel / maxFuel, 0, 1) else 0
-	local color = Color3.fromRGB(230, 120, 30):Lerp(Color3.fromRGB(220, 60, 60), 1 - fraction)
+	local color = Color3.fromRGB(245, 140, 50):Lerp(Color3.fromRGB(220, 60, 60), 1 - fraction)
 
 	fuelFill.BackgroundColor3 = color
+	local fillGradient = fuelFill:FindFirstChildOfClass("UIGradient") :: UIGradient?
+	if fillGradient then
+		fillGradient.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, color),
+			ColorSequenceKeypoint.new(1, color:Lerp(Color3.new(0, 0, 0), 0.35)),
+		})
+	end
+	local fillStroke = fuelFill:FindFirstChildOfClass("UIStroke") :: UIStroke?
+	if fillStroke then
+		fillStroke.Color = color
+	end
 	TweenService:Create(fuelFill, BAR_TWEEN_INFO, { Size = UDim2.new(fraction, 0, 1, 0) }):Play()
+
+	if fuelValueLabel then
+		fuelValueLabel.Text = tostring(math.round(fuel)) .. "/" .. tostring(math.round(maxFuel))
+		fuelValueLabel.TextColor3 = color
+	end
 
 	if statusLabel then
 		statusLabel.Text = if isLit then "Lit" else "OUT"
@@ -96,6 +114,11 @@ local function setLevelBar(level: number, progress: number, requirement: number)
 
 	local fraction = if requirement > 0 then math.clamp(progress / requirement, 0, 1) else 1
 	TweenService:Create(levelFill, BAR_TWEEN_INFO, { Size = UDim2.new(fraction, 0, 1, 0) }):Play()
+
+	if levelValueLabel and levelFill then
+		levelValueLabel.Text = tostring(math.round(progress)) .. "/" .. tostring(math.round(requirement))
+		levelValueLabel.TextColor3 = levelFill.BackgroundColor3
+	end
 end
 
 --[[
@@ -146,7 +169,7 @@ end
 
 --[[
     @summary  Build the centered level-up banner.
-    @returns  CanvasGroup
+    @returns  Frame
 ]]
 local function buildLevelUpBanner(): Frame
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
@@ -246,32 +269,97 @@ end
     @param    color  Color3
     @returns  Frame
 ]]
-local function buildBar(name: string, y: number, color: Color3): Frame
-	local background = Instance.new("Frame")
-	background.Name = name .. "Background"
-	background.Size = UDim2.new(1, -PANEL_MARGIN * 2, 0, BAR_HEIGHT)
-	background.Position = UDim2.new(0, PANEL_MARGIN, 0, y)
-	background.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
-	background.BackgroundTransparency = 0.4
-	background.BorderSizePixel = 0
-	background.Parent = campfireGui.Panel
+local function buildStatRow(name: string, y: number, labelText: string, color: Color3): (Frame, TextLabel)
+	local panel = campfireGui and campfireGui:FindFirstChild("Panel") :: Frame
 
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 4)
-	corner.Parent = background
+	local icon = Instance.new("Frame")
+	icon.Name = name .. "Icon"
+	icon.Size = UDim2.new(0, 16, 0, 16)
+	icon.Position = UDim2.new(0, PANEL_MARGIN, 0, y + 2)
+	icon.BackgroundColor3 = color
+	icon.BorderSizePixel = 0
+	icon.Parent = panel
+
+	local iconCorner = Instance.new("UICorner")
+	iconCorner.CornerRadius = UDim.new(1, 0)
+	iconCorner.Parent = icon
+
+	local iconStroke = Instance.new("UIStroke")
+	iconStroke.Color = color
+	iconStroke.Transparency = 0.4
+	iconStroke.Thickness = 1.5
+	iconStroke.Parent = icon
+
+	local label = Instance.new("TextLabel")
+	label.Name = name .. "Label"
+	label.Size = UDim2.new(0, 44, 0, 16)
+	label.Position = UDim2.new(0, PANEL_MARGIN + 22, 0, y + 2)
+	label.BackgroundTransparency = 1
+	label.Text = labelText
+	label.TextColor3 = Color3.fromRGB(220, 220, 225)
+	label.Font = Enum.Font.GothamBold
+	label.TextSize = 11
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = panel
+
+	local barBackground = Instance.new("Frame")
+	barBackground.Name = name .. "BarBackground"
+	barBackground.Size = UDim2.new(0, 110, 0, BAR_HEIGHT)
+	barBackground.Position = UDim2.new(0, PANEL_MARGIN + 70, 0, y + 5)
+	barBackground.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
+	barBackground.BackgroundTransparency = 0.05
+	barBackground.BorderSizePixel = 0
+	barBackground.Parent = panel
+
+	local bgCorner = Instance.new("UICorner")
+	bgCorner.CornerRadius = UDim.new(0, 4)
+	bgCorner.Parent = barBackground
+
+	local bgStroke = Instance.new("UIStroke")
+	bgStroke.Color = Color3.fromRGB(80, 80, 90)
+	bgStroke.Transparency = 0.5
+	bgStroke.Thickness = 1
+	bgStroke.Parent = barBackground
 
 	local fill = Instance.new("Frame")
 	fill.Name = name .. "Fill"
 	fill.Size = UDim2.new(1, 0, 1, 0)
 	fill.BackgroundColor3 = color
+	fill.BackgroundTransparency = 0.05
 	fill.BorderSizePixel = 0
-	fill.Parent = background
+	fill.Parent = barBackground
 
 	local fillCorner = Instance.new("UICorner")
 	fillCorner.CornerRadius = UDim.new(0, 4)
 	fillCorner.Parent = fill
 
-	return fill
+	local fillGradient = Instance.new("UIGradient")
+	fillGradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, color),
+		ColorSequenceKeypoint.new(1, color:Lerp(Color3.new(0, 0, 0), 0.35)),
+	})
+	fillGradient.Rotation = 90
+	fillGradient.Parent = fill
+
+	local fillStroke = Instance.new("UIStroke")
+	fillStroke.Color = color
+	fillStroke.Transparency = 0.65
+	fillStroke.Thickness = 1
+	fillStroke.Parent = fill
+
+	local valueLabel = Instance.new("TextLabel")
+	valueLabel.Name = name .. "Value"
+	valueLabel.Size = UDim2.new(0, 44, 0, 16)
+	valueLabel.Position = UDim2.new(0, PANEL_WIDTH - PANEL_MARGIN - 48, 0, y + 2)
+	valueLabel.BackgroundTransparency = 1
+	valueLabel.Text = "0/0"
+	valueLabel.TextColor3 = Color3.fromRGB(240, 240, 245)
+	valueLabel.Font = Enum.Font.GothamBold
+	valueLabel.TextSize = 11
+	valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+	valueLabel.Parent = panel
+
+	return fill, valueLabel
 end
 
 --[[
@@ -288,6 +376,7 @@ local function buildGui()
 	gui.Name = "CampfireGui"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 2
 	gui.Parent = playerGui
 	campfireGui = gui
 
@@ -296,18 +385,18 @@ local function buildGui()
 	panel.AnchorPoint = Vector2.new(0, 1)
 	panel.Position = UDim2.new(0, PANEL_MARGIN, 1, -PANEL_MARGIN)
 	panel.Size = UDim2.new(0, PANEL_WIDTH, 0, PANEL_HEIGHT)
-	panel.BackgroundColor3 = Color3.fromRGB(42, 44, 54)
-	panel.BackgroundTransparency = 0.06
+	panel.BackgroundColor3 = Color3.fromRGB(38, 40, 48)
+	panel.BackgroundTransparency = 0.02
 	panel.BorderSizePixel = 0
 	panel.Parent = gui
 
 	local panelCorner = Instance.new("UICorner")
-	panelCorner.CornerRadius = UDim.new(0, 10)
+	panelCorner.CornerRadius = UDim.new(0, 12)
 	panelCorner.Parent = panel
 
 	local panelStroke = Instance.new("UIStroke")
-	panelStroke.Color = Color3.fromRGB(160, 165, 180)
-	panelStroke.Transparency = 0.7
+	panelStroke.Color = Color3.fromRGB(230, 160, 70)
+	panelStroke.Transparency = 0.25
 	panelStroke.Thickness = 1.5
 	panelStroke.Parent = panel
 
@@ -317,20 +406,20 @@ local function buildGui()
 		ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 205, 215)),
 	})
 	panelGradient.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.96),
-		NumberSequenceKeypoint.new(1, 0.99),
+		NumberSequenceKeypoint.new(0, 0.9),
+		NumberSequenceKeypoint.new(1, 0.97),
 	})
 	panelGradient.Rotation = 90
 	panelGradient.Parent = panel
 
 	local header = Instance.new("TextLabel")
 	header.Name = "Header"
-	header.Size = UDim2.new(0, 100, 0, 22)
+	header.Size = UDim2.new(0, 120, 0, 22)
 	header.Position = UDim2.new(0, PANEL_MARGIN, 0, 8)
 	header.BackgroundTransparency = 1
 	header.Text = "CAMPFIRE"
 	header.TextColor3 = Color3.fromRGB(230, 220, 200)
-	header.Font = Enum.Font.GothamBold
+	header.Font = Enum.Font.GothamBlack
 	header.TextSize = 16
 	header.TextXAlignment = Enum.TextXAlignment.Left
 	header.Parent = panel
@@ -347,38 +436,13 @@ local function buildGui()
 	levelLabel.TextXAlignment = Enum.TextXAlignment.Right
 	levelLabel.Parent = panel
 
-	local fuelText = Instance.new("TextLabel")
-	fuelText.Name = "FuelText"
-	fuelText.Size = UDim2.new(0, 80, 0, 14)
-	fuelText.Position = UDim2.new(0, PANEL_MARGIN, 0, 34)
-	fuelText.BackgroundTransparency = 1
-	fuelText.Text = "Fuel"
-	fuelText.TextColor3 = Color3.fromRGB(180, 180, 190)
-	fuelText.Font = Enum.Font.Gotham
-	fuelText.TextSize = 12
-	fuelText.TextXAlignment = Enum.TextXAlignment.Left
-	fuelText.Parent = panel
-
-	fuelFill = buildBar("Fuel", 50, Color3.fromRGB(230, 120, 30))
-
-	local levelText = Instance.new("TextLabel")
-	levelText.Name = "LevelText"
-	levelText.Size = UDim2.new(0, 80, 0, 14)
-	levelText.Position = UDim2.new(0, PANEL_MARGIN, 0, 74)
-	levelText.BackgroundTransparency = 1
-	levelText.Text = "Level Bar"
-	levelText.TextColor3 = Color3.fromRGB(180, 180, 190)
-	levelText.Font = Enum.Font.Gotham
-	levelText.TextSize = 12
-	levelText.TextXAlignment = Enum.TextXAlignment.Left
-	levelText.Parent = panel
-
-	levelFill = buildBar("Level", 90, Color3.fromRGB(240, 180, 30))
+	fuelFill, fuelValueLabel = buildStatRow("Fuel", 38, "FUEL", Color3.fromRGB(245, 140, 50))
+	levelFill, levelValueLabel = buildStatRow("Level", 72, "LEVEL", Color3.fromRGB(240, 180, 30))
 
 	statusLabel = Instance.new("TextLabel")
 	statusLabel.Name = "StatusLabel"
 	statusLabel.Size = UDim2.new(1, -PANEL_MARGIN * 2, 0, 16)
-	statusLabel.Position = UDim2.new(0, PANEL_MARGIN, 0, 112)
+	statusLabel.Position = UDim2.new(0, PANEL_MARGIN, 0, 106)
 	statusLabel.BackgroundTransparency = 1
 	statusLabel.Text = "Lit"
 	statusLabel.TextColor3 = Color3.fromRGB(120, 220, 120)
