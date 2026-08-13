@@ -51,8 +51,10 @@ local FELL_LIE_DURATION = 3
 local FELL_FADE_DURATION = 2
 local TREE_RESPAWN_TIME = 45
 local WOOD_SCATTER_RADIUS = 4
-local WOOD_DROP_MIN = 2
-local WOOD_DROP_MAX = 4
+local SMALL_WOOD_DROP_MIN = 3
+local SMALL_WOOD_DROP_MAX = 5
+local BIG_WOOD_DROP_MIN = 5
+local BIG_WOOD_DROP_MAX = 8
 local PICKUP_RANGE = 12
 local LOG_LIFETIME = 300
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
@@ -182,17 +184,20 @@ end
 --[[
     @summary  Scatter Log pickups around a felled tree's base and wire
               a pickup ProximityPrompt on each.
-    @param    position  Vector3  -- ground position of the felled tree
-    @param    baseMap   Model    -- the cloned base-map to parent logs into
+    @param    position    Vector3  -- ground position of the felled tree
+    @param    baseMap     Model    -- the cloned base-map to parent logs into
+    @param    isBigTree   boolean  -- true for bigtree models
 ]]
-local function spawnWoodDrops(position: Vector3, baseMap: Model)
+local function spawnWoodDrops(position: Vector3, baseMap: Model, isBigTree: boolean)
 	local source = ITEMS_PATH:FindFirstChild("Log")
 	if not source then
 		warn("[HarvestService] Log model not found in Assets Items")
 		return
 	end
 
-	local count = math.random(WOOD_DROP_MIN, WOOD_DROP_MAX)
+	local dropMin = if isBigTree then BIG_WOOD_DROP_MIN else SMALL_WOOD_DROP_MIN
+	local dropMax = if isBigTree then BIG_WOOD_DROP_MAX else SMALL_WOOD_DROP_MAX
+	local count = math.random(dropMin, dropMax)
 	for _ = 1, count do
 		local log = source:Clone()
 		local angle = math.random() * math.pi * 2
@@ -278,7 +283,7 @@ local function fellTree(treeModel: Model, baseMap: Model)
 
 	tween.Completed:Connect(function()
 		fallAngle:Destroy()
-		spawnWoodDrops(startPivot.Position, baseMap)
+		spawnWoodDrops(startPivot.Position, baseMap, treeModel.Name == "bigtree")
 
 		-- Lie on the ground for a moment, then fade out smoothly
 		task.delay(FELL_LIE_DURATION, function()

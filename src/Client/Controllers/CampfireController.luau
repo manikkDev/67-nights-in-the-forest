@@ -89,7 +89,7 @@ local function setFuelBar(fuel: number, maxFuel: number, isLit: boolean)
 	TweenService:Create(fuelFill, BAR_TWEEN_INFO, { Size = UDim2.new(fraction, 0, 1, 0) }):Play()
 
 	if fuelValueLabel then
-		fuelValueLabel.Text = tostring(math.round(fuel)) .. "/" .. tostring(math.round(maxFuel))
+		fuelValueLabel.Text = tostring(math.round(fuel)) .. " / " .. tostring(math.round(maxFuel))
 		fuelValueLabel.TextColor3 = color
 	end
 
@@ -117,7 +117,7 @@ local function setLevelBar(level: number, progress: number, requirement: number)
 	TweenService:Create(levelFill, BAR_TWEEN_INFO, { Size = UDim2.new(fraction, 0, 1, 0) }):Play()
 
 	if levelValueLabel and levelFill then
-		levelValueLabel.Text = tostring(math.round(progress)) .. "/" .. tostring(math.round(requirement))
+		levelValueLabel.Text = tostring(math.round(progress)) .. " / " .. tostring(math.round(requirement))
 		levelValueLabel.TextColor3 = levelFill.BackgroundColor3
 	end
 end
@@ -305,7 +305,7 @@ local function buildStatRow(name: string, y: number, labelText: string, color: C
 
 	local barBackground = Instance.new("Frame")
 	barBackground.Name = name .. "BarBackground"
-	barBackground.Size = UDim2.new(0, 100, 0, BAR_HEIGHT)
+	barBackground.Size = UDim2.new(0, 96, 0, BAR_HEIGHT)
 	barBackground.Position = UDim2.new(0, PANEL_MARGIN + 70, 0, y + 5)
 	barBackground.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
 	barBackground.BackgroundTransparency = 0.05
@@ -350,8 +350,8 @@ local function buildStatRow(name: string, y: number, labelText: string, color: C
 
 	local valueLabel = Instance.new("TextLabel")
 	valueLabel.Name = name .. "Value"
-	valueLabel.Size = UDim2.new(0, 48, 0, 16)
-	valueLabel.Position = UDim2.new(0, PANEL_WIDTH - PANEL_MARGIN - 48, 0, y + 2)
+	valueLabel.Size = UDim2.new(0, 52, 0, 16)
+	valueLabel.Position = UDim2.new(0, PANEL_WIDTH - PANEL_MARGIN - 52, 0, y + 2)
 	valueLabel.BackgroundTransparency = 1
 	valueLabel.Text = "0/0"
 	valueLabel.TextColor3 = Color3.fromRGB(240, 240, 245)
