@@ -51,6 +51,7 @@ local MAX_SUBMERGE = 1.15
 local MIN_TILT = -8
 local MAX_TILT = 8
 local MUSHROOM_STEM_HALF_HEIGHT = 0.3
+local MUSHROOM_SUBMERGE_MAX = 0.15
 local BERRY_HUNGER_RESTORE = 12
 local MUSHROOM_HUNGER_RESTORE = 10
 local RAW_MEAT_HUNGER_RESTORE = 15
@@ -90,7 +91,7 @@ local function buildMushroomProp(): Model
 	stem.Material = Enum.Material.SmoothPlastic
 	stem.CanCollide = false
 	stem.Anchored = true
-	stem.CFrame = CFrame.Angles(0, 0, math.rad(90))
+	stem.CFrame = CFrame.new()
 	stem.Parent = model
 
 	local cap = Instance.new("Part")
@@ -100,15 +101,11 @@ local function buildMushroomProp(): Model
 	cap.Color = Color3.fromRGB(170, 60, 55)
 	cap.Material = Enum.Material.SmoothPlastic
 	cap.CanCollide = false
-	cap.Anchored = false
+	cap.Anchored = true
 	cap.CFrame = CFrame.new(0, 0.3, 0)
 	cap.Parent = model
 
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = stem
-	weld.Part1 = cap
-	weld.Parent = stem
-
+	model.WorldPivot = CFrame.new()
 	model.PrimaryPart = stem
 	return model
 end
@@ -213,18 +210,47 @@ end
 ]]
 local function buildForageCFrame(position: Vector3, resourceName: string, size: Vector3?): CFrame
 	local x, z = position.X, position.Z
+	local yaw = math.random() * math.pi * 2
+
+	local function makeCFrame(y: number, leanDegrees: number, roll: number?): CFrame
+		local pitch = math.rad(leanDegrees)
+		local rollRad = roll or 0
+
+		-- long X axis leans from +Y (up) toward a random horizontal direction (yaw).
+		local right = Vector3.new(
+			math.sin(pitch) * math.sin(yaw),
+			math.cos(pitch),
+			math.sin(pitch) * math.cos(yaw)
+		)
+
+		-- choose an 'up' perpendicular to 'right' and the world Y plane.
+		local up = Vector3.new(math.cos(yaw), 0, -math.sin(yaw))
+		local back = right:Cross(up)
+
+		-- roll around the long (right) axis.
+		if rollRad ~= 0 then
+			local cosR = math.cos(rollRad)
+			local sinR = math.sin(rollRad)
+			up = (up * cosR) + (back * sinR)
+			back = right:Cross(up)
+		end
+
+		return CFrame.fromMatrix(Vector3.new(x, y, z), right, up)
+	end
+
 	if resourceName == "Berries" then
-		local halfHeight = (size and size.Y or 0.83) / 2
+		local halfExtent = (size and size.Magnitude or 2.4) / 2
 		local submerge = MIN_SUBMERGE + math.random() * (MAX_SUBMERGE - MIN_SUBMERGE)
-		local y = position.Y + halfHeight - submerge
-		local yaw = math.random() * math.pi * 2
-		local tilt = math.rad(math.random(MIN_TILT, MAX_TILT))
-		return CFrame.new(x, y, z) * CFrame.Angles(0, yaw, 0) * CFrame.Angles(0, 0, math.rad(90)) * CFrame.Angles(tilt, 0, 0)
+		local y = position.Y + halfExtent - submerge
+		local lean = math.random(35, 55)
+		local roll = math.random() * math.pi * 2
+		return makeCFrame(y, lean, roll)
 	else
-		local y = position.Y + MUSHROOM_STEM_HALF_HEIGHT
-		local yaw = math.random() * math.pi * 2
-		local tilt = math.rad(math.random(-5, 5))
-		return CFrame.new(x, y, z) * CFrame.Angles(0, yaw, 0) * CFrame.Angles(tilt, 0, 0)
+		local submerge = math.random() * MUSHROOM_SUBMERGE_MAX
+		local y = position.Y + MUSHROOM_STEM_HALF_HEIGHT - submerge
+		local lean = math.random(-10, 10)
+		local roll = math.random() * math.pi * 2
+		return makeCFrame(y, lean, roll)
 	end
 end
 

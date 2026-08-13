@@ -649,10 +649,8 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	)
 	dropButton.Position = UDim2.new(0, ACTION_BUTTON_WIDTH + ACTION_GAP, 0.5, -11)
 
-	-- Start hidden on desktop, visible on touch.
-	local startVisible = not useHover
-	eatButton.Visible = eatButton.Visible and startVisible
-	dropButton.Visible = startVisible
+	-- Keep action buttons always visible so hover/click is reliable.
+	-- Hover effects are still handled by onEnter/onLeave.
 	actionContainer.BackgroundTransparency = 1
 
 	local entry: RowEntry = {
@@ -676,11 +674,6 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 			TweenService:Create(entry.nameLabel, TWEEN_HOVER, { TextColor3 = Color3.fromRGB(255, 255, 255) }):Play()
 			TweenService:Create(entry.countLabel, TWEEN_HOVER, { TextColor3 = Color3.fromRGB(225, 225, 235) }):Play()
 
-			if EDIBLE_RESOURCES[resourceName] then
-				eatButton.Visible = true
-			end
-			dropButton.Visible = true
-
 			showTooltip(row, resourceName, entry.lastCount)
 		end
 
@@ -691,11 +684,6 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 			TweenService:Create(entry.nameLabel, TWEEN_HOVER, { TextColor3 = Color3.fromRGB(225, 225, 235) }):Play()
 			TweenService:Create(entry.countLabel, TWEEN_HOVER, { TextColor3 = Color3.fromRGB(180, 180, 190) }):Play()
 
-			if EDIBLE_RESOURCES[resourceName] then
-				eatButton.Visible = false
-			end
-			dropButton.Visible = false
-
 			hideTooltip()
 		end
 
@@ -705,6 +693,8 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 		icon.MouseLeave:Connect(onLeave)
 		textContainer.MouseEnter:Connect(onEnter)
 		textContainer.MouseLeave:Connect(onLeave)
+		actionContainer.MouseEnter:Connect(onEnter)
+		actionContainer.MouseLeave:Connect(onLeave)
 	end
 
 	rowEntries[resourceName] = entry
@@ -989,19 +979,29 @@ local function wireInteractions()
 	local dropAllButton = dropAllContainer and dropAllContainer:FindFirstChild("DropAllButton")
 	if dropAllButton and dropAllButton:IsA("TextButton") then
 		dropAllButton.MouseButton1Click:Connect(function()
-			inventoryService:RequestDropAll()
+			inventoryService:RequestDropAll():catch(function(err)
+				warn("[InventoryController] RequestDropAll failed:", err)
+			end)
 		end)
 	end
 
 	for resourceName, entry in pairs(rowEntries) do
 		if EDIBLE_RESOURCES[resourceName] then
 			entry.eatButton.MouseButton1Click:Connect(function()
-				forageService.RequestEat(resourceName)
+				forageService:RequestEat(resourceName):andThen(function(ate)
+					if not ate then
+						warn("[InventoryController] RequestEat did not consume", resourceName)
+					end
+				end):catch(function(err)
+					warn("[InventoryController] RequestEat failed:", err)
+				end)
 			end)
 		end
 
 		entry.dropButton.MouseButton1Click:Connect(function()
-			inventoryService:RequestDrop(resourceName, 1)
+			inventoryService:RequestDrop(resourceName, 1):catch(function(err)
+				warn("[InventoryController] RequestDrop failed:", err)
+			end)
 		end)
 	end
 end
