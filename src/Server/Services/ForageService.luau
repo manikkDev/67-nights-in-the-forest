@@ -39,12 +39,18 @@ local ForageService = Knit.CreateService({
 -- | Configuration | --
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local TREE_MODEL_NAMES = { "Tree", "bigtree" }
-local BERRY_TARGET_COUNT = 15
-local MUSHROOM_TARGET_COUNT = 15
-local SCATTER_RADIUS = 10
-local MIN_SCATTER_RADIUS = 3
+local BERRY_TARGET_COUNT = 35
+local MUSHROOM_TARGET_COUNT = 25
+local MIN_TREE_SCATTER_RADIUS = 4
+local MAX_TREE_SCATTER_RADIUS = 45
+local MAP_SCATTER_CHANCE = 0.4
 local PICKUP_RANGE = 12
 local RESPAWN_TIME = 60
+local MIN_SUBMERGE = 0.65
+local MAX_SUBMERGE = 1.15
+local MIN_TILT = -8
+local MAX_TILT = 8
+local MUSHROOM_STEM_HALF_HEIGHT = 0.3
 local BERRY_HUNGER_RESTORE = 12
 local MUSHROOM_HUNGER_RESTORE = 10
 local RAW_MEAT_HUNGER_RESTORE = 15
@@ -61,6 +67,8 @@ local worldService: any? = nil
 local inventoryService: any? = nil
 local hungerService: any? = nil
 local treePivots: { CFrame } = {}
+local groundPart: BasePart? = nil
+local groundBounds: { minX: number, maxX: number, minZ: number, maxZ: number }? = nil
 local activePickups = 0
 
 -- // FUNCTIONS // --
@@ -92,9 +100,14 @@ local function buildMushroomProp(): Model
 	cap.Color = Color3.fromRGB(170, 60, 55)
 	cap.Material = Enum.Material.SmoothPlastic
 	cap.CanCollide = false
-	cap.Anchored = true
+	cap.Anchored = false
 	cap.CFrame = CFrame.new(0, 0.3, 0)
 	cap.Parent = model
+
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = stem
+	weld.Part1 = cap
+	weld.Parent = stem
 
 	model.PrimaryPart = stem
 	return model
@@ -120,6 +133,15 @@ local function collectTreePivots()
 	for _, descendant in ipairs(baseMap:GetDescendants()) do
 		if descendant:IsA("Model") and table.find(TREE_MODEL_NAMES, descendant.Name) then
 			table.insert(treePivots, descendant:GetPivot())
+		elseif descendant:IsA("BasePart") and descendant.Name == "Земля" then
+			groundPart = descendant
+			local halfSize = descendant.Size / 2
+			groundBounds = {
+				minX = descendant.Position.X - halfSize.X,
+				maxX = descendant.Position.X + halfSize.X,
+				minZ = descendant.Position.Z - halfSize.Z,
+				maxZ = descendant.Position.Z + halfSize.Z,
+			}
 		end
 	end
 
@@ -127,18 +149,102 @@ local function collectTreePivots()
 end
 
 --[[
-    @summary  Pick a random ground position near a random tree.
+    @summary  Return the Y coordinate of the base-map ground plane.
+    @returns  number?
+]]
+local function getGroundTopY(): number?
+	if not groundPart then
+		return nil
+	end
+	return groundPart.Position.Y + groundPart.Size.Y / 2
+end
+
+--[[
+    @summary  Pick a completely random position within the base-map ground
+              bounds so forage can appear anywhere, not only near trees.
+    @returns  Vector3?
+]]
+local function randomMapPosition(): Vector3?
+	if not groundBounds then
+		return nil
+	end
+	local y = getGroundTopY()
+	if not y then
+		return nil
+	end
+	local x = math.random() * (groundBounds.maxX - groundBounds.minX) + groundBounds.minX
+	local z = math.random() * (groundBounds.maxZ - groundBounds.minZ) + groundBounds.minZ
+	return Vector3.new(x, y, z)
+end
+
+--[[
+    @summary  Pick a random ground position near a random tree or anywhere
+              on the map, using the true ground height.
     @returns  Vector3?
 ]]
 local function randomForagePosition(): Vector3?
+	local y = getGroundTopY()
+	if not y then
+		return nil
+	end
+
+	if math.random() < MAP_SCATTER_CHANCE then
+		return randomMapPosition()
+	end
+
 	if #treePivots == 0 then
 		return nil
 	end
 	local pivot = treePivots[math.random(1, #treePivots)]
 	local angle = math.random() * math.pi * 2
-	local radius = MIN_SCATTER_RADIUS + math.random() * (SCATTER_RADIUS - MIN_SCATTER_RADIUS)
-	local offset = Vector3.new(math.cos(angle) * radius, 0.5, math.sin(angle) * radius)
-	return pivot.Position + offset
+	local radius = MIN_TREE_SCATTER_RADIUS + math.random() * (MAX_TREE_SCATTER_RADIUS - MIN_TREE_SCATTER_RADIUS)
+	local x = pivot.Position.X + math.cos(angle) * radius
+	local z = pivot.Position.Z + math.sin(angle) * radius
+	return Vector3.new(x, y, z)
+end
+
+--[[
+    @summary  Compute a ground-partially-submerged CFrame for a forage
+              pickup, with random yaw and a slight natural tilt.
+    @param    position      Vector3  -- ground position
+    @param    resourceName  string
+    @param    size          Vector3? -- size of the berry mesh
+    @returns  CFrame
+]]
+local function buildForageCFrame(position: Vector3, resourceName: string, size: Vector3?): CFrame
+	local x, z = position.X, position.Z
+	if resourceName == "Berries" then
+		local halfHeight = (size and size.Y or 0.83) / 2
+		local submerge = MIN_SUBMERGE + math.random() * (MAX_SUBMERGE - MIN_SUBMERGE)
+		local y = position.Y + halfHeight - submerge
+		local yaw = math.random() * math.pi * 2
+		local tilt = math.rad(math.random(MIN_TILT, MAX_TILT))
+		return CFrame.new(x, y, z) * CFrame.Angles(0, yaw, 0) * CFrame.Angles(0, 0, math.rad(90)) * CFrame.Angles(tilt, 0, 0)
+	else
+		local y = position.Y + MUSHROOM_STEM_HALF_HEIGHT
+		local yaw = math.random() * math.pi * 2
+		local tilt = math.rad(math.random(-5, 5))
+		return CFrame.new(x, y, z) * CFrame.Angles(0, yaw, 0) * CFrame.Angles(tilt, 0, 0)
+	end
+end
+
+--[[
+    @summary  Attach the ProximityPrompt that the global handler looks for.
+    @param    model         Model
+    @param    resourceName  string
+]]
+local function addForagePrompt(model: Model, resourceName: string)
+	if not model.PrimaryPart then
+		return
+	end
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "ForagePickupPrompt"
+	prompt.ObjectText = resourceName == "Berries" and "Carrot" or "Mushroom"
+	prompt.ActionText = "Forage"
+	prompt.MaxActivationDistance = PICKUP_RANGE
+	prompt.RequiresLineOfSight = false
+	prompt.HoldDuration = 0
+	prompt.Parent = model.PrimaryPart
 end
 
 --[[
@@ -160,6 +266,7 @@ local function spawnForagePickup(resourceName: string)
 	end
 
 	local model: Model
+	local cframe: CFrame
 	if resourceName == "Berries" then
 		local source = ITEMS_PATH:FindFirstChild("Carrot")
 		if not source then
@@ -174,12 +281,15 @@ local function spawnForagePickup(resourceName: string)
 		clone.CanCollide = false
 		clone.Parent = model
 		model.PrimaryPart = clone
+		cframe = buildForageCFrame(position, resourceName, clone.Size)
 	else
 		model = buildMushroomProp()
+		cframe = buildForageCFrame(position, resourceName, nil)
 	end
 
-	model:PivotTo(CFrame.new(position))
+	model:PivotTo(cframe)
 	model:SetAttribute("ForageResource", resourceName)
+	addForagePrompt(model, resourceName)
 
 	model.Parent = baseMap
 	activePickups += 1
