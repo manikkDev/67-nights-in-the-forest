@@ -591,7 +591,6 @@ function HarvestService.Client:RequestPickup(player: Player, model: Model): bool
 		return false
 	end
 	local ok = tryPickup(model, player)
-	print("[RequestPickup] tryPickup returned", ok)
 	return ok
 end
 

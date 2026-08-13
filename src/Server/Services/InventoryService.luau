@@ -46,8 +46,8 @@ local InventoryService = Knit.CreateService({
 })
 
 -- | Configuration | --
-local BASE_CAPACITY = 10
-local BAG_CAPACITY_BONUS = 0
+local BASE_CAPACITY = 40
+local BAG_CAPACITY_BONUS = 40
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local CARRY_BAG_NAME = "carry-bag"
 local CARRY_BAG_TOOL_NAME = "Carry Bag"
@@ -251,17 +251,19 @@ local function buildMushroomProp(): Model
 	stem.Size = Vector3.new(0.6, 0.35, 0.35)
 	stem.Color = Color3.fromRGB(235, 225, 200)
 	stem.Material = Enum.Material.SmoothPlastic
-	stem.CFrame = CFrame.Angles(0, 0, math.rad(90))
+	stem.CFrame = CFrame.new()
 	stem.Parent = model
 
 	local cap = Instance.new("Part")
 	cap.Name = "Cap"
 	cap.Shape = Enum.PartType.Ball
-	cap.Size = Vector3.new(0.7, 0.45, 0.7)
+	cap.Size = Vector3.new(0.45, 0.7, 0.7)
 	cap.Color = Color3.fromRGB(170, 60, 55)
 	cap.Material = Enum.Material.SmoothPlastic
-	cap.CFrame = CFrame.new(0, 0.3, 0)
+	cap.CFrame = CFrame.new(0.525, 0, 0)
 	cap.Parent = model
+
+	model.WorldPivot = CFrame.new()
 
 	local weld = Instance.new("WeldConstraint")
 	weld.Part0 = stem
@@ -345,6 +347,21 @@ end
 ]]
 function InventoryService:BuildDropModel(resourceName: string): Model
 	return buildDropModel(resourceName)
+end
+
+--[[
+    @summary  Build a drop CFrame for a resource, with mushrooms standing
+              upright and everything else lying flat.
+    @param    position      Vector3
+    @param    resourceName  string
+    @returns  CFrame
+]]
+local function buildDropCFrame(position: Vector3, resourceName: string): CFrame
+	local yaw = math.random() * math.pi * 2
+	if resourceName == "Mushrooms" then
+		return CFrame.fromMatrix(position, Vector3.new(0, 1, 0), Vector3.new(math.cos(yaw), 0, -math.sin(yaw)))
+	end
+	return CFrame.new(position) * CFrame.Angles(0, yaw, 0)
 end
 
 --[[
@@ -437,7 +454,7 @@ local function tryDropAll(player: Player): boolean
 				local position = Vector3.new(origin.X + offset.X, origin.Y, origin.Z + offset.Z)
 
 				local model = buildDropModel(resourceName); model:SetAttribute("DroppedBy", player.UserId)
-				model:PivotTo(CFrame.new(position) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+				model:PivotTo(buildDropCFrame(position, resourceName))
 				model.Parent = baseMap
 				Debris:AddItem(model, DROP_LIFETIME)
 			end
@@ -517,7 +534,7 @@ local function tryDropOne(player: Player): boolean
 	local position = Vector3.new(rootPart.Position.X + offset.X, rootPart.Position.Y, rootPart.Position.Z + offset.Z)
 
 	local model = buildDropModel(resourceName); model:SetAttribute("DroppedBy", player.UserId)
-	model:PivotTo(CFrame.new(position) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+	model:PivotTo(buildDropCFrame(position, resourceName))
 	model.Parent = baseMap
 	Debris:AddItem(model, DROP_LIFETIME)
 
@@ -842,7 +859,7 @@ function InventoryService.Client:RequestDrop(player: Player, resourceName: strin
 		local position = Vector3.new(origin.X + offset.X, origin.Y, origin.Z + offset.Z)
 
 		local model = buildDropModel(resourceName); model:SetAttribute("DroppedBy", player.UserId)
-		model:PivotTo(CFrame.new(position) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+		model:PivotTo(buildDropCFrame(position, resourceName))
 		model.Parent = baseMap
 		Debris:AddItem(model, DROP_LIFETIME)
 		dropped += 1

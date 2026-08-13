@@ -860,6 +860,12 @@ local function updateCapacity(total: number, capacity: number)
 	end
 
 	capacityText.Text = string.format("%d/%d", total, capacity)
+
+	local dropAllContainer = bagPanel and bagPanel:FindFirstChild("DropAllContainer")
+	local dropAllButton = dropAllContainer and dropAllContainer:FindFirstChild("DropAllButton")
+	if dropAllButton and dropAllButton:IsA("TextButton") then
+		dropAllButton.Active = total > 0
+	end
 end
 
 --[[
@@ -896,6 +902,14 @@ local function updateDisplay(resources: { [string]: number }?, capacity: number?
 			TweenService:Create(entry.icon, TWEEN_FADE, { BackgroundTransparency = iconTrans }):Play()
 			TweenService:Create(entry.nameLabel, TWEEN_FADE, { TextColor3 = nameColor }):Play()
 			TweenService:Create(entry.countLabel, TWEEN_FADE, { TextColor3 = countColor }):Play()
+		end
+
+		-- Disable action buttons when there is nothing to eat/drop.
+		if entry.eatButton then
+			entry.eatButton.Active = count > 0
+		end
+		if entry.dropButton then
+			entry.dropButton.Active = count > 0
 		end
 
 		-- Update tooltip if currently visible for this row.

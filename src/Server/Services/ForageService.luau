@@ -97,12 +97,12 @@ local function buildMushroomProp(): Model
 	local cap = Instance.new("Part")
 	cap.Name = "Cap"
 	cap.Shape = Enum.PartType.Ball
-	cap.Size = Vector3.new(0.7, 0.45, 0.7)
+	cap.Size = Vector3.new(0.45, 0.7, 0.7)
 	cap.Color = Color3.fromRGB(170, 60, 55)
 	cap.Material = Enum.Material.SmoothPlastic
 	cap.CanCollide = false
 	cap.Anchored = true
-	cap.CFrame = CFrame.new(0, 0.3, 0)
+	cap.CFrame = CFrame.new(0.525, 0, 0)
 	cap.Parent = model
 
 	model.WorldPivot = CFrame.new()
@@ -239,16 +239,18 @@ local function buildForageCFrame(position: Vector3, resourceName: string, size: 
 	end
 
 	if resourceName == "Berries" then
-		local halfExtent = (size and size.Magnitude or 2.4) / 2
+		local halfExtent = (size and math.sqrt(size.X * size.X + size.Y * size.Y) or 2.4) / 2
 		local submerge = MIN_SUBMERGE + math.random() * (MAX_SUBMERGE - MIN_SUBMERGE)
-		local y = position.Y + halfExtent - submerge
 		local lean = math.random(35, 55)
+		local rightY = math.cos(math.rad(lean))
+		local y = position.Y + halfExtent * rightY - submerge
 		local roll = math.random() * math.pi * 2
-		return makeCFrame(y, lean, roll)
+		return makeCFrame(y, lean, roll) * CFrame.Angles(0, 0, math.rad(-45))
 	else
 		local submerge = math.random() * MUSHROOM_SUBMERGE_MAX
-		local y = position.Y + MUSHROOM_STEM_HALF_HEIGHT - submerge
 		local lean = math.random(-10, 10)
+		local rightY = math.cos(math.rad(lean))
+		local y = position.Y + MUSHROOM_STEM_HALF_HEIGHT * rightY - submerge
 		local roll = math.random() * math.pi * 2
 		return makeCFrame(y, lean, roll)
 	end
