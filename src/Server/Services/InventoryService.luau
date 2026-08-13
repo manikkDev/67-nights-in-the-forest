@@ -59,7 +59,7 @@ local DROP_LIFETIME = 300
 
 local DRAG_MAX_DISTANCE = 50
 
--- Map resources to the asset name in ITEMS_PATH.  Mushrooms are built procedurally.
+-- Map resources to the asset name in ITEMS_PATH.  Mushrooms use their own asset builder.
 local DROP_ASSETS: { [string]: string? } = {
 	Wood = "Log",
 	Stone = "Coal",
@@ -67,11 +67,14 @@ local DROP_ASSETS: { [string]: string? } = {
 	RawMeat = "rabbit-meat",
 	CookedMeat = "wolf-meat",
 }
+local MUSHROOM_ASSET_NAME = "Mushroom"
 
 -- | State Management | --
 local playerDataService: any? = nil
 local worldService: any? = nil
 local bagTemplate: Tool? = nil
+local mushroomSource: Model? = nil
+local mushroomBaseOffset: number? = nil
 
 local dragging: { [Player]: { model: Model, alignPos: AlignPosition, alignOri: AlignOrientation?, dragTarget: BasePart, dragTargetAttach: Attachment, itemAttach: Attachment, originalCanCollide: { [BasePart]: boolean } } } = {}
 local draggedBy: { [Model]: Player } = {}
@@ -238,40 +241,108 @@ end
 -- // PICKUP / DROP // --
 
 --[[
-    @summary  Build a small procedural mushroom for dropping.
+    @summary  Compute how far the Mushroom asset's WorldPivot is above its base.
+    @param    source  Model  -- the Mushroom template in Assets Items
+    @returns  number
+]]
+local function computeMushroomBaseOffset(source: Model): number
+	local pivot = source:GetPivot()
+	local cf, size = source:GetBoundingBox()
+	local up = pivot.UpVector
+	local base = cf.Position - cf.UpVector * (size.Y / 2)
+	return (pivot.Position - base):Dot(up)
+end
+
+--[[
+    @summary  Load and cache the Mushroom asset from Assets Items.
+    @returns  Model
+]]
+local function getMushroomSource(): Model?
+	if not mushroomSource then
+		mushroomSource = ITEMS_PATH:FindFirstChild(MUSHROOM_ASSET_NAME)
+		if mushroomSource then
+			mushroomBaseOffset = computeMushroomBaseOffset(mushroomSource)
+		end
+	end
+	return mushroomSource
+end
+
+--[[
+    @summary  Find the stem-like part in the mushroom model (tallest part with
+              a small cross-section) so the ProximityPrompt sits near the base.
+    @param    model  Model
+    @returns  BasePart?
+]]
+local function findMushroomStem(model: Model): BasePart?
+	local best: BasePart? = nil
+	local bestScore: number = 0
+	for _, desc in ipairs(model:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			local score = desc.Size.Y * (1 / (desc.Size.X * desc.Size.Z + 0.001))
+			if score > bestScore then
+				bestScore = score
+				best = desc
+			end
+		end
+	end
+	return best
+end
+
+--[[
+    @summary  Build a fresh Mushroom pickup from the stored asset.
     @returns  Model
 ]]
 local function buildMushroomProp(): Model
-	local model = Instance.new("Model")
+	local source = getMushroomSource()
+	if not source then
+		warn("[InventoryService] Mushroom asset not found in Assets Items")
+		local fallback = Instance.new("Model")
+		fallback.Name = "MushroomPickup"
+		local p = Instance.new("Part")
+		p.Name = "Main"
+		p.Size = Vector3.new(1, 1, 1)
+		p.Color = Color3.fromRGB(180, 180, 180)
+		p.Material = Enum.Material.SmoothPlastic
+		p.Parent = fallback
+		fallback.PrimaryPart = p
+		return fallback
+	end
+
+	local model = source:Clone()
 	model.Name = "MushroomPickup"
 
-	local stem = Instance.new("Part")
-	stem.Name = "Stem"
-	stem.Shape = Enum.PartType.Cylinder
-	stem.Size = Vector3.new(0.6, 0.35, 0.35)
-	stem.Color = Color3.fromRGB(235, 225, 200)
-	stem.Material = Enum.Material.SmoothPlastic
-	stem.CFrame = CFrame.new()
-	stem.Parent = model
+	local stem = findMushroomStem(model)
+	if stem then
+		model.PrimaryPart = stem
+		for _, desc in ipairs(model:GetDescendants()) do
+			if desc:IsA("BasePart") and desc ~= stem then
+				local weld = Instance.new("WeldConstraint")
+				weld.Part0 = stem
+				weld.Part1 = desc
+				weld.Parent = stem
+			end
+		end
+	end
 
-	local cap = Instance.new("Part")
-	cap.Name = "Cap"
-	cap.Shape = Enum.PartType.Ball
-	cap.Size = Vector3.new(0.45, 0.7, 0.7)
-	cap.Color = Color3.fromRGB(170, 60, 55)
-	cap.Material = Enum.Material.SmoothPlastic
-	cap.CFrame = CFrame.new(0.525, 0, 0)
-	cap.Parent = model
-
-	model.WorldPivot = CFrame.new()
-
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = stem
-	weld.Part1 = cap
-	weld.Parent = stem
-
-	model.PrimaryPart = stem
 	return model
+end
+
+--[[
+    @summary  Return the base offset of the Mushroom asset, measured from the
+              bottom of its bounding box to its WorldPivot along the up axis.
+    @returns  number
+]]
+function InventoryService:GetMushroomBaseOffset(): number
+	local _ = getMushroomSource()
+	return mushroomBaseOffset or 1.93
+end
+
+--[[
+    @summary  Public wrapper to build a Mushroom pickup from the asset.
+    @returns  Model
+]]
+function InventoryService:BuildMushroomModel(): Model
+	return buildMushroomProp()
 end
 
 --[[
@@ -286,6 +357,13 @@ local function buildDropModel(resourceName: string): Model
 
 	if resourceName == "Mushrooms" then
 		model = buildMushroomProp()
+		-- Unanchored / collidable for physics drops.
+		for _, descendant in ipairs(model:GetDescendants()) do
+			if descendant:IsA("BasePart") then
+				descendant.Anchored = false
+				descendant.CanCollide = true
+			end
+		end
 	else
 		local assetName = DROP_ASSETS[resourceName]
 		local source = assetName and ITEMS_PATH:FindFirstChild(assetName)
@@ -359,7 +437,8 @@ end
 local function buildDropCFrame(position: Vector3, resourceName: string): CFrame
 	local yaw = math.random() * math.pi * 2
 	if resourceName == "Mushrooms" then
-		return CFrame.fromMatrix(position, Vector3.new(0, 1, 0), Vector3.new(math.cos(yaw), 0, -math.sin(yaw)))
+		local offset = InventoryService:GetMushroomBaseOffset()
+		return CFrame.new(position) * CFrame.Angles(0, yaw, 0) * CFrame.new(0, offset, 0)
 	end
 	return CFrame.new(position) * CFrame.Angles(0, yaw, 0)
 end

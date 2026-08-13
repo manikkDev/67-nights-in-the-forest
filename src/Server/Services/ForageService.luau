@@ -8,12 +8,11 @@
 
     @description
     Scatters pickup-able Berries (reusing the existing `Carrot` mesh as
-    the closest available forage-food art) and Mushrooms (a small
-    procedurally-built cap+stem prop, since no mushroom mesh exists in
-    the asset library yet) near trees across the base-map.  Players pick
-    them up via ProximityPrompt into their inventory, then eat them from
-    the Inventory UI to restore Hunger.  Respawns on a timer, mirroring
-    HarvestService's tree/log pattern.
+    the closest available forage-food art) and Mushrooms (using the
+    `Mushroom` model from Assets Items) near trees across the base-map.
+    Players pick them up via ProximityPrompt into their inventory, then
+    eat them from the Inventory UI to restore Hunger.  Respawns on a
+    timer, mirroring HarvestService's tree/log pattern.
 
     @exports
     - Knit Remote: RequestEat(resourceName)  -> boolean  (client -> server)
@@ -50,7 +49,6 @@ local MIN_SUBMERGE = 0.65
 local MAX_SUBMERGE = 1.15
 local MIN_TILT = -8
 local MAX_TILT = 8
-local MUSHROOM_STEM_HALF_HEIGHT = 0.3
 local MUSHROOM_SUBMERGE_MAX = 0.15
 local BERRY_HUNGER_RESTORE = 12
 local MUSHROOM_HUNGER_RESTORE = 10
@@ -75,38 +73,22 @@ local activePickups = 0
 -- // FUNCTIONS // --
 
 --[[
-    @summary  Build a small procedural mushroom prop (stem + cap) since
-              no mushroom mesh exists in the asset library.
+    @summary  Build a Mushroom forage pickup using the stored Mushroom asset.
     @returns  Model
 ]]
 local function buildMushroomProp(): Model
-	local model = Instance.new("Model")
-	model.Name = "MushroomPickup"
-
-	local stem = Instance.new("Part")
-	stem.Name = "Stem"
-	stem.Shape = Enum.PartType.Cylinder
-	stem.Size = Vector3.new(0.6, 0.35, 0.35)
-	stem.Color = Color3.fromRGB(235, 225, 200)
-	stem.Material = Enum.Material.SmoothPlastic
-	stem.CanCollide = false
-	stem.Anchored = true
-	stem.CFrame = CFrame.new()
-	stem.Parent = model
-
-	local cap = Instance.new("Part")
-	cap.Name = "Cap"
-	cap.Shape = Enum.PartType.Ball
-	cap.Size = Vector3.new(0.45, 0.7, 0.7)
-	cap.Color = Color3.fromRGB(170, 60, 55)
-	cap.Material = Enum.Material.SmoothPlastic
-	cap.CanCollide = false
-	cap.Anchored = true
-	cap.CFrame = CFrame.new(0.525, 0, 0)
-	cap.Parent = model
-
-	model.WorldPivot = CFrame.new()
-	model.PrimaryPart = stem
+	if not inventoryService then
+		local fallback = Instance.new("Model")
+		fallback.Name = "MushroomPickup"
+		return fallback
+	end
+	local model = inventoryService:BuildMushroomModel()
+	for _, descendant in ipairs(model:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			descendant.Anchored = true
+			descendant.CanCollide = false
+		end
+	end
 	return model
 end
 
@@ -202,7 +184,8 @@ end
 
 --[[
     @summary  Compute a ground-partially-submerged CFrame for a forage
-              pickup, with random yaw and a slight natural tilt.
+              pickup, with random yaw.  Mushrooms stay upright to preserve
+              the asset's authored axis and angle.
     @param    position      Vector3  -- ground position
     @param    resourceName  string
     @param    size          Vector3? -- size of the berry mesh
@@ -212,7 +195,7 @@ local function buildForageCFrame(position: Vector3, resourceName: string, size: 
 	local x, z = position.X, position.Z
 	local yaw = math.random() * math.pi * 2
 
-	local function makeCFrame(y: number, leanDegrees: number, roll: number?): CFrame
+	local function makeBerryCFrame(y: number, leanDegrees: number, roll: number?): CFrame
 		local pitch = math.rad(leanDegrees)
 		local rollRad = roll or 0
 
@@ -245,14 +228,12 @@ local function buildForageCFrame(position: Vector3, resourceName: string, size: 
 		local rightY = math.cos(math.rad(lean))
 		local y = position.Y + halfExtent * rightY - submerge
 		local roll = math.random() * math.pi * 2
-		return makeCFrame(y, lean, roll) * CFrame.Angles(0, 0, math.rad(-45))
+		return makeBerryCFrame(y, lean, roll) * CFrame.Angles(0, 0, math.rad(-45))
 	else
 		local submerge = math.random() * MUSHROOM_SUBMERGE_MAX
-		local lean = math.random(-10, 10)
-		local rightY = math.cos(math.rad(lean))
-		local y = position.Y + MUSHROOM_STEM_HALF_HEIGHT * rightY - submerge
-		local roll = math.random() * math.pi * 2
-		return makeCFrame(y, lean, roll)
+		local y = position.Y - submerge
+		local offset = inventoryService and inventoryService:GetMushroomBaseOffset() or 1.93
+		return CFrame.new(x, y, z) * CFrame.Angles(0, yaw, 0) * CFrame.new(0, offset, 0)
 	end
 end
 
