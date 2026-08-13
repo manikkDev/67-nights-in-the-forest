@@ -333,7 +333,7 @@ end
     @returns  number
 ]]
 function InventoryService:GetMushroomBaseOffset(): number
-	local _ = getMushroomSource()
+	getMushroomSource()
 	return mushroomBaseOffset or 1.93
 end
 
@@ -357,13 +357,6 @@ local function buildDropModel(resourceName: string): Model
 
 	if resourceName == "Mushrooms" then
 		model = buildMushroomProp()
-		-- Unanchored / collidable for physics drops.
-		for _, descendant in ipairs(model:GetDescendants()) do
-			if descendant:IsA("BasePart") then
-				descendant.Anchored = false
-				descendant.CanCollide = true
-			end
-		end
 	else
 		local assetName = DROP_ASSETS[resourceName]
 		local source = assetName and ITEMS_PATH:FindFirstChild(assetName)
