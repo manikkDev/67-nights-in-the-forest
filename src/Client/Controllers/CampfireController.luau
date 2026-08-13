@@ -304,7 +304,7 @@ local function buildStatRow(name: string, y: number, labelText: string, color: C
 
 	local barBackground = Instance.new("Frame")
 	barBackground.Name = name .. "BarBackground"
-	barBackground.Size = UDim2.new(0, 110, 0, BAR_HEIGHT)
+	barBackground.Size = UDim2.new(0, 100, 0, BAR_HEIGHT)
 	barBackground.Position = UDim2.new(0, PANEL_MARGIN + 70, 0, y + 5)
 	barBackground.BackgroundColor3 = Color3.fromRGB(28, 28, 34)
 	barBackground.BackgroundTransparency = 0.05
@@ -349,8 +349,8 @@ local function buildStatRow(name: string, y: number, labelText: string, color: C
 
 	local valueLabel = Instance.new("TextLabel")
 	valueLabel.Name = name .. "Value"
-	valueLabel.Size = UDim2.new(0, 44, 0, 16)
-	valueLabel.Position = UDim2.new(0, PANEL_WIDTH - PANEL_MARGIN - 48, 0, y + 2)
+	valueLabel.Size = UDim2.new(0, 48, 0, 16)
+	valueLabel.Position = UDim2.new(0, PANEL_MARGIN + 70 + 100 + 8, 0, y + 2)
 	valueLabel.BackgroundTransparency = 1
 	valueLabel.Text = "0/0"
 	valueLabel.TextColor3 = Color3.fromRGB(240, 240, 245)
@@ -400,17 +400,7 @@ local function buildGui()
 	panelStroke.Thickness = 1.5
 	panelStroke.Parent = panel
 
-	local panelGradient = Instance.new("UIGradient")
-	panelGradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 205, 215)),
-	})
-	panelGradient.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.9),
-		NumberSequenceKeypoint.new(1, 0.97),
-	})
-	panelGradient.Rotation = 90
-	panelGradient.Parent = panel
+	-- Keep the card solid; a UIGradient here would make it look glassy/transparent.
 
 	local header = Instance.new("TextLabel")
 	header.Name = "Header"
