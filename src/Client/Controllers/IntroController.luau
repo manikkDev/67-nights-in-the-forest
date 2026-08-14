@@ -305,18 +305,20 @@ local function buildGui()
 		end
 	end
 
-	createButton = makeButton(panel, "CreateButton", "Create", 24, CREATE,
+	local createBtn = makeButton(panel, "CreateButton", "Create", 24, CREATE,
 		UDim2.fromScale(0.5, 0.58), UDim2.fromOffset(320, 52), 10)
-	createButton.AnchorPoint = Vector2.new(0.5, 0)
+	createBtn.AnchorPoint = Vector2.new(0.5, 0)
+	createButton = createBtn
 
 	local customize = makeButton(panel, "CustomizeButton", "customize", 18, CUSTOMIZE,
 		UDim2.fromScale(0.5, 0.75), UDim2.fromOffset(140, 32), 8)
 	customize.AnchorPoint = Vector2.new(0.5, 0)
 
-	countdownLabel = makeLabel(panel, "CountdownLabel", "5", 64, CREAM,
+	local countLabel = makeLabel(panel, "CountdownLabel", "5", 64, CREAM,
 		UDim2.fromScale(0.5, 0.58), UDim2.new(0, 320, 0, 80))
-	countdownLabel.AnchorPoint = Vector2.new(0.5, 0)
-	countdownLabel.Visible = false
+	countLabel.AnchorPoint = Vector2.new(0.5, 0)
+	countLabel.Visible = false
+	countdownLabel = countLabel
 
 	local story = Instance.new("Frame")
 	story.Name = "StoryFrame"
