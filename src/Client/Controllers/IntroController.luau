@@ -36,23 +36,18 @@ local IntroController = Knit.CreateController({
 
 -- | Configuration | --
 local PANEL_FADE = 0.3
-local COUNTDOWN_FADE = 0.4
 local STORY_FADE = Constants.MATCH_STORY_FADE_SECONDS or 1.2
-local STORY_HOLD = Constants.MATCH_STORY_HOLD_SECONDS or 5
-local DAY1_HOLD = Constants.MATCH_DAY1_HOLD_SECONDS or 2
 local REVEAL_SECONDS = Constants.MATCH_REVEAL_SECONDS or 2.5
 
 local PANEL = IntroAssets.PanelBackdrop or Color3.fromRGB(25, 25, 25)
 local PANEL_ALPHA = IntroAssets.PanelBackgroundTransparency or 0.25
 local CREAM = IntroAssets.TitleColor or Color3.fromRGB(232, 220, 190)
-local MUTED = IntroAssets.SubtitleColor or Color3.fromRGB(170, 160, 140)
 local HANDWRITTEN = IntroAssets.TitleHandwritten or CREAM
 local BODY = IntroAssets.BodyText or CREAM
 local SIZE_BTN = IntroAssets.SizeButton or Color3.fromRGB(160, 160, 160)
 local SIZE_DISABLED = IntroAssets.SizeButtonDisabled or Color3.fromRGB(90, 90, 90)
 local SIZE_SELECTED = IntroAssets.SizeButtonSelected or Color3.fromRGB(255, 210, 50)
 local CREATE = IntroAssets.CreateButton or Color3.fromRGB(95, 190, 70)
-local CREATE_DISABLED = IntroAssets.CreateButtonDisabled or Color3.fromRGB(70, 120, 60)
 local CLOSE = IntroAssets.CloseButton or Color3.fromRGB(220, 60, 60)
 local CUSTOMIZE = IntroAssets.CustomizeButton or Color3.fromRGB(80, 80, 80)
 local STORY = IntroAssets.StoryText or Color3.fromRGB(170, 90, 90)
