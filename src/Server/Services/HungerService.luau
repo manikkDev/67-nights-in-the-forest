@@ -46,6 +46,7 @@ local BROADCAST_INTERVAL = 1
 
 -- | State Management | --
 local playerDataService: any? = nil
+local spawnService: any? = nil
 local broadcastTimer = 0
 
 -- // FUNCTIONS // --
@@ -75,6 +76,9 @@ end
 ]]
 local function tickPlayer(player: Player, dt: number)
 	if not playerDataService then
+		return
+	end
+	if spawnService and not spawnService:IsPlayerSpawned(player) then
 		return
 	end
 	local data = playerDataService:GetData(player)
@@ -148,6 +152,9 @@ local function onHeartbeat(dt: number)
 		return
 	end
 	for _, player in ipairs(Players:GetPlayers()) do
+		if spawnService and not spawnService:IsPlayerSpawned(player) then
+			continue
+		end
 		local data = playerDataService:GetData(player)
 		if data then
 			HungerService.Client.HungerChanged:Fire(player, data.Survival.Hunger, data.Survival.MaxHunger)
@@ -159,6 +166,7 @@ end
 
 function HungerService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
+	spawnService = Knit.GetService("SpawnService")
 	RunService.Heartbeat:Connect(onHeartbeat)
 
 	local function fireInitialHunger(player: Player)

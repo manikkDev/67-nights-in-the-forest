@@ -137,6 +137,15 @@ function SpawnService.Client:RequestSpawn(player: Player)
 	self.Server:SpawnPlayer(player)
 end
 
+--[[
+    @summary  Check whether a player has been teleported to the game map.
+    @param    player  Player
+    @returns  boolean
+]]
+function SpawnService:IsPlayerSpawned(player: Player): boolean
+	return spawnedPlayers[player] == true
+end
+
 -- // INITIALIZATION // --
 
 function SpawnService:KnitStart()
