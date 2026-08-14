@@ -125,6 +125,20 @@ local function wireTeleporters()
 						end
 						teleportCooldowns[player] = now
 
+						-- Move the player inside the teleporter box instantly before the UI opens.
+						local teleporter = desc:FindFirstAncestorOfClass("Model")
+						local destination = teleporter and teleporter:FindFirstChild("TeleportHere")
+						if destination and destination:IsA("BasePart") then
+							local hrp = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
+							if hrp then
+								hrp.CFrame = destination.CFrame * CFrame.new(0, 3, 0)
+								local humanoid = character:FindFirstChildOfClass("Humanoid")
+								if humanoid then
+									humanoid:Move(Vector3.new(), true)
+								end
+							end
+						end
+
 						if matchFlowService then
 							matchFlowService:EnterWaiting(player)
 						else

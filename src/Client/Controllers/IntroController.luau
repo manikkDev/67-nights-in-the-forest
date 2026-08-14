@@ -51,11 +51,21 @@ local CLOSE = IntroAssets.CloseButton or Color3.fromRGB(220, 60, 60)
 local CUSTOMIZE = IntroAssets.CustomizeButton or Color3.fromRGB(80, 80, 80)
 local STORY = IntroAssets.StoryText or Color3.fromRGB(170, 90, 90)
 
+local TITLE_IN = 0.5
+local TITLE_OUT = 0.4
+local STORY_BACK = IntroAssets.StoryScreenBackdrop or Color3.fromRGB(10, 10, 10)
+local STORY_HEADER = IntroAssets.StoryHeaderColor or Color3.fromRGB(220, 60, 60)
+local STORY_PANEL = IntroAssets.StoryPanelBackdrop or Color3.fromRGB(30, 30, 30)
+local STORY_CAPTION = IntroAssets.StoryPanelCaption or Color3.fromRGB(230, 220, 200)
+local STORY_PLACEHOLDER = IntroAssets.StoryPanelPlaceholder or Color3.fromRGB(55, 55, 55)
+local PLAY = IntroAssets.PlayButtonColor or Color3.fromRGB(95, 190, 70)
+
 -- | State Management | --
 local player = Players.LocalPlayer
 local janitor = Janitor.new()
 local waitingJanitor = Janitor.new()
 local screenGui: ScreenGui? = nil
+local titleScreen: Frame? = nil
 local createPartyFrame: Frame? = nil
 local storyFrame: Frame? = nil
 local dayFrame: Frame? = nil
@@ -66,6 +76,7 @@ local selectedSize = 1
 local countdownEndsAt: number? = nil
 local flowState = "Lobby"
 local introFinished = false
+local titleDismissed = false
 local savedWalkSpeed = 16
 local savedJumpPower = 50
 local savedJumpHeight = 7.2

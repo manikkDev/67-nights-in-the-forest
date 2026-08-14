@@ -34,4 +34,25 @@ return {
 
 	-- Story / Day 1
 	StoryText = Color3.fromRGB(170, 90, 90),
+
+	-- Title / Story screen
+	StoryScreenBackdrop = Color3.fromRGB(10, 10, 10),
+	StoryHeaderColor = Color3.fromRGB(220, 60, 60),
+	StoryPanelBackdrop = Color3.fromRGB(30, 30, 30),
+	StoryPanelImage = "rbxassetid://0",
+	StoryPanelPlaceholder = Color3.fromRGB(55, 55, 55),
+	StoryPanelCaption = Color3.fromRGB(230, 220, 200),
+	PlayButtonColor = Color3.fromRGB(95, 190, 70),
+	StoryPanelImages = {
+		"", -- 1: deer
+		"", -- 2: children
+		"", -- 3: police tape/gates
+		"", -- 4: player at gate
+	},
+	StoryPanels = {
+		{ caption = "Reports were made of a DEER standing on two legs in an unnatural way in the forest" },
+		{ caption = "The following week: 4 CHILDREN went missing. It was clear something was very, very wrong with the forest" },
+		{ caption = "After the police search revealed no clues about the missing children. The forest was promptly locked to the public" },
+		{ caption = "You have 99 NIGHTS to unravel the mysteries of the forest and figure out what is going on" },
+	},
 }
