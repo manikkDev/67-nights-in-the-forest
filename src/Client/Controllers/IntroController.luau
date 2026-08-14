@@ -650,7 +650,6 @@ local function showDayCard()
 		camera.CameraType = Enum.CameraType.Custom
 		camera.CameraSubject = humanoid
 	end
-	lockCamera()
 end
 
 local function finishIntro()
@@ -689,6 +688,14 @@ function IntroController:KnitStart()
 	gameStateController = Knit.GetController("GameStateController")
 	local matchFlow = Knit.GetService("MatchFlowService")
 
+	-- Title screen PLAY button dismisses it and lets the player roam the lobby.
+	local play = titleScreen and titleScreen:FindFirstChild("PlayButton")
+	if play then
+		play.MouseButton1Click:Connect(function()
+			hideTitleScreen()
+		end)
+	end
+
 	if createButton then
 		createButton.MouseButton1Click:Connect(function()
 			if selectedSize ~= 1 or flowState ~= "Waiting" then
@@ -714,6 +721,10 @@ function IntroController:KnitStart()
 		if state == flowState then
 			return
 		end
+		-- Title screen is only for the Lobby; dismiss it once the game flow advances.
+		if titleScreen and titleScreen.Visible and state ~= "Lobby" then
+			hideTitleScreen()
+		end
 		flowState = state
 		if state == "Waiting" then
 			showCreateParty()
@@ -733,6 +744,11 @@ function IntroController:KnitStart()
 			countdownEndsAt = payload.endsAt
 		end
 	end)
+
+	-- If the player is still in the Lobby, show the title screen immediately.
+	if flowState == "Lobby" then
+		showTitleScreen()
+	end
 
 	print("[IntroController] Initialised")
 end
