@@ -576,8 +576,10 @@ local function showCreateParty()
 	if not createPartyFrame then
 		return
 	end
-	if titleScreen and titleScreen.Visible then
-		hideTitleScreen()
+	if titleScreen then
+		if titleScreen.Visible then
+			hideTitleScreen()
+		end
 	end
 	createPartyFrame.Visible = true
 	setGroupTransparency(createPartyFrame, 1)
@@ -689,11 +691,13 @@ function IntroController:KnitStart()
 	local matchFlow = Knit.GetService("MatchFlowService")
 
 	-- Title screen PLAY button dismisses it and lets the player roam the lobby.
-	local play = titleScreen and titleScreen:FindFirstChild("PlayButton")
-	if play then
-		play.MouseButton1Click:Connect(function()
-			hideTitleScreen()
-		end)
+	if titleScreen then
+		local play = titleScreen:FindFirstChild("PlayButton")
+		if play then
+			play.MouseButton1Click:Connect(function()
+				hideTitleScreen()
+			end)
+		end
 	end
 
 	if createButton then
@@ -722,8 +726,10 @@ function IntroController:KnitStart()
 			return
 		end
 		-- Title screen is only for the Lobby; dismiss it once the game flow advances.
-		if titleScreen and titleScreen.Visible and state ~= "Lobby" then
-			hideTitleScreen()
+		if titleScreen then
+			if titleScreen.Visible and state ~= "Lobby" then
+				hideTitleScreen()
+			end
 		end
 		flowState = state
 		if state == "Waiting" then
