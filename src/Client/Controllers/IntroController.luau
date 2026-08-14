@@ -51,7 +51,6 @@ local CLOSE = IntroAssets.CloseButton or Color3.fromRGB(220, 60, 60)
 local CUSTOMIZE = IntroAssets.CustomizeButton or Color3.fromRGB(80, 80, 80)
 local STORY = IntroAssets.StoryText or Color3.fromRGB(170, 90, 90)
 
-local TITLE_IN = 0.5
 local TITLE_OUT = 0.4
 local STORY_BACK = IntroAssets.StoryScreenBackdrop or Color3.fromRGB(10, 10, 10)
 local STORY_HEADER = IntroAssets.StoryHeaderColor or Color3.fromRGB(220, 60, 60)
@@ -368,6 +367,184 @@ local function buildGui()
 	updateSizeButtons()
 end
 
+local function buildTitleScreen()
+	if not screenGui then
+		return
+	end
+
+	local title = Instance.new("Frame")
+	title.Name = "TitleScreen"
+	title.Size = UDim2.fromScale(1, 1)
+	title.BackgroundColor3 = STORY_BACK
+	title.BorderSizePixel = 0
+	title.Visible = false
+	title.ZIndex = 5
+	title.Parent = screenGui
+	titleScreen = title
+
+	local header = makeLabel(title, "TitleHeader",
+		"THIS GAME IS BASED ON A TRUE STORY. SOME DETAILS HAVE BEEN CHANGED",
+		26, STORY_HEADER,
+		UDim2.fromScale(0.5, 0.06), UDim2.new(0.9, 0, 0, 60))
+	header.AnchorPoint = Vector2.new(0.5, 0)
+	header.TextXAlignment = Enum.TextXAlignment.Center
+	header.TextYAlignment = Enum.TextYAlignment.Top
+	header.TextWrapped = true
+	header.ZIndex = 6
+	header.Font = Enum.Font.GothamBlack
+
+	local panelsHolder = Instance.new("Frame")
+	panelsHolder.Name = "PanelsHolder"
+	panelsHolder.AnchorPoint = Vector2.new(0.5, 0.5)
+	panelsHolder.Position = UDim2.fromScale(0.5, 0.52)
+	panelsHolder.Size = UDim2.new(0.95, 0, 0.6, 0)
+	panelsHolder.BackgroundTransparency = 1
+	panelsHolder.BorderSizePixel = 0
+	panelsHolder.ZIndex = 6
+	panelsHolder.ClipsDescendants = true
+	panelsHolder.Parent = title
+
+	local holderList = Instance.new("UIListLayout")
+	holderList.FillDirection = Enum.FillDirection.Horizontal
+	holderList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	holderList.VerticalAlignment = Enum.VerticalAlignment.Center
+	holderList.Padding = UDim.new(0, 14)
+	holderList.SortOrder = Enum.SortOrder.LayoutOrder
+	holderList.Parent = panelsHolder
+
+	local imageIds = IntroAssets.StoryPanelImages or {}
+	local storyPanels = IntroAssets.StoryPanels or {}
+
+	for i = 1, 4 do
+		local panel = Instance.new("Frame")
+		panel.Name = "StoryPanel" .. i
+		panel.Size = UDim2.new(0.22, 0, 0.5, 0)
+		panel.BackgroundColor3 = STORY_PANEL
+		panel.BackgroundTransparency = 0
+		panel.BorderSizePixel = 0
+		panel.ZIndex = 7
+		panel.LayoutOrder = i
+		panel.ClipsDescendants = true
+		panel.Parent = panelsHolder
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 8)
+		corner.Parent = panel
+
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(70, 70, 70)
+		stroke.Thickness = 1
+		stroke.Transparency = 0.5
+		stroke.Parent = panel
+
+		local pad = Instance.new("UIPadding")
+		pad.PaddingTop = UDim.new(0, 8)
+		pad.PaddingBottom = UDim.new(0, 8)
+		pad.PaddingLeft = UDim.new(0, 8)
+		pad.PaddingRight = UDim.new(0, 8)
+		pad.Parent = panel
+
+		local list = Instance.new("UIListLayout")
+		list.FillDirection = Enum.FillDirection.Vertical
+		list.HorizontalAlignment = Enum.HorizontalAlignment.Center
+		list.VerticalAlignment = Enum.VerticalAlignment.Top
+		list.Padding = UDim.new(0, 6)
+		list.Parent = panel
+
+		local image = Instance.new("ImageLabel")
+		image.Name = "Image"
+		image.Size = UDim2.new(1, 0, 0.65, 0)
+		image.BackgroundColor3 = STORY_PLACEHOLDER
+		image.BackgroundTransparency = 0
+		image.BorderSizePixel = 0
+		image.ScaleType = Enum.ScaleType.Crop
+		image.ZIndex = 8
+		image.Parent = panel
+
+		local id = imageIds[i]
+		if id and id ~= "" then
+			image.Image = id
+		end
+
+		local caption = makeLabel(panel, "Caption",
+			typeof(storyPanels[i]) == "table" and storyPanels[i].caption or "",
+			13, STORY_CAPTION,
+			UDim2.new(), UDim2.new(1, 0, 0.35, 0))
+		caption.ZIndex = 8
+		caption.TextWrapped = true
+		caption.TextXAlignment = Enum.TextXAlignment.Center
+		caption.TextYAlignment = Enum.TextYAlignment.Center
+		caption.Font = Enum.Font.Gotham
+	end
+
+	local play = makeButton(title, "PlayButton", "PLAY", 28, PLAY,
+		UDim2.new(0.5, 0, 1, -80), UDim2.fromOffset(260, 52), 10)
+	play.AnchorPoint = Vector2.new(0.5, 0.5)
+	play.ZIndex = 10
+end
+
+local function showTitleScreen()
+	if not titleScreen or titleDismissed then
+		return
+	end
+
+	titleScreen.Visible = true
+	titleScreen.BackgroundTransparency = 1
+	setGroupTransparency(titleScreen, 1)
+
+	local camera = Workspace.CurrentCamera
+	if camera then
+		camera.CameraType = Enum.CameraType.Scriptable
+	end
+	lockMovement()
+	lockCamera()
+
+	-- fade in background
+	tween(titleScreen, TweenInfo.new(0.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+		BackgroundTransparency = 0,
+	})
+
+	local header = titleScreen:FindFirstChild("TitleHeader")
+	if header then
+		task.delay(0.15, function()
+			fadeGui(header, 0, 0.5)
+		end)
+	end
+
+	local panelsHolder = titleScreen:FindFirstChild("PanelsHolder")
+	if panelsHolder then
+		for i, panel in ipairs(panelsHolder:GetChildren()) do
+			if panel:IsA("Frame") then
+				task.delay(0.35 + (i - 1) * 0.1, function()
+					fadeGui(panel, 0, 0.4)
+				end)
+			end
+		end
+	end
+
+	local play = titleScreen:FindFirstChild("PlayButton")
+	if play then
+		task.delay(0.85, function()
+			fadeGui(play, 0, 0.4)
+		end)
+	end
+end
+
+local function hideTitleScreen()
+	if not titleScreen or titleDismissed then
+		return
+	end
+	titleDismissed = true
+	fadeGui(titleScreen, 1, TITLE_OUT)
+	task.delay(TITLE_OUT, function()
+		if titleScreen then
+			titleScreen.Visible = false
+		end
+	end)
+	unlockMovement()
+	unlockCamera()
+end
+
 local function destroyIntroGui()
 	waitingJanitor:Cleanup()
 	janitor:Cleanup()
@@ -398,6 +575,9 @@ end
 local function showCreateParty()
 	if not createPartyFrame then
 		return
+	end
+	if titleScreen and titleScreen.Visible then
+		hideTitleScreen()
 	end
 	createPartyFrame.Visible = true
 	setGroupTransparency(createPartyFrame, 1)
@@ -460,6 +640,17 @@ local function showDayCard()
 	dayFrame.BackgroundTransparency = 1
 	fadeGui(dayFrame, 0, 0.6)
 	dayFrame.BackgroundTransparency = 0
+
+	-- Teleport already happened while the screen was black; snap the
+	-- camera to the player at the campfire before the reveal begins.
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local camera = Workspace.CurrentCamera
+	if camera and humanoid then
+		camera.CameraType = Enum.CameraType.Custom
+		camera.CameraSubject = humanoid
+	end
+	lockCamera()
 end
 
 local function finishIntro()
@@ -491,6 +682,7 @@ end
 
 function IntroController:KnitInit()
 	buildGui()
+	buildTitleScreen()
 end
 
 function IntroController:KnitStart()
