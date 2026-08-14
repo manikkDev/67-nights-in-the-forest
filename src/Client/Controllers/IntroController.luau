@@ -390,9 +390,7 @@ local function showCreateParty()
 	end
 	createPartyFrame.Visible = true
 	setGroupTransparency(createPartyFrame, 1)
-	createPartyFrame.BackgroundTransparency = 1
-	fadeGui(createPartyFrame, 0, PANEL_FADE)
-	createPartyFrame.BackgroundTransparency = PANEL_ALPHA
+	fadeGui(createPartyFrame, PANEL_ALPHA, PANEL_FADE)
 	lockMovement()
 	lockCamera()
 end
