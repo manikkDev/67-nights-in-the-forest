@@ -38,12 +38,13 @@ local SpawnService = Knit.CreateService({
 SpawnService.PlayerSpawned = Signal.new()
 
 -- | Configuration | --
-local SPAWN_RADIUS = 12
-local SPAWN_HEIGHT = 3
-local TELEPORT_COOLDOWN = 3
+local SPAWN_RADIUS = 15
+local SPAWN_HEIGHT = 5
+local TELEPORT_COOLDOWN = 5
 
 -- | State Management | --
 local worldService: any? = nil
+local matchFlowService: any? = nil
 local spawnedPlayers: { [Player]: boolean } = {}
 local teleportCooldowns: { [Player]: number } = {}
 
@@ -124,7 +125,11 @@ local function wireTeleporters()
 						end
 						teleportCooldowns[player] = now
 
-						SpawnService:SpawnPlayer(player)
+						if matchFlowService then
+							matchFlowService:EnterWaiting(player)
+						else
+							SpawnService:SpawnPlayer(player)
+						end
 					end)
 				end
 			end
@@ -140,7 +145,11 @@ end
     @param   player  Player  -- injected by Knit
 ]]
 function SpawnService.Client:RequestSpawn(player: Player)
-	self.Server:SpawnPlayer(player)
+	if matchFlowService then
+		matchFlowService:EnterWaiting(player)
+	else
+		self.Server:SpawnPlayer(player)
+	end
 end
 
 --[[
@@ -156,6 +165,7 @@ end
 
 function SpawnService:KnitStart()
 	worldService = Knit.GetService("WorldService")
+	matchFlowService = Knit.GetService("MatchFlowService")
 	wireTeleporters()
 end
 

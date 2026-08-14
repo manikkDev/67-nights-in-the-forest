@@ -15,4 +15,6 @@ return {
 	STORE_NAME = "67Nights_v1",
 	MAX_PLAYERS = 8,
 	ITEMS_PATH = "Assets Items",
+	MATCH_WAIT_SECONDS = 3599,
+	MATCH_START_FADE_SECONDS = 0.6,
 }

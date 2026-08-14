@@ -139,13 +139,22 @@ function HudController:KnitStart()
 		end
 	end
 
-	timeService.DayStarted:Connect(function()
-		currentDayNumber += 1
-		showDay()
+	timeService.DayStarted:Connect(function(dayNumber)
+		if typeof(dayNumber) == "number" then
+			currentDayNumber = dayNumber
+		end
+		if labelsEnabled then
+			showDay()
+		end
 	end)
 
-	timeService.NightStarted:Connect(function()
-		showNight()
+	timeService.NightStarted:Connect(function(dayNumber)
+		if typeof(dayNumber) == "number" then
+			currentDayNumber = dayNumber
+		end
+		if labelsEnabled then
+			showNight()
+		end
 	end)
 
 	-- Sync to current server state via the property

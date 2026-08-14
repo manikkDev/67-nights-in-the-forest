@@ -11,11 +11,15 @@
     when day or night begins, and drives Lighting transitions with
     TweenService for smooth visual changes.
 
+    The clock stays paused until StartMatch() so lobby time does not
+    consume Day 1.
+
     @exports
     - TimeService.DayStarted    (Knit Signal)
     - TimeService.NightStarted  (Knit Signal)
     - TimeService:GetCurrentPhase()  -> "Day" | "Night"
     - TimeService:GetClockTime()     -> number
+    - TimeService:StartMatch()       -- begins the day/night clock
 ]]
 
 -- // VARIABLES // --
@@ -55,6 +59,8 @@ local currentPhase: "Day" | "Night" = "Day"
 local phaseTimer = 0
 local clockTime = DAY_START_CLOCK
 local dayNumber = 1
+local isRunning = false
+local heartbeatConnection: RBXScriptConnection? = nil
 
 -- // FUNCTIONS // --
 
@@ -80,6 +86,14 @@ end
 ]]
 function TimeService:GetDayNumber(): number
 	return dayNumber
+end
+
+function TimeService.Client:GetDayNumber(_player: Player): number
+	return dayNumber
+end
+
+function TimeService:IsRunning(): boolean
+	return isRunning
 end
 
 --[[
@@ -109,9 +123,9 @@ end
     @desc    Knit signals do not have FireAll, so we iterate players.
     @param   signal  KnitSignal
 ]]
-local function broadcastSignal(signal)
+local function broadcastSignal(signal, ...)
 	for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
-		signal:Fire(player)
+		signal:Fire(player, ...)
 	end
 end
 
@@ -124,7 +138,7 @@ local function startDay()
 	dayNumber += 1
 	transitionToDay()
 	TimeService.Client.GetPhaseState:Set("Day")
-	broadcastSignal(TimeService.Client.DayStarted)
+	broadcastSignal(TimeService.Client.DayStarted, dayNumber)
 	print("[TimeService] Day", dayNumber, "started")
 end
 
@@ -136,7 +150,7 @@ local function startNight()
 	phaseTimer = 0
 	transitionToNight()
 	TimeService.Client.GetPhaseState:Set("Night")
-	broadcastSignal(TimeService.Client.NightStarted)
+	broadcastSignal(TimeService.Client.NightStarted, dayNumber)
 	print("[TimeService] Night", dayNumber, "started")
 end
 
@@ -145,6 +159,10 @@ end
     @param   dt  number  -- delta time in seconds
 ]]
 local function onHeartbeat(dt: number)
+	if not isRunning then
+		return
+	end
+
 	phaseTimer += dt
 
 	local duration = if currentPhase == "Day" then DAY_DURATION else NIGHT_DURATION
@@ -164,14 +182,43 @@ local function onHeartbeat(dt: number)
 	end
 end
 
+local function applyDayLightingImmediate()
+	Lighting.ClockTime = DAY_START_CLOCK
+	Lighting.Ambient = DAY_AMBIENT
+	Lighting.FogEnd = DAY_FOG_END
+end
+
+--[[
+    @summary  Begin the day/night clock at Day 1.
+    @desc    Idempotent. Does not increment dayNumber.
+]]
+function TimeService:StartMatch()
+	if isRunning then
+		return
+	end
+
+	isRunning = true
+	currentPhase = "Day"
+	phaseTimer = 0
+	clockTime = DAY_START_CLOCK
+	dayNumber = 1
+	applyDayLightingImmediate()
+	TimeService.Client.GetPhaseState:Set("Day")
+	broadcastSignal(TimeService.Client.DayStarted, dayNumber)
+
+	if not heartbeatConnection then
+		heartbeatConnection = RunService.Heartbeat:Connect(onHeartbeat)
+	end
+
+	print("[TimeService] Match started — Day 1")
+end
+
 -- // INITIALIZATION // --
 
 Lighting.ClockTime = DAY_START_CLOCK
 Lighting.Ambient = DAY_AMBIENT
 Lighting.FogEnd = DAY_FOG_END
 
-RunService.Heartbeat:Connect(onHeartbeat)
-
-print("[TimeService] Initialised — starting in Day phase")
+print("[TimeService] Initialised — waiting for match start")
 
 return TimeService
