@@ -209,28 +209,36 @@ function MatchFlowService:EnterWaiting(player: Player)
 	print("[MatchFlowService] Waiting started for", player.Name)
 end
 
-function MatchFlowService:RequestStart(player: Player)
-	local session = getSessionFor(player)
-	if not session then
-		return
-	end
-	if session.host ~= player then
-		return
-	end
-	if session.state ~= "Waiting" then
-		return
-	end
-	beginMatch(session)
-end
-
 -- // INITIALIZATION // --
+
+function MatchFlowService:KnitInit()
+	-- Defensive: if Knit.Start didn't convert the SIGNAL_MARKERs, create the RemoteSignals ourselves.
+	local comm = self.KnitComm
+	if typeof(self.Client.RequestStart) ~= "table" then
+		self.Client.RequestStart = comm:CreateSignal("RequestStart", false)
+		self.Client.FlowStateChanged = comm:CreateSignal("FlowStateChanged", false)
+		self.Client.Countdown = comm:CreateSignal("Countdown", false)
+		self.Client.RosterChanged = comm:CreateSignal("RosterChanged", false)
+		print("[MatchFlowService] Client signals created in KnitInit")
+	end
+end
 
 function MatchFlowService:KnitStart()
 	spawnService = Knit.GetService("SpawnService")
 	timeService = Knit.GetService("TimeService")
 
-	MatchFlowService.Client.RequestStart:Connect(function(player: Player)
-		MatchFlowService:RequestStart(player)
+	self.Client.RequestStart:Connect(function(player: Player)
+		local session = getSessionFor(player)
+		if not session then
+			return
+		end
+		if session.host ~= player then
+			return
+		end
+		if session.state ~= "Waiting" then
+			return
+		end
+		beginMatch(session)
 	end)
 end
 
