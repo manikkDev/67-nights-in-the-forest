@@ -4,12 +4,13 @@
     @date    2025
 
     @summary
-    Client presenter for title splash, waiting room, and Day 1 card.
+    Client presenter for the Create Party lobby and match intro.
 
     @description
-    Builds one ScreenGui with three frames. Title plays on join.
-    Waiting/Starting/InGame come from MatchFlowService. Gameplay
-    unlocks only after the Day 1 card fades out.
+    Shows a "Create Party" panel on teleporter touch. Only party size 1
+    is enabled. Clicking Create starts a 5-second countdown, then fades
+    to the story text, teleports the player, shows Day 1 on black, and
+    slowly reveals the base map before gameplay begins.
 ]]
 
 -- // VARIABLES // --
@@ -26,6 +27,7 @@ local Workspace = game:GetService("Workspace")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
 local IntroAssets = require(ReplicatedStorage.Shared.IntroAssets)
+local Constants = require(ReplicatedStorage.Shared.Constants)
 
 -- | Objects | --
 local IntroController = Knit.CreateController({
@@ -33,30 +35,43 @@ local IntroController = Knit.CreateController({
 })
 
 -- | Configuration | --
-local TITLE_HOLD = 5
-local TITLE_FADE = 0.6
-local WAITING_FADE = 0.4
-local DAY1_IN = 0.8
-local DAY1_HOLD = 1.8
-local DAY1_OUT = 1.2
+local PANEL_FADE = 0.3
+local COUNTDOWN_FADE = 0.4
+local STORY_FADE = Constants.MATCH_STORY_FADE_SECONDS or 1.2
+local STORY_HOLD = Constants.MATCH_STORY_HOLD_SECONDS or 5
+local DAY1_HOLD = Constants.MATCH_DAY1_HOLD_SECONDS or 2
+local REVEAL_SECONDS = Constants.MATCH_REVEAL_SECONDS or 2.5
+
+local PANEL = IntroAssets.PanelBackdrop or Color3.fromRGB(25, 25, 25)
+local PANEL_ALPHA = IntroAssets.PanelBackgroundTransparency or 0.25
 local CREAM = IntroAssets.TitleColor or Color3.fromRGB(232, 220, 190)
 local MUTED = IntroAssets.SubtitleColor or Color3.fromRGB(170, 160, 140)
-local GREEN = IntroAssets.AccentGreen or Color3.fromRGB(80, 170, 70)
+local HANDWRITTEN = IntroAssets.TitleHandwritten or CREAM
+local BODY = IntroAssets.BodyText or CREAM
+local SIZE_BTN = IntroAssets.SizeButton or Color3.fromRGB(160, 160, 160)
+local SIZE_DISABLED = IntroAssets.SizeButtonDisabled or Color3.fromRGB(90, 90, 90)
+local SIZE_SELECTED = IntroAssets.SizeButtonSelected or Color3.fromRGB(255, 210, 50)
+local CREATE = IntroAssets.CreateButton or Color3.fromRGB(95, 190, 70)
+local CREATE_DISABLED = IntroAssets.CreateButtonDisabled or Color3.fromRGB(70, 120, 60)
+local CLOSE = IntroAssets.CloseButton or Color3.fromRGB(220, 60, 60)
+local CUSTOMIZE = IntroAssets.CustomizeButton or Color3.fromRGB(80, 80, 80)
+local STORY = IntroAssets.StoryText or Color3.fromRGB(170, 90, 90)
 
 -- | State Management | --
 local player = Players.LocalPlayer
 local janitor = Janitor.new()
 local waitingJanitor = Janitor.new()
 local screenGui: ScreenGui? = nil
-local titleFrame: Frame? = nil
-local waitingFrame: Frame? = nil
+local createPartyFrame: Frame? = nil
+local countdownFrame: Frame? = nil
+local storyFrame: Frame? = nil
 local dayFrame: Frame? = nil
-local timerLabel: TextLabel? = nil
-local startButton: TextButton? = nil
-local rosterHolder: Frame? = nil
+local countdownLabel: TextLabel? = nil
+local createButton: TextButton? = nil
+local sizeButtons: { TextButton } = {}
+local selectedSize = 1
 local countdownEndsAt: number? = nil
 local flowState = "Lobby"
-local titleDismissed = false
 local introFinished = false
 local savedWalkSpeed = 16
 local savedJumpPower = 50
