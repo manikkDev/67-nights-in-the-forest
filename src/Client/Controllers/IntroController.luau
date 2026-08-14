@@ -362,13 +362,6 @@ local function buildGui()
 	updateSizeButtons()
 end
 
-local function destroyTitle()
-	if titleFrame then
-		titleFrame:Destroy()
-		titleFrame = nil
-	end
-end
-
 local function destroyIntroGui()
 	waitingJanitor:Cleanup()
 	janitor:Cleanup()
@@ -378,117 +371,91 @@ local function destroyIntroGui()
 		screenGui:Destroy()
 		screenGui = nil
 	end
-	titleFrame = nil
-	waitingFrame = nil
+	createPartyFrame = nil
+	storyFrame = nil
 	dayFrame = nil
-	timerLabel = nil
-	startButton = nil
-	rosterHolder = nil
-end
-
-local function dismissTitle()
-	if titleDismissed or not titleFrame then
-		return
-	end
-	titleDismissed = true
-	fadeGui(titleFrame, 1, TITLE_FADE)
-	task.delay(TITLE_FADE, function()
-		destroyTitle()
-	end)
-end
-
-local function playTitle()
-	if not titleFrame then
-		return
-	end
-	titleFrame.Visible = true
-	setGroupTransparency(titleFrame, 1)
-	titleFrame.BackgroundTransparency = 0
-	fadeGui(titleFrame, 0, TITLE_FADE)
-	titleFrame.BackgroundTransparency = 0
-
-	janitor:Add(UserInputService.InputBegan:Connect(function(input, processed)
-		if processed then
-			return
-		end
-		if input.UserInputType == Enum.UserInputType.MouseButton1
-			or input.UserInputType == Enum.UserInputType.Touch
-			or input.KeyCode == Enum.KeyCode.Space
-			or input.KeyCode == Enum.KeyCode.Return
-		then
-			dismissTitle()
-		end
-	end), "Disconnect")
-
-	task.delay(TITLE_HOLD, dismissTitle)
-end
-
-local function renderRoster(roster: { { userId: number, name: string, isHost: boolean } })
-	if not rosterHolder then
-		return
-	end
-	for _, child in ipairs(rosterHolder:GetChildren()) do
-		if child:IsA("TextLabel") then
-			child:Destroy()
-		end
-	end
-	for _, entry in ipairs(roster) do
-		local row = Instance.new("TextLabel")
-		row.BackgroundTransparency = 1
-		row.Size = UDim2.new(1, 0, 0, 22)
-		row.Font = Enum.Font.Gotham
-		row.TextSize = 16
-		row.TextColor3 = CREAM
-		row.Text = if entry.isHost then entry.name .. "  (Host)" else entry.name
-		row.ZIndex = 24
-		row.Parent = rosterHolder
-	end
+	countdownLabel = nil
+	createButton = nil
+	sizeButtons = {}
 end
 
 local function startCountdownLoop()
 	waitingJanitor:Cleanup()
 	waitingJanitor:Add(RunService.RenderStepped:Connect(function()
-		if not timerLabel or not countdownEndsAt then
+		if not countdownLabel or not countdownEndsAt then
 			return
 		end
-		timerLabel.Text = formatTimer(countdownEndsAt - Workspace:GetServerTimeNow())
+		countdownLabel.Text = formatCountdown(countdownEndsAt - Workspace:GetServerTimeNow())
 	end), "Disconnect")
 end
 
-local function showWaiting()
-	if not waitingFrame then
+local function showCreateParty()
+	if not createPartyFrame then
 		return
 	end
-	if titleFrame then
-		dismissTitle()
-	end
-	waitingFrame.Visible = true
-	setGroupTransparency(waitingFrame, 1)
-	waitingFrame.BackgroundTransparency = 0
-	fadeGui(waitingFrame, 0, WAITING_FADE)
-	waitingFrame.BackgroundTransparency = 0
+	createPartyFrame.Visible = true
+	setGroupTransparency(createPartyFrame, 1)
+	createPartyFrame.BackgroundTransparency = 1
+	fadeGui(createPartyFrame, 0, PANEL_FADE)
+	createPartyFrame.BackgroundTransparency = PANEL_ALPHA
 	lockMovement()
 	lockCamera()
+end
+
+local function showCountdown()
+	if not createPartyFrame then
+		return
+	end
+	for _, btn in ipairs(sizeButtons) do
+		btn.Visible = false
+	end
+	if createButton then
+		createButton.Visible = false
+	end
+	local customize = createPartyFrame:FindFirstChild("CustomizeButton")
+	if customize then
+		customize.Visible = false
+	end
+	if countdownLabel then
+		countdownLabel.Visible = true
+	end
 	startCountdownLoop()
 end
 
-local function showStarting()
-	if waitingFrame then
-		fadeGui(waitingFrame, 1, WAITING_FADE)
-		task.delay(WAITING_FADE, function()
-			if waitingFrame then
-				waitingFrame.Visible = false
-			end
-		end)
+local function showStory()
+	if not createPartyFrame then
+		return
 	end
-	if dayFrame then
-		dayFrame.Visible = true
-		setGroupTransparency(dayFrame, 1)
-		dayFrame.BackgroundTransparency = 0
+	setGroupTransparency(createPartyFrame, 1)
+	task.delay(PANEL_FADE, function()
+		if createPartyFrame then
+			createPartyFrame.Visible = false
+		end
+	end)
+	if not storyFrame then
+		return
 	end
+	storyFrame.Visible = true
+	setGroupTransparency(storyFrame, 1)
+	storyFrame.BackgroundTransparency = 1
+	fadeGui(storyFrame, 0, STORY_FADE)
+	storyFrame.BackgroundTransparency = 0
 	lockMovement()
 	lockCamera()
-	waitingJanitor:Cleanup()
+end
+
+local function showDayCard()
+	if storyFrame then
+		storyFrame.Visible = false
+	end
+	if not dayFrame then
+		return
+	end
+	dayFrame.Visible = true
+	setGroupTransparency(dayFrame, 1)
+	dayFrame.BackgroundTransparency = 1
+	fadeGui(dayFrame, 0, 0.6)
+	dayFrame.BackgroundTransparency = 0
 end
 
 local function finishIntro()
@@ -496,31 +463,23 @@ local function finishIntro()
 		return
 	end
 	introFinished = true
-	unlockMovement()
-	unlockCamera()
-	if gameStateController then
-		gameStateController:MarkIntroComplete()
-	end
-	destroyIntroGui()
-end
-
-local function showDayCard()
 	if not dayFrame then
-		finishIntro()
+		unlockMovement()
+		unlockCamera()
+		if gameStateController then
+			gameStateController:MarkIntroComplete()
+		end
+		destroyIntroGui()
 		return
 	end
-	dayFrame.Visible = true
-	dayFrame.BackgroundTransparency = 0
-	setGroupTransparency(dayFrame, 1)
-	fadeGui(dayFrame, 0, DAY1_IN)
-	dayFrame.BackgroundTransparency = 0
-	task.delay(DAY1_IN + DAY1_HOLD, function()
-		if not dayFrame then
-			finishIntro()
-			return
+	fadeGui(dayFrame, 1, REVEAL_SECONDS)
+	task.delay(REVEAL_SECONDS, function()
+		unlockMovement()
+		unlockCamera()
+		if gameStateController then
+			gameStateController:MarkIntroComplete()
 		end
-		fadeGui(dayFrame, 1, DAY1_OUT)
-		task.delay(DAY1_OUT, finishIntro)
+		destroyIntroGui()
 	end)
 end
 
@@ -534,14 +493,24 @@ function IntroController:KnitStart()
 	gameStateController = Knit.GetController("GameStateController")
 	local matchFlow = Knit.GetService("MatchFlowService")
 
-	playTitle()
-
-	if startButton then
-		startButton.MouseButton1Click:Connect(function()
-			if flowState ~= "Waiting" then
+	if createButton then
+		createButton.MouseButton1Click:Connect(function()
+			if selectedSize ~= 1 or flowState ~= "Waiting" then
 				return
 			end
 			matchFlow.RequestStart:Fire()
+		end)
+	end
+
+	for i, btn in ipairs(sizeButtons) do
+		btn.MouseButton1Click:Connect(function()
+			if flowState ~= "Waiting" then
+				return
+			end
+			if i == 1 then
+				selectedSize = 1
+				updateSizeButtons()
+			end
 		end)
 	end
 
@@ -551,26 +520,21 @@ function IntroController:KnitStart()
 		end
 		flowState = state
 		if state == "Waiting" then
-			showWaiting()
-		elseif state == "Starting" then
-			showStarting()
-		elseif state == "InGame" then
+			showCreateParty()
+		elseif state == "Countdown" then
+			showCountdown()
+		elseif state == "Story" then
+			showStory()
+		elseif state == "Day1" then
 			showDayCard()
+		elseif state == "InGame" then
+			finishIntro()
 		end
 	end)
 
 	matchFlow.Countdown:Connect(function(payload)
 		if typeof(payload) == "table" and typeof(payload.endsAt) == "number" then
 			countdownEndsAt = payload.endsAt
-			if timerLabel then
-				timerLabel.Text = formatTimer(payload.endsAt - Workspace:GetServerTimeNow())
-			end
-		end
-	end)
-
-	matchFlow.RosterChanged:Connect(function(roster)
-		if typeof(roster) == "table" then
-			renderRoster(roster)
 		end
 	end)
 
