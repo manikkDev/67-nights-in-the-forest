@@ -7,9 +7,10 @@
     Server-authoritative lobby waiting room and match start.
 
     @description
-    Teleporter pads enter Waiting instead of teleporting immediately.
-    A host can START or wait for the countdown. Starting fades, then
-    SpawnService teleports and TimeService begins Day 1.
+    Teleporter pads open the Create Party UI. The host clicks Create,
+    a 5-second countdown runs, the screen fades to the story text,
+    then players are teleported while the screen is still dark. The
+    Day 1 card appears on black, then the base map is slowly revealed.
 
     @exports
     - MatchFlowService:EnterWaiting(player)
@@ -41,7 +42,7 @@ local MatchFlowService = Knit.CreateService({
 	},
 })
 
-export type FlowState = "Lobby" | "Waiting" | "Starting" | "InGame"
+export type FlowState = "Lobby" | "Waiting" | "Countdown" | "Story" | "Day1" | "InGame"
 
 type Session = {
 	state: FlowState,
@@ -53,8 +54,10 @@ type Session = {
 }
 
 -- | Configuration | --
-local WAIT_SECONDS = Constants.MATCH_WAIT_SECONDS or 3599
-local START_FADE_SECONDS = Constants.MATCH_START_FADE_SECONDS or 0.6
+local COUNTDOWN_SECONDS = Constants.MATCH_COUNTDOWN_SECONDS or 5
+local STORY_FADE_SECONDS = Constants.MATCH_STORY_FADE_SECONDS or 1.2
+local STORY_HOLD_SECONDS = Constants.MATCH_STORY_HOLD_SECONDS or 5
+local DAY1_HOLD_SECONDS = Constants.MATCH_DAY1_HOLD_SECONDS or 2
 
 -- | State Management | --
 local spawnService: any? = nil
@@ -123,17 +126,17 @@ function MatchFlowService:GetState(player: Player): FlowState
 	return session.state
 end
 
-local function beginMatch(session: Session)
-	if session.state ~= "Waiting" then
+local function beginStory(session: Session)
+	if session.state ~= "Countdown" then
 		return
 	end
-
 	cancelTimer(session)
-	session.state = "Starting"
-	fireToSession(session, MatchFlowService.Client.FlowStateChanged, "Starting")
+	session.state = "Story"
+	fireToSession(session, MatchFlowService.Client.FlowStateChanged, "Story")
 
-	task.delay(START_FADE_SECONDS, function()
-		if session.state ~= "Starting" then
+	-- Fade to black + story hold, then teleport while still dark.
+	task.delay(STORY_FADE_SECONDS + STORY_HOLD_SECONDS, function()
+		if session.state ~= "Story" then
 			return
 		end
 
@@ -147,9 +150,19 @@ local function beginMatch(session: Session)
 			timeService:StartMatch()
 		end
 
-		session.state = "InGame"
-		fireToSession(session, MatchFlowService.Client.FlowStateChanged, "InGame")
-		print("[MatchFlowService] Match started")
+		session.state = "Day1"
+		fireToSession(session, MatchFlowService.Client.FlowStateChanged, "Day1")
+		print("[MatchFlowService] Teleported to base map")
+
+		-- Hold Day 1 on black, then reveal world and begin gameplay.
+		task.delay(DAY1_HOLD_SECONDS, function()
+			if session.state ~= "Day1" then
+				return
+			end
+			session.state = "InGame"
+			fireToSession(session, MatchFlowService.Client.FlowStateChanged, "InGame")
+			print("[MatchFlowService] Match started")
+		end)
 	end)
 end
 
@@ -158,7 +171,7 @@ local function scheduleTimer(session: Session)
 	local remaining = math.max(0, session.endsAt - getServerNow())
 	session.timerThread = task.delay(remaining, function()
 		session.timerThread = nil
-		beginMatch(session)
+		beginStory(session)
 	end)
 end
 
@@ -175,6 +188,9 @@ function MatchFlowService:EnterWaiting(player: Player)
 	if existing then
 		if existing.state == "Waiting" then
 			MatchFlowService.Client.FlowStateChanged:Fire(player, "Waiting")
+			MatchFlowService.Client.RosterChanged:Fire(player, buildRoster(existing))
+		elseif existing.state == "Countdown" then
+			MatchFlowService.Client.FlowStateChanged:Fire(player, "Countdown")
 			MatchFlowService.Client.Countdown:Fire(player, {
 				endsAt = existing.endsAt,
 				duration = existing.duration,
@@ -188,25 +204,19 @@ function MatchFlowService:EnterWaiting(player: Player)
 		return
 	end
 
-	local now = getServerNow()
 	local session: Session = {
 		state = "Waiting",
 		host = player,
 		players = { [player] = true },
-		endsAt = now + WAIT_SECONDS,
-		duration = WAIT_SECONDS,
+		endsAt = 0,
+		duration = 0,
 		timerThread = nil,
 	}
 	sessions[player] = session
-	scheduleTimer(session)
 
 	MatchFlowService.Client.FlowStateChanged:Fire(player, "Waiting")
-	MatchFlowService.Client.Countdown:Fire(player, {
-		endsAt = session.endsAt,
-		duration = session.duration,
-	})
 	MatchFlowService.Client.RosterChanged:Fire(player, buildRoster(session))
-	print("[MatchFlowService] Waiting started for", player.Name)
+	print("[MatchFlowService] Create party opened for", player.Name)
 end
 
 -- // INITIALIZATION // --
@@ -238,7 +248,21 @@ function MatchFlowService:KnitStart()
 		if session.state ~= "Waiting" then
 			return
 		end
-		beginMatch(session)
+
+		cancelTimer(session)
+		local now = getServerNow()
+		session.state = "Countdown"
+		session.endsAt = now + COUNTDOWN_SECONDS
+		session.duration = COUNTDOWN_SECONDS
+		scheduleTimer(session)
+
+		fireToSession(session, MatchFlowService.Client.FlowStateChanged, "Countdown")
+		fireToSession(session, MatchFlowService.Client.Countdown, {
+			endsAt = session.endsAt,
+			duration = session.duration,
+		})
+		fireToSession(session, MatchFlowService.Client.RosterChanged, buildRoster(session))
+		print("[MatchFlowService] Countdown started for", player.Name)
 	end)
 end
 

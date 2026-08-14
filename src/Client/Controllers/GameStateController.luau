@@ -32,7 +32,7 @@ local GameStateController = Knit.CreateController({
 	Name = "GameStateController",
 })
 
-export type FlowState = "Lobby" | "Waiting" | "Starting" | "InGame"
+export type FlowState = "Lobby" | "Waiting" | "Countdown" | "Story" | "Day1" | "InGame"
 
 -- | State Management | --
 local flowState: FlowState = "Lobby"
@@ -79,10 +79,10 @@ function GameStateController:KnitStart()
 	local matchFlow = Knit.GetService("MatchFlowService")
 
 	matchFlow.FlowStateChanged:Connect(function(state: string)
-		if state == "Waiting" or state == "Starting" or state == "Lobby" then
+		if state == "Lobby" or state == "Waiting" or state == "Countdown" or state == "Story" or state == "Day1" then
 			flowState = state
 		elseif state == "InGame" then
-			flowState = "Starting"
+			flowState = "Day1"
 		end
 	end)
 
