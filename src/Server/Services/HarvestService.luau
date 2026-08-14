@@ -64,6 +64,7 @@ local AXE_TOOL_NAME = "Axe"
 -- | State Management | --
 local worldService: any? = nil
 local inventoryService: any? = nil
+local spawnService: any? = nil
 local axeTemplate: Tool? = nil
 local treeRegistry: { [Model]: { health: number, part: { Position: Vector3 }, pivot: CFrame, felled: boolean } } = {}
 local chopCooldowns: { [Player]: number } = {}
@@ -137,6 +138,9 @@ end
 ]]
 local function giveAxe(player: Player)
 	if not axeTemplate then
+		return
+	end
+	if spawnService and not spawnService:IsPlayerSpawned(player) then
 		return
 	end
 
@@ -556,6 +560,7 @@ end
 function HarvestService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	inventoryService = Knit.GetService("InventoryService")
+	spawnService = Knit.GetService("SpawnService")
 
 	axeTemplate = buildAxeTool()
 	publishAxeAnimation()
@@ -563,9 +568,23 @@ function HarvestService:KnitStart()
 
 	ProximityPromptService.PromptTriggered:Connect(onPromptTriggered)
 
-	Players.PlayerAdded:Connect(giveAxe)
+	local spawnServicePublic = spawnService
+	local function tryGiveAxe(player: Player)
+		if spawnServicePublic and spawnServicePublic:IsPlayerSpawned(player) then
+			giveAxe(player)
+		end
+	end
+
+	Players.PlayerAdded:Connect(tryGiveAxe)
 	for _, player in ipairs(Players:GetPlayers()) do
-		giveAxe(player)
+		tryGiveAxe(player)
+	end
+
+	-- Give the axe immediately when a player teleports to the game map.
+	if spawnService then
+		spawnService.PlayerSpawned:Connect(function(player: Player)
+			giveAxe(player)
+		end)
 	end
 
 	print("[HarvestService] Initialised — chop/pickup wired")

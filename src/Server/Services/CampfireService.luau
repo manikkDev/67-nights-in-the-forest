@@ -114,6 +114,7 @@ local LOG_SCAN_RADIUS = 8
 local worldService: any? = nil
 local playerDataService: any? = nil
 local inventoryService: any? = nil
+local spawnService: any? = nil
 local stateLoaded = false
 local level = 1
 local levelProgress = 0
@@ -383,14 +384,25 @@ end
     @summary  Broadcast the current fuel state to a player (or all players if omitted).
     @param    target  Player?  -- nil to broadcast to all
 ]]
+local function isPlayerInGame(player: Player): boolean
+	if not spawnService then
+		return false
+	end
+	return spawnService:IsPlayerSpawned(player)
+end
+
 local function broadcastFuel(target: Player?)
 	local fraction = if maxFuel > 0 then fuel / maxFuel else 0
 	if target then
-		CampfireService.Client.FuelChanged:Fire(target, fuel, maxFuel, fraction, isLit)
+		if isPlayerInGame(target) then
+			CampfireService.Client.FuelChanged:Fire(target, fuel, maxFuel, fraction, isLit)
+		end
 		return
 	end
 	for _, player in ipairs(Players:GetPlayers()) do
-		CampfireService.Client.FuelChanged:Fire(player, fuel, maxFuel, fraction, isLit)
+		if isPlayerInGame(player) then
+			CampfireService.Client.FuelChanged:Fire(player, fuel, maxFuel, fraction, isLit)
+		end
 	end
 end
 
@@ -402,11 +414,15 @@ local function broadcastLevel(target: Player?)
 	local requirement = LEVEL_REQUIREMENTS[level] or LEVEL_REQUIREMENTS[#LEVEL_REQUIREMENTS]
 	local levelFraction = if requirement > 0 then math.clamp(levelProgress / requirement, 0, 1) else 1
 	if target then
-		CampfireService.Client.LevelChanged:Fire(target, level, levelProgress, requirement, levelFraction)
+		if isPlayerInGame(target) then
+			CampfireService.Client.LevelChanged:Fire(target, level, levelProgress, requirement, levelFraction)
+		end
 		return
 	end
 	for _, player in ipairs(Players:GetPlayers()) do
-		CampfireService.Client.LevelChanged:Fire(player, level, levelProgress, requirement, levelFraction)
+		if isPlayerInGame(player) then
+			CampfireService.Client.LevelChanged:Fire(player, level, levelProgress, requirement, levelFraction)
+		end
 	end
 end
 
@@ -429,11 +445,15 @@ local function broadcastSafeZone(target: Player?, force: boolean?)
 	lastBroadcastRadius = currentSafeZoneRadius
 
 	if target then
-		CampfireService.Client.SafeZoneChanged:Fire(target, currentSafeZoneRadius, isLit)
+		if isPlayerInGame(target) then
+			CampfireService.Client.SafeZoneChanged:Fire(target, currentSafeZoneRadius, isLit)
+		end
 		return
 	end
 	for _, player in ipairs(Players:GetPlayers()) do
-		CampfireService.Client.SafeZoneChanged:Fire(player, currentSafeZoneRadius, isLit)
+		if isPlayerInGame(player) then
+			CampfireService.Client.SafeZoneChanged:Fire(player, currentSafeZoneRadius, isLit)
+		end
 	end
 end
 
@@ -790,6 +810,7 @@ function CampfireService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	playerDataService = Knit.GetService("PlayerDataService")
 	inventoryService = Knit.GetService("InventoryService")
+	spawnService = Knit.GetService("SpawnService")
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if not stateLoaded then

@@ -100,6 +100,7 @@ type RowEntry = {
 local rowEntries: { [string]: RowEntry } = {}
 
 local bagPanel: Frame? = nil
+local bagGui: ScreenGui? = nil
 local bagShadow: Frame? = nil
 local capacityFill: Frame? = nil
 local capacityText: TextLabel? = nil
@@ -110,6 +111,7 @@ local tooltipDesc: TextLabel? = nil
 
 local isOpen = false
 local useHover = UserInputService.MouseEnabled and not UserInputService.TouchEnabled
+local gameStateController: any? = nil
 
 -- // FUNCTIONS // --
 
@@ -711,7 +713,7 @@ local function buildBagGui(): ScreenGui
 	gui.IgnoreGuiInset = false
 	gui.ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	gui.Enabled = true
+	gui.Enabled = false
 
 	-- Compute total height explicitly.
 	local rowsHeight = #ROW_ORDER * ROW_HEIGHT + (#ROW_ORDER - 1) * ROW_GAP
@@ -744,6 +746,7 @@ local function buildBagGui(): ScreenGui
 	panel.Parent = gui
 
 	bagPanel = panel
+	bagGui = gui
 
 	-- Shadow behind the panel.
 	local shadow = Instance.new("Frame")
@@ -925,10 +928,16 @@ end
     @summary  Slide the bag panel onto the screen.
 ]]
 local function showBag()
+	if not gameStateController or not gameStateController:IsInGame() then
+		return
+	end
 	if not bagPanel or isOpen then
 		return
 	end
 	isOpen = true
+	if bagGui then
+		bagGui.Enabled = true
+	end
 
 	for i, resourceName in ipairs(ROW_ORDER) do
 		local entry = rowEntries[resourceName]
@@ -959,6 +968,9 @@ local function hideBag()
 		return
 	end
 	isOpen = false
+	if bagGui then
+		bagGui.Enabled = false
+	end
 
 	hideTooltip()
 
@@ -1105,9 +1117,10 @@ function InventoryController:KnitInit()
 end
 
 function InventoryController:KnitStart()
+	gameStateController = Knit.GetController("GameStateController")
 	local inventoryService = Knit.GetService("InventoryService")
 
-	local ok, err = pcall(function()
+	local function onGameStarted()
 		wireInteractions()
 		watchBagTool()
 
@@ -1118,6 +1131,16 @@ function InventoryController:KnitStart()
 		local snapshot = inventoryService.GetSnapshot()
 		if snapshot then
 			updateDisplay(snapshot.resources, snapshot.capacity)
+		end
+	end
+
+	local ok, err = pcall(function()
+		if gameStateController and gameStateController:IsInGame() then
+			onGameStarted()
+		else
+			if gameStateController then
+				gameStateController.GameStarted:Connect(onGameStarted)
+			end
 		end
 	end)
 

@@ -149,6 +149,7 @@ local function buildWarning(): TextLabel
 	gui.Name = "CampfireWarningGui"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
+	gui.Enabled = false
 	gui.Parent = playerGui
 
 	local label = Instance.new("TextLabel")
@@ -165,6 +166,7 @@ local function buildWarning(): TextLabel
 	label.Parent = gui
 
 	warningLabel = label
+	warningGui = gui
 	return label
 end
 
@@ -378,6 +380,7 @@ local function buildGui()
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
 	gui.DisplayOrder = 2
+	gui.Enabled = false
 	gui.Parent = playerGui
 	campfireGui = gui
 
@@ -569,8 +572,28 @@ end
 function CampfireController:KnitStart()
 	buildGui()
 	buildLevelUpBanner()
+	buildWarning()
 
+	local gameStateController = Knit.GetController("GameStateController")
 	local campfireService = Knit.GetService("CampfireService")
+
+	local function onGameStarted()
+		if campfireGui then
+			campfireGui.Enabled = true
+		end
+		if warningGui then
+			warningGui.Enabled = true
+		end
+	end
+
+	if gameStateController and gameStateController:IsInGame() then
+		onGameStarted()
+	else
+		if gameStateController then
+			gameStateController.GameStarted:Connect(onGameStarted)
+		end
+	end
+
 	campfireService.FuelChanged:Connect(onFuelChanged)
 	campfireService.LevelChanged:Connect(onLevelChanged)
 	campfireService.LevelUp:Connect(onLevelUp)

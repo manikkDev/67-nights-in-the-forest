@@ -44,6 +44,7 @@ local charJanitor = Janitor.new()
 local lastChopTime = 0
 local swingAnimationId: string? = nil
 local cachedAnimTrack: AnimationTrack? = nil
+local gameStateController: any? = nil
 
 -- // FUNCTIONS // --
 
@@ -146,6 +147,9 @@ end
 local CarryController = require(script.Parent.CarryController)
 
 local function onToolActivated()
+	if not gameStateController or not gameStateController:IsInGame() then
+		return
+	end
 	if CarryController.IsDragging() or CarryController.GetHoveredModel() then
 		return
 	end
@@ -203,13 +207,25 @@ end
 -- // INITIALIZATION // --
 
 function HarvestController:KnitStart()
+	gameStateController = Knit.GetController("GameStateController")
 	local harvestService = Knit.GetService("HarvestService")
 	harvestService.TreeChopped:Connect(function()
 		shakeCamera()
 	end)
 
 	local player = Players.LocalPlayer
-	watchForAxe(player)
+
+	local function onGameStarted()
+		watchForAxe(player)
+	end
+
+	if gameStateController and gameStateController:IsInGame() then
+		onGameStarted()
+	else
+		if gameStateController then
+			gameStateController.GameStarted:Connect(onGameStarted)
+		end
+	end
 
 	print("[HarvestController] Initialised — chop feedback wired")
 end

@@ -36,6 +36,8 @@ local nightLabelGui: ScreenGui? = nil
 local dayTextLabel: TextLabel? = nil
 local nightTextLabel: TextLabel? = nil
 local currentDayNumber = 1
+local gameStateController: any? = nil
+local labelsEnabled = false
 
 -- // FUNCTIONS // --
 
@@ -78,7 +80,7 @@ end
     @summary  Show the Day GUI, hide the Night GUI.
 ]]
 local function showDay()
-	if dayLabelGui then dayLabelGui.Enabled = true end
+	if dayLabelGui then dayLabelGui.Enabled = labelsEnabled end
 	if nightLabelGui then nightLabelGui.Enabled = false end
 	if dayTextLabel then dayTextLabel.Visible = true end
 	if nightTextLabel then nightTextLabel.Visible = false end
@@ -90,7 +92,7 @@ end
 ]]
 local function showNight()
 	if dayLabelGui then dayLabelGui.Enabled = false end
-	if nightLabelGui then nightLabelGui.Enabled = true end
+	if nightLabelGui then nightLabelGui.Enabled = labelsEnabled end
 	if dayTextLabel then dayTextLabel.Visible = false end
 	if nightTextLabel then nightTextLabel.Visible = true end
 	updateLabelText("Night")
@@ -107,12 +109,35 @@ function HudController:KnitInit()
 	dayTextLabel = createPhaseLabel(dayLabelGui)
 	nightTextLabel = createPhaseLabel(nightLabelGui)
 
-	-- Start in Day phase
-	showDay()
+	-- Start in Day phase but keep labels hidden until the player spawns.
+	dayLabelGui.Enabled = false
+	nightLabelGui.Enabled = false
+	if dayTextLabel then dayTextLabel.Visible = false end
+	if nightTextLabel then nightTextLabel.Visible = false end
 end
 
 function HudController:KnitStart()
+	gameStateController = Knit.GetController("GameStateController")
 	local timeService = Knit.GetService("TimeService")
+
+	local function enableLabels()
+		labelsEnabled = true
+		if dayLabelGui then dayLabelGui.Enabled = true end
+		if nightLabelGui then nightLabelGui.Enabled = false end
+		if dayTextLabel then dayTextLabel.Visible = true end
+		if nightTextLabel then nightTextLabel.Visible = false end
+	end
+
+	if gameStateController and gameStateController:IsInGame() then
+		enableLabels()
+	else
+		if gameStateController then
+			gameStateController.GameStarted:Connect(function()
+				enableLabels()
+				showDay()
+			end)
+		end
+	end
 
 	timeService.DayStarted:Connect(function()
 		currentDayNumber += 1

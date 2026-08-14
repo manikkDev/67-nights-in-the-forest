@@ -24,14 +24,18 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local Signal = require(ReplicatedStorage.Packages.Signal)
 
 -- | Objects | --
 local SpawnService = Knit.CreateService({
 	Name = "SpawnService",
 	Client = {
 		RequestSpawn = Knit.CreateSignal(),
+		PlayerSpawned = Knit.CreateSignal(),
 	},
 })
+
+SpawnService.PlayerSpawned = Signal.new()
 
 -- | Configuration | --
 local SPAWN_RADIUS = 12
@@ -81,6 +85,8 @@ function SpawnService:SpawnPlayer(player: Player)
 
 	spawnedPlayers[player] = true
 	print("[SpawnService] Teleported", player.Name, "to base-map")
+	SpawnService.Client.PlayerSpawned:Fire(player)
+	SpawnService.PlayerSpawned:Fire(player)
 end
 
 --[[

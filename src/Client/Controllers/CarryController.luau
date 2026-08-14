@@ -47,6 +47,7 @@ local HOVER_EMISSIVE = Color3.fromRGB(160, 220, 255)
 
 -- | State Management | --
 local localPlayer = Players.LocalPlayer
+local gameStateController: any? = nil
 local harvestService: any? = nil
 local forageService: any? = nil
 local inventoryService: any? = nil
@@ -325,6 +326,11 @@ end
     @summary  Per-frame hover check so items highlight as the cursor moves.
 ]]
 local function updateHover()
+	if not gameStateController or not gameStateController:IsInGame() then
+		clearHover()
+		return
+	end
+
 	if draggingModel and draggingResourceName then
 		if not draggingModel.Parent then
 			stopDrag()
@@ -443,6 +449,9 @@ local function onInputBegan(input: InputObject, gameProcessed: boolean)
 	if gameProcessed then
 		return
 	end
+	if not gameStateController or not gameStateController:IsInGame() then
+		return
+	end
 
 	-- LMB drag start.
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -515,6 +524,7 @@ function CarryController:KnitStart()
 	harvestService = Knit.GetService("HarvestService")
 	forageService = Knit.GetService("ForageService")
 	inventoryService = Knit.GetService("InventoryService")
+	gameStateController = Knit.GetController("GameStateController")
 
 	UserInputService.InputBegan:Connect(onInputBegan)
 	UserInputService.InputEnded:Connect(onInputEnded)

@@ -72,6 +72,7 @@ local MUSHROOM_ASSET_NAME = "Mushroom"
 -- | State Management | --
 local playerDataService: any? = nil
 local worldService: any? = nil
+local spawnService: any? = nil
 local bagTemplate: Tool? = nil
 local mushroomSource: Model? = nil
 local mushroomBaseOffset: number? = nil
@@ -1039,6 +1040,9 @@ local function giveCarryBag(player: Player)
 	if not bagTemplate then
 		return
 	end
+	if spawnService and not spawnService:IsPlayerSpawned(player) then
+		return
+	end
 
 	local data = getPlayerData(player)
 	if data and data.Inventory and data.Inventory.HasBag == false then
@@ -1085,6 +1089,7 @@ end
 function InventoryService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 	worldService = Knit.GetService("WorldService")
+	spawnService = Knit.GetService("SpawnService")
 
 	bagTemplate = buildCarryBagTool()
 
@@ -1092,6 +1097,14 @@ function InventoryService:KnitStart()
 		giveCarryBag(player)
 		broadcastSnapshot(player)
 	end)
+
+	-- Give bag when player teleports to the game map.
+	if spawnService then
+		spawnService.PlayerSpawned:Connect(function(player: Player)
+			giveCarryBag(player)
+			broadcastSnapshot(player)
+		end)
+	end
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		if getPlayerData(player) then

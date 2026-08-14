@@ -45,6 +45,7 @@ local healthFill: Frame? = nil
 local hungerFill: Frame? = nil
 local healthValueLabel: TextLabel? = nil
 local hungerValueLabel: TextLabel? = nil
+local survivalGui: ScreenGui? = nil
 
 -- // FUNCTIONS // --
 
@@ -169,7 +170,9 @@ local function buildSurvivalGui()
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
 	gui.DisplayOrder = 2
+	gui.Enabled = false
 	gui.Parent = playerGui
+	survivalGui = gui
 
 	local panel = Instance.new("Frame")
 	panel.Name = "SurvivalPanel"
@@ -240,7 +243,23 @@ function HungerController:KnitInit()
 end
 
 function HungerController:KnitStart()
+	local gameStateController = Knit.GetController("GameStateController")
 	local hungerService = Knit.GetService("HungerService")
+
+	local function showGui()
+		if survivalGui then
+			survivalGui.Enabled = true
+		end
+	end
+
+	if gameStateController and gameStateController:IsInGame() then
+		showGui()
+	else
+		if gameStateController then
+			gameStateController.GameStarted:Connect(showGui)
+		end
+	end
+
 	hungerService.HungerChanged:Connect(function(hunger, maxHunger)
 		setFillAndLabel(hungerFill, hungerValueLabel, hunger, maxHunger, HUNGER_COLOR)
 	end)

@@ -48,8 +48,10 @@ local UNSAFE_TINT = Color3.fromRGB(180, 190, 220)
 
 -- | State Management | --
 local colorCorrection: ColorCorrectionEffect? = nil
+local warningGui: ScreenGui? = nil
 local warningLabel: TextLabel? = nil
 local worldService: any? = nil
+local gameStateController: any? = nil
 local campfirePosition: Vector3? = nil
 local safeZoneRadius = 0
 local isNight = false
@@ -86,10 +88,19 @@ end
     @returns  TextLabel
 ]]
 local function buildWarningLabel(): TextLabel
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local existing = playerGui:FindFirstChild("CampSafetyGui")
+	if existing then
+		existing:Destroy()
+	end
+
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "CampSafetyGui"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = true
+	gui.Enabled = false
+	gui.Parent = playerGui
+	warningGui = gui
 
 	local label = Instance.new("TextLabel")
 	label.Name = "WarningLabel"
@@ -104,7 +115,6 @@ local function buildWarningLabel(): TextLabel
 	label.TextTransparency = 1
 	label.Parent = gui
 
-	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	return label
 end
 
@@ -226,11 +236,10 @@ function CampSafetyController:KnitInit()
 end
 
 function CampSafetyController:KnitStart()
+	gameStateController = Knit.GetController("GameStateController")
 	worldService = Knit.GetService("WorldService")
 	local campfireService = Knit.GetService("CampfireService")
 	local timeService = Knit.GetService("TimeService")
-
-	campfirePosition = worldService:GetCampfirePosition()
 
 	campfireService.SafeZoneChanged:Connect(function(radius, isActive)
 		isFireActive = isActive
@@ -257,13 +266,24 @@ function CampSafetyController:KnitStart()
 		isNight = phaseState.Value == "Night"
 	end
 
-	RunService.Heartbeat:Connect(onHeartbeat)
+	local function onGameStarted()
+		campfirePosition = worldService:GetCampfirePosition()
+		if warningGui then
+			warningGui.Enabled = true
+		end
+		RunService.Heartbeat:Connect(onHeartbeat)
+		task.defer(function()
+			onHeartbeat(CHECK_INTERVAL)
+		end)
+	end
 
-	-- Force an immediate state evaluation so the initial warning/darkness
-	-- reflects the values we just fetched.
-	task.defer(function()
-		onHeartbeat(CHECK_INTERVAL)
-	end)
+	if gameStateController and gameStateController:IsInGame() then
+		onGameStarted()
+	else
+		if gameStateController then
+			gameStateController.GameStarted:Connect(onGameStarted)
+		end
+	end
 
 	print("[CampSafetyController] Initialised — safe zone warning active")
 end
