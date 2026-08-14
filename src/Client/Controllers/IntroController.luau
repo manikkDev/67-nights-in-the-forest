@@ -169,38 +169,79 @@ local function unlockCamera()
 	camera.CameraType = Enum.CameraType.Custom
 end
 
-local function formatTimer(seconds: number): string
-	seconds = math.max(0, math.floor(seconds + 0.5))
-	local minutes = math.floor(seconds / 60)
-	local remain = seconds % 60
-	return string.format("%02d:%02d", minutes, remain)
+local function formatCountdown(seconds: number): string
+	return tostring(math.max(0, math.floor(seconds + 0.5)))
 end
 
-local function makeLabel(parent: Instance, name: string, text: string, size: number, color: Color3, yScale: number, yOffset: number, height: number): TextLabel
+local function makeLabel(parent: Instance, name: string, text: string, size: number, color: Color3, position: UDim2, sizeDim: UDim2): TextLabel
 	local label = Instance.new("TextLabel")
 	label.Name = name
 	label.BackgroundTransparency = 1
-	label.Size = UDim2.new(1, -40, 0, height)
-	label.Position = UDim2.new(0, 20, yScale, yOffset)
+	label.Size = sizeDim
+	label.Position = position
 	label.Font = Enum.Font.GothamBlack
 	label.TextSize = size
 	label.TextColor3 = color
 	label.Text = text
 	label.TextWrapped = true
-	label.ZIndex = 5
+	label.ZIndex = 10
 	label.Parent = parent
 	return label
 end
 
-local function applyDeerImage(image: ImageLabel, assetId: string)
-	if typeof(assetId) == "string" and assetId ~= "" then
-		image.Image = assetId
-		image.ImageColor3 = Color3.new(1, 1, 1)
-		image.ImageTransparency = 0.15
-	else
-		image.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
-		image.ImageColor3 = Color3.fromRGB(18, 18, 18)
-		image.ImageTransparency = 0.35
+local function makeButton(parent: Instance, name: string, text: string, textSize: number, color: Color3, position: UDim2, sizeDim: UDim2, radius: number?): TextButton
+	local button = Instance.new("TextButton")
+	button.Name = name
+	button.Text = text
+	button.TextColor3 = Color3.new(1, 1, 1)
+	button.TextSize = textSize
+	button.Font = Enum.Font.GothamBlack
+	button.AutoButtonColor = true
+	button.BackgroundColor3 = color
+	button.BackgroundTransparency = 0
+	button.Position = position
+	button.Size = sizeDim
+	button.ZIndex = 10
+	button.Parent = parent
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, radius or 8)
+	corner.Parent = button
+	return button
+end
+
+local function makeCircleButton(parent: Instance, name: string, text: string, color: Color3, position: UDim2, sizeDim: UDim2): TextButton
+	local button = Instance.new("TextButton")
+	button.Name = name
+	button.Text = text
+	button.TextColor3 = Color3.new(1, 1, 1)
+	button.TextSize = 24
+	button.Font = Enum.Font.GothamBlack
+	button.AutoButtonColor = true
+	button.BackgroundColor3 = color
+	button.BackgroundTransparency = 0
+	button.Position = position
+	button.Size = sizeDim
+	button.ZIndex = 10
+	button.Parent = parent
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(1, 0)
+	corner.Parent = button
+	return button
+end
+
+local function updateSizeButtons()
+	for i, button in ipairs(sizeButtons) do
+		if i == selectedSize then
+			button.BackgroundColor3 = SIZE_SELECTED
+			button.TextColor3 = Color3.new(0.1, 0.1, 0.1)
+		else
+			button.BackgroundColor3 = if i == 1 then SIZE_BTN else SIZE_DISABLED
+			button.TextColor3 = if i == 1 then Color3.new(1, 1, 1) else Color3.new(0.6, 0.6, 0.6)
+		end
+	end
+	if createButton then
+		createButton.Text = "Create"
+		createButton.BackgroundColor3 = CREATE
 	end
 end
 
@@ -215,101 +256,93 @@ local function buildGui()
 	gui.Parent = playerGui
 	screenGui = gui
 
-	local title = Instance.new("Frame")
-	title.Name = "TitleFrame"
-	title.Size = UDim2.fromScale(1, 1)
-	title.BackgroundColor3 = Color3.new(0, 0, 0)
-	title.BorderSizePixel = 0
-	title.Visible = false
-	title.ZIndex = 10
-	title.Parent = gui
-	titleFrame = title
+	local panel = Instance.new("Frame")
+	panel.Name = "CreatePartyFrame"
+	panel.AnchorPoint = Vector2.new(0.5, 0.5)
+	panel.Position = UDim2.fromScale(0.5, 0.5)
+	panel.Size = UDim2.fromOffset(420, 360)
+	panel.BackgroundColor3 = PANEL
+	panel.BackgroundTransparency = PANEL_ALPHA
+	panel.BorderSizePixel = 0
+	panel.Visible = false
+	panel.ZIndex = 20
+	panel.Parent = gui
+	createPartyFrame = panel
+	local panelCorner = Instance.new("UICorner")
+	panelCorner.CornerRadius = UDim.new(0, 16)
+	panelCorner.Parent = panel
 
-	local titleDeer = Instance.new("ImageLabel")
-	titleDeer.Name = "Deer"
-	titleDeer.AnchorPoint = Vector2.new(0.5, 0.5)
-	titleDeer.Position = UDim2.fromScale(0.5, 0.42)
-	titleDeer.Size = UDim2.fromOffset(420, 420)
-	titleDeer.BackgroundTransparency = 1
-	titleDeer.ScaleType = Enum.ScaleType.Fit
-	titleDeer.ZIndex = 11
-	titleDeer.Parent = title
-	applyDeerImage(titleDeer, IntroAssets.TitleDeerImage)
+	local close = makeCircleButton(panel, "CloseButton", "X", CLOSE,
+		UDim2.new(1, -12, 0, 12), UDim2.fromOffset(36, 36))
+	close.AnchorPoint = Vector2.new(1, 0)
 
-	makeLabel(title, "GameTitle", "67 NIGHTS", 64, CREAM, 0.58, 0, 72).Font = Enum.Font.GothamBlack
-	makeLabel(title, "GameSubtitle", "IN THE FOREST", 28, MUTED, 0.58, 68, 36).Font = Enum.Font.Gotham
+	local title = makeLabel(panel, "CreatePartyTitle", "Create Party", 28, HANDWRITTEN,
+		UDim2.fromScale(0.5, 0.06), UDim2.new(0, 260, 0, 40))
+	title.AnchorPoint = Vector2.new(0.5, 0)
+	title.Font = Enum.Font.Gotham
 
-	local waiting = Instance.new("Frame")
-	waiting.Name = "WaitingFrame"
-	waiting.Size = UDim2.fromScale(1, 1)
-	waiting.BackgroundColor3 = Color3.new(0, 0, 0)
-	waiting.BorderSizePixel = 0
-	waiting.Visible = false
-	waiting.ZIndex = 20
-	waiting.Parent = gui
-	waitingFrame = waiting
+	local partySize = makeLabel(panel, "PartySizeTitle", "Party Size", 36, BODY,
+		UDim2.fromScale(0.5, 0.22), UDim2.new(0, 260, 0, 44))
+	partySize.AnchorPoint = Vector2.new(0.5, 0)
 
-	local waitingDeer = Instance.new("ImageLabel")
-	waitingDeer.Name = "Deer"
-	waitingDeer.AnchorPoint = Vector2.new(0.5, 0)
-	waitingDeer.Position = UDim2.new(0.5, 0, 0, 24)
-	waitingDeer.Size = UDim2.fromOffset(180, 180)
-	waitingDeer.BackgroundTransparency = 1
-	waitingDeer.ScaleType = Enum.ScaleType.Fit
-	waitingDeer.ZIndex = 21
-	waitingDeer.Parent = waiting
-	applyDeerImage(waitingDeer, IntroAssets.WaitingDeerImage)
+	local sizeHolder = Instance.new("Frame")
+	sizeHolder.Name = "SizeHolder"
+	sizeHolder.AnchorPoint = Vector2.new(0.5, 0.5)
+	sizeHolder.Position = UDim2.fromScale(0.5, 0.4)
+	sizeHolder.Size = UDim2.fromOffset(280, 56)
+	sizeHolder.BackgroundTransparency = 1
+	sizeHolder.ZIndex = 22
+	sizeHolder.Parent = panel
+	local sizeList = Instance.new("UIListLayout")
+	sizeList.FillDirection = Enum.FillDirection.Horizontal
+	sizeList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	sizeList.VerticalAlignment = Enum.VerticalAlignment.Center
+	sizeList.Padding = UDim.new(0, 12)
+	sizeList.Parent = sizeHolder
 
-	makeLabel(waiting, "TheDeer", "THE DEER", 42, CREAM, 0, 200, 48)
-	makeLabel(waiting, "WaitingText", "Waiting for players...", 22, MUTED, 0, 248, 28).Font = Enum.Font.Gotham
+	for i = 1, 5 do
+		local btn = makeButton(sizeHolder, "Size" .. i, tostring(i), 22,
+			if i == 1 then SIZE_BTN else SIZE_DISABLED,
+			UDim2.new(), UDim2.fromOffset(48, 48), 8)
+		btn.LayoutOrder = i
+		table.insert(sizeButtons, btn)
+		if i ~= 1 then
+			btn.AutoButtonColor = false
+			btn.Active = false
+		end
+	end
 
-	local timer = Instance.new("TextLabel")
-	timer.Name = "Timer"
-	timer.BackgroundTransparency = 1
-	timer.AnchorPoint = Vector2.new(0.5, 0.5)
-	timer.Position = UDim2.fromScale(0.5, 0.52)
-	timer.Size = UDim2.fromOffset(420, 120)
-	timer.Font = Enum.Font.GothamBlack
-	timer.TextSize = 96
-	timer.TextColor3 = CREAM
-	timer.Text = "59:59"
-	timer.ZIndex = 22
-	timer.Parent = waiting
-	timerLabel = timer
+	createButton = makeButton(panel, "CreateButton", "Create", 24, CREATE,
+		UDim2.fromScale(0.5, 0.58), UDim2.fromOffset(320, 52), 10)
+	createButton.AnchorPoint = Vector2.new(0.5, 0)
 
-	local start = Instance.new("TextButton")
-	start.Name = "StartButton"
-	start.AnchorPoint = Vector2.new(0.5, 1)
-	start.Position = UDim2.new(0.5, 0, 1, -110)
-	start.Size = UDim2.fromOffset(220, 52)
-	start.BackgroundColor3 = GREEN
-	start.BorderSizePixel = 0
-	start.Font = Enum.Font.GothamBlack
-	start.TextSize = 22
-	start.TextColor3 = Color3.new(1, 1, 1)
-	start.Text = "START"
-	start.AutoButtonColor = true
-	start.ZIndex = 23
-	start.Parent = waiting
-	local startCorner = Instance.new("UICorner")
-	startCorner.CornerRadius = UDim.new(0, 6)
-	startCorner.Parent = start
-	startButton = start
+	local customize = makeButton(panel, "CustomizeButton", "customize", 18, CUSTOMIZE,
+		UDim2.fromScale(0.5, 0.75), UDim2.fromOffset(140, 32), 8)
+	customize.AnchorPoint = Vector2.new(0.5, 0)
 
-	local roster = Instance.new("Frame")
-	roster.Name = "Roster"
-	roster.AnchorPoint = Vector2.new(0.5, 1)
-	roster.Position = UDim2.new(0.5, 0, 1, -24)
-	roster.Size = UDim2.fromOffset(360, 70)
-	roster.BackgroundTransparency = 1
-	roster.ZIndex = 23
-	roster.Parent = waiting
-	local list = Instance.new("UIListLayout")
-	list.FillDirection = Enum.FillDirection.Vertical
-	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	list.Padding = UDim.new(0, 4)
-	list.Parent = roster
-	rosterHolder = roster
+	countdownLabel = makeLabel(panel, "CountdownLabel", "5", 64, CREAM,
+		UDim2.fromScale(0.5, 0.58), UDim2.new(0, 320, 0, 80))
+	countdownLabel.AnchorPoint = Vector2.new(0.5, 0)
+	countdownLabel.Visible = false
+
+	local story = Instance.new("Frame")
+	story.Name = "StoryFrame"
+	story.Size = UDim2.fromScale(1, 1)
+	story.BackgroundColor3 = Color3.new(0, 0, 0)
+	story.BorderSizePixel = 0
+	story.BackgroundTransparency = 1
+	story.Visible = false
+	story.ZIndex = 30
+	story.Parent = gui
+	storyFrame = story
+
+	local story1 = makeLabel(story, "StoryLine1", "• Survive 99 Nights", 48, STORY,
+		UDim2.fromScale(0.1, 0.42), UDim2.fromScale(0.8, 0.12))
+	story1.TextXAlignment = Enum.TextXAlignment.Center
+
+	local story2 = makeLabel(story, "StoryLine2", "• Finding the Missing Children will help", 32, STORY,
+		UDim2.fromScale(0.1, 0.55), UDim2.fromScale(0.8, 0.1))
+	story2.TextXAlignment = Enum.TextXAlignment.Center
 
 	local day = Instance.new("Frame")
 	day.Name = "DayFrame"
@@ -317,22 +350,16 @@ local function buildGui()
 	day.BackgroundColor3 = Color3.new(0, 0, 0)
 	day.BorderSizePixel = 0
 	day.Visible = false
-	day.ZIndex = 30
+	day.ZIndex = 35
 	day.Parent = gui
 	dayFrame = day
 
-	local dayLabel = Instance.new("TextLabel")
-	dayLabel.Name = "DayText"
-	dayLabel.BackgroundTransparency = 1
-	dayLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-	dayLabel.Position = UDim2.fromScale(0.5, 0.5)
-	dayLabel.Size = UDim2.fromOffset(400, 90)
-	dayLabel.Font = Enum.Font.Gotham
-	dayLabel.TextSize = 54
-	dayLabel.TextColor3 = CREAM
-	dayLabel.Text = "Day 1"
-	dayLabel.ZIndex = 31
-	dayLabel.Parent = day
+	local dayText = makeLabel(day, "DayText", "Day 1", 54, CREAM,
+		UDim2.fromScale(0.5, 0.5), UDim2.fromOffset(400, 90))
+	dayText.AnchorPoint = Vector2.new(0.5, 0.5)
+	dayText.Font = Enum.Font.Gotham
+
+	updateSizeButtons()
 end
 
 local function destroyTitle()
