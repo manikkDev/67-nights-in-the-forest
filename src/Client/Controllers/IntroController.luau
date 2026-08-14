@@ -20,7 +20,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 -- | Modules | --
@@ -58,7 +57,6 @@ local janitor = Janitor.new()
 local waitingJanitor = Janitor.new()
 local screenGui: ScreenGui? = nil
 local createPartyFrame: Frame? = nil
-local countdownFrame: Frame? = nil
 local storyFrame: Frame? = nil
 local dayFrame: Frame? = nil
 local countdownLabel: TextLabel? = nil
