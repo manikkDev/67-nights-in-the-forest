@@ -21,6 +21,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
+local StarterGui = game:GetService("StarterGui")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -94,6 +95,18 @@ local function fadeGui(guiObject: GuiObject, transparency: number, duration: num
 	tween(guiObject, TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
 		BackgroundTransparency = transparency,
 	})
+
+	if guiObject:IsA("TextLabel") or guiObject:IsA("TextButton") then
+		tween(guiObject, TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+			TextTransparency = transparency,
+			TextStrokeTransparency = math.clamp(transparency + 0.4, 0, 1),
+		})
+	elseif guiObject:IsA("ImageLabel") then
+		tween(guiObject, TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+			ImageTransparency = transparency,
+		})
+	end
+
 	for _, desc in ipairs(guiObject:GetDescendants()) do
 		if desc:IsA("TextLabel") or desc:IsA("TextButton") then
 			tween(desc, TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
@@ -384,20 +397,25 @@ local function buildTitleScreen()
 
 	local header = makeLabel(title, "TitleHeader",
 		"THIS GAME IS BASED ON A TRUE STORY. SOME DETAILS HAVE BEEN CHANGED",
-		26, STORY_HEADER,
-		UDim2.fromScale(0.5, 0.06), UDim2.new(0.9, 0, 0, 60))
+		30, STORY_HEADER,
+		UDim2.fromScale(0.5, 0.05), UDim2.new(0.9, 0, 0, 70))
 	header.AnchorPoint = Vector2.new(0.5, 0)
 	header.TextXAlignment = Enum.TextXAlignment.Center
 	header.TextYAlignment = Enum.TextYAlignment.Top
 	header.TextWrapped = true
-	header.ZIndex = 6
-	header.Font = Enum.Font.GothamBlack
+	header.ZIndex = 10
+	header.Font = Enum.Font.Bangers
+	local headerStroke = Instance.new("UIStroke")
+	headerStroke.Color = Color3.new(0, 0, 0)
+	headerStroke.Thickness = 2
+	headerStroke.Transparency = 0.5
+	headerStroke.Parent = header
 
 	local panelsHolder = Instance.new("Frame")
 	panelsHolder.Name = "PanelsHolder"
 	panelsHolder.AnchorPoint = Vector2.new(0.5, 0.5)
 	panelsHolder.Position = UDim2.fromScale(0.5, 0.52)
-	panelsHolder.Size = UDim2.new(0.95, 0, 0.6, 0)
+	panelsHolder.Size = UDim2.new(0.95, 0, 0.65, 0)
 	panelsHolder.BackgroundTransparency = 1
 	panelsHolder.BorderSizePixel = 0
 	panelsHolder.ZIndex = 6
@@ -408,7 +426,7 @@ local function buildTitleScreen()
 	holderList.FillDirection = Enum.FillDirection.Horizontal
 	holderList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	holderList.VerticalAlignment = Enum.VerticalAlignment.Center
-	holderList.Padding = UDim.new(0, 14)
+	holderList.Padding = UDim.new(0, 12)
 	holderList.SortOrder = Enum.SortOrder.LayoutOrder
 	holderList.Parent = panelsHolder
 
@@ -418,7 +436,7 @@ local function buildTitleScreen()
 	for i = 1, 4 do
 		local panel = Instance.new("Frame")
 		panel.Name = "StoryPanel" .. i
-		panel.Size = UDim2.new(0.22, 0, 0.5, 0)
+		panel.Size = UDim2.new(0.18, 0, 0.62, 0)
 		panel.BackgroundColor3 = STORY_PANEL
 		panel.BackgroundTransparency = 0
 		panel.BorderSizePixel = 0
@@ -432,9 +450,9 @@ local function buildTitleScreen()
 		corner.Parent = panel
 
 		local stroke = Instance.new("UIStroke")
-		stroke.Color = Color3.fromRGB(70, 70, 70)
+		stroke.Color = Color3.fromRGB(60, 60, 60)
 		stroke.Thickness = 1
-		stroke.Transparency = 0.5
+		stroke.Transparency = 0.4
 		stroke.Parent = panel
 
 		local pad = Instance.new("UIPadding")
@@ -448,12 +466,14 @@ local function buildTitleScreen()
 		list.FillDirection = Enum.FillDirection.Vertical
 		list.HorizontalAlignment = Enum.HorizontalAlignment.Center
 		list.VerticalAlignment = Enum.VerticalAlignment.Top
-		list.Padding = UDim.new(0, 6)
+		list.Padding = UDim.new(0, 4)
+		list.SortOrder = Enum.SortOrder.LayoutOrder
 		list.Parent = panel
 
 		local image = Instance.new("ImageLabel")
 		image.Name = "Image"
-		image.Size = UDim2.new(1, 0, 0.65, 0)
+		image.LayoutOrder = 1
+		image.Size = UDim2.new(1, 0, 0.7, 0)
 		image.BackgroundColor3 = STORY_PLACEHOLDER
 		image.BackgroundTransparency = 0
 		image.BorderSizePixel = 0
@@ -468,19 +488,43 @@ local function buildTitleScreen()
 
 		local caption = makeLabel(panel, "Caption",
 			typeof(storyPanels[i]) == "table" and storyPanels[i].caption or "",
-			13, STORY_CAPTION,
-			UDim2.new(), UDim2.new(1, 0, 0.35, 0))
+			14, STORY_CAPTION,
+			UDim2.new(), UDim2.new(1, 0, 0.28, 0))
+		caption.LayoutOrder = 2
 		caption.ZIndex = 8
 		caption.TextWrapped = true
 		caption.TextXAlignment = Enum.TextXAlignment.Center
 		caption.TextYAlignment = Enum.TextYAlignment.Center
 		caption.Font = Enum.Font.Gotham
+		caption.RichText = true
 	end
 
-	local play = makeButton(title, "PlayButton", "PLAY", 28, PLAY,
-		UDim2.new(0.5, 0, 1, -80), UDim2.fromOffset(260, 52), 10)
+	local play = Instance.new("TextButton")
+	play.Name = "PlayButton"
+	play.Text = "PLAY"
+	play.TextColor3 = Color3.new(1, 1, 1)
+	play.TextSize = 46
+	play.Font = Enum.Font.Bangers
+	play.TextStrokeColor3 = Color3.new(0, 0, 0)
+	play.TextStrokeTransparency = 1
+	play.AutoButtonColor = true
+	play.BackgroundColor3 = PLAY
+	play.BackgroundTransparency = 0
+	play.Position = UDim2.new(0.5, 0, 1, -70)
+	play.Size = UDim2.fromOffset(280, 64)
 	play.AnchorPoint = Vector2.new(0.5, 0.5)
 	play.ZIndex = 10
+	play.Parent = title
+
+	local playCorner = Instance.new("UICorner")
+	playCorner.CornerRadius = UDim.new(0, 12)
+	playCorner.Parent = play
+
+	local playStroke = Instance.new("UIStroke")
+	playStroke.Color = Color3.fromRGB(0, 0, 0)
+	playStroke.Thickness = 2
+	playStroke.Transparency = 0.6
+	playStroke.Parent = play
 end
 
 local function showTitleScreen()
