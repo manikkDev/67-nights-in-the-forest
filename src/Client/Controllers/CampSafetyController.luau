@@ -55,6 +55,7 @@ local gameStateController: any = nil
 local campfireService: any = nil
 local timeService: any = nil
 local campfirePosition: Vector3? = nil
+local campfirePositionPending = false
 local safeZoneRadius = 0
 local isNight = false
 local isFireActive = false
@@ -226,11 +227,17 @@ local function onHeartbeat(dt: number)
 		return
 	end
 
-	if not campfirePosition then
-		campfirePosition = worldService:GetCampfirePosition()
-	end
-	if not campfirePosition then
-		updateVisuals("fireOut")
+	if not campfirePosition or typeof(campfirePosition) ~= "Vector3" then
+		if not campfirePositionPending then
+			campfirePositionPending = true
+			worldService:GetCampfirePosition():andThen(function(pos: Vector3?)
+				if pos then
+					campfirePosition = pos
+				end
+			end):catch(function() end):finally(function()
+				campfirePositionPending = false
+			end)
+		end
 		return
 	end
 
@@ -291,15 +298,12 @@ function CampSafetyController:KnitStart()
 	end
 
 	-- Fallback: request the current safe-zone state in case the initial signal
-	-- was fired before this controller connected. Uses the correct client call
-	-- syntax so the remote runs on the local player.
-	local ok, radius, lit = pcall(function()
-		return campfireService:GetSafeZoneInfo()
-	end)
-	if ok then
+	-- was fired before this controller connected. ServicePromises is enabled,
+	-- so GetSafeZoneInfo returns a Promise — use :andThen to access the result.
+	campfireService:GetSafeZoneInfo():andThen(function(radius: any, lit: any)
 		isFireActive = lit == true
 		safeZoneRadius = if isFireActive then radius or 0 else 0
-	end
+	end):catch(function() end)
 
 	-- Observe the authoritative phase property so the client can't get stuck
 	-- in the wrong day/night state if a DayStarted/NightStarted event is missed.
@@ -317,7 +321,12 @@ function CampSafetyController:KnitStart()
 	end
 
 	local function onGameStarted()
-		campfirePosition = worldService:GetCampfirePosition()
+		-- ServicePromises is enabled, so GetCampfirePosition returns a Promise.
+		worldService:GetCampfirePosition():andThen(function(pos: Vector3?)
+			if pos then
+				campfirePosition = pos
+			end
+		end):catch(function() end)
 		if warningGui then
 			warningGui.Enabled = true
 		end

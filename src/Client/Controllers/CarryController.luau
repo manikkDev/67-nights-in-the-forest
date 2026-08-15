@@ -421,8 +421,11 @@ local function startDrag(model: Model, resourceName: string): boolean
 		return false
 	end
 
-	local ok = inventoryService:RequestDragStart(model)
-	if not ok then
+	-- ServicePromises is enabled, so RequestDragStart returns a Promise.
+	-- Use :await() to get the synchronous boolean result.
+	local promise = inventoryService:RequestDragStart(model)
+	local ok, result = promise:await()
+	if not ok or not result then
 		return false
 	end
 
