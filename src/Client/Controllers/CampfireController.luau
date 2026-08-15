@@ -134,10 +134,10 @@ local function onHeartbeat(dt: number)
 	-- so the billboard range and fire-out warning can't get stuck on stale data.
 	if campfireService then
 		if campfireService.SafeZoneRadius then
-			currentSafeZoneRadius = campfireService.SafeZoneRadius.Value or 0
+			currentSafeZoneRadius = campfireService.SafeZoneRadius:Get() or 0
 		end
 		if campfireService.IsLit then
-			local newLit = campfireService.IsLit.Value == true
+			local newLit = campfireService.IsLit:Get() == true
 			if newLit ~= isLit then
 				isLit = newLit
 				setWarning(isLit)
@@ -804,8 +804,8 @@ function CampfireController:KnitStart()
 
 	-- Replicated-property fallbacks in case a SafeZoneChanged signal is missed.
 	if campfireService.IsLit and campfireService.IsLit.Changed then
-		campfireService.IsLit.Changed:Connect(function()
-			local newLit = campfireService.IsLit.Value == true
+		campfireService.IsLit.Changed:Connect(function(newValue: any)
+			local newLit = newValue == true
 			if newLit ~= isLit then
 				isLit = newLit
 				setWarning(isLit)
@@ -813,8 +813,8 @@ function CampfireController:KnitStart()
 		end)
 	end
 	if campfireService.SafeZoneRadius and campfireService.SafeZoneRadius.Changed then
-		campfireService.SafeZoneRadius.Changed:Connect(function()
-			currentSafeZoneRadius = campfireService.SafeZoneRadius.Value or 0
+		campfireService.SafeZoneRadius.Changed:Connect(function(newValue: any)
+			currentSafeZoneRadius = newValue or 0
 		end)
 	end
 

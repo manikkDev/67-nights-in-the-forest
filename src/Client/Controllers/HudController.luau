@@ -164,7 +164,7 @@ function HudController:KnitStart()
 	-- Sync to current server state via the property
 	local phaseState = timeService.GetPhaseState
 	if phaseState then
-		local currentPhase = phaseState.Value
+		local currentPhase = phaseState:Get()
 		if currentPhase == "Night" then
 			showNight()
 		else

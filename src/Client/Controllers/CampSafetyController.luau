@@ -210,14 +210,14 @@ local function onHeartbeat(dt: number)
 	-- radius, fire state, and day/night phase are always current — including
 	-- when the campfire levels up and the radius changes.
 	if timeService and timeService.GetPhaseState then
-		isNight = timeService.GetPhaseState.Value == "Night"
+		isNight = timeService.GetPhaseState:Get() == "Night"
 	end
 	if campfireService then
 		if campfireService.SafeZoneRadius then
-			safeZoneRadius = campfireService.SafeZoneRadius.Value or 0
+			safeZoneRadius = campfireService.SafeZoneRadius:Get() or 0
 		end
 		if campfireService.IsLit then
-			isFireActive = campfireService.IsLit.Value == true
+			isFireActive = campfireService.IsLit:Get() == true
 		end
 	end
 
@@ -280,13 +280,13 @@ function CampSafetyController:KnitStart()
 	-- Property listeners keep the local state authoritative even if we miss
 	-- a signal or join between broadcasts.
 	if campfireService.IsLit and campfireService.IsLit.Changed then
-		campfireService.IsLit.Changed:Connect(function()
-			isFireActive = campfireService.IsLit.Value == true
+		campfireService.IsLit.Changed:Connect(function(newValue: any)
+			isFireActive = newValue == true
 		end)
 	end
 	if campfireService.SafeZoneRadius and campfireService.SafeZoneRadius.Changed then
-		campfireService.SafeZoneRadius.Changed:Connect(function()
-			safeZoneRadius = campfireService.SafeZoneRadius.Value or 0
+		campfireService.SafeZoneRadius.Changed:Connect(function(newValue: any)
+			safeZoneRadius = newValue or 0
 		end)
 	end
 
@@ -308,10 +308,10 @@ function CampSafetyController:KnitStart()
 	end
 	local phaseState = timeService.GetPhaseState
 	if phaseState then
-		isNight = phaseState.Value == "Night"
+		isNight = phaseState:Get() == "Night"
 		if phaseState.Changed then
-			phaseChangedConnection = phaseState.Changed:Connect(function()
-				isNight = phaseState.Value == "Night"
+			phaseChangedConnection = phaseState.Changed:Connect(function(newValue: any)
+				isNight = newValue == "Night"
 			end)
 		end
 	end
