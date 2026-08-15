@@ -18,6 +18,7 @@
 -- | Services | --
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
@@ -33,10 +34,12 @@ local PANEL_WIDTH = 250
 local PANEL_HEIGHT = 130
 local PANEL_MARGIN = 14
 local BAR_HEIGHT = 10
-local TOP_BAR_WIDTH = 600
-local TOP_BAR_HEIGHT = 28
-local TOP_BAR_Y = 80
+local BILLBOARD_WIDTH = 8
+local BILLBOARD_HEIGHT = 1.2
+local BILLBOARD_Y_OFFSET = 3.5
 local TOP_BAR_COLOR = Color3.fromRGB(245, 220, 0)
+local BASE_CAMP_RANGE = 18
+local SHOW_RANGE_BONUS = 8
 local BAR_TWEEN_INFO = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local WARNING_TWEEN_INFO = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local LEVELUP_TWEEN_INFO = TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -62,9 +65,11 @@ local levelUpTitle: TextLabel? = nil
 local levelUpSubtitle: TextLabel? = nil
 local levelUpShowingLevel: number = 0
 
-local topLevelGui: ScreenGui? = nil
+local topLevelBillboard: BillboardGui? = nil
 local topLevelText: TextLabel? = nil
 local topLevelFill: Frame? = nil
+local isLit = false
+local currentSafeZoneRadius = 0
 
 -- // FUNCTIONS // --
 
@@ -74,7 +79,8 @@ local topLevelFill: Frame? = nil
     @param    maxFuel  number
     @param    isLit    boolean
 ]]
-local function setFuelBar(fuel: number, maxFuel: number, isLit: boolean)
+local function setFuelBar(fuel: number, maxFuel: number, lit: boolean)
+	isLit = lit
 	if not fuelFill then
 		return
 	end
@@ -105,6 +111,42 @@ local function setFuelBar(fuel: number, maxFuel: number, isLit: boolean)
 		statusLabel.Text = if isLit then "Lit" else "OUT"
 		statusLabel.TextColor3 = if isLit then Color3.fromRGB(120, 220, 120) else Color3.fromRGB(220, 80, 80)
 	end
+end
+
+--[[
+    @summary  Update visibility of the world-space level progress billboard.
+]]
+local function onHeartbeat()
+	if not topLevelBillboard or not topLevelBillboard.Adornee then
+		return
+	end
+
+	local character = Players.LocalPlayer.Character
+	if not character then
+		topLevelBillboard.Enabled = false
+		return
+	end
+
+	local hrp = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not hrp then
+		topLevelBillboard.Enabled = false
+		return
+	end
+
+	local showRange = math.max(currentSafeZoneRadius, BASE_CAMP_RANGE) + SHOW_RANGE_BONUS
+	local distance = (hrp.Position - topLevelBillboard.Adornee.Position).Magnitude
+	local show = distance <= showRange
+	if topLevelBillboard.Enabled ~= show then
+		topLevelBillboard.Enabled = show
+	end
+end
+
+--[[
+    @summary  Track safe zone radius for the billboard show range.
+]]
+local function onSafeZoneChanged(radius: number, active: boolean)
+	currentSafeZoneRadius = radius
+	isLit = active
 end
 
 --[[
@@ -385,70 +427,100 @@ local function buildStatRow(name: string, y: number, labelText: string, color: C
 	return fill, valueLabel
 end
 
+local function findCampfireFire(): BasePart?
+	local baseMap = workspace:FindFirstChild("Base-map")
+	if not baseMap then
+		return nil
+	end
+	local bonfire = baseMap:FindFirstChild("Bonfire")
+	if not bonfire then
+		return nil
+	end
+	return bonfire:FindFirstChild("Fire") :: BasePart?
+end
+
 --[[
-    @summary  Build the top-center campfire level progress bar.
+    @summary  Build the world-space BillboardGui above the campfire.
 ]]
 local function buildTopLevelProgressBar()
-	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-	local existing = playerGui:FindFirstChild("CampfireLevelProgressGui")
-	if existing then
-		existing:Destroy()
-	end
+	task.spawn(function()
+		local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
-	local gui = Instance.new("ScreenGui")
-	gui.Name = "CampfireLevelProgressGui"
-	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = true
-	gui.DisplayOrder = 5
-	gui.Enabled = false
-	gui.Parent = playerGui
-	topLevelGui = gui
+		local existing = playerGui:FindFirstChild("CampfireLevelProgressBillboard")
+		if existing then
+			existing:Destroy()
+		end
 
-	local container = Instance.new("Frame")
-	container.Name = "Container"
-	container.AnchorPoint = Vector2.new(0.5, 0)
-	container.Position = UDim2.new(0.5, 0, 0, TOP_BAR_Y)
-	container.Size = UDim2.new(0, TOP_BAR_WIDTH, 0, TOP_BAR_HEIGHT + 24)
-	container.BackgroundTransparency = 1
-	container.BorderSizePixel = 0
-	container.Parent = gui
+		local firePart: BasePart? = nil
+		local waited = 0
+		while not firePart do
+			firePart = findCampfireFire()
+			if firePart then
+				break
+			end
+			task.wait(0.5)
+			waited += 0.5
+			if waited > 15 then
+				warn("[CampfireController] Could not find campfire Fire part for billboard")
+				return
+			end
+		end
 
-	local textLabel = Instance.new("TextLabel")
-	textLabel.Name = "LevelText"
-	textLabel.Size = UDim2.new(1, 0, 0, 24)
-	textLabel.Position = UDim2.new(0, 0, 0, 0)
-	textLabel.BackgroundTransparency = 1
-	textLabel.Text = "level 1 progress: 0/100"
-	textLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
-	textLabel.Font = Enum.Font.GothamBold
-	textLabel.TextSize = 20
-	textLabel.TextXAlignment = Enum.TextXAlignment.Center
-	textLabel.TextYAlignment = Enum.TextYAlignment.Bottom
+		local billboard = Instance.new("BillboardGui")
+		billboard.Name = "CampfireLevelProgressBillboard"
+		billboard.Adornee = firePart
+		billboard.AlwaysOnTop = true
+		billboard.LightInfluence = 0
+		billboard.Size = UDim2.new(BILLBOARD_WIDTH, 0, BILLBOARD_HEIGHT, 0)
+		billboard.StudsOffsetWorldSpace = Vector3.new(0, BILLBOARD_Y_OFFSET, 0)
+		billboard.Enabled = false
+		billboard.Parent = playerGui
+		topLevelBillboard = billboard
 
-	local textStroke = Instance.new("UIStroke")
-	textStroke.Color = Color3.fromRGB(0, 0, 0)
-	textStroke.Thickness = 2
-	textStroke.Transparency = 0.4
-	textStroke.Parent = textLabel
+		local container = Instance.new("Frame")
+		container.Name = "Container"
+		container.Size = UDim2.new(1, 0, 1, 0)
+		container.BackgroundTransparency = 1
+		container.BorderSizePixel = 0
+		container.Parent = billboard
 
-	textLabel.Parent = container
-	topLevelText = textLabel
+		local textLabel = Instance.new("TextLabel")
+		textLabel.Name = "LevelText"
+		textLabel.Size = UDim2.new(1, 0, 0.45, 0)
+		textLabel.Position = UDim2.new(0, 0, 0, 0)
+		textLabel.BackgroundTransparency = 1
+		textLabel.Text = "level 1 progress: 0/100"
+		textLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
+		textLabel.Font = Enum.Font.GothamBold
+		textLabel.TextScaled = true
+		textLabel.TextXAlignment = Enum.TextXAlignment.Center
+		textLabel.TextYAlignment = Enum.TextYAlignment.Bottom
 
-	local barBackground = Instance.new("Frame")
-	barBackground.Name = "BarBackground"
-	barBackground.Size = UDim2.new(1, 0, 0, TOP_BAR_HEIGHT)
-	barBackground.Position = UDim2.new(0, 0, 0, 24)
-	barBackground.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-	barBackground.BorderSizePixel = 0
-	barBackground.Parent = container
+		local textStroke = Instance.new("UIStroke")
+		textStroke.Color = Color3.fromRGB(0, 0, 0)
+		textStroke.Thickness = 1.5
+		textStroke.Transparency = 0.4
+		textStroke.Parent = textLabel
 
-	local barFill = Instance.new("Frame")
-	barFill.Name = "BarFill"
-	barFill.Size = UDim2.new(1, 0, 1, 0)
-	barFill.BackgroundColor3 = TOP_BAR_COLOR
-	barFill.BorderSizePixel = 0
-	barFill.Parent = barBackground
-	topLevelFill = barFill
+		textLabel.Parent = container
+		topLevelText = textLabel
+
+		local barBackground = Instance.new("Frame")
+		barBackground.Name = "BarBackground"
+		barBackground.Size = UDim2.new(1, 0, 0.45, 0)
+		barBackground.Position = UDim2.new(0, 0, 0.55, 0)
+		barBackground.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+		barBackground.BorderSizePixel = 0
+		barBackground.Parent = container
+
+		local barFill = Instance.new("Frame")
+		barFill.Name = "BarFill"
+		barFill.Size = UDim2.new(1, 0, 1, 0)
+		barFill.BackgroundColor3 = TOP_BAR_COLOR
+		barFill.BorderSizePixel = 0
+		barFill.Parent = barBackground
+		topLevelFill = barFill
+	end)
 end
 
 --[[
@@ -668,9 +740,6 @@ function CampfireController:KnitStart()
 		if campfireGui then
 			campfireGui.Enabled = true
 		end
-		if topLevelGui then
-			topLevelGui.Enabled = true
-		end
 		if warningGui then
 			warningGui.Enabled = true
 		end
@@ -686,7 +755,10 @@ function CampfireController:KnitStart()
 
 	campfireService.FuelChanged:Connect(onFuelChanged)
 	campfireService.LevelChanged:Connect(onLevelChanged)
+	campfireService.SafeZoneChanged:Connect(onSafeZoneChanged)
 	campfireService.LevelUp:Connect(onLevelUp)
+
+	RunService.Heartbeat:Connect(onHeartbeat)
 
 	-- The initial state is sent by the server through the signal connections.
 	print("[CampfireController] Initialised")
