@@ -77,7 +77,7 @@ local bagTemplate: Tool? = nil
 local mushroomSource: Model? = nil
 local mushroomBaseOffset: number? = nil
 
-local dragging: { [Player]: { model: Model, alignPos: AlignPosition, alignOri: AlignOrientation?, dragTarget: BasePart, dragTargetAttach: Attachment, itemAttach: Attachment, originalCanCollide: { [BasePart]: boolean } } } = {}
+local dragging: { [Player]: { model: Model, alignPos: AlignPosition, alignOri: AlignOrientation?, dragTarget: BasePart, dragTargetAttach: Attachment, itemAttach: Attachment, originalCanCollide: { [BasePart]: boolean }, originalAnchored: { [BasePart]: boolean } } } = {}
 local draggedBy: { [Model]: Player } = {}
 
 -- // FUNCTIONS // --
@@ -242,7 +242,7 @@ end
 -- // PICKUP / DROP // --
 
 --[[
-    @summary  Compute how far the Mushroom asset's WorldPivot is above its base.
+    @summary  Compute how far the Mushroom asset's stem is above its base.
     @param    source  Model  -- the Mushroom template in Assets Items
     @returns  number
 ]]
@@ -251,6 +251,26 @@ local function computeMushroomBaseOffset(source: Model): number
 	local cf, size = source:GetBoundingBox()
 	local up = pivot.UpVector
 	local base = cf.Position - cf.UpVector * (size.Y / 2)
+
+	-- BuildMushroomModel sets the stem as the model's PrimaryPart, so PivotTo
+	-- will place the stem at the returned CFrame. Find the stem (tallest thin
+	-- part) and measure from it to the base so spawned mushrooms rest on the
+	-- ground instead of floating above it.
+	local bestStem: BasePart? = nil
+	local bestScore = 0
+	for _, desc in ipairs(source:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			local score = desc.Size.Y * (1 / (desc.Size.X * desc.Size.Z + 0.001))
+			if score > bestScore then
+				bestScore = score
+				bestStem = desc
+			end
+		end
+	end
+	if bestStem then
+		return (bestStem.Position - base):Dot(up)
+	end
+
 	return (pivot.Position - base):Dot(up)
 end
 
@@ -270,7 +290,7 @@ end
 
 --[[
     @summary  Find the stem-like part in the mushroom model (tallest part with
-              a small cross-section) so the ProximityPrompt sits near the base.
+              a small cross-section) so it can be used as the PrimaryPart.
     @param    model  Model
     @returns  BasePart?
 ]]
@@ -330,7 +350,7 @@ end
 
 --[[
     @summary  Return the base offset of the Mushroom asset, measured from the
-              bottom of its bounding box to its WorldPivot along the up axis.
+              bottom of its bounding box to its stem along the up axis.
     @returns  number
 ]]
 function InventoryService:GetMushroomBaseOffset(): number
@@ -653,6 +673,9 @@ local function stopDrag(player: Player)
 				if entry.originalCanCollide[desc] ~= nil then
 					desc.CanCollide = entry.originalCanCollide[desc]
 				end
+				if entry.originalAnchored[desc] ~= nil then
+					desc.Anchored = entry.originalAnchored[desc]
+				end
 			end
 		end
 
@@ -691,11 +714,6 @@ local function tryStartDrag(player: Player, model: Model): boolean
 		return false
 	end
 
-	-- Only allow dragging dropped items and felled logs, not live forage spawns.
-	if model:GetAttribute("ForageResource") and not model:GetAttribute("Resource") and not model:GetAttribute("PickupResource") then
-		return false
-	end
-
 	if not worldService then
 		return false
 	end
@@ -727,9 +745,11 @@ local function tryStartDrag(player: Player, model: Model): boolean
 	end
 
 	local originalCanCollide: { [BasePart]: boolean } = {}
+	local originalAnchored: { [BasePart]: boolean } = {}
 	for _, desc in ipairs(model:GetDescendants()) do
 		if desc:IsA("BasePart") then
 			originalCanCollide[desc] = desc.CanCollide
+			originalAnchored[desc] = desc.Anchored
 			desc.Anchored = false
 			-- Keep original CanCollide so the item slides against the map like the real game.
 		end
@@ -785,6 +805,7 @@ local function tryStartDrag(player: Player, model: Model): boolean
 		dragTargetAttach = dragTargetAttach,
 		itemAttach = itemAttach,
 		originalCanCollide = originalCanCollide,
+		originalAnchored = originalAnchored,
 	}
 	draggedBy[model] = player
 	return true

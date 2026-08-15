@@ -10,7 +10,7 @@
     Scatters pickup-able Berries (reusing the existing `Carrot` mesh as
     the closest available forage-food art) and Mushrooms (using the
     `Mushroom` model from Assets Items) near trees across the base-map.
-    Players pick them up via ProximityPrompt into their inventory, then
+    Players pick them up via the CarryController hover/pickup system (F key) into their inventory, then
     eat them from the Inventory UI to restore Hunger.  Respawns on a
     timer, mirroring HarvestService's tree/log pattern.
 
@@ -23,7 +23,6 @@
 -- | Services | --
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ProximityPromptService = game:GetService("ProximityPromptService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -84,7 +83,7 @@ local function buildMushroomProp(): Model
 	for _, descendant in ipairs(model:GetDescendants()) do
 		if descendant:IsA("BasePart") then
 			descendant.Anchored = true
-			descendant.CanCollide = false
+			descendant.CanCollide = true
 		end
 	end
 	return model
@@ -242,28 +241,8 @@ local function buildForageCFrame(position: Vector3, resourceName: string, size: 
 end
 
 --[[
-    @summary  Attach the ProximityPrompt that the global handler looks for.
-    @param    model         Model
-    @param    resourceName  string
-]]
-local function addForagePrompt(model: Model, resourceName: string)
-	if not model.PrimaryPart then
-		return
-	end
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "ForagePickupPrompt"
-	prompt.ObjectText = resourceName == "Berries" and "Carrot" or "Mushroom"
-	prompt.ActionText = "Forage"
-	prompt.MaxActivationDistance = PICKUP_RANGE
-	prompt.RequiresLineOfSight = false
-	prompt.HoldDuration = 0
-	prompt.Parent = model.PrimaryPart
-end
-
---[[
-    @summary  Spawn one forage pickup of the given resource type, wire
-              its pickup prompt, and schedule its respawn after it's
-              collected.
+    @summary  Spawn one forage pickup of the given resource type and
+              schedule its respawn after it's collected.
     @param    resourceName  string  -- "Berries" or "Mushrooms"
 ]]
 local function spawnForagePickup(resourceName: string)
@@ -291,7 +270,7 @@ local function spawnForagePickup(resourceName: string)
 		local clone = source:Clone()
 		clone.Name = "BerriesMesh"
 		clone.Anchored = true
-		clone.CanCollide = false
+		clone.CanCollide = true
 		clone.Parent = model
 		model.PrimaryPart = clone
 		cframe = buildForageCFrame(position, resourceName, clone.Size)
@@ -302,7 +281,6 @@ local function spawnForagePickup(resourceName: string)
 
 	model:PivotTo(cframe)
 	model:SetAttribute("ForageResource", resourceName)
-	addForagePrompt(model, resourceName)
 
 	model.Parent = baseMap
 	activePickups += 1
@@ -344,26 +322,13 @@ local function tryForagePickup(model: Model, player: Player): boolean
 		return false
 	end
 
+	local isLiveForage = not model:GetAttribute("Resource")
 	model:Destroy()
-	activePickups -= 1
-	task.delay(RESPAWN_TIME, spawnForagePickup, resourceName)
+	if isLiveForage then
+		activePickups -= 1
+		task.delay(RESPAWN_TIME, spawnForagePickup, resourceName)
+	end
 	return true
-end
-
---[[
-    @summary  Route a global ProximityPrompt trigger to the forage
-              pickup handler if it matches our prompt name.
-    @param    prompt  ProximityPrompt  -- the triggered prompt
-    @param    player  Player           -- the triggering player
-]]
-local function onPromptTriggered(prompt: ProximityPrompt, player: Player)
-	if prompt.Name ~= "ForagePickupPrompt" then
-		return
-	end
-	local model = prompt.Parent and prompt.Parent.Parent
-	if model and model:IsA("Model") then
-		tryForagePickup(model, player)
-	end
 end
 
 --[[
@@ -451,8 +416,6 @@ function ForageService:KnitStart()
 
 	collectTreePivots()
 	task.delay(1, spawnInitialForage)
-
-	ProximityPromptService.PromptTriggered:Connect(onPromptTriggered)
 
 	print("[ForageService] Initialised — forage/eat active")
 end
