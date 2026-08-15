@@ -105,10 +105,12 @@ All data is server-authoritative. The client can read its own data via the `Play
 
 ## Development Roadmap
 
-- **Phase 1** (current): Core framework, data layer, day/night cycle, lobby-to-game transition
-- **Phase 2**: Survival mechanics (hunger, health, stamina), inventory, item pickup/drop
-- **Phase 3**: NPC enemies, combat, procedural animations, VFX
-- **Phase 4**: Polish, audio, UI, optimisation, release prep
+See `ROADMAP.md` for the detailed, up-to-date phase breakdown.
+
+- **Phase 1** ✅: Core framework, data layer, day/night cycle, lobby-to-game transition
+- **Phase 2** ✅: Survival mechanics (hunger, harvest, forage, eating, inventory UI, campfire safety)
+- **Phase 3** (current): NPC enemies, the Deer, combat, cultist raids, procedural animations, VFX
+- **Phase 4**: Base building, rescue, day multiplier, win/loss, permadeath
 
 ## Code Style
 
