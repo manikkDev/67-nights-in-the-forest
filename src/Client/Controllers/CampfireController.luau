@@ -802,6 +802,22 @@ function CampfireController:KnitStart()
 	campfireService.SafeZoneChanged:Connect(onSafeZoneChanged)
 	campfireService.LevelUp:Connect(onLevelUp)
 
+	-- Replicated-property fallbacks in case a SafeZoneChanged signal is missed.
+	if campfireService.IsLit and campfireService.IsLit.Changed then
+		campfireService.IsLit.Changed:Connect(function()
+			local newLit = campfireService.IsLit.Value == true
+			if newLit ~= isLit then
+				isLit = newLit
+				setWarning(isLit)
+			end
+		end)
+	end
+	if campfireService.SafeZoneRadius and campfireService.SafeZoneRadius.Changed then
+		campfireService.SafeZoneRadius.Changed:Connect(function()
+			currentSafeZoneRadius = campfireService.SafeZoneRadius.Value or 0
+		end)
+	end
+
 	RunService.Heartbeat:Connect(onHeartbeat)
 
 	-- The initial state is sent by the server through the signal connections.

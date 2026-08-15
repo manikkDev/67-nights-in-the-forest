@@ -42,9 +42,9 @@ local SAFE_TWEEN_INFO = TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDir
 local UNSAFE_TWEEN_INFO = TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 local SAFE_BRIGHTNESS = 0.12
 local SAFE_TINT = Color3.fromRGB(255, 245, 235)
-local UNSAFE_BRIGHTNESS = -0.2
-local UNSAFE_SATURATION = -0.4
-local UNSAFE_TINT = Color3.fromRGB(180, 190, 220)
+local UNSAFE_BRIGHTNESS = -0.6
+local UNSAFE_SATURATION = -0.5
+local UNSAFE_TINT = Color3.fromRGB(40, 45, 60)
 
 -- | State Management | --
 local colorCorrection: ColorCorrectionEffect? = nil
@@ -276,6 +276,19 @@ function CampSafetyController:KnitStart()
 		isFireActive = isActive == true
 		safeZoneRadius = if isActive then radius or 0 else 0
 	end)
+
+	-- Property listeners keep the local state authoritative even if we miss
+	-- a signal or join between broadcasts.
+	if campfireService.IsLit and campfireService.IsLit.Changed then
+		campfireService.IsLit.Changed:Connect(function()
+			isFireActive = campfireService.IsLit.Value == true
+		end)
+	end
+	if campfireService.SafeZoneRadius and campfireService.SafeZoneRadius.Changed then
+		campfireService.SafeZoneRadius.Changed:Connect(function()
+			safeZoneRadius = campfireService.SafeZoneRadius.Value or 0
+		end)
+	end
 
 	-- Fallback: request the current safe-zone state in case the initial signal
 	-- was fired before this controller connected. Uses the correct client call

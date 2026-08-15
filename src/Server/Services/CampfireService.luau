@@ -442,6 +442,15 @@ end
 local function broadcastSafeZone(target: Player?, force: boolean?)
 	updateSafeZone()
 
+	-- Keep the replicated properties always in sync with the server state.
+	-- The SafeZoneChanged signal below is throttled to avoid spamming clients.
+	if CampfireService.Client.SafeZoneRadius then
+		CampfireService.Client.SafeZoneRadius:Set(currentSafeZoneRadius)
+	end
+	if CampfireService.Client.IsLit then
+		CampfireService.Client.IsLit:Set(isLit)
+	end
+
 	local shouldBroadcast = force
 		or math.abs(currentSafeZoneRadius - lastBroadcastRadius) >= SAFE_ZONE_BROADCAST_THRESHOLD
 		or (isLit and lastBroadcastRadius <= 0)
@@ -452,13 +461,6 @@ local function broadcastSafeZone(target: Player?, force: boolean?)
 	end
 
 	lastBroadcastRadius = currentSafeZoneRadius
-	if CampfireService.Client.SafeZoneRadius then
-		CampfireService.Client.SafeZoneRadius:Set(currentSafeZoneRadius)
-	end
-	if CampfireService.Client.IsLit then
-		CampfireService.Client.IsLit:Set(isLit)
-	end
-
 	if target then
 		if isPlayerInGame(target) then
 			CampfireService.Client.SafeZoneChanged:Fire(target, currentSafeZoneRadius, isLit)
