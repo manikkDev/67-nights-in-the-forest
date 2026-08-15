@@ -848,12 +848,26 @@ function CampfireService:KnitStart()
 			saveCampfireStateToPlayer(player)
 		end
 
+		if CampfireService.Client.SafeZoneRadius then
+			CampfireService.Client.SafeZoneRadius:Set(currentSafeZoneRadius)
+		end
+		if CampfireService.Client.IsLit then
+			CampfireService.Client.IsLit:Set(isLit)
+		end
+
 		local fraction = if maxFuel > 0 then fuel / maxFuel else 0
 		local requirement = LEVEL_REQUIREMENTS[level] or LEVEL_REQUIREMENTS[#LEVEL_REQUIREMENTS]
 		CampfireService.Client.SafeZoneChanged:Fire(player, currentSafeZoneRadius, isLit)
 		CampfireService.Client.FuelChanged:Fire(player, fuel, maxFuel, fraction, isLit)
 		CampfireService.Client.LevelChanged:Fire(player, level, levelProgress, requirement, math.clamp(levelProgress / requirement, 0, 1))
 	end)
+
+	if CampfireService.Client.SafeZoneRadius then
+		CampfireService.Client.SafeZoneRadius:Set(currentSafeZoneRadius)
+	end
+	if CampfireService.Client.IsLit then
+		CampfireService.Client.IsLit:Set(isLit)
+	end
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		local fraction = if maxFuel > 0 then fuel / maxFuel else 0

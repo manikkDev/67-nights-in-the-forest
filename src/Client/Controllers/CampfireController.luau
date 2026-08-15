@@ -70,6 +70,7 @@ local topLevelText: TextLabel? = nil
 local topLevelFill: Frame? = nil
 local isLit = false
 local currentSafeZoneRadius = 0
+local campfireService: any? = nil
 
 -- // FUNCTIONS // --
 
@@ -114,9 +115,36 @@ local function setFuelBar(fuel: number, maxFuel: number, lit: boolean)
 end
 
 --[[
+    @summary  Fade the fire-out warning in or out.
+    @param    isLit  boolean
+]]
+local function setWarning(isLit: boolean)
+	if not warningLabel then
+		return
+	end
+	local target = if isLit then 1 else 0
+	TweenService:Create(warningLabel, WARNING_TWEEN_INFO, { TextTransparency = target }):Play()
+end
+
+--[[
     @summary  Update visibility of the world-space level progress billboard.
 ]]
-local function onHeartbeat()
+local function onHeartbeat(dt: number)
+	-- Authoritative fallback: read the replicated safe-zone state every frame
+	-- so the billboard range and fire-out warning can't get stuck on stale data.
+	if campfireService then
+		if campfireService.SafeZoneRadius then
+			currentSafeZoneRadius = campfireService.SafeZoneRadius.Value or 0
+		end
+		if campfireService.IsLit then
+			local newLit = campfireService.IsLit.Value == true
+			if newLit ~= isLit then
+				isLit = newLit
+				setWarning(isLit)
+			end
+		end
+	end
+
 	if not topLevelBillboard or not topLevelBillboard.Adornee then
 		return
 	end
@@ -134,7 +162,12 @@ local function onHeartbeat()
 	end
 
 	local showRange = math.max(currentSafeZoneRadius, BASE_CAMP_RANGE) + SHOW_RANGE_BONUS
-	local distance = (hrp.Position - topLevelBillboard.Adornee.Position).Magnitude
+	local adornee = topLevelBillboard.Adornee
+	if not adornee or not adornee:IsA("BasePart") then
+		topLevelBillboard.Enabled = false
+		return
+	end
+	local distance = (hrp.Position - (adornee :: BasePart).Position).Magnitude
 	local show = distance <= showRange
 	if topLevelBillboard.Enabled ~= show then
 		topLevelBillboard.Enabled = show
@@ -182,18 +215,6 @@ local function setLevelBar(level: number, progress: number, requirement: number)
 	end
 
 	setTopLevelBar(level, progress, requirement)
-end
-
---[[
-    @summary  Fade the fire-out warning in or out.
-    @param    isLit  boolean
-]]
-local function setWarning(isLit: boolean)
-	if not warningLabel then
-		return
-	end
-	local target = if isLit then 1 else 0
-	TweenService:Create(warningLabel, WARNING_TWEEN_INFO, { TextTransparency = target }):Play()
 end
 
 --[[
@@ -427,7 +448,7 @@ local function buildStatRow(name: string, y: number, labelText: string, color: C
 	return fill, valueLabel
 end
 
-local function findCampfireFire(): BasePart?
+local function _findCampfireFire(): BasePart?
 	local baseMap = workspace:FindFirstChild("Base-map")
 	if not baseMap then
 		return nil
@@ -577,32 +598,34 @@ local function buildGui()
 	header.TextXAlignment = Enum.TextXAlignment.Left
 	header.Parent = panel
 
-	levelLabel = Instance.new("TextLabel")
-	levelLabel.Name = "LevelLabel"
-	levelLabel.Size = UDim2.new(0, 70, 0, 22)
-	levelLabel.Position = UDim2.new(1, -PANEL_MARGIN - 70, 0, 8)
-	levelLabel.BackgroundTransparency = 1
-	levelLabel.Text = "LVL 1"
-	levelLabel.TextColor3 = Color3.fromRGB(230, 220, 200)
-	levelLabel.Font = Enum.Font.GothamBold
-	levelLabel.TextSize = 16
-	levelLabel.TextXAlignment = Enum.TextXAlignment.Right
-	levelLabel.Parent = panel
+	local levelLabelInstance = Instance.new("TextLabel") :: TextLabel
+	levelLabelInstance.Name = "LevelLabel"
+	levelLabelInstance.Size = UDim2.new(0, 70, 0, 22)
+	levelLabelInstance.Position = UDim2.new(1, -PANEL_MARGIN - 70, 0, 8)
+	levelLabelInstance.BackgroundTransparency = 1
+	levelLabelInstance.Text = "LVL 1"
+	levelLabelInstance.TextColor3 = Color3.fromRGB(230, 220, 200)
+	levelLabelInstance.Font = Enum.Font.GothamBold
+	levelLabelInstance.TextSize = 16
+	levelLabelInstance.TextXAlignment = Enum.TextXAlignment.Right
+	levelLabelInstance.Parent = panel
+	levelLabel = levelLabelInstance
 
 	fuelFill, fuelValueLabel = buildStatRow("Fuel", 38, "FUEL", Color3.fromRGB(245, 140, 50))
 	levelFill, levelValueLabel = buildStatRow("Level", 72, "LEVEL", Color3.fromRGB(240, 180, 30))
 
-	statusLabel = Instance.new("TextLabel")
-	statusLabel.Name = "StatusLabel"
-	statusLabel.Size = UDim2.new(1, -PANEL_MARGIN * 2, 0, 16)
-	statusLabel.Position = UDim2.new(0, PANEL_MARGIN, 0, 106)
-	statusLabel.BackgroundTransparency = 1
-	statusLabel.Text = "Lit"
-	statusLabel.TextColor3 = Color3.fromRGB(120, 220, 120)
-	statusLabel.Font = Enum.Font.GothamBold
-	statusLabel.TextSize = 13
-	statusLabel.TextXAlignment = Enum.TextXAlignment.Left
-	statusLabel.Parent = panel
+	local statusLabelInstance = Instance.new("TextLabel") :: TextLabel
+	statusLabelInstance.Name = "StatusLabel"
+	statusLabelInstance.Size = UDim2.new(1, -PANEL_MARGIN * 2, 0, 16)
+	statusLabelInstance.Position = UDim2.new(0, PANEL_MARGIN, 0, 106)
+	statusLabelInstance.BackgroundTransparency = 1
+	statusLabelInstance.Text = "Lit"
+	statusLabelInstance.TextColor3 = Color3.fromRGB(120, 220, 120)
+	statusLabelInstance.Font = Enum.Font.GothamBold
+	statusLabelInstance.TextSize = 13
+	statusLabelInstance.TextXAlignment = Enum.TextXAlignment.Left
+	statusLabelInstance.Parent = panel
+	statusLabel = statusLabelInstance
 
 	buildWarning()
 end
@@ -735,7 +758,7 @@ function CampfireController:KnitStart()
 	buildWarning()
 
 	local gameStateController = Knit.GetController("GameStateController")
-	local campfireService = Knit.GetService("CampfireService")
+	campfireService = Knit.GetService("CampfireService")
 
 	local function onGameStarted()
 		if campfireGui then
