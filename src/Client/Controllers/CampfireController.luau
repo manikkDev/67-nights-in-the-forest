@@ -424,6 +424,13 @@ local function buildTopLevelProgressBar()
 	textLabel.TextSize = 20
 	textLabel.TextXAlignment = Enum.TextXAlignment.Center
 	textLabel.TextYAlignment = Enum.TextYAlignment.Bottom
+
+	local textStroke = Instance.new("UIStroke")
+	textStroke.Color = Color3.fromRGB(0, 0, 0)
+	textStroke.Thickness = 2
+	textStroke.Transparency = 0.4
+	textStroke.Parent = textLabel
+
 	textLabel.Parent = container
 	topLevelText = textLabel
 
