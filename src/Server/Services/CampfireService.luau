@@ -119,10 +119,10 @@ local LOG_SCAN_INTERVAL = 0.2
 local LOG_SCAN_RADIUS = 8
 
 -- | State Management | --
-local worldService: any? = nil
-local playerDataService: any? = nil
-local inventoryService: any? = nil
-local spawnService: any? = nil
+local worldService: any = nil
+local playerDataService: any = nil
+local inventoryService: any = nil
+local spawnService: any = nil
 local stateLoaded = false
 local level = 1
 local levelProgress = 0
@@ -323,7 +323,7 @@ local function updateFireVisuals()
 
 	if pointLight then
 		pointLight.Enabled = isLit
-		local targetRange = math.clamp(currentSafeZoneRadius * 1.2, LIGHT_RANGE_MIN, 60)
+		local targetRange = math.clamp(currentSafeZoneRadius * 1.2, LIGHT_RANGE_MIN, lightMax)
 		pointLight.Range = if isLit then targetRange else 0
 		pointLight.Brightness = if isLit then LIGHT_BRIGHTNESS_MIN + (LIGHT_BRIGHTNESS_MAX - LIGHT_BRIGHTNESS_MIN) * fraction + 0.5 else 0
 	end
@@ -781,11 +781,9 @@ end
     @param    amount  number? -- logs to feed (default 1)
 ]]
 function CampfireService.Client:RequestFuelCampfire(player: Player, amount: number?)
-	if not amount or typeof(amount) ~= "number" or amount < 1 then
-		amount = 1
-	end
-	amount = math.floor(amount)
-	self.Server:_FeedCampfire(player, amount)
+	local requested: number = if amount and typeof(amount) == "number" and amount >= 1 then amount else 1
+	requested = math.floor(requested)
+	self.Server:_FeedCampfire(player, requested)
 end
 
 --[[

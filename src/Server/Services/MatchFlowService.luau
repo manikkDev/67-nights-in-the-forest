@@ -60,8 +60,8 @@ local STORY_HOLD_SECONDS = Constants.MATCH_STORY_HOLD_SECONDS or 5
 local DAY1_HOLD_SECONDS = Constants.MATCH_DAY1_HOLD_SECONDS or 2
 
 -- | State Management | --
-local spawnService: any? = nil
-local timeService: any? = nil
+local spawnService: any = nil
+local timeService: any = nil
 local sessions: { [Player]: Session } = {}
 
 -- // FUNCTIONS // --
@@ -136,7 +136,7 @@ local function beginStory(session: Session)
 
 	-- Fade to black + story hold, then teleport while still dark.
 	task.delay(STORY_FADE_SECONDS + STORY_HOLD_SECONDS, function()
-		if session.state ~= "Story" then
+		if (session.state :: FlowState) ~= "Story" then
 			return
 		end
 
@@ -156,7 +156,7 @@ local function beginStory(session: Session)
 
 		-- Hold Day 1 on black, then reveal world and begin gameplay.
 		task.delay(DAY1_HOLD_SECONDS, function()
-			if session.state ~= "Day1" then
+			if (session.state :: FlowState) ~= "Day1" then
 				return
 			end
 			session.state = "InGame"

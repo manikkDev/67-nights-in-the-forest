@@ -70,9 +70,9 @@ local DROP_ASSETS: { [string]: string? } = {
 local MUSHROOM_ASSET_NAME = "Mushroom"
 
 -- | State Management | --
-local playerDataService: any? = nil
-local worldService: any? = nil
-local spawnService: any? = nil
+local playerDataService: any = nil
+local worldService: any = nil
+local spawnService: any = nil
 local bagTemplate: Tool? = nil
 local mushroomSource: Model? = nil
 local mushroomBaseOffset: number? = nil
@@ -82,7 +82,7 @@ local draggedBy: { [Model]: Player } = {}
 
 -- // FUNCTIONS // --
 
-local function getPlayerData(player: Player): any?
+local function getPlayerData(player: Player): any
 	if not playerDataService then
 		return nil
 	end
@@ -1137,6 +1137,7 @@ function InventoryService:KnitStart()
 		if typeof(pos) ~= "Vector3" then
 			return
 		end
+		local position = pos :: Vector3
 		local entry = dragging[player]
 		if not entry then
 			return
@@ -1150,10 +1151,10 @@ function InventoryService:KnitStart()
 		if not hrp or not hrp:IsA("BasePart") then
 			return
 		end
-		if (hrp.Position - pos).Magnitude > DRAG_MAX_DISTANCE then
+		if (hrp.Position - position).Magnitude > DRAG_MAX_DISTANCE then
 			return
 		end
-		dragTarget.CFrame = CFrame.new(pos) * dragTarget.CFrame.Rotation
+		dragTarget.CFrame = CFrame.new(position) * dragTarget.CFrame.Rotation
 	end)
 
 	Players.PlayerRemoving:Connect(stopDrag)

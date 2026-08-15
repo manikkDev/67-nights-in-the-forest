@@ -59,9 +59,9 @@ local EAT_HUNGER_RESTORE = {
 }
 
 -- | State Management | --
-local worldService: any? = nil
-local inventoryService: any? = nil
-local hungerService: any? = nil
+local worldService: any = nil
+local inventoryService: any = nil
+local hungerService: any = nil
 local treePivots: { CFrame } = {}
 local groundPart: BasePart? = nil
 local groundBounds: { minX: number, maxX: number, minZ: number, maxZ: number }? = nil

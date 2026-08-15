@@ -43,8 +43,8 @@ local SPAWN_HEIGHT = 5
 local TELEPORT_COOLDOWN = 5
 
 -- | State Management | --
-local worldService: any? = nil
-local matchFlowService: any? = nil
+local worldService: any = nil
+local matchFlowService: any = nil
 local spawnedPlayers: { [Player]: boolean } = {}
 local teleportCooldowns: { [Player]: number } = {}
 

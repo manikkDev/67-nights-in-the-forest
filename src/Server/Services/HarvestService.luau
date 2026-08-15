@@ -62,9 +62,9 @@ local TREE_MODEL_NAMES = { "Tree", "bigtree" }
 local AXE_TOOL_NAME = "Axe"
 
 -- | State Management | --
-local worldService: any? = nil
-local inventoryService: any? = nil
-local spawnService: any? = nil
+local worldService: any = nil
+local inventoryService: any = nil
+local spawnService: any = nil
 local axeTemplate: Tool? = nil
 local treeRegistry: { [Model]: { health: number, part: { Position: Vector3 }, pivot: CFrame, felled: boolean } } = {}
 local chopCooldowns: { [Player]: number } = {}

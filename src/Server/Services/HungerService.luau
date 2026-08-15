@@ -45,8 +45,8 @@ local STARVE_DAMAGE_PER_SEC = 2
 local BROADCAST_INTERVAL = 1
 
 -- | State Management | --
-local playerDataService: any? = nil
-local spawnService: any? = nil
+local playerDataService: any = nil
+local spawnService: any = nil
 local broadcastTimer = 0
 
 -- // FUNCTIONS // --
