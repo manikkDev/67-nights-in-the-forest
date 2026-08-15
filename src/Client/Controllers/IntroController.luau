@@ -52,7 +52,7 @@ local CLOSE = IntroAssets.CloseButton or Color3.fromRGB(220, 60, 60)
 local CUSTOMIZE = IntroAssets.CustomizeButton or Color3.fromRGB(80, 80, 80)
 local STORY = IntroAssets.StoryText or Color3.fromRGB(170, 90, 90)
 
-local TITLE_OUT = 0.4
+local TITLE_OUT = 1.0
 local STORY_BACK = IntroAssets.StoryScreenBackdrop or Color3.fromRGB(10, 10, 10)
 local STORY_HEADER = IntroAssets.StoryHeaderColor or Color3.fromRGB(220, 60, 60)
 local STORY_PANEL = IntroAssets.StoryPanelBackdrop or Color3.fromRGB(30, 30, 30)
@@ -91,21 +91,17 @@ local function tween(instance: Instance, info: TweenInfo, props: { [string]: any
 	return t
 end
 
+local function fadeText(textObject: TextLabel | TextButton, transparency: number, duration: number)
+	tween(textObject, TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+		TextTransparency = transparency,
+		TextStrokeTransparency = math.clamp(transparency + 0.4, 0, 1),
+	})
+end
+
 local function fadeGui(guiObject: GuiObject, transparency: number, duration: number)
 	tween(guiObject, TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
 		BackgroundTransparency = transparency,
 	})
-
-	if guiObject:IsA("TextLabel") or guiObject:IsA("TextButton") then
-		tween(guiObject, TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-			TextTransparency = transparency,
-			TextStrokeTransparency = math.clamp(transparency + 0.4, 0, 1),
-		})
-	elseif guiObject:IsA("ImageLabel") then
-		tween(guiObject, TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-			ImageTransparency = transparency,
-		})
-	end
 
 	for _, desc in ipairs(guiObject:GetDescendants()) do
 		if desc:IsA("TextLabel") or desc:IsA("TextButton") then
@@ -405,11 +401,8 @@ local function buildTitleScreen()
 	header.TextWrapped = true
 	header.ZIndex = 10
 	header.Font = Enum.Font.Bangers
-	local headerStroke = Instance.new("UIStroke")
-	headerStroke.Color = Color3.new(0, 0, 0)
-	headerStroke.Thickness = 2
-	headerStroke.Transparency = 0.5
-	headerStroke.Parent = header
+	header.TextStrokeColor3 = Color3.new(0, 0, 0)
+	header.TextStrokeTransparency = 1
 
 	local panelsHolder = Instance.new("Frame")
 	panelsHolder.Name = "PanelsHolder"
@@ -519,12 +512,6 @@ local function buildTitleScreen()
 	local playCorner = Instance.new("UICorner")
 	playCorner.CornerRadius = UDim.new(0, 12)
 	playCorner.Parent = play
-
-	local playStroke = Instance.new("UIStroke")
-	playStroke.Color = Color3.fromRGB(0, 0, 0)
-	playStroke.Thickness = 2
-	playStroke.Transparency = 0.6
-	playStroke.Parent = play
 end
 
 local function showTitleScreen()
@@ -535,6 +522,13 @@ local function showTitleScreen()
 	titleScreen.Visible = true
 	titleScreen.BackgroundTransparency = 1
 	setGroupTransparency(titleScreen, 1)
+
+	if screenGui then
+		screenGui.DisplayOrder = 10000
+	end
+	pcall(function()
+		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
+	end)
 
 	local camera = Workspace.CurrentCamera
 	if camera then
@@ -549,9 +543,9 @@ local function showTitleScreen()
 	})
 
 	local header = titleScreen:FindFirstChild("TitleHeader")
-	if header then
+	if header and header:IsA("TextLabel") then
 		task.delay(0.15, function()
-			fadeGui(header, 0, 0.5)
+			fadeText(header, 0, 0.5)
 		end)
 	end
 
@@ -567,14 +561,14 @@ local function showTitleScreen()
 	end
 
 	local play = titleScreen:FindFirstChild("PlayButton")
-	if play then
+	if play and (play:IsA("TextButton") or play:IsA("TextLabel")) then
 		task.delay(0.85, function()
-			fadeGui(play, 0, 0.4)
+			fadeText(play, 0, 0.4)
 		end)
 	end
 end
 
-local function hideTitleScreen()
+local function hideTitleScreen(fromPlay: boolean?)
 	if not titleScreen or titleDismissed then
 		return
 	end
@@ -584,9 +578,17 @@ local function hideTitleScreen()
 		if titleScreen then
 			titleScreen.Visible = false
 		end
+		if screenGui then
+			screenGui.DisplayOrder = 80
+		end
+		pcall(function()
+			StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, true)
+		end)
+		if fromPlay then
+			unlockMovement()
+			unlockCamera()
+		end
 	end)
-	unlockMovement()
-	unlockCamera()
 end
 
 local function destroyIntroGui()
@@ -739,7 +741,7 @@ function IntroController:KnitStart()
 		local play = titleScreen:FindFirstChild("PlayButton")
 		if play then
 			play.MouseButton1Click:Connect(function()
-				hideTitleScreen()
+				hideTitleScreen(true)
 			end)
 		end
 	end
