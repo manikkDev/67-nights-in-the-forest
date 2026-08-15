@@ -110,9 +110,11 @@ local function fadeGui(guiObject: GuiObject, transparency: number, duration: num
 				TextStrokeTransparency = math.clamp(transparency + 0.4, 0, 1),
 			})
 		elseif desc:IsA("ImageLabel") then
-			tween(desc, TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-				ImageTransparency = transparency,
-			})
+			local imageProps: { [string]: any } = { ImageTransparency = transparency }
+			if desc.Image == "rbxassetid://0" or desc.Image == "" then
+				imageProps.BackgroundTransparency = transparency
+			end
+			tween(desc, TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), imageProps)
 		elseif desc:IsA("Frame") and desc.BackgroundTransparency < 1 then
 			tween(desc, TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
 				BackgroundTransparency = math.max(desc.BackgroundTransparency, transparency),
@@ -129,6 +131,7 @@ local function setGroupTransparency(guiObject: GuiObject, transparency: number)
 			desc.TextStrokeTransparency = math.clamp(transparency + 0.4, 0, 1)
 		elseif desc:IsA("ImageLabel") then
 			desc.ImageTransparency = transparency
+			desc.BackgroundTransparency = transparency
 		end
 	end
 end
@@ -431,7 +434,7 @@ local function buildTitleScreen()
 		panel.Name = "StoryPanel" .. i
 		panel.Size = UDim2.new(0.18, 0, 0.62, 0)
 		panel.BackgroundColor3 = STORY_PANEL
-		panel.BackgroundTransparency = 0
+		panel.BackgroundTransparency = 1
 		panel.BorderSizePixel = 0
 		panel.ZIndex = 7
 		panel.LayoutOrder = i
@@ -468,7 +471,7 @@ local function buildTitleScreen()
 		image.LayoutOrder = 1
 		image.Size = UDim2.new(1, 0, 0.7, 0)
 		image.BackgroundColor3 = STORY_PLACEHOLDER
-		image.BackgroundTransparency = 0
+		image.BackgroundTransparency = 1
 		image.BorderSizePixel = 0
 		image.ScaleType = Enum.ScaleType.Crop
 		image.ZIndex = 8
@@ -477,6 +480,7 @@ local function buildTitleScreen()
 		local id = imageIds[i]
 		if id and id ~= "" then
 			image.Image = id
+			image.BackgroundTransparency = 1
 		end
 
 		local caption = makeLabel(panel, "Caption",
@@ -574,6 +578,14 @@ local function hideTitleScreen(fromPlay: boolean?)
 	end
 	titleDismissed = true
 	fadeGui(titleScreen, 1, TITLE_OUT)
+
+	local play = titleScreen:FindFirstChild("PlayButton")
+	if play and play:IsA("TextButton") then
+		tween(play, TweenInfo.new(TITLE_OUT, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+			BackgroundTransparency = 1,
+		})
+	end
+
 	task.delay(TITLE_OUT, function()
 		if titleScreen then
 			titleScreen.Visible = false
