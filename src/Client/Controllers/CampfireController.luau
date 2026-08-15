@@ -70,7 +70,7 @@ local topLevelText: TextLabel? = nil
 local topLevelFill: Frame? = nil
 local isLit = false
 local currentSafeZoneRadius = 0
-local campfireService: any? = nil
+local campfireService: any = nil
 
 -- // FUNCTIONS // --
 

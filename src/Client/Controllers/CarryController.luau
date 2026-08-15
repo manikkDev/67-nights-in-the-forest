@@ -28,7 +28,6 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -94,7 +93,6 @@ local function getMouseRay(): (BasePart?, Vector3?)
 		return nil
 	end
 
-	local localPlayer = Players.LocalPlayer
 	local character = localPlayer and localPlayer.Character
 	local mousePos = UserInputService:GetMouseLocation()
 	local ray = camera:ViewportPointToRay(mousePos.X, mousePos.Y, 0)
@@ -138,7 +136,6 @@ end
     @returns  boolean
 ]]
 local function isInRange(model: Model): boolean
-	local localPlayer = Players.LocalPlayer
 	local character = localPlayer and localPlayer.Character
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
 	if not rootPart or not rootPart:IsA("BasePart") then

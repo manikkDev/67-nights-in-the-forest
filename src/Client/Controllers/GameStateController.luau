@@ -37,7 +37,7 @@ export type FlowState = "Lobby" | "Waiting" | "Countdown" | "Story" | "Day1" | "
 -- | State Management | --
 local flowState: FlowState = "Lobby"
 local isInGame = false
-local gameStartedSignal: any? = nil
+local gameStartedSignal: any = nil
 
 -- // FUNCTIONS // --
 

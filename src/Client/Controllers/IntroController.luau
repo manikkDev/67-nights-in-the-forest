@@ -81,7 +81,7 @@ local savedWalkSpeed = 16
 local savedJumpPower = 50
 local savedJumpHeight = 7.2
 local movementLocked = false
-local gameStateController: any? = nil
+local gameStateController: any = nil
 
 -- // FUNCTIONS // --
 

@@ -111,7 +111,7 @@ local tooltipDesc: TextLabel? = nil
 
 local isOpen = false
 local useHover = UserInputService.MouseEnabled and not UserInputService.TouchEnabled
-local gameStateController: any? = nil
+local gameStateController: any = nil
 
 -- // FUNCTIONS // --
 

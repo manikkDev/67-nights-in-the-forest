@@ -44,7 +44,7 @@ local charJanitor = Janitor.new()
 local lastChopTime = 0
 local swingAnimationId: string? = nil
 local cachedAnimTrack: AnimationTrack? = nil
-local gameStateController: any? = nil
+local gameStateController: any = nil
 
 -- // FUNCTIONS // --
 
