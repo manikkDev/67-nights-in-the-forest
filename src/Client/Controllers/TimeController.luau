@@ -21,7 +21,6 @@
 
 -- | Services | --
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Lighting = game:GetService("Lighting")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)

@@ -20,7 +20,6 @@
 -- | Services | --
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local StarterGui = game:GetService("StarterGui")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -36,7 +35,7 @@ local nightLabelGui: ScreenGui? = nil
 local dayTextLabel: TextLabel? = nil
 local nightTextLabel: TextLabel? = nil
 local currentDayNumber = 1
-local gameStateController: any? = nil
+local gameStateController: any = nil
 local labelsEnabled = false
 
 -- // FUNCTIONS // --
@@ -105,6 +104,8 @@ function HudController:KnitInit()
 
 	dayLabelGui = playerGui:WaitForChild("DayLabel")
 	nightLabelGui = playerGui:WaitForChild("NightLabel")
+	assert(dayLabelGui, "[HudController] DayLabel ScreenGui not found")
+	assert(nightLabelGui, "[HudController] NightLabel ScreenGui not found")
 
 	dayTextLabel = createPhaseLabel(dayLabelGui)
 	nightTextLabel = createPhaseLabel(nightLabelGui)

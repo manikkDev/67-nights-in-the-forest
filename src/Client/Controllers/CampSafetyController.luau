@@ -50,10 +50,10 @@ local UNSAFE_TINT = Color3.fromRGB(180, 190, 220)
 local colorCorrection: ColorCorrectionEffect? = nil
 local warningGui: ScreenGui? = nil
 local warningLabel: TextLabel? = nil
-local worldService: any? = nil
-local gameStateController: any? = nil
-local campfireService: any? = nil
-local timeService: any? = nil
+local worldService: any = nil
+local gameStateController: any = nil
+local campfireService: any = nil
+local timeService: any = nil
 local campfirePosition: Vector3? = nil
 local safeZoneRadius = 0
 local isNight = false
@@ -177,14 +177,16 @@ local function updateVisuals(state: "day" | "safeNight" | "unsafeNight" | "fireO
 		tweenInfo = SAFE_TWEEN_INFO
 	end
 
-	currentCcTween = TweenService:Create(colorCorrection, tweenInfo, ccTarget)
-	currentCcTween:Play()
+	local ccTween = TweenService:Create(colorCorrection, tweenInfo, ccTarget)
+	ccTween:Play()
+	currentCcTween = ccTween
 
 	if warningText then
 		warningLabel.Text = warningText
 	end
-	currentWarningTween = TweenService:Create(warningLabel, tweenInfo, { TextTransparency = warningTrans })
-	currentWarningTween:Play()
+	local warningTween = TweenService:Create(warningLabel, tweenInfo, { TextTransparency = warningTrans })
+	warningTween:Play()
+	currentWarningTween = warningTween
 end
 
 --[[
