@@ -182,6 +182,11 @@ local function unlockCamera()
 		return
 	end
 	camera.CameraType = Enum.CameraType.Custom
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		camera.CameraSubject = humanoid
+	end
 end
 
 local function formatCountdown(seconds: number): string
@@ -577,6 +582,11 @@ local function hideTitleScreen(fromPlay: boolean?)
 		return
 	end
 	titleDismissed = true
+
+	if fromPlay then
+		unlockCamera()
+	end
+
 	fadeGui(titleScreen, 1, TITLE_OUT)
 
 	local play = titleScreen:FindFirstChild("PlayButton")
@@ -598,7 +608,6 @@ local function hideTitleScreen(fromPlay: boolean?)
 		end)
 		if fromPlay then
 			unlockMovement()
-			unlockCamera()
 		end
 	end)
 end
