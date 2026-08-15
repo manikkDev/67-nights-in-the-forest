@@ -33,6 +33,10 @@ local PANEL_WIDTH = 250
 local PANEL_HEIGHT = 130
 local PANEL_MARGIN = 14
 local BAR_HEIGHT = 10
+local TOP_BAR_WIDTH = 600
+local TOP_BAR_HEIGHT = 28
+local TOP_BAR_Y = 80
+local TOP_BAR_COLOR = Color3.fromRGB(245, 220, 0)
 local BAR_TWEEN_INFO = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local WARNING_TWEEN_INFO = TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local LEVELUP_TWEEN_INFO = TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -57,6 +61,10 @@ local levelUpStroke: UIStroke? = nil
 local levelUpTitle: TextLabel? = nil
 local levelUpSubtitle: TextLabel? = nil
 local levelUpShowingLevel: number = 0
+
+local topLevelGui: ScreenGui? = nil
+local topLevelText: TextLabel? = nil
+local topLevelFill: Frame? = nil
 
 -- // FUNCTIONS // --
 
@@ -105,6 +113,16 @@ end
     @param    progress    number
     @param    requirement number
 ]]
+local function setTopLevelBar(level: number, progress: number, requirement: number)
+	if topLevelText then
+		topLevelText.Text = "level " .. tostring(level) .. " progress: " .. tostring(math.round(progress)) .. "/" .. tostring(math.round(requirement))
+	end
+	if topLevelFill then
+		local fraction = if requirement > 0 then math.clamp(progress / requirement, 0, 1) else 1
+		TweenService:Create(topLevelFill, BAR_TWEEN_INFO, { Size = UDim2.new(fraction, 0, 1, 0) }):Play()
+	end
+end
+
 local function setLevelBar(level: number, progress: number, requirement: number)
 	if levelLabel then
 		levelLabel.Text = "LVL " .. tostring(level)
@@ -120,6 +138,8 @@ local function setLevelBar(level: number, progress: number, requirement: number)
 		levelValueLabel.Text = tostring(math.round(progress)) .. " / " .. tostring(math.round(requirement))
 		levelValueLabel.TextColor3 = levelFill.BackgroundColor3
 	end
+
+	setTopLevelBar(level, progress, requirement)
 end
 
 --[[
@@ -366,6 +386,65 @@ local function buildStatRow(name: string, y: number, labelText: string, color: C
 end
 
 --[[
+    @summary  Build the top-center campfire level progress bar.
+]]
+local function buildTopLevelProgressBar()
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local existing = playerGui:FindFirstChild("CampfireLevelProgressGui")
+	if existing then
+		existing:Destroy()
+	end
+
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "CampfireLevelProgressGui"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 5
+	gui.Enabled = false
+	gui.Parent = playerGui
+	topLevelGui = gui
+
+	local container = Instance.new("Frame")
+	container.Name = "Container"
+	container.AnchorPoint = Vector2.new(0.5, 0)
+	container.Position = UDim2.new(0.5, 0, 0, TOP_BAR_Y)
+	container.Size = UDim2.new(0, TOP_BAR_WIDTH, 0, TOP_BAR_HEIGHT + 24)
+	container.BackgroundTransparency = 1
+	container.BorderSizePixel = 0
+	container.Parent = gui
+
+	local textLabel = Instance.new("TextLabel")
+	textLabel.Name = "LevelText"
+	textLabel.Size = UDim2.new(1, 0, 0, 24)
+	textLabel.Position = UDim2.new(0, 0, 0, 0)
+	textLabel.BackgroundTransparency = 1
+	textLabel.Text = "level 1 progress: 0/100"
+	textLabel.TextColor3 = Color3.fromRGB(240, 240, 240)
+	textLabel.Font = Enum.Font.GothamBold
+	textLabel.TextSize = 20
+	textLabel.TextXAlignment = Enum.TextXAlignment.Center
+	textLabel.TextYAlignment = Enum.TextYAlignment.Bottom
+	textLabel.Parent = container
+	topLevelText = textLabel
+
+	local barBackground = Instance.new("Frame")
+	barBackground.Name = "BarBackground"
+	barBackground.Size = UDim2.new(1, 0, 0, TOP_BAR_HEIGHT)
+	barBackground.Position = UDim2.new(0, 0, 0, 24)
+	barBackground.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	barBackground.BorderSizePixel = 0
+	barBackground.Parent = container
+
+	local barFill = Instance.new("Frame")
+	barFill.Name = "BarFill"
+	barFill.Size = UDim2.new(1, 0, 1, 0)
+	barFill.BackgroundColor3 = TOP_BAR_COLOR
+	barFill.BorderSizePixel = 0
+	barFill.Parent = barBackground
+	topLevelFill = barFill
+end
+
+--[[
     @summary  Build or rebuild the campfire HUD panel.
 ]]
 local function buildGui()
@@ -571,6 +650,7 @@ end
 
 function CampfireController:KnitStart()
 	buildGui()
+	buildTopLevelProgressBar()
 	buildLevelUpBanner()
 	buildWarning()
 
@@ -580,6 +660,9 @@ function CampfireController:KnitStart()
 	local function onGameStarted()
 		if campfireGui then
 			campfireGui.Enabled = true
+		end
+		if topLevelGui then
+			topLevelGui.Enabled = true
 		end
 		if warningGui then
 			warningGui.Enabled = true
