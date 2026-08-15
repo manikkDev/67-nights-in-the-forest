@@ -451,19 +451,13 @@ local function buildTopLevelProgressBar()
 			existing:Destroy()
 		end
 
-		local firePart: BasePart? = nil
-		local waited = 0
-		while not firePart do
-			firePart = findCampfireFire()
-			if firePart then
-				break
-			end
-			task.wait(0.5)
-			waited += 0.5
-			if waited > 15 then
-				warn("[CampfireController] Could not find campfire Fire part for billboard")
-				return
-			end
+		-- The map/bonfire can take time to load, so wait for it instead of timing out quickly.
+		local baseMap = workspace:WaitForChild("Base-map")
+		local bonfire = baseMap:WaitForChild("Bonfire")
+		local firePart = bonfire:WaitForChild("Fire") :: BasePart?
+		if not firePart then
+			warn("[CampfireController] Could not find campfire Fire part for billboard")
+			return
 		end
 
 		-- Remove any old placeholder billboard that may exist on the fire part.
