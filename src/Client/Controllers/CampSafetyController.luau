@@ -52,6 +52,8 @@ local warningGui: ScreenGui? = nil
 local warningLabel: TextLabel? = nil
 local worldService: any? = nil
 local gameStateController: any? = nil
+local campfireService: any? = nil
+local timeService: any? = nil
 local campfirePosition: Vector3? = nil
 local safeZoneRadius = 0
 local isNight = false
@@ -60,6 +62,10 @@ local currentState: "day" | "safeNight" | "unsafeNight" | "fireOut" = "day"
 local currentCcTween: Tween? = nil
 local currentWarningTween: Tween? = nil
 local checkTimer = 0
+local heartbeatConnection: RBXScriptConnection? = nil
+local safeZoneChangedConnection: RBXScriptConnection? = nil
+local gameStartedConnection: RBXScriptConnection? = nil
+local phaseChangedConnection: RBXScriptConnection? = nil
 
 -- // FUNCTIONS // --
 
@@ -194,6 +200,22 @@ local function onHeartbeat(dt: number)
 	end
 	checkTimer = 0
 
+	-- Read the authoritative state from the server properties on every tick.
+	-- This protects against missed signal events and guarantees the safe-zone
+	-- radius, fire state, and day/night phase are always current — including
+	-- when the campfire levels up and the radius changes.
+	if timeService and timeService.GetPhaseState then
+		isNight = timeService.GetPhaseState.Value == "Night"
+	end
+	if campfireService then
+		if campfireService.SafeZoneRadius then
+			safeZoneRadius = campfireService.SafeZoneRadius.Value or 0
+		end
+		if campfireService.IsLit then
+			isFireActive = campfireService.IsLit.Value == true
+		end
+	end
+
 	if not isNight then
 		updateVisuals("day")
 		return
@@ -238,32 +260,42 @@ end
 function CampSafetyController:KnitStart()
 	gameStateController = Knit.GetController("GameStateController")
 	worldService = Knit.GetService("WorldService")
-	local campfireService = Knit.GetService("CampfireService")
-	local timeService = Knit.GetService("TimeService")
+	campfireService = Knit.GetService("CampfireService")
+	timeService = Knit.GetService("TimeService")
 
-	campfireService.SafeZoneChanged:Connect(function(radius, isActive)
-		isFireActive = isActive
-		safeZoneRadius = isActive and radius or 0
+	-- Fast path: update when the server explicitly tells us the safe zone changed.
+	if safeZoneChangedConnection then
+		safeZoneChangedConnection:Disconnect()
+	end
+	safeZoneChangedConnection = campfireService.SafeZoneChanged:Connect(function(radius, isActive)
+		isFireActive = isActive == true
+		safeZoneRadius = if isActive then radius or 0 else 0
 	end)
 
-	-- Request the current safe-zone state in case the initial signal was
-	-- fired before this controller connected.
-	local ok, radius, lit = pcall(campfireService.GetSafeZoneInfo, campfireService)
+	-- Fallback: request the current safe-zone state in case the initial signal
+	-- was fired before this controller connected. Uses the correct client call
+	-- syntax so the remote runs on the local player.
+	local ok, radius, lit = pcall(function()
+		return campfireService:GetSafeZoneInfo()
+	end)
 	if ok then
 		isFireActive = lit == true
-		safeZoneRadius = if isFireActive then radius else 0
+		safeZoneRadius = if isFireActive then radius or 0 else 0
 	end
 
-	timeService.DayStarted:Connect(function()
-		isNight = false
-	end)
-	timeService.NightStarted:Connect(function()
-		isNight = true
-	end)
-
+	-- Observe the authoritative phase property so the client can't get stuck
+	-- in the wrong day/night state if a DayStarted/NightStarted event is missed.
+	if phaseChangedConnection then
+		phaseChangedConnection:Disconnect()
+	end
 	local phaseState = timeService.GetPhaseState
 	if phaseState then
 		isNight = phaseState.Value == "Night"
+		if phaseState.Changed then
+			phaseChangedConnection = phaseState.Changed:Connect(function()
+				isNight = phaseState.Value == "Night"
+			end)
+		end
 	end
 
 	local function onGameStarted()
@@ -271,7 +303,9 @@ function CampSafetyController:KnitStart()
 		if warningGui then
 			warningGui.Enabled = true
 		end
-		RunService.Heartbeat:Connect(onHeartbeat)
+		if not heartbeatConnection then
+			heartbeatConnection = RunService.Heartbeat:Connect(onHeartbeat)
+		end
 		task.defer(function()
 			onHeartbeat(CHECK_INTERVAL)
 		end)
@@ -280,8 +314,11 @@ function CampSafetyController:KnitStart()
 	if gameStateController and gameStateController:IsInGame() then
 		onGameStarted()
 	else
+		if gameStartedConnection then
+			gameStartedConnection:Disconnect()
+		end
 		if gameStateController then
-			gameStateController.GameStarted:Connect(onGameStarted)
+			gameStartedConnection = gameStateController.GameStarted:Connect(onGameStarted)
 		end
 	end
 

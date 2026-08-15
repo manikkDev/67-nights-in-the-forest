@@ -50,6 +50,8 @@ local createSuccess, CampfireService = pcall(Knit.CreateService, {
 		LevelChanged = Knit.CreateSignal(),
 		SafeZoneChanged = Knit.CreateSignal(),
 		LevelUp = Knit.CreateSignal(),
+		SafeZoneRadius = Knit.CreateProperty(0),
+		IsLit = Knit.CreateProperty(false),
 	},
 })
 
@@ -72,6 +74,12 @@ if not CampfireService.Client.SafeZoneChanged then
 end
 if not CampfireService.Client.LevelUp then
 	CampfireService.Client.LevelUp = Knit.CreateSignal()
+end
+if not CampfireService.Client.SafeZoneRadius then
+	CampfireService.Client.SafeZoneRadius = Knit.CreateProperty(0)
+end
+if not CampfireService.Client.IsLit then
+	CampfireService.Client.IsLit = Knit.CreateProperty(false)
 end
 
 -- | Configuration | --
@@ -442,7 +450,14 @@ local function broadcastSafeZone(target: Player?, force: boolean?)
 	if not shouldBroadcast then
 		return
 	end
+
 	lastBroadcastRadius = currentSafeZoneRadius
+	if CampfireService.Client.SafeZoneRadius then
+		CampfireService.Client.SafeZoneRadius:Set(currentSafeZoneRadius)
+	end
+	if CampfireService.Client.IsLit then
+		CampfireService.Client.IsLit:Set(isLit)
+	end
 
 	if target then
 		if isPlayerInGame(target) then
@@ -876,6 +891,12 @@ if not createSuccess then
 	end
 	if not CampfireService.Client.LevelUp then
 		CampfireService.Client.LevelUp = Knit.CreateSignal()
+	end
+	if not CampfireService.Client.SafeZoneRadius then
+		CampfireService.Client.SafeZoneRadius = Knit.CreateProperty(0)
+	end
+	if not CampfireService.Client.IsLit then
+		CampfireService.Client.IsLit = Knit.CreateProperty(false)
 	end
 
 	if CampfireService._HeartbeatConnection then
