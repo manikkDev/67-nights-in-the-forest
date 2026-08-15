@@ -47,10 +47,10 @@ local HOVER_EMISSIVE = Color3.fromRGB(160, 220, 255)
 
 -- | State Management | --
 local localPlayer = Players.LocalPlayer
-local gameStateController: any? = nil
-local harvestService: any? = nil
-local forageService: any? = nil
-local inventoryService: any? = nil
+local gameStateController: any = nil
+local harvestService: any = nil
+local forageService: any = nil
+local inventoryService: any = nil
 local lastPickupTime = 0
 local hoveredModel: Model? = nil
 local hoverHighlight: Highlight? = nil
@@ -196,30 +196,32 @@ local function setHover(model: Model, resourceName: string, promptText: string?)
 	clearHover()
 	hoveredModel = model
 
-	hoverHighlight = Instance.new("Highlight")
-	hoverHighlight.Name = "CarryHoverHighlight"
-	hoverHighlight.Adornee = model
-	hoverHighlight.FillColor = HOVER_EMISSIVE
-	hoverHighlight.OutlineColor = HOVER_EMISSIVE
-	hoverHighlight.FillTransparency = 0.85
-	hoverHighlight.OutlineTransparency = 0.3
-	hoverHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-	hoverHighlight.Parent = model
+	local highlight = Instance.new("Highlight") :: Highlight
+	highlight.Name = "CarryHoverHighlight"
+	highlight.Adornee = model
+	highlight.FillColor = HOVER_EMISSIVE
+	highlight.OutlineColor = HOVER_EMISSIVE
+	highlight.FillTransparency = 0.85
+	highlight.OutlineTransparency = 0.3
+	highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	highlight.Parent = model
+	hoverHighlight = highlight
 
 	local anchor = getModelAnchor(model)
 	if not anchor then
 		return
 	end
 
-	hoverNameGui = Instance.new("BillboardGui")
-	hoverNameGui.Name = "CarryHoverLabel"
-	hoverNameGui.Adornee = anchor
-	hoverNameGui.Size = UDim2.new(0, 220, 0, 52)
-	hoverNameGui.SizeOffset = Vector2.new(0, 0.5)
-	hoverNameGui.StudsOffset = Vector3.new(0, 2.2, 0)
-	hoverNameGui.AlwaysOnTop = true
-	hoverNameGui.ClipsDescendants = false
-	hoverNameGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local nameGui = Instance.new("BillboardGui") :: BillboardGui
+	nameGui.Name = "CarryHoverLabel"
+	nameGui.Adornee = anchor
+	nameGui.Size = UDim2.new(0, 220, 0, 52)
+	nameGui.SizeOffset = Vector2.new(0, 0.5)
+	nameGui.StudsOffset = Vector3.new(0, 2.2, 0)
+	nameGui.AlwaysOnTop = true
+	nameGui.ClipsDescendants = false
+	nameGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	hoverNameGui = nameGui
 
 	local background = Instance.new("Frame")
 	background.Name = "LabelBackground"
@@ -227,7 +229,7 @@ local function setHover(model: Model, resourceName: string, promptText: string?)
 	background.BackgroundColor3 = Color3.fromRGB(32, 34, 40)
 	background.BackgroundTransparency = 0.15
 	background.BorderSizePixel = 0
-	background.Parent = hoverNameGui
+	background.Parent = nameGui
 
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 8)
@@ -295,7 +297,7 @@ local function updateDragTarget()
 
 	local raycastParams = RaycastParams.new()
 	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-	local filterList = {}
+	local filterList: {Instance} = {}
 	if dragTarget then
 		table.insert(filterList, dragTarget)
 	end
