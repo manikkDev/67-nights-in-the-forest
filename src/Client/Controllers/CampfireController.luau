@@ -466,6 +466,13 @@ local function buildTopLevelProgressBar()
 			end
 		end
 
+		-- Remove any old placeholder billboard that may exist on the fire part.
+		for _, child in ipairs(firePart:GetChildren()) do
+			if child:IsA("BillboardGui") then
+				child:Destroy()
+			end
+		end
+
 		local billboard = Instance.new("BillboardGui")
 		billboard.Name = "CampfireLevelProgressBillboard"
 		billboard.Adornee = firePart
@@ -474,7 +481,7 @@ local function buildTopLevelProgressBar()
 		billboard.Size = UDim2.new(BILLBOARD_WIDTH, 0, BILLBOARD_HEIGHT, 0)
 		billboard.StudsOffsetWorldSpace = Vector3.new(0, BILLBOARD_Y_OFFSET, 0)
 		billboard.Enabled = false
-		billboard.Parent = playerGui
+		billboard.Parent = firePart
 		topLevelBillboard = billboard
 
 		local container = Instance.new("Frame")
