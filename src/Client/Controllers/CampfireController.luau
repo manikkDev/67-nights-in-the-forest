@@ -223,6 +223,9 @@ end
 ]]
 local function buildWarning(): TextLabel
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	if not playerGui then
+		return Instance.new("TextLabel")
+	end
 	local existing = playerGui:FindFirstChild("CampfireWarningGui")
 	if existing then
 		existing:Destroy()
@@ -259,6 +262,9 @@ end
 ]]
 local function buildLevelUpBanner(): Frame
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	if not playerGui then
+		return Instance.new("Frame")
+	end
 	local existing = playerGui:FindFirstChild("CampfireLevelUpGui")
 	if existing then
 		existing:Destroy()
@@ -355,8 +361,8 @@ end
     @param    color  Color3
     @returns  Frame
 ]]
-local function buildStatRow(name: string, y: number, labelText: string, color: Color3): (Frame, TextLabel)
-	local panel = campfireGui and campfireGui:FindFirstChild("Panel") :: Frame
+local function buildStatRow(parent: Frame, name: string, y: number, labelText: string, color: Color3): (Frame, TextLabel)
+	local panel = parent
 
 	local icon = Instance.new("Frame")
 	icon.Name = name .. "Icon"
@@ -466,6 +472,9 @@ end
 local function buildTopLevelProgressBar()
 	task.spawn(function()
 		local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+		if not playerGui then
+			return
+		end
 
 		local existing = playerGui:FindFirstChild("CampfireLevelProgressBillboard")
 		if existing then
@@ -474,7 +483,15 @@ local function buildTopLevelProgressBar()
 
 		-- The map/bonfire can take time to load, so wait for it instead of timing out quickly.
 		local baseMap = workspace:WaitForChild("Base-map")
+		if not baseMap then
+			warn("[CampfireController] Base-map not found for billboard")
+			return
+		end
 		local bonfire = baseMap:WaitForChild("Bonfire")
+		if not bonfire then
+			warn("[CampfireController] Bonfire not found for billboard")
+			return
+		end
 		local firePart = bonfire:WaitForChild("Fire") :: BasePart?
 		if not firePart then
 			warn("[CampfireController] Could not find campfire Fire part for billboard")
@@ -550,6 +567,9 @@ end
 ]]
 local function buildGui()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	if not playerGui then
+		return
+	end
 	local existing = playerGui:FindFirstChild("CampfireGui")
 	if existing then
 		existing:Destroy()
@@ -611,8 +631,8 @@ local function buildGui()
 	levelLabelInstance.Parent = panel
 	levelLabel = levelLabelInstance
 
-	fuelFill, fuelValueLabel = buildStatRow("Fuel", 38, "FUEL", Color3.fromRGB(245, 140, 50))
-	levelFill, levelValueLabel = buildStatRow("Level", 72, "LEVEL", Color3.fromRGB(240, 180, 30))
+	fuelFill, fuelValueLabel = buildStatRow(panel, "Fuel", 38, "FUEL", Color3.fromRGB(245, 140, 50))
+	levelFill, levelValueLabel = buildStatRow(panel, "Level", 72, "LEVEL", Color3.fromRGB(240, 180, 30))
 
 	local statusLabelInstance = Instance.new("TextLabel") :: TextLabel
 	statusLabelInstance.Name = "StatusLabel"
@@ -710,7 +730,7 @@ local function showLevelUp(newLevel: number, previousLevel: number, radius: numb
 			return
 		end
 		task.wait(LEVELUP_HOLD_TIME)
-		if levelUpShowingLevel ~= expectedLevel or not levelUpBanner then
+		if levelUpShowingLevel ~= expectedLevel or not levelUpBanner or not levelUpBackground or not levelUpStroke or not levelUpTitle or not levelUpSubtitle then
 			return
 		end
 

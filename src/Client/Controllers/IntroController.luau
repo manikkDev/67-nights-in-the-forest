@@ -267,6 +267,9 @@ end
 
 local function buildGui()
 	local playerGui = player:WaitForChild("PlayerGui")
+	if not playerGui then
+		return
+	end
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "IntroGui"
 	gui.IgnoreGuiInset = true

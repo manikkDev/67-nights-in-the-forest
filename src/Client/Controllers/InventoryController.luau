@@ -931,7 +931,10 @@ local function showBag()
 	if not gameStateController or not gameStateController:IsInGame() then
 		return
 	end
-	if not bagPanel or isOpen then
+	if not bagPanel then
+		return
+	end
+	if isOpen then
 		return
 	end
 	isOpen = true
@@ -964,7 +967,10 @@ end
     @summary  Slide the bag panel off the screen.
 ]]
 local function hideBag()
-	if not bagPanel or not isOpen then
+	if not bagPanel then
+		return
+	end
+	if not isOpen then
 		return
 	end
 	isOpen = false
@@ -1076,6 +1082,9 @@ local function watchBagTool()
 	end
 
 	local backpack = localPlayer:WaitForChild("Backpack")
+	if not backpack then
+		return
+	end
 	local function onChildAdded(child: Instance)
 		if child.Name == BAG_TOOL_NAME and child:IsA("Tool") then
 			hookTool(child)
@@ -1107,6 +1116,10 @@ end
 
 function InventoryController:KnitInit()
 	local playerGui = localPlayer:WaitForChild("PlayerGui")
+	if not playerGui then
+		warn("[InventoryController] PlayerGui not found")
+		return
+	end
 	local ok, gui = pcall(buildBagGui)
 	if not ok or not gui then
 		warn("[InventoryController] Failed to build bag GUI:", gui)

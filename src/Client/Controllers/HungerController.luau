@@ -155,6 +155,9 @@ end
 
 local function buildSurvivalGui()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	if not playerGui then
+		return
+	end
 	local existing = playerGui:FindFirstChild("HealthBarFill")
 	if existing then
 		existing:Destroy()

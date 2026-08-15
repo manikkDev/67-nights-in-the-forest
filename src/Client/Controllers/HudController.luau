@@ -101,6 +101,9 @@ end
 
 function HudController:KnitInit()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	if not playerGui then
+		return
+	end
 
 	dayLabelGui = playerGui:WaitForChild("DayLabel")
 	nightLabelGui = playerGui:WaitForChild("NightLabel")

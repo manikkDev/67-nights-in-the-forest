@@ -99,7 +99,7 @@ local function getMouseRay(): (BasePart?, Vector3?)
 
 	local raycastParams = RaycastParams.new()
 	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-	local filterList = {}
+	local filterList: {Instance} = {}
 	if character then
 		table.insert(filterList, character)
 	end

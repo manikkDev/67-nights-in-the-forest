@@ -95,6 +95,9 @@ end
 ]]
 local function buildWarningLabel(): TextLabel
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	if not playerGui then
+		return Instance.new("TextLabel")
+	end
 	local existing = playerGui:FindFirstChild("CampSafetyGui")
 	if existing then
 		existing:Destroy()
