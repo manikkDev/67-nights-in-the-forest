@@ -32,7 +32,6 @@ local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Debris = game:GetService("Debris")
-local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -254,7 +253,7 @@ local function spawnOwl()
 		pursuitStartTime = nil,
 		flapTime = 0,
 		wingJoints = collectWingJoints(model),
-		flyTween = nil,
+		flyHeartbeat = nil,
 	}
 
 	buildAnimationTracks(owl)
@@ -312,8 +311,10 @@ local function flyTo(targetCFrame: CFrame, duration: number, callback: (() -> ()
 		return
 	end
 
-	if owl.flyTween then
-		owl.flyTween:Cancel()
+	-- Clean up any previous flight
+	if owl.flyHeartbeat then
+		owl.flyHeartbeat:Disconnect()
+		owl.flyHeartbeat = nil
 	end
 
 	owl.humanoid.WalkSpeed = 0
@@ -322,27 +323,17 @@ local function flyTo(targetCFrame: CFrame, duration: number, callback: (() -> ()
 	local startCFrame = owl.model:GetPivot()
 	local startTime = os.clock()
 
-	owl.flyTween = TweenService:Create(
-		Instance.new("NumberValue"),
-		TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-		{ Value = 1 }
-	)
+	-- Anchor the rootPart during flight so physics doesn't fight the tween
+	owl.rootPart.Anchored = true
 
-	local connection
-	connection = owl.flyTween.Completed:Connect(function()
-		connection:Disconnect()
-		owl.flyTween = nil
-		owl.model:PivotTo(targetCFrame)
-		if callback then
-			callback()
+	local function cleanup()
+		if owl then
+			owl.rootPart.Anchored = false
 		end
-	end)
+	end
 
-	-- Manually interpolate the pivot each frame since we can't tween a CFrame directly
-	local heartbeatConn
-	heartbeatConn = RunService.Heartbeat:Connect(function()
-		if not owl or owl.flyTween ~= owl.flyTween then
-			heartbeatConn:Disconnect()
+	owl.flyHeartbeat = RunService.Heartbeat:Connect(function()
+		if not owl or not owl.flyHeartbeat then
 			return
 		end
 		local elapsed = os.clock() - startTime
@@ -353,11 +344,15 @@ local function flyTo(targetCFrame: CFrame, duration: number, callback: (() -> ()
 		owl.model:PivotTo(CFrame.fromMatrix(pos, rot.XVector, rot.YVector, rot.ZVector))
 		updateWingFlap(owl, 3, 1 / 60)
 		if alpha >= 1 then
-			heartbeatConn:Disconnect()
+			owl.flyHeartbeat:Disconnect()
+			owl.flyHeartbeat = nil
+			owl.model:PivotTo(targetCFrame)
+			cleanup()
+			if callback then
+				callback()
+			end
 		end
 	end)
-
-	owl.flyTween:Play()
 end
 
 --[[
@@ -518,7 +513,7 @@ local function updateDetection(dt: number)
 	broadcastToAll(OwlService.Client.OwlDetection, owl.detectionMeter)
 
 	if owl.detectionMeter >= 1.0 then
-		local target, _ = nil, nil
+		local target
 		-- Find the nearest moving player to chase
 		local nearestDist = math.huge
 		for _, player in ipairs(Players:GetPlayers()) do
@@ -681,9 +676,7 @@ local function runOwlBehavior(dt: number)
 
 	if owl.state == "Dormant" or owl.state == "FlyingIn" or owl.state == "FlyingAway" then
 		owl.humanoid.WalkSpeed = 0
-		if owl.state == "FlyingIn" or owl.state == "FlyingAway" then
-			updateWingFlap(owl, 3, dt)
-		end
+		-- Wing flap is handled by flyTo's heartbeat during flight
 		return
 	end
 
@@ -697,8 +690,14 @@ local function runOwlBehavior(dt: number)
 	if owl.state == "Retreating" then
 		owl.humanoid.WalkSpeed = BASE_CHASE_SPEED
 		playTrack(owl, "Walk")
-		local away = owl.rootPart.CFrame.LookVector
-		owl.humanoid:MoveTo(owl.rootPart.Position + away * -20)
+		-- Move away from the campfire
+		local campfirePos = (worldService and worldService:GetCampfireCFrame() or CFrame.new()).Position
+		local awayDir = (owl.rootPart.Position - campfirePos)
+		if awayDir.Magnitude < 1 then
+			awayDir = Vector3.new(1, 0, 0)
+		end
+		awayDir = Vector3.new(awayDir.X, 0, awayDir.Z).Unit
+		owl.humanoid:MoveTo(owl.rootPart.Position + awayDir * 30)
 		updateWingFlap(owl, 2, dt)
 		return
 	end

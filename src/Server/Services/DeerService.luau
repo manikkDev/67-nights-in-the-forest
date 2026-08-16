@@ -324,6 +324,14 @@ local function updateStalkerState(stalker)
 		return
 	end
 
+	-- Deer is suppressed when the Owl is active tonight
+	if deerSuppressed and stalker.key == "Deer" then
+		if stalker.state ~= "Dormant" then
+			enterDormant(stalker)
+		end
+		return
+	end
+
 	if stalker.state == "Dormant" then
 		stalker.state = "Patrol"
 		local campfirePosition = (worldService and worldService:GetCampfireCFrame() or CFrame.new()).Position
@@ -407,6 +415,30 @@ local function runStalkerBehavior(stalker)
 			end
 		end
 	end
+end
+
+--[[
+    @summary  Suppress or unsuppress the Deer (called by OwlService).
+              When suppressed, the Deer stays dormant even at night.
+    @param    suppressed  boolean
+]]
+function DeerService:SuppressDeer(suppressed: boolean)
+	deerSuppressed = suppressed
+	if suppressed then
+		local deer = stalkers["Deer"]
+		if deer and deer.state ~= "Dormant" then
+			enterDormant(deer)
+		end
+	end
+end
+
+--[[
+    @summary  Return whether the Deer stalker is currently active (not dormant).
+    @returns  boolean
+]]
+function DeerService:IsDeerActive(): boolean
+	local deer = stalkers["Deer"]
+	return deer ~= nil and deer.state ~= "Dormant"
 end
 
 --[[

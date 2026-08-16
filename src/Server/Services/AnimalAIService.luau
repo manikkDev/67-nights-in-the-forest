@@ -64,7 +64,7 @@ local HIT_FLASH_DURATION = 0.12
 local WOLF_BASE_COUNT = 3
 local WOLF_DAY_SCALING = 3
 local ALPHA_START_DAY = 3
-local PERSISTENT_TARGET_COUNTS = { Bunny = 4, Owl = 2, Bear = 1 }
+local PERSISTENT_TARGET_COUNTS = { Bunny = 4, Bear = 1 }
 local RESPAWN_CHECK_INTERVAL = 10
 
 -- | State Management | --

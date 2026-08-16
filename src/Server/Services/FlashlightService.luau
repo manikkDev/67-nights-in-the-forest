@@ -5,7 +5,7 @@
 
     @summary
     Server-validated flashlight beam check that stuns pursuing Deer /
-    Ram Monster stalkers.
+    Ram Monster stalkers and the Owl.
 
     @description
     Trusts only a low-stakes "beam is on" boolean from the client; the
@@ -40,10 +40,11 @@ local FLASHLIGHT_TOOL_NAME = "Flashlight"
 local BEAM_RANGE = 35
 local BEAM_HALF_ANGLE = math.rad(25)
 local CHECK_INTERVAL = 0.15
-local STALKER_MODEL_NAMES = { "Deer", "Ram Monster" }
+local STALKER_MODEL_NAMES = { "Deer", "Ram Monster", "Owl" }
 
 -- | State Management | --
 local deerService: any = nil
+local owlService: any = nil
 local beamActive: { [Player]: boolean } = {}
 local checkTimer = 0
 
@@ -98,7 +99,7 @@ end
               alignment against active stalkers and apply a stun.
 ]]
 local function checkAllBeams()
-	if not deerService then
+	if not deerService and not owlService then
 		return
 	end
 
@@ -119,7 +120,11 @@ local function checkAllBeams()
 		end
 		for _, stalkerModel in ipairs(stalkerModels) do
 			if isBeamAlignedWithStalker(player, stalkerModel) then
-				deerService:ApplyFlashlightStun(stalkerModel, player)
+				if stalkerModel.Name == "Owl" and owlService then
+					owlService:ApplyFlashlightStun(stalkerModel, player)
+				elseif deerService then
+					deerService:ApplyFlashlightStun(stalkerModel, player)
+				end
 			end
 		end
 	end
@@ -155,6 +160,7 @@ end
 
 function FlashlightService:KnitStart()
 	deerService = Knit.GetService("DeerService")
+	owlService = Knit.GetService("OwlService")
 	RunService.Heartbeat:Connect(onHeartbeat)
 	print("[FlashlightService] Initialised — beam-stun validation active")
 end

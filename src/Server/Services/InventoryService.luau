@@ -51,7 +51,7 @@ local BAG_CAPACITY_BONUS = 40
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local CARRY_BAG_NAME = "carry-bag"
 local CARRY_BAG_TOOL_NAME = "Carry Bag"
-local RESOURCE_NAMES = { "Wood", "Stone", "Berries", "Mushrooms", "RawMeat", "CookedMeat" }
+local RESOURCE_NAMES = { "Wood", "Stone", "Berries", "Mushrooms", "RawMeat", "CookedMeat", "OwlFeather" }
 
 local PICKUP_RANGE = 12
 local DROP_SPACING = 2.2
@@ -66,6 +66,7 @@ local DROP_ASSETS: { [string]: string? } = {
 	Berries = "Carrot",
 	RawMeat = "rabbit-meat",
 	CookedMeat = "wolf-meat",
+	OwlFeather = nil :: string?,
 }
 local MUSHROOM_ASSET_NAME = "Mushroom"
 
@@ -402,9 +403,15 @@ local function buildDropModel(resourceName: string): Model
 			model.Name = resourceName .. "Pickup"
 			local fallback = Instance.new("Part")
 			fallback.Name = "Main"
-			fallback.Size = Vector3.new(1, 1, 1)
-			fallback.Color = Color3.fromRGB(180, 180, 180)
-			fallback.Material = Enum.Material.SmoothPlastic
+			if resourceName == "OwlFeather" then
+				fallback.Size = Vector3.new(0.5, 0.3, 2)
+				fallback.Color = Color3.fromRGB(230, 220, 200)
+				fallback.Material = Enum.Material.Neon
+			else
+				fallback.Size = Vector3.new(1, 1, 1)
+				fallback.Color = Color3.fromRGB(180, 180, 180)
+				fallback.Material = Enum.Material.SmoothPlastic
+			end
 			fallback.Parent = model
 			model.PrimaryPart = fallback
 		end
