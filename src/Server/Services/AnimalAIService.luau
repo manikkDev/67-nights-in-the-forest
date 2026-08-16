@@ -378,9 +378,9 @@ local function grantLoot(record, player: Player)
 					local drop = inventoryService:BuildDropModel("RabbitMeat")
 					if drop then
 						local pos = record.model:GetPivot().Position
-						local offset = Vector3.new((math.random() - 0.5) * 3, 1.5, (math.random() - 0.5) * 3)
+						local offset = Vector3.new((math.random() - 0.5) * 5, 2, (math.random() - 0.5) * 5)
 						drop:PivotTo(CFrame.new(pos + offset))
-						drop.Parent = record.model.Parent
+						drop.Parent = worldService and worldService:GetBaseMap() or record.model.Parent
 						Debris:AddItem(drop, 300)
 					end
 				end
