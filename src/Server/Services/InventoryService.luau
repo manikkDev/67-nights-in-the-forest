@@ -418,11 +418,14 @@ local function buildDropModel(resourceName: string): Model
 		end
 	end
 
-	-- Prepare physics: let them fall and rest on the ground.
+	-- Prepare physics: let them fall and rest on the ground, and make sure
+	-- every part is interactive for mouse raycasts and touch.
 	for _, descendant in ipairs(model:GetDescendants()) do
 		if descendant:IsA("BasePart") then
 			descendant.Anchored = false
 			descendant.CanCollide = true
+			descendant.CanQuery = true
+			descendant.CanTouch = true
 		end
 	end
 

@@ -52,8 +52,8 @@ local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
 local DECISION_INTERVAL = 0.25
 local MIN_SPAWN_DIST = 25
 local MAX_SPAWN_DIST = 90
-local BEAR_MIN_SPAWN_DIST = 60
-local BEAR_MAX_SPAWN_DIST = 140
+local BEAR_MIN_SPAWN_DIST = 80
+local BEAR_MAX_SPAWN_DIST = 160
 local GAIT_AMPLITUDE = math.rad(35)
 local GAIT_ARM_AMPLITUDE = math.rad(22)
 local IDLE_LERP_SPEED = 6
@@ -378,7 +378,7 @@ local function grantLoot(record, player: Player)
 					local drop = inventoryService:BuildDropModel("RabbitMeat")
 					if drop then
 						local pos = record.model:GetPivot().Position
-						local offset = Vector3.new((math.random() - 0.5) * 3, 0, (math.random() - 0.5) * 3)
+						local offset = Vector3.new((math.random() - 0.5) * 3, 1.5, (math.random() - 0.5) * 3)
 						drop:PivotTo(CFrame.new(pos + offset))
 						drop.Parent = record.model.Parent
 						Debris:AddItem(drop, 300)
