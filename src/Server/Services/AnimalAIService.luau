@@ -596,18 +596,18 @@ local function updateState(record)
 			if record.state ~= "Flee" then
 				record.state = "Flee"
 				record.target = nearestPlayer
-				record.fleeStartleUntil = os.clock() + 0.4
+				record.fleeStartleUntil = os.clock() + 0.2
 				record.fleeZigzagPhase = 0
 			end
 		elseif record.target and record.state == "Flee" then
 			local character = (record.target :: Player).Character
 			local rootPart = character and character:FindFirstChild("HumanoidRootPart")
 			if not rootPart or (record.rootPart.Position - rootPart.Position).Magnitude > config.LoseAggroRange then
-				record.state = "Idle"
+				record.state = "Patrol"
 				record.target = nil
 			end
 		else
-			record.state = "Idle"
+			record.state = "Patrol"
 		end
 		return
 	end
@@ -665,13 +665,21 @@ local function runStateBehavior(record, dt: number)
 	if record.state == "Idle" then
 		record.humanoid.WalkSpeed = 0
 	elseif record.state == "Patrol" then
-		record.humanoid.WalkSpeed = config.WalkSpeed
-		if not record.patrolTarget or (record.rootPart.Position - record.patrolTarget).Magnitude < 4 then
-			local offset = Vector3.new((math.random() - 0.5) * 30, 0, (math.random() - 0.5) * 30)
-			record.patrolTarget = record.spawnPosition + offset
+		if record.patrolPauseUntil and os.clock() < record.patrolPauseUntil then
+			record.humanoid.WalkSpeed = 0
+		else
+			record.patrolPauseUntil = nil
+			record.humanoid.WalkSpeed = config.WalkSpeed
+			if not record.patrolTarget or (record.rootPart.Position - record.patrolTarget).Magnitude < 4 then
+				if config.Tier == "Passive" then
+					record.patrolPauseUntil = os.clock() + math.random(2, 4)
+				end
+				local offset = Vector3.new((math.random() - 0.5) * 30, 0, (math.random() - 0.5) * 30)
+				record.patrolTarget = record.spawnPosition + offset
+			end
+			record.humanoid:MoveTo(record.patrolTarget)
+			isMoving = true
 		end
-		record.humanoid:MoveTo(record.patrolTarget)
-		isMoving = true
 	elseif record.state == "Chase" then
 		record.humanoid.WalkSpeed = config.RunSpeed
 		local character = (record.target :: Player).Character
@@ -687,7 +695,7 @@ local function runStateBehavior(record, dt: number)
 			isMoving = false
 		else
 			record.fleeStartleUntil = nil
-			record.humanoid.WalkSpeed = config.RunSpeed * (config.FleeSpeedMultiplier or 1.25)
+			record.humanoid.WalkSpeed = config.RunSpeed * (config.FleeSpeedMultiplier or 1.0)
 			local character = record.target and (record.target :: Player).Character
 			local rootPart = character and character:FindFirstChild("HumanoidRootPart")
 			if rootPart then
@@ -695,10 +703,10 @@ local function runStateBehavior(record, dt: number)
 				if away.Magnitude > 0.1 then
 					local awayUnit = away.Unit
 					local perp = Vector3.new(-awayUnit.Z, 0, awayUnit.X)
-					record.fleeZigzagPhase = (record.fleeZigzagPhase or 0) + dt * 4
-					local zigzag = math.sin(record.fleeZigzagPhase) * 0.6
+					record.fleeZigzagPhase = (record.fleeZigzagPhase or 0) + dt * 3
+					local zigzag = math.sin(record.fleeZigzagPhase) * 0.35
 					local fleeDir = (awayUnit + perp * zigzag).Unit
-					local fleeTarget = record.rootPart.Position + fleeDir * 25
+					local fleeTarget = record.rootPart.Position + fleeDir * 15
 					record.humanoid:MoveTo(fleeTarget)
 					isMoving = true
 				end

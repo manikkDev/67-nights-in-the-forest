@@ -96,7 +96,7 @@ local function createHealthBar(model: Model): (BillboardGui, Frame, Frame)
 	bg.Parent = gui
 
 	local bgCorner = Instance.new("UICorner")
-	bgCorner.CornerRadius = UDim.fromScale(0.3, 0.3)
+	bgCorner.CornerRadius = UDim.new(0.3, 0)
 	bgCorner.Parent = bg
 
 	local bgStroke = Instance.new("UIStroke")
@@ -107,10 +107,10 @@ local function createHealthBar(model: Model): (BillboardGui, Frame, Frame)
 
 	-- Padding container
 	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft = UDim.fromScale(0.06, 0.06)
-	pad.PaddingRight = UDim.fromScale(0.06, 0.06)
-	pad.PaddingTop = UDim.fromScale(0.1, 0.1)
-	pad.PaddingBottom = UDim.fromScale(0.1, 0.1)
+	pad.PaddingLeft = UDim.new(0.06, 0)
+	pad.PaddingRight = UDim.new(0.06, 0)
+	pad.PaddingTop = UDim.new(0.1, 0)
+	pad.PaddingBottom = UDim.new(0.1, 0)
 	pad.Parent = bg
 
 	-- Fill bar
@@ -122,7 +122,7 @@ local function createHealthBar(model: Model): (BillboardGui, Frame, Frame)
 	fill.Parent = bg
 
 	local fillCorner = Instance.new("UICorner")
-	fillCorner.CornerRadius = UDim.fromScale(0.25, 0.25)
+	fillCorner.CornerRadius = UDim.new(0.25, 0)
 	fillCorner.Parent = fill
 
 	-- Subtle inner gradient on the fill for depth
