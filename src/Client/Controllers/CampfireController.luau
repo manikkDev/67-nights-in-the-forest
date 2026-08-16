@@ -130,21 +130,10 @@ end
     @summary  Update visibility of the world-space level progress billboard.
 ]]
 local function onHeartbeat(dt: number)
-	-- Authoritative fallback: read the replicated safe-zone state every frame
-	-- so the billboard range and fire-out warning can't get stuck on stale data.
-	if campfireService then
-		if campfireService.SafeZoneRadius then
-			currentSafeZoneRadius = campfireService.SafeZoneRadius:Get() or 0
-		end
-		if campfireService.IsLit then
-			local newLit = campfireService.IsLit:Get() == true
-			if newLit ~= isLit then
-				isLit = newLit
-				setWarning(isLit)
-			end
-		end
-	end
-
+	-- State variables (isLit, currentSafeZoneRadius) are kept up-to-date by
+	-- :Observe() callbacks on the ClientRemoteProperty objects. Do NOT poll
+	-- :Get() here — it returns nil before the property has synced from the
+	-- server, which would overwrite correct values with 0/false.
 	if not topLevelBillboard or not topLevelBillboard.Adornee then
 		return
 	end
@@ -802,9 +791,11 @@ function CampfireController:KnitStart()
 	campfireService.SafeZoneChanged:Connect(onSafeZoneChanged)
 	campfireService.LevelUp:Connect(onLevelUp)
 
-	-- Replicated-property fallbacks in case a SafeZoneChanged signal is missed.
-	if campfireService.IsLit and campfireService.IsLit.Changed then
-		campfireService.IsLit.Changed:Connect(function(newValue: any)
+	-- Use :Observe() on ClientRemoteProperty objects to keep local state
+	-- authoritative. :Observe() fires the initial value once the property
+	-- has synced from the server, and on every subsequent change.
+	if campfireService.IsLit then
+		campfireService.IsLit:Observe(function(newValue: any)
 			local newLit = newValue == true
 			if newLit ~= isLit then
 				isLit = newLit
@@ -812,8 +803,8 @@ function CampfireController:KnitStart()
 			end
 		end)
 	end
-	if campfireService.SafeZoneRadius and campfireService.SafeZoneRadius.Changed then
-		campfireService.SafeZoneRadius.Changed:Connect(function(newValue: any)
+	if campfireService.SafeZoneRadius then
+		campfireService.SafeZoneRadius:Observe(function(newValue: any)
 			currentSafeZoneRadius = newValue or 0
 		end)
 	end

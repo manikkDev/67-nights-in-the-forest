@@ -161,15 +161,18 @@ function HudController:KnitStart()
 		end
 	end)
 
-	-- Sync to current server state via the property
+	-- Use :Observe() to sync to the current server phase state. Unlike :Get(),
+	-- :Observe() fires the initial value once the property has synced from the
+	-- server (via task.defer if already ready), and on every subsequent change.
 	local phaseState = timeService.GetPhaseState
 	if phaseState then
-		local currentPhase = phaseState:Get()
-		if currentPhase == "Night" then
-			showNight()
-		else
-			showDay()
-		end
+		phaseState:Observe(function(currentPhase: any)
+			if currentPhase == "Night" then
+				showNight()
+			else
+				showDay()
+			end
+		end)
 	end
 
 	print("[HudController] Initialised — bound to TimeService signals")

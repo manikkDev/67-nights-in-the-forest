@@ -66,7 +66,6 @@ local checkTimer = 0
 local heartbeatConnection: RBXScriptConnection? = nil
 local safeZoneChangedConnection: RBXScriptConnection? = nil
 local gameStartedConnection: RBXScriptConnection? = nil
-local phaseChangedConnection: RBXScriptConnection? = nil
 
 -- // FUNCTIONS // --
 
@@ -206,21 +205,10 @@ local function onHeartbeat(dt: number)
 	end
 	checkTimer = 0
 
-	-- Read the authoritative state from the server properties on every tick.
-	-- This protects against missed signal events and guarantees the safe-zone
-	-- radius, fire state, and day/night phase are always current — including
-	-- when the campfire levels up and the radius changes.
-	if timeService and timeService.GetPhaseState then
-		isNight = timeService.GetPhaseState:Get() == "Night"
-	end
-	if campfireService then
-		if campfireService.SafeZoneRadius then
-			safeZoneRadius = campfireService.SafeZoneRadius:Get() or 0
-		end
-		if campfireService.IsLit then
-			isFireActive = campfireService.IsLit:Get() == true
-		end
-	end
+	-- State variables (isNight, isFireActive, safeZoneRadius) are kept
+	-- up-to-date by :Observe() callbacks on the ClientRemoteProperty objects.
+	-- Do NOT poll :Get() here — it returns nil before the property has synced
+	-- from the server, which would overwrite correct values with 0/false.
 
 	if not isNight then
 		updateVisuals("day")
@@ -275,7 +263,29 @@ function CampSafetyController:KnitStart()
 	campfireService = Knit.GetService("CampfireService")
 	timeService = Knit.GetService("TimeService")
 
-	-- Fast path: update when the server explicitly tells us the safe zone changed.
+	-- Use :Observe() on ClientRemoteProperty objects to keep local state
+	-- authoritative. :Observe() fires the initial value once the property
+	-- has synced from the server (via task.defer if already ready, or via
+	-- Changed when the initial value arrives), and on every subsequent change.
+	-- This replaces both :Get() polling and :Changed connections.
+	if campfireService.SafeZoneRadius then
+		campfireService.SafeZoneRadius:Observe(function(newValue: any)
+			safeZoneRadius = newValue or 0
+		end)
+	end
+	if campfireService.IsLit then
+		campfireService.IsLit:Observe(function(newValue: any)
+			isFireActive = newValue == true
+		end)
+	end
+	if timeService.GetPhaseState then
+		timeService.GetPhaseState:Observe(function(newValue: any)
+			isNight = newValue == "Night"
+		end)
+	end
+
+	-- Keep the SafeZoneChanged signal as a backup for immediate updates
+	-- when the server explicitly broadcasts a safe zone change.
 	if safeZoneChangedConnection then
 		safeZoneChangedConnection:Disconnect()
 	end
@@ -283,42 +293,6 @@ function CampSafetyController:KnitStart()
 		isFireActive = isActive == true
 		safeZoneRadius = if isActive then radius or 0 else 0
 	end)
-
-	-- Property listeners keep the local state authoritative even if we miss
-	-- a signal or join between broadcasts.
-	if campfireService.IsLit and campfireService.IsLit.Changed then
-		campfireService.IsLit.Changed:Connect(function(newValue: any)
-			isFireActive = newValue == true
-		end)
-	end
-	if campfireService.SafeZoneRadius and campfireService.SafeZoneRadius.Changed then
-		campfireService.SafeZoneRadius.Changed:Connect(function(newValue: any)
-			safeZoneRadius = newValue or 0
-		end)
-	end
-
-	-- Fallback: request the current safe-zone state in case the initial signal
-	-- was fired before this controller connected. ServicePromises is enabled,
-	-- so GetSafeZoneInfo returns a Promise — use :andThen to access the result.
-	campfireService:GetSafeZoneInfo():andThen(function(radius: any, lit: any)
-		isFireActive = lit == true
-		safeZoneRadius = if isFireActive then radius or 0 else 0
-	end):catch(function() end)
-
-	-- Observe the authoritative phase property so the client can't get stuck
-	-- in the wrong day/night state if a DayStarted/NightStarted event is missed.
-	if phaseChangedConnection then
-		phaseChangedConnection:Disconnect()
-	end
-	local phaseState = timeService.GetPhaseState
-	if phaseState then
-		isNight = phaseState:Get() == "Night"
-		if phaseState.Changed then
-			phaseChangedConnection = phaseState.Changed:Connect(function(newValue: any)
-				isNight = newValue == "Night"
-			end)
-		end
-	end
 
 	local function onGameStarted()
 		-- ServicePromises is enabled, so GetCampfirePosition returns a Promise.
