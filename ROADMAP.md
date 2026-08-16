@@ -18,8 +18,8 @@ Live check of `src/server/Services`, `src/Client/Controllers`, and `ProfileTempl
 | `HarvestController`/`HungerController` client sync                                               | **Done**        | Both exist in `src/Client/Controllers`                                                                                                                                  |
 | **Eating** (Berries/Mushrooms restoring Hunger)                                                  | **Done**        | `ForageService.RequestEat` consumes resources and restores Hunger via `HungerService:RestoreHunger`; `InventoryController` shows edible rows with click-to-eat buttons. |
 | Inventory GUI showing real resource counts                                                       | **Done**        | `InventoryController` exists and builds a right-side carry-bag panel with live counts and Eat/Drop actions.                                                             |
-| Animal/NPC AI (any kind)                                                                         | **Not started** | No `AnimalAIService`/combat service exists; NPC models sit inert in `ServerStorage.Assets.Assets Npcs`                                                                  |
-| Combat, loot drops, procedural animation                                                         | **Not started** | No combat service/controller                                                                                                                                            |
+| Animal/NPC AI (any kind)                                                                         | **Done**        | `AnimalAIService` (Bunny/Owl/Wolf/AlphaWolf/Bear), `DeerService` (Deer/Ram Monster stalkers) — see Phase 3                                                              |
+| Combat, loot drops, procedural animation                                                         | **Done**        | `CombatService`, `CombatTargetRegistry`, `AnimalAIService` procedural gait, `ProceduralAnimController` — see Phase 3                                                    |
 | Base building, beds, day multiplier                                                              | **Not started** | `ProfileTemplate.Base` fields exist but unused; no `BuildingService`                                                                                                    |
 | Missing children rescue, caves, poster board                                                     | **Not started** | `ProfileTemplate.Rescue` fields exist but unused; no `RescueService`                                                                                                    |
 | Win/loss, permadeath                                                                             | **Not started** | No such logic anywhere                                                                                                                                                  |
@@ -66,34 +66,37 @@ The only unfinished slice of "core survival." Everything else in this phase is U
 - **Scene analysis.** A runtime `SceneAnalysisService` composition check shows a healthy 17,528 total instances, 12 unparented instances (all Roblox default modules), and a small 143 KB animation cache. The `ScriptMemory` query is gated by the Roblox `STUDIOPLAT37936` fast flag and could not be read; use the MicroProfiler for per-script memory if needed before Phase 3.
 - **Gate to Phase 3 is open.** All Phase 2 systems (forage, eating, inventory UI, campfire feedback, camp safety) are wired and reachable through the Knit service/controller tree. Phase 3 can start as soon as the above clean-up items are triaged.
 
-## Phase 3 — The Forest Comes Alive: Animal AI, The Deer, Cultists, Combat
+## Phase 3 — The Forest Comes Alive: Animal AI, The Deer, Cultists, Combat ✅ DONE
 
-This is the horror-survival heart of the reference game — pack predators by night, an unkillable stalking Deer that the campfire and light repel, Cultist raids on a timer, and real combat with loot.
+The horror-survival heart of the reference game — pack predators by night, an unkillable stalking Deer that the campfire and light repel, Cultist raids on a timer, and real combat with loot.
 
-**Build:**
+**Built:**
 
-- `AnimalAIService` — passive tier: `BunnyModel` wanders and flees on proximity (drops toward `Carrot`/pelt loot on death); `Owl` idles in trees by day.
-- `AnimalAIService` — predator tier: `WolfModel` (regular, pack of 3-5, `PathfindingService` patrol→chase state machine) and `AlphaWolfModel` (pack leader, higher HP/damage, spawns in smaller elite packs) roam at night and path toward the campfire's noise/light source; population count scales with `TimeService.DayNumber` (more wolves, further out, as nights pass — mirrors the wiki's difficulty ramp).
-- `Bear` — solitary, higher HP, guards a territory radius around its spawn point (reuses its existing baked `Attack` animation); aggros if approached, does not chase far outside its territory.
-- `DeerService` (the signature threat) — one server-wide unkillable `Deer` instance:
-  - **Day:** dormant/hidden.
-  - **Night:** pathfinds in a straight line toward the nearest player outside the Bonfire's safe zone, using its existing `Walk`/`Run` animations; speed increases the longer it pursues a single target (matches wiki behavior).
-  - **Stun:** a flashlight/torch beam or standing in the Bonfire's light radius interrupts its charge and plays its existing 3-phase `Stunned` animation set; the stun window shortens each time it's used on the same Deer instance (recovers faster per stun, per wiki).
-  - **Retreat:** the Deer disengages and returns to dormant if the target reaches the safe zone or if all nearby threats (e.g. an active Cultist raid) are cleared.
-  - `Ram Monster` reuses the same "unkillable stalker with a chargeable/stunnable attack" state machine as a second heavy threat (per the wiki, Ram/Owl/Deer share one behavioral family — we implement it once and parametrize).
-- `CultistRaidService` — every N in-game days (configurable, mirrors the wiki's "raids roughly every 4 nights"), spawns a wave of `Cultist`/`Cultist2` that path toward the Bonfire and attack it/players directly (their existing `Attack` animation); a raid banner/warning appears before it starts; failing to clear cultists by dawn speeds up campfire fuel decay (per wiki penalty).
-- `CombatService` + ZonePlus melee hitboxes: `Axe`/`Spear` swings validated server-side (range, cooldown, facing angle); NPC attacks validated the same way in reverse. Loot table on kill: Wolf → `wolf-meat` (+ pelt item), Bunny → `Carrot`/`rabbit-meat`, Bear → `wolf-meat`-tier drop (reuse existing meat items; no new mesh needed).
-- `ProceduralAnimController`: TweenService-driven swing arc for the player's equipped tool (per `ARCHITECTURE.md` §5) plus idle breathing; procedural gait for Wolf/Bear/Ram (no baked walk anim) driven by `math.sin`/`math.cos` phase per limb.
-- Hit VFX: spark/flash `ParticleEmitter` + `Highlight` on hit, wood-chip/blood burst on kill, `Debris`-cleaned, `CameraShaker`-style impact shake on the attacking client.
+- `AnimalAIService` — one generic patrol/chase/attack/flee state machine (driven by the shared `NpcConfig` data module) reused by every non-unique species: `BunnyModel` (passive, flees on proximity, drops `Berries`/`RawMeat`), `Owl` (passive, day-idle, R15-rig default idle animation, no aggro), `WolfModel`/`AlphaWolfModel` (predator packs, `PathfindingService` patrol→chase, pack size and Alpha presence scale with `TimeService:GetDayNumber()`), and `Bear` (solitary, territory-clamped, reuses its baked `Attack` animation). A persistent-population respawn check keeps Bunny/Owl/Bear headcounts topped up over long sessions; wolves/alphas spawn on Night start and despawn at dawn.
+- `CombatTargetRegistry` — shared server module so `CombatService` can damage any spawned NPC (animal, stalker, or raider) generically via `CollectionService` tagging, without knowing which service owns it.
+- `DeerService` — the signature threat, plus `Ram Monster` sharing the same unkillable-stalker state machine: **Dormant** by day (parked off-map), **Patrol** near the camp perimeter at night, **Pursuing** the nearest player outside the Bonfire's safe zone in a straight line with speed that ramps the longer the chase runs, **Stunned** by a flashlight beam (duration shrinks per consecutive use, recovers after a cooldown), and **Retreating** once the target reaches the safe zone. Deer uses its existing `Idle`/`Walk`/`Run`/`Stunned`-x3 animation set; Ram Monster (no baked anims) falls back to the default R15 walk/idle set since its skeleton matches R15 exactly.
+- `FlashlightService` + `FlashlightController` — the user-provided Creator Store `Flashlight` tool's insecure client-only toggle script was rebuilt: the client only reports a low-stakes "beam on/off" boolean, and the server independently computes range/facing-cone alignment against every active stalker before ever applying a stun.
+- `CultistRaidService` — every 4th in-game day/night pair, a wave of `Cultist`/`Cultist2` (size scaling with day number, capped at 8) spawns in a ring around the camp and is driven by `AnimalAIService`'s same generic AI (no duplicate logic); a banner warns at dawn of the raid day and again when the raid starts, and an unresolved raid still active at the next dawn drains campfire fuel faster in proportion to survivor count via a new `CampfireService:ApplyExternalDrain` hook.
+- `CombatService` — one click-to-attack remote drives both `Axe` and `Spear` (a new Spear `Tool` built and granted here); server validates range/facing-angle/cooldown and damages the nearest registered `CombatTargetRegistry` target, falling back to `HarvestService`'s tree-chop path for the Axe when nothing is in range. `AttackLanded`/`NpcAttacked`/`StalkerContact` signals drive client hit-spark VFX, camera shake, and a red damage flash.
+- Animation strategy actually used per species (best-effort real animation, procedural fallback never left unanimated, per the free-assets-only decision): Deer keeps its own full baked set; Owl and Ram Monster share Roblox's public default R15 walk/idle animation ids since their skeletons are genuine R15 rigs; Cultist/Cultist2 use the R6 equivalents plus their existing baked `Attack`; Wolf/AlphaWolf/Bear/Bunny have non-standard custom skeletons, so they get a procedural `math.sin`-phased Motor6D leg/arm swing instead (amplitude scaled by move speed, blended back to rest when idle).
+- `ProceduralAnimController` — subtle idle-breathing camera offset for the local player when standing still, so idle never reads as a frozen pose.
 
 **What you'll see when you play:**
 
-- Bunnies hopping and fleeing by day; owls perched quietly.
-- After dusk, wolf packs actively hunting — patrolling in loose formation, then breaking into a chase the moment they spot you, with alpha wolves leading tougher packs on later nights.
+- Bunnies hopping and fleeing by day; owls perched quietly, both replenishing over time if hunted out.
+- After dusk, wolf packs actively hunting — patrolling, then breaking into a chase the moment they spot you, with alpha wolves leading tougher packs on later nights.
 - A lone bear guarding its patch of forest — leave it alone and it leaves you alone, get close and it charges.
-- The Deer: silent until night, then unmistakably hunting you in a straight line, getting faster the longer it chases — shining your flashlight on it (or reaching the campfire's light) freezes it in its tracks in a visible stun animation, buying you an escape window that shrinks every time you reuse the trick.
-- Every few nights, a warning plays and a pack of cultists marches on your camp — you fight them off with your axe/spear before dawn, or the fire burns down faster as punishment.
-- Combat feels alive: your weapon swings through a real arc, hits spark and knock enemies back, and kills drop meat/loot you can carry home — all fully server-validated so nothing can be faked from the client.
+- The Deer: silent until night, then unmistakably hunting you in a straight line, getting faster the longer it chases — shining your flashlight on it freezes it in a visible stun animation, buying an escape window that shrinks every time you reuse the trick; reaching the firelight makes it break off and retreat.
+- Every 4th night, a warning banner plays and a wave of cultists marches on your camp — fight them off with your axe/spear before dawn, or the fire burns down faster as punishment; clearing the raid shows a "repelled" banner.
+- Combat feels alive: swings have real range/facing checks, hits spark and shake the camera, kills drop meat/resources you can carry home — all server-validated so nothing can be faked from the client.
+
+---
+
+### Phase 3 — Production Readiness Notes
+
+- **Free-assets-only decision.** No paid Creator Store/Sketchfab animation packs were sourced; where a species' skeleton doesn't match a public default rig (Wolf/AlphaWolf/Bear/Bunny), it is animated procedurally instead of shipping unanimated or blocking on a purchase.
+- **Day-scaling and raid cadence are tunable.** `AnimalAIService`'s `WOLF_BASE_COUNT`/`WOLF_DAY_SCALING`/`ALPHA_START_DAY` and `CultistRaidService`'s `RAID_INTERVAL_DAYS`/`BASE_RAID_SIZE` are simple local constants — safe to retune after the first playtest without touching logic.
+- **Gate to Phase 4 is open.** Every Phase 3 system registers through the same Knit service/controller tree and `CombatTargetRegistry`, so Phase 4's rescue/building work can add new interactables without touching combat or AI.
 
 ---
 

@@ -221,6 +221,21 @@ function CampfireService:IsInSafeZone(position: Vector3): boolean
 end
 
 --[[
+    @summary  Apply extra fuel drain from an external penalty source
+              (e.g. an unresolved Cultist raid at dawn).
+    @param    amount  number
+]]
+function CampfireService:ApplyExternalDrain(amount: number)
+	if amount <= 0 or not isLit then
+		return
+	end
+	fuel = math.clamp(fuel - amount, 0, maxFuel)
+	if fuel <= 0 then
+		isLit = false
+	end
+end
+
+--[[
     @summary  Compute the level-progress value of one log at the current level.
     @returns  number
 ]]

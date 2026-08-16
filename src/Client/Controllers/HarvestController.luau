@@ -162,8 +162,8 @@ local function onToolActivated()
 
 	playSwingAnimation()
 
-	local harvestService = Knit.GetService("HarvestService")
-	harvestService.RequestChop()
+	local combatService = Knit.GetService("CombatService")
+	combatService.RequestAttack()
 end
 
 --[[

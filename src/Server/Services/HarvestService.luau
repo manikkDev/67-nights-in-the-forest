@@ -613,6 +613,19 @@ function HarvestService.Client:RequestPickup(player: Player, model: Model): bool
 	return ok
 end
 
+--[[
+    @summary  Find and chop the nearest tree in range for a player.
+    @desc     Shared by the click-to-chop remote and CombatService's
+              Axe fallback when no live NPC is in range.
+    @param    player  Player
+]]
+function HarvestService:TryChopNearest(player: Player)
+	local treeModel, registry = findNearestTree(player)
+	if treeModel and registry then
+		tryChop(treeModel, registry, player)
+	end
+end
+
 -- // CLIENT REMOTES // --
 
 --[[
@@ -621,10 +634,7 @@ end
     @param    player  Player  -- the requesting player (injected by Knit)
 ]]
 function HarvestService.Client:RequestChop(player: Player)
-	local treeModel, registry = findNearestTree(player)
-	if treeModel and registry then
-		tryChop(treeModel, registry, player)
-	end
+	self.Server:TryChopNearest(player)
 end
 
 return HarvestService

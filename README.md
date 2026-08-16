@@ -109,8 +109,8 @@ See `ROADMAP.md` for the detailed, up-to-date phase breakdown.
 
 - **Phase 1** ✅: Core framework, data layer, day/night cycle, lobby-to-game transition
 - **Phase 2** ✅: Survival mechanics (hunger, harvest, forage, eating, inventory UI, campfire safety)
-- **Phase 3** (current): NPC enemies, the Deer, combat, cultist raids, procedural animations, VFX
-- **Phase 4**: Base building, rescue, day multiplier, win/loss, permadeath
+- **Phase 3** ✅: NPC enemies, the Deer, combat, cultist raids, procedural animations, VFX
+- **Phase 4** (current): Base building, rescue, day multiplier, win/loss, permadeath
 
 ## Code Style
 
