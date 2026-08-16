@@ -52,6 +52,8 @@ local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
 local DECISION_INTERVAL = 0.25
 local MIN_SPAWN_DIST = 25
 local MAX_SPAWN_DIST = 90
+local BEAR_MIN_SPAWN_DIST = 60
+local BEAR_MAX_SPAWN_DIST = 140
 local GAIT_AMPLITUDE = math.rad(35)
 local GAIT_ARM_AMPLITUDE = math.rad(22)
 local IDLE_LERP_SPEED = 6
@@ -65,7 +67,7 @@ local HIT_FLASH_DURATION = 0.12
 local WOLF_BASE_COUNT = 3
 local WOLF_DAY_SCALING = 3
 local ALPHA_START_DAY = 3
-local PERSISTENT_TARGET_COUNTS = { Bunny = 4, Bear = 1 }
+local PERSISTENT_TARGET_COUNTS = { Bunny = 8, Bear = 2 }
 local RESPAWN_CHECK_INTERVAL = 10
 
 -- | State Management | --
@@ -125,7 +127,7 @@ end
               MAX_SPAWN_DIST studs from the campfire.
     @returns  Vector3?
 ]]
-local function pickSpawnPosition(): Vector3?
+local function pickSpawnPosition(minDist: number?, maxDist: number?): Vector3?
 	if not worldService then
 		return nil
 	end
@@ -135,9 +137,12 @@ local function pickSpawnPosition(): Vector3?
 	end
 	local campfirePos = campfireCFrame.Position
 
+	local distMin = minDist or MIN_SPAWN_DIST
+	local distMax = maxDist or MAX_SPAWN_DIST
+
 	for _ = 1, 12 do
 		local angle = math.random() * math.pi * 2
-		local dist = MIN_SPAWN_DIST + math.random() * (MAX_SPAWN_DIST - MIN_SPAWN_DIST)
+		local dist = distMin + math.random() * (distMax - distMin)
 		local candidate = campfirePos + Vector3.new(math.cos(angle) * dist, 0, math.sin(angle) * dist)
 		if groundBounds then
 			if
@@ -157,7 +162,7 @@ local function pickSpawnPosition(): Vector3?
 		return treePivots[math.random(1, #treePivots)].Position
 	end
 
-	return campfirePos + Vector3.new(MIN_SPAWN_DIST, 0, 0)
+	return campfirePos + Vector3.new(distMin, 0, 0)
 end
 
 --[[
@@ -361,14 +366,27 @@ end
     @param    player  Player
     @param    loot    { NpcConfig.LootEntry }
 ]]
-local function grantLoot(player: Player, loot: { any })
+local function grantLoot(record, player: Player)
 	if not inventoryService then
 		return
 	end
-	for _, entry in ipairs(loot) do
+	for _, entry in ipairs(record.config.Loot or {}) do
 		if math.random() <= entry.Chance then
 			local amount = math.random(entry.Min, entry.Max)
-			inventoryService:AddResource(player, entry.Resource, amount)
+			if record.key == "Bunny" and entry.Resource == "RabbitMeat" then
+				for _ = 1, amount do
+					local drop = inventoryService:BuildDropModel("RabbitMeat")
+					if drop then
+						local pos = record.model:GetPivot().Position
+						local offset = Vector3.new((math.random() - 0.5) * 3, 0, (math.random() - 0.5) * 3)
+						drop:PivotTo(CFrame.new(pos + offset))
+						drop.Parent = record.model.Parent
+						Debris:AddItem(drop, 300)
+					end
+				end
+			else
+				inventoryService:AddResource(player, entry.Resource, amount)
+			end
 		end
 	end
 end
@@ -441,7 +459,7 @@ local function killNpc(record, attacker: Player?)
 	record.isDead = true
 
 	if attacker then
-		grantLoot(attacker, record.config.Loot)
+		grantLoot(record, attacker)
 		if record.config.StatsKey and playerDataService then
 			playerDataService:UpdateData(attacker, function(data)
 				data.Stats[record.config.StatsKey] = (data.Stats[record.config.StatsKey] or 0) + 1
@@ -874,16 +892,18 @@ local function spawnPersistentPopulation()
 	end
 	persistentSpawned = true
 
-	for _ = 1, 4 do
+	for _ = 1, PERSISTENT_TARGET_COUNTS.Bunny do
 		local position = pickSpawnPosition()
 		if position then
 			AnimalAIService:SpawnNpc("Bunny", groundedCFrame(position))
 		end
 	end
 
-	local bearPosition = pickSpawnPosition()
-	if bearPosition then
-		AnimalAIService:SpawnNpc("Bear", groundedCFrame(bearPosition))
+	for _ = 1, PERSISTENT_TARGET_COUNTS.Bear do
+		local bearPosition = pickSpawnPosition(BEAR_MIN_SPAWN_DIST, BEAR_MAX_SPAWN_DIST)
+		if bearPosition then
+			AnimalAIService:SpawnNpc("Bear", groundedCFrame(bearPosition))
+		end
 	end
 end
 
@@ -902,7 +922,7 @@ local function checkPersistentRespawn(dt: number)
 	for speciesKey, targetCount in pairs(PERSISTENT_TARGET_COUNTS) do
 		local current = speciesCounts[speciesKey] or 0
 		if current < targetCount then
-			local position = pickSpawnPosition()
+			local position = if speciesKey == "Bear" then pickSpawnPosition(BEAR_MIN_SPAWN_DIST, BEAR_MAX_SPAWN_DIST) else pickSpawnPosition()
 			if position then
 				AnimalAIService:SpawnNpc(speciesKey, groundedCFrame(position))
 			end
