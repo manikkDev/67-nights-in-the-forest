@@ -43,6 +43,7 @@ local AnimalAIService = Knit.CreateService({
 	Client = {
 		NpcAttacked = Knit.CreateSignal(),
 		NpcDied = Knit.CreateSignal(),
+		NpcHealthChanged = Knit.CreateSignal(),
 	},
 })
 
@@ -448,7 +449,7 @@ local function killNpc(record, attacker: Player?)
 		end
 	end
 
-	broadcastToAll(AnimalAIService.Client.NpcDied, record.model:GetPivot().Position, record.key)
+	broadcastToAll(AnimalAIService.Client.NpcDied, record.model, record.model:GetPivot().Position, record.key)
 
 	if record.humanoid then
 		record.humanoid.WalkSpeed = 0
@@ -484,6 +485,12 @@ local function applyDamageToRecord(record, amount: number, attacker: Player?): (
 	end
 	record.health -= amount
 	flashHit(record.model)
+
+	local maxHealth = record.config.MaxHealth
+	local healthRatio = math.clamp(record.health / maxHealth, 0, 1)
+	local position = record.rootPart.Position
+	broadcastToAll(AnimalAIService.Client.NpcHealthChanged, record.model, healthRatio, amount, position, record.key)
+
 	if record.health <= 0 then
 		killNpc(record, attacker)
 		return true, false
@@ -586,8 +593,12 @@ local function updateState(record)
 
 	if config.Tier == "Passive" then
 		if nearestPlayer and distance then
-			record.state = "Flee"
-			record.target = nearestPlayer
+			if record.state ~= "Flee" then
+				record.state = "Flee"
+				record.target = nearestPlayer
+				record.fleeStartleUntil = os.clock() + 0.4
+				record.fleeZigzagPhase = 0
+			end
 		elseif record.target and record.state == "Flee" then
 			local character = (record.target :: Player).Character
 			local rootPart = character and character:FindFirstChild("HumanoidRootPart")
@@ -670,15 +681,27 @@ local function runStateBehavior(record, dt: number)
 			isMoving = true
 		end
 	elseif record.state == "Flee" then
-		record.humanoid.WalkSpeed = config.RunSpeed * (config.FleeSpeedMultiplier or 1.6)
-		local character = record.target and (record.target :: Player).Character
-		local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-		if rootPart then
-			local away = (record.rootPart.Position - rootPart.Position)
-			if away.Magnitude > 0.1 then
-				local fleeTarget = record.rootPart.Position + away.Unit * 20
-				record.humanoid:MoveTo(fleeTarget)
-				isMoving = true
+		local now = os.clock()
+		if record.fleeStartleUntil and now < record.fleeStartleUntil then
+			record.humanoid.WalkSpeed = 0
+			isMoving = false
+		else
+			record.fleeStartleUntil = nil
+			record.humanoid.WalkSpeed = config.RunSpeed * (config.FleeSpeedMultiplier or 1.25)
+			local character = record.target and (record.target :: Player).Character
+			local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+			if rootPart then
+				local away = (record.rootPart.Position - rootPart.Position)
+				if away.Magnitude > 0.1 then
+					local awayUnit = away.Unit
+					local perp = Vector3.new(-awayUnit.Z, 0, awayUnit.X)
+					record.fleeZigzagPhase = (record.fleeZigzagPhase or 0) + dt * 4
+					local zigzag = math.sin(record.fleeZigzagPhase) * 0.6
+					local fleeDir = (awayUnit + perp * zigzag).Unit
+					local fleeTarget = record.rootPart.Position + fleeDir * 25
+					record.humanoid:MoveTo(fleeTarget)
+					isMoving = true
+				end
 			end
 		end
 	elseif record.state == "Attack" then
