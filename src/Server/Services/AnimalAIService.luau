@@ -9,7 +9,7 @@
 
     @description
     Generic per-species state machine driven by `NpcConfig`.  Owns the
-    day/night population cycle for Bunny/Owl/Wolf/AlphaWolf/Bear, and
+    day/night population cycle for Bunny/Wolf/AlphaWolf/Bear, and
     exposes SpawnNpc/DespawnAllOfSpecies so CultistRaidService can
     reuse the same chase/attack machinery for raid waves without a
     second implementation.  Every spawned NPC is registered with
@@ -834,7 +834,7 @@ local function spawnWolfPack(dayNumber: number)
 end
 
 --[[
-    @summary  Spawn the always-present Owl/Bunny/Bear population once,
+    @summary  Spawn the always-present Bunny/Bear population once,
               at server start (they persist across the whole run).
 ]]
 local function spawnPersistentPopulation()
@@ -847,13 +847,6 @@ local function spawnPersistentPopulation()
 		local position = pickSpawnPosition()
 		if position then
 			AnimalAIService:SpawnNpc("Bunny", groundedCFrame(position))
-		end
-	end
-
-	for _ = 1, 2 do
-		local position = pickSpawnPosition()
-		if position then
-			AnimalAIService:SpawnNpc("Owl", groundedCFrame(position))
 		end
 	end
 

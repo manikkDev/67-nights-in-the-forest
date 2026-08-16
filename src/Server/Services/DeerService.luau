@@ -79,6 +79,7 @@ local timeService: any = nil
 local campfireService: any = nil
 local spawnService: any = nil
 local stalkers: { [string]: any } = {}
+local deerSuppressed = false
 
 -- // FUNCTIONS // --
 
