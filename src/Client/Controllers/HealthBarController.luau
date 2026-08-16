@@ -35,9 +35,9 @@ local HealthBarController = Knit.CreateController({
 })
 
 -- | Configuration | --
-local BAR_WIDTH = 6
-local BAR_HEIGHT = 0.6
-local BAR_OFFSET = Vector3.new(0, 4, 0)
+local BAR_WIDTH = 10
+local BAR_HEIGHT = 1.2
+local BAR_OFFSET = Vector3.new(0, 4.5, 0)
 local BAR_HIDE_DELAY = 5
 local BAR_FADE_DURATION = 0.4
 local DAMAGE_NUMBER_LIFETIME = 1.2
@@ -62,11 +62,11 @@ local function healthColor(ratio: number): Color3
 	if ratio > 0.5 then
 		-- Green to Yellow
 		local t = (1 - ratio) * 2
-		return Color3.fromRGB(80, 255, 80):Lerp(Color3.fromRGB(255, 220, 0), t)
+		return Color3.fromRGB(60, 255, 80):Lerp(Color3.fromRGB(255, 240, 40), t)
 	else
 		-- Yellow to Red
 		local t = 1 - (ratio * 2)
-		return Color3.fromRGB(255, 220, 0):Lerp(Color3.fromRGB(220, 30, 30), t)
+		return Color3.fromRGB(255, 240, 40):Lerp(Color3.fromRGB(255, 40, 40), t)
 	end
 end
 
@@ -79,7 +79,7 @@ local function createHealthBar(model: Model): (BillboardGui, Frame, Frame)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "NpcHealthBar"
 	gui.Adornee = model
-	gui.Size = UDim2.fromScale(BAR_WIDTH / 4, BAR_HEIGHT / 4)
+	gui.Size = UDim2.fromScale(BAR_WIDTH / 2, BAR_HEIGHT / 0.75)
 	gui.StudsOffsetWorldSpace = BAR_OFFSET
 	gui.AlwaysOnTop = true
 	gui.LightInfluence = 0
@@ -90,8 +90,8 @@ local function createHealthBar(model: Model): (BillboardGui, Frame, Frame)
 	local bg = Instance.new("Frame")
 	bg.Name = "Background"
 	bg.Size = UDim2.fromScale(1, 1)
-	bg.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
-	bg.BackgroundTransparency = 0.15
+	bg.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+	bg.BackgroundTransparency = 0.25
 	bg.BorderSizePixel = 0
 	bg.Parent = gui
 
@@ -100,9 +100,9 @@ local function createHealthBar(model: Model): (BillboardGui, Frame, Frame)
 	bgCorner.Parent = bg
 
 	local bgStroke = Instance.new("UIStroke")
-	bgStroke.Color = Color3.fromRGB(0, 0, 0)
-	bgStroke.Transparency = 0.3
-	bgStroke.Thickness = 1.5
+	bgStroke.Color = Color3.fromRGB(255, 255, 255)
+	bgStroke.Transparency = 0.5
+	bgStroke.Thickness = 2
 	bgStroke.Parent = bg
 
 	-- Padding container
@@ -117,7 +117,7 @@ local function createHealthBar(model: Model): (BillboardGui, Frame, Frame)
 	local fill = Instance.new("Frame")
 	fill.Name = "Fill"
 	fill.Size = UDim2.fromScale(1, 1)
-	fill.BackgroundColor3 = Color3.fromRGB(80, 255, 80)
+	fill.BackgroundColor3 = Color3.fromRGB(60, 255, 80)
 	fill.BorderSizePixel = 0
 	fill.Parent = bg
 
@@ -125,16 +125,16 @@ local function createHealthBar(model: Model): (BillboardGui, Frame, Frame)
 	fillCorner.CornerRadius = UDim.new(0.25, 0)
 	fillCorner.Parent = fill
 
-	-- Subtle inner gradient on the fill for depth
+	-- Subtle top sheen on the fill for a clean, readable bar
 	local fillGradient = Instance.new("UIGradient")
 	fillGradient.Rotation = 90
 	fillGradient.Color = ColorSequence.new({
 		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 180, 180)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255)),
 	})
 	fillGradient.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.8),
-		NumberSequenceKeypoint.new(1, 0.95),
+		NumberSequenceKeypoint.new(0, 0.92),
+		NumberSequenceKeypoint.new(1, 1),
 	})
 	fillGradient.Parent = fill
 

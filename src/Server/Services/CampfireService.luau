@@ -648,7 +648,7 @@ local function scanForLogFuel()
 			consumedThisScan[model] = true
 			addFuel(1)
 			model:Destroy()
-		elseif resourceName == "RawMeat" then
+		elseif resourceName == "RawMeat" or resourceName == "RabbitMeat" then
 			consumedThisScan[model] = true
 			cookRawMeat(model)
 		end

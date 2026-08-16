@@ -20,6 +20,7 @@ return {
 		Berries = 0,
 		Mushrooms = 0,
 		RawMeat = 0,
+		RabbitMeat = 0,
 		CookedMeat = 0,
 	},
 	Survival = {

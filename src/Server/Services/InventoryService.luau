@@ -51,7 +51,7 @@ local BAG_CAPACITY_BONUS = 40
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local CARRY_BAG_NAME = "carry-bag"
 local CARRY_BAG_TOOL_NAME = "Carry Bag"
-local RESOURCE_NAMES = { "Wood", "Stone", "Berries", "Mushrooms", "RawMeat", "CookedMeat", "OwlFeather" }
+local RESOURCE_NAMES = { "Wood", "Stone", "Berries", "Mushrooms", "RawMeat", "CookedMeat", "RabbitMeat", "OwlFeather" }
 
 local PICKUP_RANGE = 12
 local DROP_SPACING = 2.2
@@ -66,6 +66,7 @@ local DROP_ASSETS: { [string]: string? } = {
 	Berries = "Carrot",
 	RawMeat = "rabbit-meat",
 	CookedMeat = "wolf-meat",
+	RabbitMeat = "rabbit-meat",
 	OwlFeather = nil :: string?,
 }
 local MUSHROOM_ASSET_NAME = "Mushroom"
@@ -185,7 +186,7 @@ function InventoryService:AddResource(player: Player, name: string, amount: numb
 	end
 
 	updatePlayerData(player, function(playerData)
-		playerData.Resources[name] += actualAmount
+		playerData.Resources[name] = (playerData.Resources[name] or 0) + actualAmount
 
 		if typeof(playerData.Inventory) ~= "table" then
 			playerData.Inventory = {}
@@ -221,7 +222,7 @@ function InventoryService:ConsumeResource(player: Player, name: string, amount: 
 	end
 
 	updatePlayerData(player, function(playerData)
-		playerData.Resources[name] -= amount
+		playerData.Resources[name] = (playerData.Resources[name] or 0) - amount
 
 		if typeof(playerData.Inventory) == "table" and typeof(playerData.Inventory.PickupOrder) == "table" then
 			local order = playerData.Inventory.PickupOrder

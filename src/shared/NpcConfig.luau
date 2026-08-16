@@ -46,7 +46,7 @@ return {
 		RigStyle = "Procedural",
 		WalkSpeed = 7,
 		RunSpeed = 14,
-		MaxHealth = 20,
+		MaxHealth = 55,
 		AttackDamage = 0,
 		AttackRange = 0,
 		AttackCooldown = 0,
@@ -56,7 +56,7 @@ return {
 		ActiveDuring = "Day",
 		Loot = {
 			{ Resource = "Berries", Min = 1, Max = 2, Chance = 0.6 },
-			{ Resource = "RawMeat", Min = 1, Max = 1, Chance = 0.9 },
+			{ Resource = "RabbitMeat", Min = 1, Max = 1, Chance = 1 },
 		},
 	},
 	WolfModel = {

@@ -63,8 +63,8 @@ local TWEEN_COUNT_POP = TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDi
 local TWEEN_CAPACITY = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 -- Content data
-local EDIBLE_RESOURCES = { Berries = true, Mushrooms = true, RawMeat = true, CookedMeat = true }
-local ROW_ORDER = { "Wood", "Stone", "Berries", "Mushrooms", "RawMeat", "CookedMeat" }
+local EDIBLE_RESOURCES = { Berries = true, Mushrooms = true, RawMeat = true, CookedMeat = true, RabbitMeat = true }
+local ROW_ORDER = { "Wood", "Stone", "Berries", "Mushrooms", "RabbitMeat", "RawMeat", "CookedMeat" }
 local ROW_COLORS = {
 	Wood = Color3.fromRGB(170, 110, 65),
 	Stone = Color3.fromRGB(155, 155, 155),
@@ -72,6 +72,7 @@ local ROW_COLORS = {
 	Mushrooms = Color3.fromRGB(210, 110, 95),
 	RawMeat = Color3.fromRGB(200, 100, 100),
 	CookedMeat = Color3.fromRGB(215, 160, 80),
+	RabbitMeat = Color3.fromRGB(200, 100, 100),
 }
 local ROW_DESCRIPTIONS = {
 	Wood = "Used for building and fueling campfires.",
@@ -80,6 +81,7 @@ local ROW_DESCRIPTIONS = {
 	Mushrooms = "Restores a small amount of hunger.",
 	RawMeat = "Cook it at the campfire to restore more hunger.",
 	CookedMeat = "A filling meal that restores lots of hunger.",
+	RabbitMeat = "Fresh rabbit meat. Cook it at the campfire.",
 }
 
 -- | State Management | --
