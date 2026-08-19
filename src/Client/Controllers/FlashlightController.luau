@@ -158,6 +158,9 @@ local function updateBatteryUI()
 		return
 	end
 
+	batteryPercent = if batteryPercent then batteryPercent else 0
+	beamOn = if beamOn == true then true else false
+
 	batteryText.Text = string.format("%d%%", batteryPercent)
 	statusText.Text = if beamOn then "ON" else "OFF"
 	statusText.TextColor3 = if beamOn then Color3.fromRGB(120, 200, 255) else Color3.fromRGB(160, 160, 170)
@@ -194,8 +197,8 @@ end
     @param    isOn     boolean
 ]]
 local function applyBatteryUpdate(percent: number, isOn: boolean)
-	batteryPercent = percent
-	beamOn = isOn
+	batteryPercent = if typeof(percent) == "number" then math.clamp(percent, 0, 100) else 0
+	beamOn = if isOn == true then true else false
 	updateBatteryUI()
 
 	-- If the server says battery is empty, force the visual beam off
@@ -315,6 +318,7 @@ local function buildBatteryPanel()
 	shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 	shadow.BackgroundTransparency = 0.6
 	shadow.BorderSizePixel = 0
+	shadow.Visible = false
 	shadow.ZIndex = 1
 	shadow.Parent = gui
 
@@ -333,6 +337,11 @@ local function buildBatteryPanel()
 	frame.Visible = false
 	frame.ZIndex = 2
 	frame.Parent = gui
+
+	-- Sync shadow visibility with the panel
+	frame:GetPropertyChangedSignal("Visible"):Connect(function()
+		shadow.Visible = frame.Visible
+	end)
 
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 14)
@@ -461,6 +470,12 @@ local function refreshPanelVisibility()
 	end
 
 	panelFrame.Visible = hasFlashlight
+	if panelGui then
+		local shadow = panelGui:FindFirstChild("Shadow")
+		if shadow then
+			shadow.Visible = hasFlashlight
+		end
+	end
 end
 
 -- // INITIALIZATION // --
@@ -476,9 +491,9 @@ function FlashlightController:KnitStart()
 	-- Request initial battery state and listen for updates
 	if flashlightService then
 		local ok, state = pcall(flashlightService.GetBatteryState)
-		if ok and state then
-			batteryPercent = state.percent
-			beamOn = state.isOn
+		if ok and state and typeof(state) == "table" then
+			batteryPercent = if typeof(state.percent) == "number" then math.clamp(state.percent, 0, 100) else 100
+			beamOn = if state.isOn == true then true else false
 			updateBatteryUI()
 		end
 

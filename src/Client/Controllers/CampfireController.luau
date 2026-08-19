@@ -481,10 +481,20 @@ local function buildTopLevelProgressBar()
 			warn("[CampfireController] Bonfire not found for billboard")
 			return
 		end
-		local firePart = bonfire:WaitForChild("Fire", 10) :: BasePart?
+		local firePart = bonfire:WaitForChild("Fire", 60) :: BasePart?
 		if not firePart then
-			warn("[CampfireController] Could not find campfire Fire part for billboard")
-			return
+			-- The Fire part may stream in after a delay; try a slower retry.
+			local start = os.clock()
+			while not firePart and (os.clock() - start) < 60 do
+				firePart = bonfire:FindFirstChild("Fire") :: BasePart?
+				if not firePart then
+					task.wait(1)
+				end
+			end
+			if not firePart then
+				warn("[CampfireController] Could not find campfire Fire part for billboard")
+				return
+			end
 		end
 
 		-- Remove any old placeholder billboard that may exist on the fire part.
