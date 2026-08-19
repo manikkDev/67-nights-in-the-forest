@@ -40,9 +40,9 @@ local FlashlightController = Knit.CreateController({
 
 -- | Configuration | --
 local FLASHLIGHT_TOOL_NAME = "Flashlight"
-local PANEL_WIDTH = 200
-local PANEL_HEIGHT = 86
-local PANEL_MARGIN = 16
+local PANEL_WIDTH = 160
+local PANEL_HEIGHT = 58
+local PANEL_MARGIN = 12
 local LOW_BATTERY_THRESHOLD = 20
 local WARNING_FLASH_INTERVAL = 0.35
 
@@ -65,6 +65,7 @@ local batteryText: TextLabel? = nil
 local statusText: TextLabel? = nil
 local warningLabel: TextLabel? = nil
 local warningThread: thread? = nil
+local refreshPanelVisibility: () -> ()
 
 -- // FUNCTIONS // --
 
@@ -259,6 +260,10 @@ end
     @param    player  Player
 ]]
 local function watchForFlashlight(player: Player)
+	local function onToolSetChanged()
+		refreshPanelVisibility()
+	end
+
 	local function checkCharacter(character: Model)
 		toolJanitor:Cleanup()
 		charJanitor:Cleanup()
@@ -277,28 +282,49 @@ local function watchForFlashlight(player: Player)
 		charJanitor:Add(character.ChildAdded:Connect(function(child)
 			if child:IsA("Tool") and child.Name == FLASHLIGHT_TOOL_NAME then
 				wireTool(child)
+				onToolSetChanged()
 			end
 		end), "Disconnect")
 		charJanitor:Add(character.ChildRemoved:Connect(function(child)
 			if child:IsA("Tool") and child.Name == FLASHLIGHT_TOOL_NAME then
 				reportBeamState(false)
+				onToolSetChanged()
 			end
 		end), "Disconnect")
+
+		onToolSetChanged()
 	end
 
 	janitor:Cleanup()
 	janitor:Add(player.CharacterAdded:Connect(checkCharacter), "Disconnect")
 	janitor:Add(player.CharacterRemoving:Connect(function()
 		reportBeamState(false)
+		onToolSetChanged()
+	end), "Disconnect")
+
+	-- Watch the backpack so the panel appears as soon as the flashlight is given.
+	local backpack = player:FindFirstChild("Backpack")
+	if backpack then
+		janitor:Add(backpack.ChildAdded:Connect(onToolSetChanged), "Disconnect")
+		janitor:Add(backpack.ChildRemoved:Connect(onToolSetChanged), "Disconnect")
+	end
+	janitor:Add(player.ChildAdded:Connect(function(child)
+		if child:IsA("Backpack") then
+			janitor:Add(child.ChildAdded:Connect(onToolSetChanged), "Disconnect")
+			janitor:Add(child.ChildRemoved:Connect(onToolSetChanged), "Disconnect")
+			onToolSetChanged()
+		end
 	end), "Disconnect")
 
 	if player.Character then
 		checkCharacter(player.Character)
+	else
+		onToolSetChanged()
 	end
 end
 
 --[[
-    @summary  Build the compact bottom-right battery panel.
+    @summary  Build the compact right-hand side battery panel.
 ]]
 local function buildBatteryPanel()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
@@ -308,12 +334,13 @@ local function buildBatteryPanel()
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = false
 	gui.ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets
+	gui.DisplayOrder = 15
 
 	-- Drop shadow behind the panel
 	local shadow = Instance.new("Frame")
 	shadow.Name = "Shadow"
-	shadow.AnchorPoint = Vector2.new(0, 1)
-	shadow.Position = UDim2.new(0, PANEL_MARGIN + 6, 1, -PANEL_MARGIN + 6)
+	shadow.AnchorPoint = Vector2.new(1, 0)
+	shadow.Position = UDim2.new(1, -PANEL_MARGIN - 6, 0, PANEL_MARGIN + 6)
 	shadow.Size = UDim2.new(0, PANEL_WIDTH + 12, 0, PANEL_HEIGHT + 12)
 	shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 	shadow.BackgroundTransparency = 0.6
@@ -328,8 +355,8 @@ local function buildBatteryPanel()
 
 	local frame = Instance.new("Frame")
 	frame.Name = "BatteryPanel"
-	frame.AnchorPoint = Vector2.new(0, 1)
-	frame.Position = UDim2.new(0, PANEL_MARGIN, 1, -PANEL_MARGIN)
+	frame.AnchorPoint = Vector2.new(1, 0)
+	frame.Position = UDim2.new(1, -PANEL_MARGIN, 0, PANEL_MARGIN)
 	frame.Size = UDim2.new(0, PANEL_WIDTH, 0, PANEL_HEIGHT)
 	frame.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
 	frame.BackgroundTransparency = 0.12
@@ -356,43 +383,43 @@ local function buildBatteryPanel()
 	-- Flashlight icon and status
 	local icon = Instance.new("TextLabel")
 	icon.Name = "FlashlightIcon"
-	icon.Position = UDim2.new(0, 12, 0, 10)
-	icon.Size = UDim2.new(0, 24, 0, 24)
+	icon.Position = UDim2.new(0, 10, 0, 6)
+	icon.Size = UDim2.new(0, 20, 0, 20)
 	icon.BackgroundTransparency = 1
 	icon.Text = "🔦"
-	icon.TextSize = 22
+	icon.TextSize = 18
 	icon.Font = Enum.Font.GothamBold
 	icon.Parent = frame
 
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
-	title.Position = UDim2.new(0, 40, 0, 10)
-	title.Size = UDim2.new(0, 90, 0, 24)
+	title.Position = UDim2.new(0, 34, 0, 6)
+	title.Size = UDim2.new(0, 70, 0, 20)
 	title.BackgroundTransparency = 1
-	title.Text = "FLASHLIGHT"
+	title.Text = "FLASH"
 	title.TextColor3 = Color3.fromRGB(220, 220, 230)
 	title.Font = Enum.Font.GothamBold
-	title.TextSize = 13
+	title.TextSize = 12
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.Parent = frame
 
 	local onOff = Instance.new("TextLabel")
 	onOff.Name = "Status"
-	onOff.Position = UDim2.new(1, -56, 0, 10)
-	onOff.Size = UDim2.new(0, 44, 0, 24)
+	onOff.Position = UDim2.new(1, -44, 0, 6)
+	onOff.Size = UDim2.new(0, 38, 0, 20)
 	onOff.BackgroundTransparency = 1
 	onOff.Text = "OFF"
 	onOff.TextColor3 = Color3.fromRGB(160, 160, 170)
 	onOff.Font = Enum.Font.GothamBlack
-	onOff.TextSize = 13
+	onOff.TextSize = 12
 	onOff.TextXAlignment = Enum.TextXAlignment.Right
 	onOff.Parent = frame
 
 	-- Battery bar container
 	local barContainer = Instance.new("Frame")
 	barContainer.Name = "BatteryBarContainer"
-	barContainer.Position = UDim2.new(0, 12, 0, 42)
-	barContainer.Size = UDim2.new(1, -24, 0, 12)
+	barContainer.Position = UDim2.new(0, 10, 0, 32)
+	barContainer.Size = UDim2.new(1, -20, 0, 10)
 	barContainer.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
 	barContainer.BackgroundTransparency = 0.2
 	barContainer.BorderSizePixel = 0
@@ -417,25 +444,25 @@ local function buildBatteryPanel()
 
 	local percentage = Instance.new("TextLabel")
 	percentage.Name = "BatteryText"
-	percentage.Position = UDim2.new(0, 12, 0, 58)
-	percentage.Size = UDim2.new(0, 80, 0, 18)
+	percentage.Position = UDim2.new(0, 10, 0, 42)
+	percentage.Size = UDim2.new(0, 60, 0, 14)
 	percentage.BackgroundTransparency = 1
 	percentage.Text = "100%"
 	percentage.TextColor3 = Color3.fromRGB(200, 200, 210)
 	percentage.Font = Enum.Font.GothamBold
-	percentage.TextSize = 14
+	percentage.TextSize = 12
 	percentage.TextXAlignment = Enum.TextXAlignment.Left
 	percentage.Parent = frame
 
 	local warn = Instance.new("TextLabel")
 	warn.Name = "Warning"
-	warn.Position = UDim2.new(1, -92, 0, 58)
-	warn.Size = UDim2.new(0, 80, 0, 18)
+	warn.Position = UDim2.new(1, -70, 0, 42)
+	warn.Size = UDim2.new(0, 60, 0, 14)
 	warn.BackgroundTransparency = 1
 	warn.Text = ""
 	warn.TextColor3 = Color3.fromRGB(255, 80, 80)
 	warn.Font = Enum.Font.GothamBlack
-	warn.TextSize = 11
+	warn.TextSize = 10
 	warn.TextXAlignment = Enum.TextXAlignment.Right
 	warn.Parent = frame
 
@@ -450,11 +477,7 @@ local function buildBatteryPanel()
 	gui.Parent = playerGui
 end
 
---[[
-    @summary  Show or hide the battery panel based on whether the
-              flashlight is in the player inventory.
-]]
-local function refreshPanelVisibility()
+refreshPanelVisibility = function()
 	if not panelFrame then
 		return
 	end
