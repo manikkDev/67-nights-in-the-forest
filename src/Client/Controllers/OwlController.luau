@@ -25,7 +25,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local Lighting = game:GetService("Lighting")
-local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -186,17 +185,23 @@ end
     @summary  Flash the screen red briefly (Owl scream).
 ]]
 local function flashScream()
+	local correction: ColorCorrectionEffect
 	if not screamCorrection then
-		screamCorrection = Instance.new("ColorCorrectionEffect")
-		screamCorrection.Name = "OwlScreamFlash"
-		screamCorrection.Parent = Lighting
+		local newCorrection = Instance.new("ColorCorrectionEffect") :: ColorCorrectionEffect
+		newCorrection.Name = "OwlScreamFlash"
+		newCorrection.Parent = Lighting
+		screamCorrection = newCorrection
 	end
-	screamCorrection.TintColor = Color3.fromRGB(255, 200, 200)
-	screamCorrection.Brightness = 0.1
-	screamCorrection.Contrast = 0.2
+	if not screamCorrection then
+		return
+	end
+	correction = screamCorrection :: ColorCorrectionEffect
+	correction.TintColor = Color3.fromRGB(255, 200, 200)
+	correction.Brightness = 0.1
+	correction.Contrast = 0.2
 
 	task.spawn(function()
-		TweenService:Create(screamCorrection, TweenInfo.new(SCREAM_FLASH_DURATION), {
+		TweenService:Create(correction, TweenInfo.new(SCREAM_FLASH_DURATION), {
 			TintColor = Color3.fromRGB(255, 255, 255),
 			Brightness = 0,
 			Contrast = 0,
@@ -208,16 +213,22 @@ end
     @summary  Flash the screen red when the local player takes Owl damage.
 ]]
 local function flashDamage()
+	local correction: ColorCorrectionEffect
 	if not damageCorrection then
-		damageCorrection = Instance.new("ColorCorrectionEffect")
-		damageCorrection.Name = "OwlDamageFlash"
-		damageCorrection.Parent = Lighting
+		local newCorrection = Instance.new("ColorCorrectionEffect") :: ColorCorrectionEffect
+		newCorrection.Name = "OwlDamageFlash"
+		newCorrection.Parent = Lighting
+		damageCorrection = newCorrection
 	end
-	damageCorrection.TintColor = Color3.fromRGB(160, 0, 0)
-	damageCorrection.Brightness = 0
+	if not damageCorrection then
+		return
+	end
+	correction = damageCorrection :: ColorCorrectionEffect
+	correction.TintColor = Color3.fromRGB(160, 0, 0)
+	correction.Brightness = 0
 
 	task.spawn(function()
-		TweenService:Create(damageCorrection, TweenInfo.new(DAMAGE_FLASH_DURATION), {
+		TweenService:Create(correction, TweenInfo.new(DAMAGE_FLASH_DURATION), {
 			TintColor = Color3.fromRGB(255, 255, 255),
 		}):Play()
 	end)

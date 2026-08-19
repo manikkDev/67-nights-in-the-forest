@@ -336,27 +336,10 @@ local function buildBatteryPanel()
 	gui.ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets
 	gui.DisplayOrder = 15
 
-	-- Drop shadow behind the panel
-	local shadow = Instance.new("Frame")
-	shadow.Name = "Shadow"
-	shadow.AnchorPoint = Vector2.new(1, 0)
-	shadow.Position = UDim2.new(1, -PANEL_MARGIN - 6, 0, PANEL_MARGIN + 6)
-	shadow.Size = UDim2.new(0, PANEL_WIDTH + 12, 0, PANEL_HEIGHT + 12)
-	shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-	shadow.BackgroundTransparency = 0.6
-	shadow.BorderSizePixel = 0
-	shadow.Visible = false
-	shadow.ZIndex = 1
-	shadow.Parent = gui
-
-	local shadowCorner = Instance.new("UICorner")
-	shadowCorner.CornerRadius = UDim.new(0, 18)
-	shadowCorner.Parent = shadow
-
 	local frame = Instance.new("Frame")
 	frame.Name = "BatteryPanel"
-	frame.AnchorPoint = Vector2.new(1, 0)
-	frame.Position = UDim2.new(1, -PANEL_MARGIN, 0, PANEL_MARGIN)
+	frame.AnchorPoint = Vector2.new(1, 0.5)
+	frame.Position = UDim2.new(1, -PANEL_MARGIN, 0.5, 0)
 	frame.Size = UDim2.new(0, PANEL_WIDTH, 0, PANEL_HEIGHT)
 	frame.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
 	frame.BackgroundTransparency = 0.12
@@ -364,11 +347,6 @@ local function buildBatteryPanel()
 	frame.Visible = false
 	frame.ZIndex = 2
 	frame.Parent = gui
-
-	-- Sync shadow visibility with the panel
-	frame:GetPropertyChangedSignal("Visible"):Connect(function()
-		shadow.Visible = frame.Visible
-	end)
 
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 14)
@@ -493,12 +471,6 @@ refreshPanelVisibility = function()
 	end
 
 	panelFrame.Visible = hasFlashlight
-	if panelGui then
-		local shadow = panelGui:FindFirstChild("Shadow")
-		if shadow then
-			shadow.Visible = hasFlashlight
-		end
-	end
 end
 
 -- // INITIALIZATION // --
