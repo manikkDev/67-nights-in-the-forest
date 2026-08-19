@@ -481,7 +481,7 @@ local function buildTopLevelProgressBar()
 			warn("[CampfireController] Bonfire not found for billboard")
 			return
 		end
-		local firePart = bonfire:WaitForChild("Fire") :: BasePart?
+		local firePart = bonfire:WaitForChild("Fire", 10) :: BasePart?
 		if not firePart then
 			warn("[CampfireController] Could not find campfire Fire part for billboard")
 			return
