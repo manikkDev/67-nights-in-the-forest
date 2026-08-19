@@ -57,6 +57,9 @@ local STUN_DECAY_PER_USE = 0.6
 local MIN_STUN_DURATION = 1
 local STUN_RESISTANCE_RECOVERY_TIME = 45
 local RETREAT_HOLD_TIME = 3
+local GAIT_AMPLITUDE = math.rad(35)
+local GAIT_ARM_AMPLITUDE = math.rad(22)
+local IDLE_LERP_SPEED = 6
 
 local STALKER_DEFS = {
 	Deer = {
@@ -93,9 +96,68 @@ local function broadcastToAll(signal, ...)
 	end
 end
 
-local DEFAULT_R15_WALK_ID = "rbxassetid://913402848"
-local DEFAULT_R15_IDLE_ID = "rbxassetid://507766388"
-local DEFAULT_R15_RUN_ID = "rbxassetid://913402848"
+--[[
+	@summary  Collect every Motor6D whose second part is a leg or arm,
+			  tagged with which side it is on for gait phasing.
+	@param    model  Model
+	@returns  { { motor: Motor6D, originalC0: CFrame, isLeg: boolean, side: string } }
+]]
+local function collectGaitJoints(model)
+	local joints = {}
+	for _, descendant in ipairs(model:GetDescendants()) do
+		if descendant:IsA("Motor6D") and descendant.Part1 then
+			local partName = descendant.Part1.Name
+			local lower = partName:lower()
+			local isLeg = lower:find("leg") ~= nil or lower:find("foot") ~= nil
+			local isArm = lower:find("arm") ~= nil or lower:find("hand") ~= nil
+			if isLeg or isArm then
+				local side = if lower:find("left") or lower:find("%.l") then "Left" else "Right"
+				table.insert(joints, {
+					motor = descendant,
+					originalC0 = descendant.C0,
+					isLeg = isLeg,
+					side = side,
+				})
+			end
+		end
+	end
+	return joints
+end
+
+--[[
+	@summary  Drive procedural leg/arm swing via Motor6D offsets for
+			  custom rigs with no working baked locomotion animation.
+	@param    stalker   table
+	@param    dt        number
+	@param    isMoving  boolean
+]]
+local function applyProceduralGait(stalker, dt: number, isMoving: boolean)
+	if not stalker.gaitJoints then
+		return
+	end
+
+	if isMoving then
+		local speedFactor = math.clamp(stalker.humanoid.WalkSpeed / 10, 0.6, 2.6)
+		stalker.gaitPhase = (stalker.gaitPhase or 0) + dt * 8 * speedFactor
+	end
+
+	for _, joint in ipairs(stalker.gaitJoints) do
+		local target: CFrame
+		if isMoving then
+			local phaseOffset = if joint.side == "Right" then math.pi else 0
+			local amplitude = if joint.isLeg then GAIT_AMPLITUDE else GAIT_ARM_AMPLITUDE
+			local swing = math.sin(stalker.gaitPhase + phaseOffset) * amplitude
+			target = joint.originalC0 * CFrame.Angles(swing, 0, 0)
+		else
+			target = joint.originalC0
+		end
+		joint.motor.C0 = joint.motor.C0:Lerp(target, math.clamp(dt * IDLE_LERP_SPEED, 0, 1))
+	end
+end
+
+local DEFAULT_R6_WALK_ID = "rbxassetid://180426354"
+local DEFAULT_R6_IDLE_ID = "rbxassetid://180435571"
+local DEFAULT_R6_RUN_ID = "rbxassetid://180426354"
 
 --[[
     @summary  Load a stalker's baked Animations folder into AnimationTracks,
@@ -144,13 +206,13 @@ local function buildAnimationTracks(stalker)
 	end
 
 	if not stalker.tracks.Walk then
-		stalker.tracks.Walk = loadTrack(DEFAULT_R15_WALK_ID, true)
+		stalker.tracks.Walk = loadTrack(DEFAULT_R6_WALK_ID, true)
 	end
 	if not stalker.tracks.Run then
-		stalker.tracks.Run = loadTrack(DEFAULT_R15_RUN_ID, true)
+		stalker.tracks.Run = loadTrack(DEFAULT_R6_RUN_ID, true)
 	end
 	if not stalker.tracks.Idle then
-		stalker.tracks.Idle = loadTrack(DEFAULT_R15_IDLE_ID, true)
+		stalker.tracks.Idle = loadTrack(DEFAULT_R6_IDLE_ID, true)
 	end
 end
 
@@ -211,8 +273,17 @@ local function spawnStalker(key: string)
 	model.Parent = workspace
 	model:PivotTo(CFrame.new(DORMANT_HOLDING_POSITION))
 
+	-- Un-anchor all parts so the NPC can move (template may have anchored parts)
+	for _, part in ipairs(model:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.Anchored = false
+		end
+	end
+
 	local humanoid = model:FindFirstChildOfClass("Humanoid") or model:FindFirstChild("NPC")
-	local rootPart = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("HRP")
+	-- Prefer HRP (the actual PrimaryPart) over HumanoidRootPart, since
+	-- HumanoidRootPart may be a non-colliding anchored dummy in custom rigs
+	local rootPart = model:FindFirstChild("HRP") or model:FindFirstChild("HumanoidRootPart")
 	if not humanoid or not rootPart then
 		warn("[DeerService] Template", def.ModelName, "missing Humanoid/root part")
 		model:Destroy()
@@ -237,6 +308,13 @@ local function spawnStalker(key: string)
 	}
 
 	buildAnimationTracks(stalker)
+
+	-- The Deer has a custom skeleton where standard R6 animations don't map
+	-- correctly, so use procedural gait for leg/arm movement instead.
+	if key == "Deer" then
+		stalker.gaitJoints = collectGaitJoints(model)
+	end
+
 	stalkers[key] = stalker
 
 	CombatTargetRegistry.Register(model, {
@@ -336,8 +414,18 @@ local function updateStalkerState(stalker)
 		stalker.state = "Patrol"
 		local campfirePosition = (worldService and worldService:GetCampfireCFrame() or CFrame.new()).Position
 		local angle = math.random() * math.pi * 2
-		local entryOffset = Vector3.new(math.cos(angle) * 70, 0, math.sin(angle) * 70)
-		stalker.model:PivotTo(CFrame.new(campfirePosition + entryOffset))
+		local entryOffset = Vector3.new(math.cos(angle) * 90, 0, math.sin(angle) * 90)
+		-- Raycast down to find ground level so the Deer doesn't spawn underground
+		local spawnPos = campfirePosition + entryOffset
+		local rayOrigin = spawnPos + Vector3.new(0, 200, 0)
+		local rayParams = RaycastParams.new()
+		local rayResult = workspace:Raycast(rayOrigin, Vector3.new(0, -400, 0), rayParams)
+		if rayResult then
+			spawnPos = rayResult.Position + Vector3.new(0, 5, 0)
+		else
+			spawnPos = spawnPos + Vector3.new(0, 10, 0)
+		end
+		stalker.model:PivotTo(CFrame.new(spawnPos))
 	end
 
 	if stalker.target then
@@ -493,7 +581,7 @@ end
 --[[
     @summary  Heartbeat-driven tick for every registered stalker.
 ]]
-local function onHeartbeat()
+local function onHeartbeat(dt: number)
 	local now = os.clock()
 	for _, stalker in pairs(stalkers) do
 		if now >= stalker.nextDecisionTime then
@@ -501,6 +589,13 @@ local function onHeartbeat()
 			updateStalkerState(stalker)
 		end
 		runStalkerBehavior(stalker)
+
+		-- Apply procedural gait for custom-rig stalkers (Deer)
+		if stalker.gaitJoints then
+			local vel = stalker.rootPart.AssemblyLinearVelocity
+			local isMoving = Vector3.new(vel.X, 0, vel.Z).Magnitude > 1
+			applyProceduralGait(stalker, dt, isMoving and stalker.state ~= "Stunned")
+		end
 	end
 end
 
