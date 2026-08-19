@@ -4,16 +4,19 @@
     @date    2025
 
     @summary
-    Client-side flashlight toggle with UI and beam-state reporting.
+    Client-side flashlight toggle and battery HUD.
 
     @description
-    Toggles the equipped Flashlight's SpotLight/Sound locally for
-    instant feedback, and reports the on/off state to FlashlightService
-    so the server can independently validate beam alignment against
-    the Deer/Ram Monster stalkers before applying any stun.
+    Toggles the equipped Flashlight's SpotLight/Sound locally and
+    reports the beam state to the server. Listens to FlashlightService
+    for battery updates and displays a compact bottom-right panel with:
 
-    Shows a small bottom-center indicator whenever the flashlight is
-    in the player inventory so they always know the toggle state.
+      - Flashlight ON/OFF indicator
+      - Battery percentage and bar
+      - Low-battery warning when below 20%
+      - Beam state icon
+
+    The panel only appears while the player owns a Flashlight.
 
     @exports
     - FlashlightController (Knit Controller)
@@ -37,8 +40,11 @@ local FlashlightController = Knit.CreateController({
 
 -- | Configuration | --
 local FLASHLIGHT_TOOL_NAME = "Flashlight"
-local UI_ICON_SIZE = 44
-local UI_ICON_MARGIN = 8
+local PANEL_WIDTH = 200
+local PANEL_HEIGHT = 86
+local PANEL_MARGIN = 16
+local LOW_BATTERY_THRESHOLD = 20
+local WARNING_FLASH_INTERVAL = 0.35
 
 -- | State Management | --
 local janitor = Janitor.new()
@@ -46,40 +52,127 @@ local toolJanitor = Janitor.new()
 local charJanitor = Janitor.new()
 local gameStateController: any = nil
 local flashlightService: any = nil
+
 local beamOn = false
-local indicatorGui: ScreenGui? = nil
-local indicatorFrame: Frame? = nil
-local indicatorIcon: TextLabel? = nil
-local indicatorLabel: TextLabel? = nil
+local batteryPercent = 100
+local lowBatteryWarning = false
+
+local panelGui: ScreenGui? = nil
+local panelFrame: Frame? = nil
+local batteryBar: Frame? = nil
+local batteryFill: Frame? = nil
+local batteryText: TextLabel? = nil
+local statusText: TextLabel? = nil
+local warningLabel: TextLabel? = nil
+local warningThread: thread? = nil
 
 -- // FUNCTIONS // --
 
 --[[
-    @summary  Update the on-screen flashlight indicator.
-    @param    lit  boolean
+    @summary  Return the equipped Flashlight Tool, if any.
+    @returns  Tool?
 ]]
-local function updateIndicator(lit: boolean)
-	beamOn = lit
-	if not indicatorFrame then
+local function getEquippedFlashlight(): Tool?
+	local character = Players.LocalPlayer.Character
+	if not character then
+		return nil
+	end
+	local tool = character:FindFirstChild(FLASHLIGHT_TOOL_NAME)
+	if tool and tool:IsA("Tool") then
+		return tool
+	end
+	return nil
+end
+
+--[[
+    @summary  Turn the flashlight visual beam off.
+    @param    tool  Tool
+]]
+local function turnOffVisuals(tool: Tool)
+	local handle = tool:FindFirstChild("Handle")
+	if not handle then
+		return
+	end
+	local spotLight = handle:FindFirstChildOfClass("SpotLight")
+	if spotLight then
+		spotLight.Enabled = false
+	end
+end
+
+--[[
+    @summary  Get the color the battery bar should be at a given percent.
+    @param    percent  number
+    @returns  Color3
+]]
+local function batteryColor(percent: number): Color3
+	if percent <= 20 then
+		return Color3.fromRGB(255, 60, 60)
+	elseif percent <= 50 then
+		return Color3.fromRGB(255, 180, 40)
+	end
+	return Color3.fromRGB(60, 220, 120)
+end
+
+--[[
+    @summary  Stop the low-battery warning pulse.
+]]
+local function stopWarningFlash()
+	lowBatteryWarning = false
+	warningThread = nil
+	if warningLabel then
+		warningLabel.TextTransparency = 0
+	end
+end
+
+--[[
+    @summary  Pulse the low-battery warning text.
+]]
+local function startWarningFlash()
+	if warningThread then
+		return
+	end
+	lowBatteryWarning = true
+	warningThread = task.spawn(function()
+		while lowBatteryWarning and warningLabel do
+			TweenService:Create(warningLabel, TweenInfo.new(WARNING_FLASH_INTERVAL, Enum.EasingStyle.Sine), {
+				TextTransparency = 0.3,
+			}):Play()
+			task.wait(WARNING_FLASH_INTERVAL)
+			if not lowBatteryWarning or not warningLabel then
+				break
+			end
+			TweenService:Create(warningLabel, TweenInfo.new(WARNING_FLASH_INTERVAL, Enum.EasingStyle.Sine), {
+				TextTransparency = 1,
+			}):Play()
+			task.wait(WARNING_FLASH_INTERVAL)
+		end
+		warningThread = nil
+	end)
+end
+
+--[[
+    @summary  Update the on-screen battery bar and percentage text.
+]]
+local function updateBatteryUI()
+	if not panelFrame or not batteryBar or not batteryFill or not batteryText or not statusText or not warningLabel then
 		return
 	end
 
-	if lit then
-		indicatorFrame.BackgroundColor3 = Color3.fromRGB(60, 160, 255)
-		indicatorIcon.Text = "🔦"
-		indicatorLabel.Text = "ON"
-		indicatorLabel.TextColor3 = Color3.fromRGB(200, 235, 255)
-		TweenService:Create(indicatorFrame, TweenInfo.new(0.2), {
-			BackgroundTransparency = 0.1,
-		}):Play()
+	batteryText.Text = string.format("%d%%", batteryPercent)
+	statusText.Text = if beamOn then "ON" else "OFF"
+	statusText.TextColor3 = if beamOn then Color3.fromRGB(120, 200, 255) else Color3.fromRGB(160, 160, 170)
+
+	local scale = math.clamp(batteryPercent / 100, 0, 1)
+	batteryFill.Size = UDim2.new(scale, 0, 1, 0)
+	batteryFill.BackgroundColor3 = batteryColor(batteryPercent)
+
+	if batteryPercent <= LOW_BATTERY_THRESHOLD then
+		warningLabel.Text = "LOW BATTERY"
+		warningLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+		startWarningFlash()
 	else
-		indicatorFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-		indicatorIcon.Text = "🔦"
-		indicatorLabel.Text = "OFF"
-		indicatorLabel.TextColor3 = Color3.fromRGB(160, 160, 170)
-		TweenService:Create(indicatorFrame, TweenInfo.new(0.2), {
-			BackgroundTransparency = 0.2,
-		}):Play()
+		warningLabel.Text = ""
+		stopWarningFlash()
 	end
 end
 
@@ -92,7 +185,26 @@ local function reportBeamState(isActive: boolean)
 	if flashlightService then
 		flashlightService.SetBeamActive(isActive)
 	end
-	updateIndicator(isActive)
+	updateBatteryUI()
+end
+
+--[[
+    @summary  Apply a battery state update from the server.
+    @param    percent  number
+    @param    isOn     boolean
+]]
+local function applyBatteryUpdate(percent: number, isOn: boolean)
+	batteryPercent = percent
+	beamOn = isOn
+	updateBatteryUI()
+
+	-- If the server says battery is empty, force the visual beam off
+	if not isOn and batteryPercent <= 0 then
+		local tool = getEquippedFlashlight()
+		if tool then
+			turnOffVisuals(tool)
+		end
+	end
 end
 
 --[[
@@ -107,28 +219,17 @@ local function toggleBeam(tool: Tool)
 	local spotLight = handle:FindFirstChildOfClass("SpotLight")
 	local sound = handle:FindFirstChildOfClass("Sound")
 	if spotLight then
-		spotLight.Enabled = not spotLight.Enabled
-		reportBeamState(spotLight.Enabled)
+		local newState = not spotLight.Enabled
+		if newState and batteryPercent <= 0 then
+			-- Cannot turn on with empty battery
+			return
+		end
+		spotLight.Enabled = newState
+		reportBeamState(newState)
 	end
 	if sound then
 		sound:Play()
 	end
-end
-
---[[
-    @summary  Turn the flashlight beam off.
-    @param    tool  Tool
-]]
-local function turnOff(tool: Tool)
-	local handle = tool:FindFirstChild("Handle")
-	if not handle then
-		return
-	end
-	local spotLight = handle:FindFirstChildOfClass("SpotLight")
-	if spotLight then
-		spotLight.Enabled = false
-	end
-	reportBeamState(false)
 end
 
 --[[
@@ -144,7 +245,8 @@ local function wireTool(tool: Tool)
 		toggleBeam(tool)
 	end), "Disconnect")
 	toolJanitor:Add(tool.Unequipped:Connect(function()
-		turnOff(tool)
+		turnOffVisuals(tool)
+		reportBeamState(false)
 	end), "Disconnect")
 end
 
@@ -161,7 +263,7 @@ local function watchForFlashlight(player: Player)
 		local tool = character:FindFirstChild(FLASHLIGHT_TOOL_NAME)
 		if tool and tool:IsA("Tool") then
 			wireTool(tool)
-			-- Pick up the current state if it already on
+			-- Sync visual state with server
 			local handle = tool:FindFirstChild("Handle")
 			local spotLight = handle and handle:FindFirstChildOfClass("SpotLight")
 			if spotLight then
@@ -193,75 +295,158 @@ local function watchForFlashlight(player: Player)
 end
 
 --[[
-    @summary  Build the on-screen flashlight indicator UI.
+    @summary  Build the compact bottom-right battery panel.
 ]]
-local function buildIndicator()
+local function buildBatteryPanel()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
 	local gui = Instance.new("ScreenGui")
-	gui.Name = "FlashlightIndicator"
+	gui.Name = "FlashlightBatteryPanel"
 	gui.ResetOnSpawn = false
 	gui.IgnoreGuiInset = false
 	gui.ScreenInsets = Enum.ScreenInsets.DeviceSafeInsets
 
+	-- Drop shadow behind the panel
+	local shadow = Instance.new("Frame")
+	shadow.Name = "Shadow"
+	shadow.AnchorPoint = Vector2.new(0, 1)
+	shadow.Position = UDim2.new(0, PANEL_MARGIN + 6, 1, -PANEL_MARGIN + 6)
+	shadow.Size = UDim2.new(0, PANEL_WIDTH + 12, 0, PANEL_HEIGHT + 12)
+	shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	shadow.BackgroundTransparency = 0.6
+	shadow.BorderSizePixel = 0
+	shadow.ZIndex = 1
+	shadow.Parent = gui
+
+	local shadowCorner = Instance.new("UICorner")
+	shadowCorner.CornerRadius = UDim.new(0, 18)
+	shadowCorner.Parent = shadow
+
 	local frame = Instance.new("Frame")
-	frame.Name = "FlashlightFrame"
-	frame.AnchorPoint = Vector2.new(0.5, 1)
-	frame.Position = UDim2.new(0.5, 0, 1, -80)
-	frame.Size = UDim2.new(0, UI_ICON_SIZE + UI_ICON_MARGIN * 2, 0, UI_ICON_SIZE + UI_ICON_MARGIN * 2 + 18)
-	frame.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-	frame.BackgroundTransparency = 0.2
+	frame.Name = "BatteryPanel"
+	frame.AnchorPoint = Vector2.new(0, 1)
+	frame.Position = UDim2.new(0, PANEL_MARGIN, 1, -PANEL_MARGIN)
+	frame.Size = UDim2.new(0, PANEL_WIDTH, 0, PANEL_HEIGHT)
+	frame.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+	frame.BackgroundTransparency = 0.12
 	frame.BorderSizePixel = 0
 	frame.Visible = false
+	frame.ZIndex = 2
 	frame.Parent = gui
 
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 10)
+	corner.CornerRadius = UDim.new(0, 14)
 	corner.Parent = frame
 
 	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(80, 80, 90)
+	stroke.Color = Color3.fromRGB(60, 60, 70)
 	stroke.Thickness = 1.5
-	stroke.Transparency = 0.4
+	stroke.Transparency = 0.3
 	stroke.Parent = frame
 
+	-- Flashlight icon and status
 	local icon = Instance.new("TextLabel")
-	icon.Name = "Icon"
-	icon.AnchorPoint = Vector2.new(0.5, 0.5)
-	icon.Position = UDim2.new(0.5, 0, 0.5, -9)
-	icon.Size = UDim2.new(0, UI_ICON_SIZE, 0, UI_ICON_SIZE)
+	icon.Name = "FlashlightIcon"
+	icon.Position = UDim2.new(0, 12, 0, 10)
+	icon.Size = UDim2.new(0, 24, 0, 24)
 	icon.BackgroundTransparency = 1
 	icon.Text = "🔦"
-	icon.TextSize = 28
+	icon.TextSize = 22
 	icon.Font = Enum.Font.GothamBold
 	icon.Parent = frame
 
-	local label = Instance.new("TextLabel")
-	label.Name = "StatusLabel"
-	label.AnchorPoint = Vector2.new(0.5, 0)
-	label.Position = UDim2.new(0.5, 0, 1, -16)
-	label.Size = UDim2.new(0, 60, 0, 14)
-	label.BackgroundTransparency = 1
-	label.Text = "OFF"
-	label.TextColor3 = Color3.fromRGB(160, 160, 170)
-	label.Font = Enum.Font.GothamBold
-	label.TextSize = 11
-	label.Parent = frame
+	local title = Instance.new("TextLabel")
+	title.Name = "Title"
+	title.Position = UDim2.new(0, 40, 0, 10)
+	title.Size = UDim2.new(0, 90, 0, 24)
+	title.BackgroundTransparency = 1
+	title.Text = "FLASHLIGHT"
+	title.TextColor3 = Color3.fromRGB(220, 220, 230)
+	title.Font = Enum.Font.GothamBold
+	title.TextSize = 13
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.Parent = frame
 
-	indicatorGui = gui
-	indicatorFrame = frame
-	indicatorIcon = icon
-	indicatorLabel = label
+	local onOff = Instance.new("TextLabel")
+	onOff.Name = "Status"
+	onOff.Position = UDim2.new(1, -56, 0, 10)
+	onOff.Size = UDim2.new(0, 44, 0, 24)
+	onOff.BackgroundTransparency = 1
+	onOff.Text = "OFF"
+	onOff.TextColor3 = Color3.fromRGB(160, 160, 170)
+	onOff.Font = Enum.Font.GothamBlack
+	onOff.TextSize = 13
+	onOff.TextXAlignment = Enum.TextXAlignment.Right
+	onOff.Parent = frame
+
+	-- Battery bar container
+	local barContainer = Instance.new("Frame")
+	barContainer.Name = "BatteryBarContainer"
+	barContainer.Position = UDim2.new(0, 12, 0, 42)
+	barContainer.Size = UDim2.new(1, -24, 0, 12)
+	barContainer.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+	barContainer.BackgroundTransparency = 0.2
+	barContainer.BorderSizePixel = 0
+	barContainer.Parent = frame
+
+	local barCorner = Instance.new("UICorner")
+	barCorner.CornerRadius = UDim.new(0, 6)
+	barCorner.Parent = barContainer
+
+	local fill = Instance.new("Frame")
+	fill.Name = "BatteryFill"
+	fill.Position = UDim2.new(0, 0, 0, 0)
+	fill.Size = UDim2.new(1, 0, 1, 0)
+	fill.BackgroundColor3 = Color3.fromRGB(60, 220, 120)
+	fill.BackgroundTransparency = 0.1
+	fill.BorderSizePixel = 0
+	fill.Parent = barContainer
+
+	local fillCorner = Instance.new("UICorner")
+	fillCorner.CornerRadius = UDim.new(0, 6)
+	fillCorner.Parent = fill
+
+	local percentage = Instance.new("TextLabel")
+	percentage.Name = "BatteryText"
+	percentage.Position = UDim2.new(0, 12, 0, 58)
+	percentage.Size = UDim2.new(0, 80, 0, 18)
+	percentage.BackgroundTransparency = 1
+	percentage.Text = "100%"
+	percentage.TextColor3 = Color3.fromRGB(200, 200, 210)
+	percentage.Font = Enum.Font.GothamBold
+	percentage.TextSize = 14
+	percentage.TextXAlignment = Enum.TextXAlignment.Left
+	percentage.Parent = frame
+
+	local warn = Instance.new("TextLabel")
+	warn.Name = "Warning"
+	warn.Position = UDim2.new(1, -92, 0, 58)
+	warn.Size = UDim2.new(0, 80, 0, 18)
+	warn.BackgroundTransparency = 1
+	warn.Text = ""
+	warn.TextColor3 = Color3.fromRGB(255, 80, 80)
+	warn.Font = Enum.Font.GothamBlack
+	warn.TextSize = 11
+	warn.TextXAlignment = Enum.TextXAlignment.Right
+	warn.Parent = frame
+
+	panelGui = gui
+	panelFrame = frame
+	batteryBar = barContainer
+	batteryFill = fill
+	batteryText = percentage
+	statusText = onOff
+	warningLabel = warn
 
 	gui.Parent = playerGui
 end
 
 --[[
-    @summary  Show or hide the indicator based on whether the
+    @summary  Show or hide the battery panel based on whether the
               flashlight is in the player inventory.
 ]]
-local function refreshIndicatorVisibility()
-	if not indicatorFrame then
+local function refreshPanelVisibility()
+	if not panelFrame then
 		return
 	end
 
@@ -275,7 +460,7 @@ local function refreshIndicatorVisibility()
 		hasFlashlight = true
 	end
 
-	indicatorFrame.Visible = hasFlashlight
+	panelFrame.Visible = hasFlashlight
 end
 
 -- // INITIALIZATION // --
@@ -286,14 +471,28 @@ function FlashlightController:KnitStart()
 
 	local player = Players.LocalPlayer
 
-	buildIndicator()
+	buildBatteryPanel()
+
+	-- Request initial battery state and listen for updates
+	if flashlightService then
+		local ok, state = pcall(flashlightService.GetBatteryState)
+		if ok and state then
+			batteryPercent = state.percent
+			beamOn = state.isOn
+			updateBatteryUI()
+		end
+
+		flashlightService.BatteryChanged:Connect(function(percent: number, isOn: boolean)
+			applyBatteryUpdate(percent, isOn)
+		end)
+	end
 
 	local function onGameStarted()
 		watchForFlashlight(player)
-		-- Check periodically if the flashlight is in inventory
+		-- Keep panel visibility in sync
 		task.spawn(function()
 			while true do
-				refreshIndicatorVisibility()
+				refreshPanelVisibility()
 				task.wait(1)
 			end
 		end)
@@ -307,7 +506,8 @@ function FlashlightController:KnitStart()
 		end
 	end
 
-	print("[FlashlightController] Initialised — flashlight toggle/indicator active")
+	updateBatteryUI()
+	print("[FlashlightController] Initialised — battery panel + toggle active")
 end
 
 return FlashlightController

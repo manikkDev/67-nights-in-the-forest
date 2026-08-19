@@ -4,17 +4,19 @@
     @date    2025
 
     @summary
-    Server-validated flashlight beam check that stuns pursuing Deer /
-    Ram Monster stalkers and the Owl.
+    Server-validated flashlight beam check with battery drain.
 
     @description
-    Trusts only a low-stakes "beam is on" boolean from the client; the
-    server independently computes the wielder's facing, range, and
-    cone alignment against every active stalker before ever applying
-    a stun, so the client cannot dictate the outcome.
+    Tracks per-player flashlight battery, drains it while the beam is
+    on, and recharges it slowly while off. When the battery reaches
+    zero the beam is forced off. Independently computes the wielder s
+    facing, range, and cone alignment against active stalkers before
+    applying a stun, so the client cannot dictate the outcome.
 
     @exports
     - Knit Remote: SetBeamActive(isActive: boolean)  (client -> server)
+    - Knit Remote: GetBatteryState() -> { percent: number, isOn: boolean }
+    - Knit Signal: BatteryChanged(percent: number, isOn: boolean)
 ]]
 
 -- // VARIABLES // --
@@ -32,7 +34,9 @@ local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 -- | Objects | --
 local FlashlightService = Knit.CreateService({
 	Name = "FlashlightService",
-	Client = {},
+	Client = {
+		BatteryChanged = Knit.CreateSignal(),
+	},
 })
 
 -- | Configuration | --
@@ -40,12 +44,16 @@ local FLASHLIGHT_TOOL_NAME = "Flashlight"
 local BEAM_RANGE = 35
 local BEAM_HALF_ANGLE = math.rad(25)
 local CHECK_INTERVAL = 0.15
+local BATTERY_DRAIN_PER_SECOND = 5 -- 20 seconds of full use
+local BATTERY_RECHARGE_PER_SECOND = 1.5 -- slow passive recharge
 local STALKER_MODEL_NAMES = { "Deer", "Ram Monster", "Owl" }
 
 -- | State Management | --
 local deerService: any = nil
 local owlService: any = nil
 local beamActive: { [Player]: boolean } = {}
+local battery: { [Player]: number } = {}
+local lastBroadcastState: { [Player]: { percent: number, isOn: boolean } } = {}
 local checkTimer = 0
 
 -- // FUNCTIONS // --
@@ -66,8 +74,66 @@ local function hasFlashlightEquipped(player: Player): boolean
 end
 
 --[[
-    @summary  Check whether a player's facing direction is aligned
-              with and in range of a stalker's position.
+    @summary  Broadcast the current battery state to the owning player.
+    @param    player  Player
+]]
+local function broadcastBattery(player: Player)
+	local percent = math.floor(battery[player] or 100)
+	local isOn = beamActive[player] == true
+
+	local last = lastBroadcastState[player]
+	if last and last.percent == percent and last.isOn == isOn then
+		return
+	end
+
+	lastBroadcastState[player] = { percent = percent, isOn = isOn }
+	FlashlightService.Client.BatteryChanged:Fire(player, percent, isOn)
+end
+
+--[[
+    @summary  Initialise battery for a new player.
+    @param    player  Player
+]]
+local function ensureBattery(player: Player)
+	if battery[player] == nil then
+		battery[player] = 100
+	end
+end
+
+--[[
+    @summary  Update battery for every player on each tick.
+    @param    dt  number
+]]
+local function updateBatteries(dt: number)
+	for player, isActive in pairs(beamActive) do
+		ensureBattery(player)
+		if not player.Parent then
+			continue
+		end
+
+		local current = battery[player]
+		if isActive and hasFlashlightEquipped(player) then
+			current -= BATTERY_DRAIN_PER_SECOND * dt
+			if current <= 0 then
+				current = 0
+				beamActive[player] = false
+				-- Force the client to turn the visual beam off
+				broadcastBattery(player)
+			end
+		else
+			current += BATTERY_RECHARGE_PER_SECOND * dt
+			if current > 100 then
+				current = 100
+			end
+		end
+		battery[player] = current
+		broadcastBattery(player)
+	end
+end
+
+--[[
+    @summary  Check whether a player s facing direction is aligned
+              with and in range of a stalker s position.
     @param    player   Player
     @param    stalker  Model
     @returns  boolean
@@ -131,7 +197,7 @@ local function checkAllBeams()
 end
 
 --[[
-    @summary  Client-facing remote reporting whether the local player's
+    @summary  Client-facing remote reporting whether the local player s
               flashlight beam is currently switched on.
     @param    player     Player   -- injected by Knit
     @param    isActive   boolean  -- the requested beam state
@@ -140,14 +206,36 @@ function FlashlightService.Client:SetBeamActive(player: Player, isActive: boolea
 	if typeof(isActive) ~= "boolean" then
 		return
 	end
+	ensureBattery(player)
+	-- Don t allow turning on if the battery is empty
+	if isActive and (battery[player] or 0) <= 0 then
+		isActive = false
+	end
 	beamActive[player] = isActive
+	broadcastBattery(player)
 end
 
 --[[
-    @summary  Heartbeat-driven, throttled beam alignment check for all players.
+    @summary  Client-facing remote returning the current battery state.
+    @param    player  Player
+    @returns  { percent: number, isOn: boolean }
+]]
+function FlashlightService.Client:GetBatteryState(player: Player): { percent: number, isOn: boolean }
+	ensureBattery(player)
+	return {
+		percent = math.floor(battery[player] :: number),
+		isOn = beamActive[player] == true,
+	}
+end
+
+--[[
+    @summary  Heartbeat-driven update: drain/recharge battery and
+              throttled beam alignment check.
     @param    dt  number
 ]]
 local function onHeartbeat(dt: number)
+	updateBatteries(dt)
+
 	checkTimer += dt
 	if checkTimer < CHECK_INTERVAL then
 		return
@@ -162,11 +250,13 @@ function FlashlightService:KnitStart()
 	deerService = Knit.GetService("DeerService")
 	owlService = Knit.GetService("OwlService")
 	RunService.Heartbeat:Connect(onHeartbeat)
-	print("[FlashlightService] Initialised — beam-stun validation active")
+	print("[FlashlightService] Initialised — battery + beam-stun validation active")
 end
 
 Players.PlayerRemoving:Connect(function(player)
 	beamActive[player] = nil
+	battery[player] = nil
+	lastBroadcastState[player] = nil
 end)
 
 return FlashlightService
