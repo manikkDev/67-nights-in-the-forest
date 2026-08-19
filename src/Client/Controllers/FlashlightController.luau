@@ -98,6 +98,10 @@ local function turnOffVisuals(tool: Tool)
 	if spotLight then
 		spotLight.Enabled = false
 	end
+	local fillLight = handle:FindFirstChild("FillLight")
+	if fillLight and fillLight:IsA("PointLight") then
+		fillLight.Enabled = false
+	end
 end
 
 --[[
@@ -221,6 +225,7 @@ local function toggleBeam(tool: Tool)
 		return
 	end
 	local spotLight = handle:FindFirstChildOfClass("SpotLight")
+	local fillLight = handle:FindFirstChild("FillLight")
 	local sound = handle:FindFirstChildOfClass("Sound")
 	if spotLight then
 		local newState = not spotLight.Enabled
@@ -229,6 +234,9 @@ local function toggleBeam(tool: Tool)
 			return
 		end
 		spotLight.Enabled = newState
+		if fillLight and fillLight:IsA("PointLight") then
+			fillLight.Enabled = newState
+		end
 		reportBeamState(newState)
 	end
 	if sound then
@@ -275,6 +283,10 @@ local function watchForFlashlight(player: Player)
 			local handle = tool:FindFirstChild("Handle")
 			local spotLight = handle and handle:FindFirstChildOfClass("SpotLight")
 			if spotLight then
+				local fillLight = handle:FindFirstChild("FillLight")
+				if fillLight and fillLight:IsA("PointLight") then
+					fillLight.Enabled = spotLight.Enabled
+				end
 				reportBeamState(spotLight.Enabled)
 			end
 		end
