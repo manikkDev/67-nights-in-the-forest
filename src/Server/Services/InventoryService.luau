@@ -51,7 +51,7 @@ local BAG_CAPACITY_BONUS = 40
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local CARRY_BAG_NAME = "carry-bag"
 local CARRY_BAG_TOOL_NAME = "Carry Bag"
-local TORCH_TOOL_NAME = "Torch"
+local FLASHLIGHT_TOOL_NAME = "Flashlight"
 local RESOURCE_NAMES = { "Wood", "Stone", "Berries", "Mushrooms", "RawMeat", "CookedMeat", "RabbitMeat", "OwlFeather" }
 
 local PICKUP_RANGE = 12
@@ -77,7 +77,7 @@ local playerDataService: any = nil
 local worldService: any = nil
 local spawnService: any = nil
 local bagTemplate: Tool? = nil
-local torchTemplate: Tool? = nil
+local flashlightTemplate: Tool? = nil
 local mushroomSource: Model? = nil
 local mushroomBaseOffset: number? = nil
 
@@ -1070,8 +1070,8 @@ end
               so it persists across respawns.
     @param    player  Player  -- the Roblox player
 ]]
-local function giveTorch(player: Player)
-	if not torchTemplate then
+local function giveFlashlight(player: Player)
+	if not flashlightTemplate then
 		return
 	end
 	if spawnService and not spawnService:IsPlayerSpawned(player) then
@@ -1079,13 +1079,13 @@ local function giveTorch(player: Player)
 	end
 
 	local backpack = player:WaitForChild("Backpack")
-	if not backpack:FindFirstChild(TORCH_TOOL_NAME) then
-		torchTemplate:Clone().Parent = backpack
+	if not backpack:FindFirstChild(FLASHLIGHT_TOOL_NAME) then
+		flashlightTemplate:Clone().Parent = backpack
 	end
 
 	local starterGear = player:WaitForChild("StarterGear")
-	if not starterGear:FindFirstChild(TORCH_TOOL_NAME) then
-		torchTemplate:Clone().Parent = starterGear
+	if not starterGear:FindFirstChild(FLASHLIGHT_TOOL_NAME) then
+		flashlightTemplate:Clone().Parent = starterGear
 	end
 end
 
@@ -1145,23 +1145,23 @@ function InventoryService:KnitStart()
 	spawnService = Knit.GetService("SpawnService")
 
 	bagTemplate = buildCarryBagTool()
-	torchTemplate = ITEMS_PATH:FindFirstChild(TORCH_TOOL_NAME)
-	if torchTemplate and not torchTemplate:IsA("Tool") then
-		warn("[InventoryService] Torch asset is not a Tool, got:", torchTemplate.ClassName)
-		torchTemplate = nil
+	flashlightTemplate = ITEMS_PATH:FindFirstChild(FLASHLIGHT_TOOL_NAME)
+	if flashlightTemplate and not flashlightTemplate:IsA("Tool") then
+		warn("[InventoryService] Flashlight asset is not a Tool, got:", flashlightTemplate.ClassName)
+		flashlightTemplate = nil
 	end
 
 	playerDataService.ProfileLoaded:Connect(function(player: Player)
 		giveCarryBag(player)
-		giveTorch(player)
+		giveFlashlight(player)
 		broadcastSnapshot(player)
 	end)
 
-	-- Give bag and torch when player teleports to the game map.
+	-- Give bag and flashlight when player teleports to the game map.
 	if spawnService then
 		spawnService.PlayerSpawned:Connect(function(player: Player)
 			giveCarryBag(player)
-			giveTorch(player)
+			giveFlashlight(player)
 			broadcastSnapshot(player)
 		end)
 	end
@@ -1169,7 +1169,7 @@ function InventoryService:KnitStart()
 	for _, player in ipairs(Players:GetPlayers()) do
 		if getPlayerData(player) then
 			giveCarryBag(player)
-			giveTorch(player)
+			giveFlashlight(player)
 		end
 	end
 
