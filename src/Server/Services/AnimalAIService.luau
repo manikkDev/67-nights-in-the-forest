@@ -67,7 +67,9 @@ local HIT_FLASH_DURATION = 0.12
 local WOLF_BASE_COUNT = 3
 local WOLF_DAY_SCALING = 3
 local ALPHA_START_DAY = 3
-local PERSISTENT_TARGET_COUNTS = { Bunny = 8, Bear = 2 }
+local WOLF_MIN_SPAWN_DIST = 60
+local WOLF_MAX_SPAWN_DIST = 120
+local PERSISTENT_TARGET_COUNTS = { Bunny = 8, Bear = 2, WolfModel = 3 }
 local RESPAWN_CHECK_INTERVAL = 10
 
 -- | State Management | --
@@ -905,6 +907,13 @@ local function spawnPersistentPopulation()
 			AnimalAIService:SpawnNpc("Bear", groundedCFrame(bearPosition))
 		end
 	end
+
+	for _ = 1, PERSISTENT_TARGET_COUNTS.WolfModel do
+		local wolfPosition = pickSpawnPosition(WOLF_MIN_SPAWN_DIST, WOLF_MAX_SPAWN_DIST)
+		if wolfPosition then
+			AnimalAIService:SpawnNpc("WolfModel", groundedCFrame(wolfPosition))
+		end
+	end
 end
 
 --[[
@@ -922,7 +931,14 @@ local function checkPersistentRespawn(dt: number)
 	for speciesKey, targetCount in pairs(PERSISTENT_TARGET_COUNTS) do
 		local current = speciesCounts[speciesKey] or 0
 		if current < targetCount then
-			local position = if speciesKey == "Bear" then pickSpawnPosition(BEAR_MIN_SPAWN_DIST, BEAR_MAX_SPAWN_DIST) else pickSpawnPosition()
+			local position
+			if speciesKey == "Bear" then
+				position = pickSpawnPosition(BEAR_MIN_SPAWN_DIST, BEAR_MAX_SPAWN_DIST)
+			elseif speciesKey == "WolfModel" then
+				position = pickSpawnPosition(WOLF_MIN_SPAWN_DIST, WOLF_MAX_SPAWN_DIST)
+			else
+				position = pickSpawnPosition()
+			end
 			if position then
 				AnimalAIService:SpawnNpc(speciesKey, groundedCFrame(position))
 			end
@@ -944,8 +960,6 @@ local function onHeartbeat(dt: number)
 				spawnWolfPack(timeService:GetDayNumber())
 			elseif phase == "Day" then
 				nightSpawnDone = false
-				AnimalAIService:DespawnAllOfSpecies("WolfModel")
-				AnimalAIService:DespawnAllOfSpecies("AlphaWolfModel")
 			end
 		end
 	end
