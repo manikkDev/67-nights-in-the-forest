@@ -98,10 +98,6 @@ local function turnOffVisuals(tool: Tool)
 	if spotLight then
 		spotLight.Enabled = false
 	end
-	local fillLight = handle:FindFirstChild("FillLight")
-	if fillLight and fillLight:IsA("PointLight") then
-		fillLight.Enabled = false
-	end
 end
 
 --[[
@@ -158,6 +154,33 @@ end
 --[[
     @summary  Update the on-screen battery bar and percentage text.
 ]]
+local function updateFlashlightBeam(percent: number)
+	local tool = getEquippedFlashlight()
+	if not tool then
+		return
+	end
+	local handle = tool:FindFirstChild("Handle")
+	if not handle then
+		return
+	end
+	local spotLight = handle:FindFirstChildOfClass("SpotLight")
+	if not spotLight then
+		return
+	end
+
+	local t = math.clamp(percent / 100, 0, 1)
+
+	-- Color shifts from warm white at full to dim yellow as battery drains
+	local fullColor = Color3.fromRGB(255, 235, 180)
+	local lowColor = Color3.fromRGB(255, 190, 70)
+	spotLight.Color = fullColor:Lerp(lowColor, 1 - t)
+
+	-- Beam gets dimmer and tighter as battery drains
+	spotLight.Brightness = 3 + (10 - 3) * t
+	spotLight.Range = 22 + (38 - 22) * t
+	spotLight.Angle = 30 + (45 - 30) * t
+end
+
 local function updateBatteryUI()
 	if not panelFrame or not batteryBar or not batteryFill or not batteryText or not statusText or not warningLabel then
 		return
@@ -168,7 +191,7 @@ local function updateBatteryUI()
 
 	batteryText.Text = string.format("%d%%", batteryPercent)
 	statusText.Text = if beamOn then "ON" else "OFF"
-	statusText.TextColor3 = if beamOn then Color3.fromRGB(120, 200, 255) else Color3.fromRGB(160, 160, 170)
+	statusText.TextColor3 = if beamOn then Color3.fromRGB(140, 220, 255) else Color3.fromRGB(200, 200, 210)
 
 	local scale = math.clamp(batteryPercent / 100, 0, 1)
 	batteryFill.Size = UDim2.new(scale, 0, 1, 0)
@@ -205,6 +228,7 @@ local function applyBatteryUpdate(percent: number, isOn: boolean)
 	batteryPercent = if typeof(percent) == "number" then math.clamp(percent, 0, 100) else 0
 	beamOn = if isOn == true then true else false
 	updateBatteryUI()
+	updateFlashlightBeam(batteryPercent)
 
 	-- If the server says battery is empty, force the visual beam off
 	if not isOn and batteryPercent <= 0 then
@@ -225,7 +249,6 @@ local function toggleBeam(tool: Tool)
 		return
 	end
 	local spotLight = handle:FindFirstChildOfClass("SpotLight")
-	local fillLight = handle:FindFirstChild("FillLight")
 	local sound = handle:FindFirstChildOfClass("Sound")
 	if spotLight then
 		local newState = not spotLight.Enabled
@@ -234,9 +257,7 @@ local function toggleBeam(tool: Tool)
 			return
 		end
 		spotLight.Enabled = newState
-		if fillLight and fillLight:IsA("PointLight") then
-			fillLight.Enabled = newState
-		end
+		updateFlashlightBeam(batteryPercent)
 		reportBeamState(newState)
 	end
 	if sound then
@@ -263,8 +284,8 @@ local function wireTool(tool: Tool)
 end
 
 --[[
-    @summary  Watch the player Backpack and Character for the
-              Flashlight tool being equipped.
+    @summary  Watch the player Character for the Flashlight tool being
+              equipped and keep the battery panel visible only while it is.
     @param    player  Player
 ]]
 local function watchForFlashlight(player: Player)
@@ -283,10 +304,7 @@ local function watchForFlashlight(player: Player)
 			local handle = tool:FindFirstChild("Handle")
 			local spotLight = handle and handle:FindFirstChildOfClass("SpotLight")
 			if spotLight then
-				local fillLight = handle:FindFirstChild("FillLight")
-				if fillLight and fillLight:IsA("PointLight") then
-					fillLight.Enabled = spotLight.Enabled
-				end
+				updateFlashlightBeam(batteryPercent)
 				reportBeamState(spotLight.Enabled)
 			end
 		end
@@ -314,24 +332,10 @@ local function watchForFlashlight(player: Player)
 		onToolSetChanged()
 	end), "Disconnect")
 
-	-- Watch the backpack so the panel appears as soon as the flashlight is given.
-	local backpack = player:FindFirstChild("Backpack")
-	if backpack then
-		janitor:Add(backpack.ChildAdded:Connect(onToolSetChanged), "Disconnect")
-		janitor:Add(backpack.ChildRemoved:Connect(onToolSetChanged), "Disconnect")
-	end
-	janitor:Add(player.ChildAdded:Connect(function(child)
-		if child:IsA("Backpack") then
-			janitor:Add(child.ChildAdded:Connect(onToolSetChanged), "Disconnect")
-			janitor:Add(child.ChildRemoved:Connect(onToolSetChanged), "Disconnect")
-			onToolSetChanged()
-		end
-	end), "Disconnect")
-
 	if player.Character then
 		checkCharacter(player.Character)
 	else
-		onToolSetChanged()
+		refreshPanelVisibility()
 	end
 end
 
@@ -353,8 +357,8 @@ local function buildBatteryPanel()
 	frame.AnchorPoint = Vector2.new(1, 0.5)
 	frame.Position = UDim2.new(1, -PANEL_MARGIN, 0.5, 0)
 	frame.Size = UDim2.new(0, PANEL_WIDTH, 0, PANEL_HEIGHT)
-	frame.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
-	frame.BackgroundTransparency = 0.12
+	frame.BackgroundColor3 = Color3.fromRGB(45, 45, 52)
+	frame.BackgroundTransparency = 0.05
 	frame.BorderSizePixel = 0
 	frame.Visible = false
 	frame.ZIndex = 2
@@ -365,7 +369,7 @@ local function buildBatteryPanel()
 	corner.Parent = frame
 
 	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(60, 60, 70)
+	stroke.Color = Color3.fromRGB(110, 110, 125)
 	stroke.Thickness = 1.5
 	stroke.Transparency = 0.3
 	stroke.Parent = frame
@@ -387,7 +391,7 @@ local function buildBatteryPanel()
 	title.Size = UDim2.new(0, 70, 0, 20)
 	title.BackgroundTransparency = 1
 	title.Text = "FLASH"
-	title.TextColor3 = Color3.fromRGB(220, 220, 230)
+	title.TextColor3 = Color3.fromRGB(245, 245, 255)
 	title.Font = Enum.Font.GothamBold
 	title.TextSize = 12
 	title.TextXAlignment = Enum.TextXAlignment.Left
@@ -399,7 +403,7 @@ local function buildBatteryPanel()
 	onOff.Size = UDim2.new(0, 38, 0, 20)
 	onOff.BackgroundTransparency = 1
 	onOff.Text = "OFF"
-	onOff.TextColor3 = Color3.fromRGB(160, 160, 170)
+	onOff.TextColor3 = Color3.fromRGB(200, 200, 210)
 	onOff.Font = Enum.Font.GothamBlack
 	onOff.TextSize = 12
 	onOff.TextXAlignment = Enum.TextXAlignment.Right
@@ -410,7 +414,7 @@ local function buildBatteryPanel()
 	barContainer.Name = "BatteryBarContainer"
 	barContainer.Position = UDim2.new(0, 10, 0, 32)
 	barContainer.Size = UDim2.new(1, -20, 0, 10)
-	barContainer.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+	barContainer.BackgroundColor3 = Color3.fromRGB(60, 60, 68)
 	barContainer.BackgroundTransparency = 0.2
 	barContainer.BorderSizePixel = 0
 	barContainer.Parent = frame
@@ -438,7 +442,7 @@ local function buildBatteryPanel()
 	percentage.Size = UDim2.new(0, 60, 0, 14)
 	percentage.BackgroundTransparency = 1
 	percentage.Text = "100%"
-	percentage.TextColor3 = Color3.fromRGB(200, 200, 210)
+	percentage.TextColor3 = Color3.fromRGB(230, 230, 240)
 	percentage.Font = Enum.Font.GothamBold
 	percentage.TextSize = 12
 	percentage.TextXAlignment = Enum.TextXAlignment.Left
@@ -473,15 +477,7 @@ refreshPanelVisibility = function()
 	end
 
 	local character = Players.LocalPlayer.Character
-	local backpack = Players.LocalPlayer:FindFirstChild("Backpack")
-
-	local hasFlashlight = false
-	if character and character:FindFirstChild(FLASHLIGHT_TOOL_NAME) then
-		hasFlashlight = true
-	elseif backpack and backpack:FindFirstChild(FLASHLIGHT_TOOL_NAME) then
-		hasFlashlight = true
-	end
-
+	local hasFlashlight = character and character:FindFirstChild(FLASHLIGHT_TOOL_NAME) ~= nil
 	panelFrame.Visible = hasFlashlight
 end
 
@@ -511,13 +507,6 @@ function FlashlightController:KnitStart()
 
 	local function onGameStarted()
 		watchForFlashlight(player)
-		-- Keep panel visibility in sync
-		task.spawn(function()
-			while true do
-				refreshPanelVisibility()
-				task.wait(1)
-			end
-		end)
 	end
 
 	if gameStateController and gameStateController:IsInGame() then

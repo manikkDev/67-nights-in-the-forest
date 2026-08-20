@@ -42,6 +42,9 @@ local SPAWN_RADIUS = 15
 local SPAWN_HEIGHT = 5
 local TELEPORT_COOLDOWN = 5
 
+-- ⚠️ TESTING ONLY — set to false before publishing to skip direct-to-game spawn
+local TEST_SKIP_LOBBY = true
+
 -- | State Management | --
 local worldService: any = nil
 local matchFlowService: any = nil
@@ -177,10 +180,61 @@ end
 
 -- // INITIALIZATION // --
 
+local function autoSpawnPlayer(player: Player)
+	if not TEST_SKIP_LOBBY then
+		return
+	end
+	if spawnedPlayers[player] then
+		return
+	end
+	-- Wait for character to be ready
+	local character = player.Character
+	if not character then
+		local conn
+		conn = player.CharacterAdded:Connect(function(char)
+			conn:Disconnect()
+			task.wait(0.5)
+			SpawnService:SpawnPlayer(player)
+			-- Start the match clock if not already running
+			local timeService = Knit.GetService("TimeService")
+			if timeService and not timeService:IsRunning() then
+				timeService:StartMatch()
+			end
+			-- Tell the client to skip lobby intro and unlock gameplay
+			if matchFlowService then
+				matchFlowService.Client.FlowStateChanged:Fire(player, "InGame")
+			end
+		end)
+		return
+	end
+	task.wait(0.5)
+	SpawnService:SpawnPlayer(player)
+	-- Start the match clock if not already running
+	local timeService = Knit.GetService("TimeService")
+	if timeService and not timeService:IsRunning() then
+		timeService:StartMatch()
+	end
+	-- Tell the client to skip lobby intro and unlock gameplay
+	if matchFlowService then
+		matchFlowService.Client.FlowStateChanged:Fire(player, "InGame")
+	end
+end
+
 function SpawnService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	matchFlowService = Knit.GetService("MatchFlowService")
 	wireTeleporters()
+
+	if TEST_SKIP_LOBBY then
+		print("[SpawnService] TEST_SKIP_LOBBY is ON — players will spawn directly in base-map")
+		-- Give the world a moment to load before auto-spawning
+		task.delay(1, function()
+			for _, player in ipairs(Players:GetPlayers()) do
+				autoSpawnPlayer(player)
+			end
+		end)
+		Players.PlayerAdded:Connect(autoSpawnPlayer)
+	end
 end
 
 Players.PlayerRemoving:Connect(function(player)
