@@ -83,6 +83,14 @@ function GameStateController:KnitStart()
 			flowState = state
 		elseif state == "InGame" then
 			flowState = "Day1"
+			-- Safety net: if IntroController is not present or already destroyed,
+			-- mark intro complete so tools/HUD are unlocked.
+			if not isInGame then
+				task.wait(3)
+				if not isInGame then
+					GameStateController:MarkIntroComplete()
+				end
+			end
 		end
 	end)
 

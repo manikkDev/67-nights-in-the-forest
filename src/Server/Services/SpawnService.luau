@@ -200,6 +200,13 @@ local function autoSpawnPlayer(player: Player)
 			if timeService and not timeService:IsRunning() then
 				timeService:StartMatch()
 			end
+			-- Give client Knit controllers time to connect signals before firing state change
+			task.wait(1)
+			-- Force night lighting for flashlight testing
+			local Lighting = game:GetService("Lighting")
+			Lighting.ClockTime = 0
+			Lighting.Ambient = Color3.fromRGB(20, 22, 32)
+			Lighting.OutdoorAmbient = Color3.fromRGB(20, 22, 32)
 			-- Tell the client to skip lobby intro and unlock gameplay
 			if matchFlowService then
 				matchFlowService.Client.FlowStateChanged:Fire(player, "InGame")
@@ -214,6 +221,13 @@ local function autoSpawnPlayer(player: Player)
 	if timeService and not timeService:IsRunning() then
 		timeService:StartMatch()
 	end
+	-- Give client Knit controllers time to connect signals before firing state change
+	task.wait(1)
+	-- Force night lighting for flashlight testing
+	local Lighting = game:GetService("Lighting")
+	Lighting.ClockTime = 0
+	Lighting.Ambient = Color3.fromRGB(20, 22, 32)
+	Lighting.OutdoorAmbient = Color3.fromRGB(20, 22, 32)
 	-- Tell the client to skip lobby intro and unlock gameplay
 	if matchFlowService then
 		matchFlowService.Client.FlowStateChanged:Fire(player, "InGame")

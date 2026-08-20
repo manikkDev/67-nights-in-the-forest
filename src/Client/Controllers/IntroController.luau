@@ -620,10 +620,14 @@ local function destroyIntroGui()
 	janitor:Cleanup()
 	unlockMovement()
 	unlockCamera()
+	pcall(function()
+		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.All, true)
+	end)
 	if screenGui then
 		screenGui:Destroy()
 		screenGui = nil
 	end
+	titleScreen = nil
 	createPartyFrame = nil
 	storyFrame = nil
 	dayFrame = nil
@@ -822,11 +826,12 @@ function IntroController:KnitStart()
 	end)
 
 	-- If the player is still in the Lobby, show the title screen immediately.
+	-- Skip if the game has already advanced past Lobby (e.g. test mode).
 	if flowState == "Lobby" then
 		showTitleScreen()
 	end
 
-	print("[IntroController] Initialised")
+	print("[IntroController] Initialised — flowState:", flowState)
 end
 
 return IntroController
