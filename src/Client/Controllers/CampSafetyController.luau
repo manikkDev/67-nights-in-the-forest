@@ -42,9 +42,9 @@ local SAFE_TWEEN_INFO = TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDir
 local UNSAFE_TWEEN_INFO = TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 local SAFE_BRIGHTNESS = 0.12
 local SAFE_TINT = Color3.fromRGB(255, 245, 235)
-local UNSAFE_BRIGHTNESS = -0.6
-local UNSAFE_SATURATION = -0.5
-local UNSAFE_TINT = Color3.fromRGB(40, 45, 60)
+local UNSAFE_BRIGHTNESS = -0.25
+local UNSAFE_SATURATION = -0.2
+local UNSAFE_TINT = Color3.fromRGB(60, 65, 85)
 
 -- | State Management | --
 local colorCorrection: ColorCorrectionEffect? = nil
