@@ -176,9 +176,10 @@ local function updateFlashlightBeam(percent: number)
 	spotLight.Color = fullColor:Lerp(lowColor, 1 - t)
 
 	-- Beam gets dimmer and tighter as battery drains
-	spotLight.Brightness = 3 + (10 - 3) * t
-	spotLight.Range = 22 + (38 - 22) * t
-	spotLight.Angle = 30 + (45 - 30) * t
+	-- With Shadows enabled, brightness must be higher to compensate
+	spotLight.Brightness = 4 + (18 - 4) * t
+	spotLight.Range = 20 + (40 - 20) * t
+	spotLight.Angle = 35 + (55 - 35) * t
 end
 
 local function updateBatteryUI()
@@ -361,7 +362,7 @@ local function buildBatteryPanel()
 	frame.BackgroundTransparency = 0.05
 	frame.BorderSizePixel = 0
 	frame.Visible = false
-	frame.ZIndex = 2
+	frame.ZIndex = 1
 	frame.Parent = gui
 
 	local corner = Instance.new("UICorner")
