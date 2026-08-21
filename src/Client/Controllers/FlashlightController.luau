@@ -182,16 +182,16 @@ local function updateFlashlightBeam(percent: number)
 
 		-- Beam gets dimmer and tighter as battery drains
 		-- With Shadows enabled, brightness must be higher to compensate
-		spotLight.Brightness = 3 + (10 - 3) * t
+		spotLight.Brightness = 2 + (6 - 2) * t
 		spotLight.Range = 30 + (60 - 30) * t
-		spotLight.Angle = 35 + (55 - 35) * t
+		spotLight.Angle = 30 + (45 - 30) * t
 	end
 
 	-- Area light around the player for immediate radius visibility
 	if pointLight and pointLight:IsA("PointLight") then
 		pointLight.Color = color
-		pointLight.Brightness = 0.8 + (1.8 - 0.8) * t
-		pointLight.Range = 18 + (28 - 18) * t
+		pointLight.Brightness = 0.5 + (1.2 - 0.5) * t
+		pointLight.Range = 25 + (40 - 25) * t
 	end
 end
 
