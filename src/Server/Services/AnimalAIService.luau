@@ -862,7 +862,7 @@ end
     @param    dayNumber  number
 ]]
 local function spawnWolfPack(dayNumber: number)
-	local center = pickSpawnPosition()
+	local center = pickSpawnPosition(WOLF_MIN_SPAWN_DIST, WOLF_MAX_SPAWN_DIST)
 	if not center then
 		return
 	end
