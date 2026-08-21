@@ -98,6 +98,10 @@ local function turnOffVisuals(tool: Tool)
 	if spotLight then
 		spotLight.Enabled = false
 	end
+	local pointLight = handle:FindFirstChild("AreaLight")
+	if pointLight and pointLight:IsA("PointLight") then
+		pointLight.Enabled = false
+	end
 end
 
 --[[
@@ -164,22 +168,31 @@ local function updateFlashlightBeam(percent: number)
 		return
 	end
 	local spotLight = handle:FindFirstChildOfClass("SpotLight")
-	if not spotLight then
-		return
-	end
+	local pointLight = handle:FindFirstChild("AreaLight")
 
 	local t = math.clamp(percent / 100, 0, 1)
 
 	-- Color shifts from warm white at full to dim yellow as battery drains
 	local fullColor = Color3.fromRGB(255, 235, 180)
 	local lowColor = Color3.fromRGB(255, 190, 70)
-	spotLight.Color = fullColor:Lerp(lowColor, 1 - t)
+	local color = fullColor:Lerp(lowColor, 1 - t)
 
-	-- Beam gets dimmer and tighter as battery drains
-	-- With Shadows enabled, brightness must be higher to compensate
-	spotLight.Brightness = 4 + (18 - 4) * t
-	spotLight.Range = 20 + (40 - 20) * t
-	spotLight.Angle = 35 + (55 - 35) * t
+	if spotLight then
+		spotLight.Color = color
+
+		-- Beam gets dimmer and tighter as battery drains
+		-- With Shadows enabled, brightness must be higher to compensate
+		spotLight.Brightness = 6 + (22 - 6) * t
+		spotLight.Range = 24 + (45 - 24) * t
+		spotLight.Angle = 45 + (70 - 45) * t
+	end
+
+	-- Area light around the player for immediate radius visibility
+	if pointLight and pointLight:IsA("PointLight") then
+		pointLight.Color = color
+		pointLight.Brightness = 3 + (8 - 3) * t
+		pointLight.Range = 10 + (16 - 10) * t
+	end
 end
 
 local function updateBatteryUI()
@@ -250,17 +263,31 @@ local function toggleBeam(tool: Tool)
 		return
 	end
 	local spotLight = handle:FindFirstChildOfClass("SpotLight")
+	local pointLight = handle:FindFirstChild("AreaLight")
 	local sound = handle:FindFirstChildOfClass("Sound")
+
+	local newState = false
 	if spotLight then
-		local newState = not spotLight.Enabled
-		if newState and batteryPercent <= 0 then
-			-- Cannot turn on with empty battery
-			return
-		end
-		spotLight.Enabled = newState
-		updateFlashlightBeam(batteryPercent)
-		reportBeamState(newState)
+		newState = not spotLight.Enabled
+	elseif pointLight and pointLight:IsA("PointLight") then
+		newState = not pointLight.Enabled
 	end
+
+	if newState and batteryPercent <= 0 then
+		-- Cannot turn on with empty battery
+		return
+	end
+
+	if spotLight then
+		spotLight.Enabled = newState
+	end
+	if pointLight and pointLight:IsA("PointLight") then
+		pointLight.Enabled = newState
+	end
+
+	updateFlashlightBeam(batteryPercent)
+	reportBeamState(newState)
+
 	if sound then
 		sound:Play()
 	end
@@ -304,9 +331,10 @@ local function watchForFlashlight(player: Player)
 			-- Sync visual state with server
 			local handle = tool:FindFirstChild("Handle")
 			local spotLight = handle and handle:FindFirstChildOfClass("SpotLight")
-			if spotLight then
+			local pointLight = handle and handle:FindFirstChild("AreaLight")
+			if spotLight or pointLight then
 				updateFlashlightBeam(batteryPercent)
-				reportBeamState(spotLight.Enabled)
+				reportBeamState((spotLight and spotLight.Enabled) or (pointLight and pointLight.Enabled) or false)
 			end
 		end
 
