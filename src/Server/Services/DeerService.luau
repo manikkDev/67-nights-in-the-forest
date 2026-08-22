@@ -49,7 +49,7 @@ local DeerService = Knit.CreateService({
 local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
 local DORMANT_HOLDING_POSITION = Vector3.new(0, 300, 0)
 local DECISION_INTERVAL = 0.2
-local CONTACT_RANGE = 8
+local CONTACT_RANGE = 14
 local CONTACT_COOLDOWN = 2.5
 local ATTACK_LOCKOUT = 2.0 -- time the Deer pauses to play attack animation
 local PURSUIT_ACCEL_PER_SEC = 0.35
@@ -263,13 +263,6 @@ local function buildAnimationTracks(stalker)
 	if not stalker.tracks.Idle then
 		stalker.tracks.Idle = loadTrack(DEFAULT_R6_IDLE_ID, true)
 	end
-
-	-- Debug: list loaded tracks
-	local trackNames = {}
-	for name in pairs(stalker.tracks) do
-		table.insert(trackNames, name)
-	end
-	print("[DeerService] Loaded tracks for", stalker.key, ":", table.concat(trackNames, ", "))
 end
 
 --[[
@@ -607,9 +600,6 @@ local function runStalkerBehavior(stalker)
 		stalker.humanoid:MoveTo(rootPart.Position)
 
 		local dist = (stalker.rootPart.Position - rootPart.Position).Magnitude
-		if dist <= CONTACT_RANGE + 5 then
-			print("[DeerService] Close to target! dist=", dist, "CONTACT_RANGE=", CONTACT_RANGE, "cooldownLeft=", CONTACT_COOLDOWN - (now - stalker.lastContactTime), "state=", stalker.state)
-		end
 		if dist <= CONTACT_RANGE and (now - stalker.lastContactTime) >= CONTACT_COOLDOWN then
 			stalker.lastContactTime = now
 			stalker.attackUntil = now + ATTACK_LOCKOUT
@@ -623,7 +613,7 @@ local function runStalkerBehavior(stalker)
 					attackTrack:Play(0)
 				end
 				broadcastToAll(DeerService.Client.StalkerContact, stalker.rootPart.Position, stalker.key)
-				print("[DeerService] ATTACK triggered! dist=", dist, "damage=", stalker.def.AttackDamage, "attackTrack exists=", attackTrack ~= nil)
+				print("[DeerService] Attack hit! dist=", math.round(dist), "dmg=", stalker.def.AttackDamage)
 			end
 		end
 	end
