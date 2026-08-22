@@ -263,6 +263,13 @@ local function buildAnimationTracks(stalker)
 	if not stalker.tracks.Idle then
 		stalker.tracks.Idle = loadTrack(DEFAULT_R6_IDLE_ID, true)
 	end
+
+	-- Debug: list loaded tracks
+	local trackNames = {}
+	for name in pairs(stalker.tracks) do
+		table.insert(trackNames, name)
+	end
+	print("[DeerService] Loaded tracks for", stalker.key, ":", table.concat(trackNames, ", "))
 end
 
 --[[
@@ -272,7 +279,7 @@ end
 local function stopAllTracks(stalker)
 	for _, track in pairs(stalker.tracks) do
 		if track.IsPlaying then
-			track:Stop(0.15)
+			track:Stop(0)
 		end
 	end
 end
@@ -285,10 +292,15 @@ end
 ]]
 local function playTrack(stalker, name: string)
 	local track = stalker.tracks[name]
-	if track and not track.IsPlaying then
-		stopAllTracks(stalker)
-		track:Play(0.15)
+	if not track then
+		warn("[DeerService] No track found for", name, "on", stalker.key)
+		return
 	end
+	-- Don't restart if already playing (avoids stutter on looping tracks
+	-- that are called every Heartbeat like Walk/Run/Idle)
+	if track.IsPlaying then return end
+	stopAllTracks(stalker)
+	track:Play(0.15)
 end
 
 --[[
@@ -595,15 +607,23 @@ local function runStalkerBehavior(stalker)
 		stalker.humanoid:MoveTo(rootPart.Position)
 
 		local dist = (stalker.rootPart.Position - rootPart.Position).Magnitude
+		if dist <= CONTACT_RANGE + 5 then
+			print("[DeerService] Close to target! dist=", dist, "CONTACT_RANGE=", CONTACT_RANGE, "cooldownLeft=", CONTACT_COOLDOWN - (now - stalker.lastContactTime), "state=", stalker.state)
+		end
 		if dist <= CONTACT_RANGE and (now - stalker.lastContactTime) >= CONTACT_COOLDOWN then
 			stalker.lastContactTime = now
 			stalker.attackUntil = now + ATTACK_LOCKOUT
 			local targetHumanoid = character:FindFirstChildOfClass("Humanoid")
 			if targetHumanoid then
 				targetHumanoid:TakeDamage(stalker.def.AttackDamage)
+				-- Force-stop all tracks and play Attack with no fade for immediate strike
 				stopAllTracks(stalker)
-				playTrack(stalker, "Attack")
+				local attackTrack = stalker.tracks.Attack
+				if attackTrack then
+					attackTrack:Play(0)
+				end
 				broadcastToAll(DeerService.Client.StalkerContact, stalker.rootPart.Position, stalker.key)
+				print("[DeerService] ATTACK triggered! dist=", dist, "damage=", stalker.def.AttackDamage, "attackTrack exists=", attackTrack ~= nil)
 			end
 		end
 	end
