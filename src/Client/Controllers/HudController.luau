@@ -30,8 +30,6 @@ local HudController = Knit.CreateController({
 })
 
 -- | Configuration | --
-local DAY_ICON_COLOR = Color3.fromRGB(255, 210, 80)
-local NIGHT_ICON_COLOR = Color3.fromRGB(220, 230, 255)
 local DAY_STROKE_COLOR = Color3.fromRGB(255, 180, 60)
 local NIGHT_STROKE_COLOR = Color3.fromRGB(100, 130, 220)
 local DAY_GRADIENT = ColorSequence.new({
@@ -46,7 +44,6 @@ local NIGHT_GRADIENT = ColorSequence.new({
 -- | State Management | --
 local phaseGui: ScreenGui? = nil
 local banner: Frame? = nil
-local icon: Frame? = nil
 local shadow: Frame? = nil
 local phaseText: TextLabel? = nil
 local gradient: UIGradient? = nil
@@ -84,8 +81,8 @@ local function createPhaseUi()
 
 	shadow = Instance.new("Frame")
 	shadow.Name = "BannerShadow"
-	shadow.Size = UDim2.new(0, 264, 0, 52)
-	shadow.Position = UDim2.new(0.5, 2, 0, 18)
+	shadow.Size = UDim2.new(0, 144, 0, 40)
+	shadow.Position = UDim2.new(0.5, 2, 0, 14)
 	shadow.AnchorPoint = Vector2.new(0.5, 0)
 	shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 	shadow.BackgroundTransparency = 0.55
@@ -94,13 +91,13 @@ local function createPhaseUi()
 	shadow.Parent = phaseGui
 
 	local shadowCorner = Instance.new("UICorner")
-	shadowCorner.CornerRadius = UDim.new(0, 12)
+	shadowCorner.CornerRadius = UDim.new(0, 10)
 	shadowCorner.Parent = shadow
 
 	banner = Instance.new("Frame")
 	banner.Name = "PhaseBanner"
-	banner.Size = UDim2.new(0, 260, 0, 48)
-	banner.Position = UDim2.new(0.5, 0, 0, 16)
+	banner.Size = UDim2.new(0, 140, 0, 36)
+	banner.Position = UDim2.new(0.5, 0, 0, 12)
 	banner.AnchorPoint = Vector2.new(0.5, 0)
 	banner.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	banner.BackgroundTransparency = 0.15
@@ -109,7 +106,7 @@ local function createPhaseUi()
 	banner.Parent = phaseGui
 
 	local bannerCorner = Instance.new("UICorner")
-	bannerCorner.CornerRadius = UDim.new(0, 12)
+	bannerCorner.CornerRadius = UDim.new(0, 10)
 	bannerCorner.Parent = banner
 
 	gradient = Instance.new("UIGradient")
@@ -118,34 +115,20 @@ local function createPhaseUi()
 	gradient.Parent = banner
 
 	stroke = Instance.new("UIStroke")
-	stroke.Thickness = 2
+	stroke.Thickness = 1.5
 	stroke.Transparency = 0.25
 	stroke.Color = DAY_STROKE_COLOR
 	stroke.Parent = banner
 
-	icon = Instance.new("Frame")
-	icon.Name = "PhaseIcon"
-	icon.Size = UDim2.new(0, 28, 0, 28)
-	icon.Position = UDim2.new(0, 14, 0.5, 0)
-	icon.AnchorPoint = Vector2.new(0, 0.5)
-	icon.BackgroundColor3 = DAY_ICON_COLOR
-	icon.BorderSizePixel = 0
-	icon.ZIndex = 3
-	icon.Parent = banner
-
-	local iconCorner = Instance.new("UICorner")
-	iconCorner.CornerRadius = UDim.new(1, 0)
-	iconCorner.Parent = icon
-
 	phaseText = Instance.new("TextLabel")
 	phaseText.Name = "PhaseText"
-	phaseText.Size = UDim2.new(1, -58, 1, 0)
-	phaseText.Position = UDim2.new(0, 50, 0, 0)
+	phaseText.Size = UDim2.new(1, -16, 1, 0)
+	phaseText.Position = UDim2.new(0, 8, 0, 0)
 	phaseText.BackgroundTransparency = 1
 	phaseText.TextColor3 = Color3.fromRGB(255, 255, 255)
 	phaseText.Font = Enum.Font.GothamBlack
-	phaseText.TextSize = 22
-	phaseText.TextXAlignment = Enum.TextXAlignment.Left
+	phaseText.TextSize = 20
+	phaseText.TextXAlignment = Enum.TextXAlignment.Center
 	phaseText.TextYAlignment = Enum.TextYAlignment.Center
 	phaseText.Text = "Day 1"
 	phaseText.ZIndex = 3
@@ -157,12 +140,11 @@ end
     @param   phase  string  -- "Day" or "Night"
 ]]
 local function updateBanner(phase: string, dayNumber: number)
-	if not banner or not icon or not phaseText or not stroke or not gradient then
+	if not banner or not phaseText or not stroke or not gradient then
 		return
 	end
 	local isDay = phase == "Day"
 	phaseText.Text = phase .. " " .. dayNumber
-	icon.BackgroundColor3 = if isDay then DAY_ICON_COLOR else NIGHT_ICON_COLOR
 	stroke.Color = if isDay then DAY_STROKE_COLOR else NIGHT_STROKE_COLOR
 	gradient.Color = if isDay then DAY_GRADIENT else NIGHT_GRADIENT
 end
