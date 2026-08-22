@@ -49,8 +49,9 @@ local DeerService = Knit.CreateService({
 local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
 local DORMANT_HOLDING_POSITION = Vector3.new(0, 300, 0)
 local DECISION_INTERVAL = 0.2
-local CONTACT_RANGE = 5
-local CONTACT_COOLDOWN = 1.2
+local CONTACT_RANGE = 8
+local CONTACT_COOLDOWN = 2.5
+local ATTACK_LOCKOUT = 2.0 -- time the Deer pauses to play attack animation
 local PURSUIT_ACCEL_PER_SEC = 0.35
 local PURSUIT_MAX_BONUS_SPEED = 14
 local BASE_STUN_DURATION = 4
@@ -354,6 +355,7 @@ local function spawnStalker(key: string)
 		state = "Dormant",
 		target = nil,
 		lastContactTime = 0,
+		attackUntil = 0,
 		consecutiveStuns = 0,
 		lastStunTime = 0,
 		stunUntil = 0,
@@ -579,18 +581,27 @@ local function runStalkerBehavior(stalker)
 			return
 		end
 
+		local now = os.clock()
+
+		-- Attack lockout: pause movement and let the Attack animation play
+		if now < stalker.attackUntil then
+			stalker.humanoid.WalkSpeed = 0
+			return
+		end
+
 		local speed = computePursuitSpeed(stalker)
 		stalker.humanoid.WalkSpeed = speed
 		playTrack(stalker, if speed > stalker.def.BaseSpeed * 1.4 then "Run" else "Walk")
 		stalker.humanoid:MoveTo(rootPart.Position)
 
 		local dist = (stalker.rootPart.Position - rootPart.Position).Magnitude
-		local now = os.clock()
 		if dist <= CONTACT_RANGE and (now - stalker.lastContactTime) >= CONTACT_COOLDOWN then
 			stalker.lastContactTime = now
+			stalker.attackUntil = now + ATTACK_LOCKOUT
 			local targetHumanoid = character:FindFirstChildOfClass("Humanoid")
 			if targetHumanoid then
 				targetHumanoid:TakeDamage(stalker.def.AttackDamage)
+				stopAllTracks(stalker)
 				playTrack(stalker, "Attack")
 				broadcastToAll(DeerService.Client.StalkerContact, stalker.rootPart.Position, stalker.key)
 			end

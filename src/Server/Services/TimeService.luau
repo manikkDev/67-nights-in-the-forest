@@ -44,7 +44,7 @@ local TimeService = Knit.CreateService({
 })
 
 -- | Configuration | --
-local DAY_DURATION = 120
+local DAY_DURATION = 20 -- TEMP: reduced for testing (normally 120)
 local NIGHT_DURATION = 120
 local DAY_START_CLOCK = 6
 local DAY_END_CLOCK = 18
