@@ -161,17 +161,17 @@ local function updateVisuals(state: "day" | "safeNight" | "unsafeNight" | "fireO
 	local tweenInfo = SAFE_TWEEN_INFO
 
 	if state == "unsafeNight" then
-		ccTarget = { Brightness = UNSAFE_BRIGHTNESS, Saturation = UNSAFE_SATURATION, TintColor = UNSAFE_TINT }
+		ccTarget = { Brightness = 0, Saturation = 0, TintColor = Color3.fromRGB(255, 255, 255) }
 		warningText = "You are far from the firelight..."
 		warningTrans = 0
 		tweenInfo = UNSAFE_TWEEN_INFO
 	elseif state == "fireOut" then
-		ccTarget = { Brightness = UNSAFE_BRIGHTNESS, Saturation = UNSAFE_SATURATION, TintColor = UNSAFE_TINT }
+		ccTarget = { Brightness = 0, Saturation = 0, TintColor = Color3.fromRGB(255, 255, 255) }
 		warningText = "The campfire has gone out..."
 		warningTrans = 0
 		tweenInfo = UNSAFE_TWEEN_INFO
 	elseif state == "safeNight" then
-		ccTarget = { Brightness = SAFE_BRIGHTNESS, Saturation = 0, TintColor = SAFE_TINT }
+		ccTarget = { Brightness = 0, Saturation = 0, TintColor = Color3.fromRGB(255, 255, 255) }
 		warningTrans = 1
 		tweenInfo = SAFE_TWEEN_INFO
 	else -- day

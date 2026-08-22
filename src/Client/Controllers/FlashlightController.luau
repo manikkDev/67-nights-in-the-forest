@@ -98,10 +98,6 @@ local function turnOffVisuals(tool: Tool)
 	if spotLight then
 		spotLight.Enabled = false
 	end
-	local pointLight = handle:FindFirstChild("AreaLight")
-	if pointLight and pointLight:IsA("PointLight") then
-		pointLight.Enabled = false
-	end
 end
 
 --[[
@@ -168,7 +164,6 @@ local function updateFlashlightBeam(percent: number)
 		return
 	end
 	local spotLight = handle:FindFirstChildOfClass("SpotLight")
-	local pointLight = handle:FindFirstChild("AreaLight")
 
 	local t = math.clamp(percent / 100, 0, 1)
 
@@ -180,18 +175,10 @@ local function updateFlashlightBeam(percent: number)
 	if spotLight then
 		spotLight.Color = color
 
-		-- Beam gets dimmer and tighter as battery drains
-		-- With Shadows enabled, brightness must be higher to compensate
-		spotLight.Brightness = 2 + (6 - 2) * t
-		spotLight.Range = 30 + (60 - 30) * t
-		spotLight.Angle = 30 + (45 - 30) * t
-	end
-
-	-- Area light around the player for immediate radius visibility
-	if pointLight and pointLight:IsA("PointLight") then
-		pointLight.Color = color
-		pointLight.Brightness = 0.5 + (1.2 - 0.5) * t
-		pointLight.Range = 25 + (40 - 25) * t
+		-- Single wide conical light: big circle around the player and long reach
+		spotLight.Brightness = 2 + (5 - 2) * t
+		spotLight.Range = 60 + (100 - 60) * t
+		spotLight.Angle = 65 + (85 - 65) * t
 	end
 end
 
@@ -263,14 +250,11 @@ local function toggleBeam(tool: Tool)
 		return
 	end
 	local spotLight = handle:FindFirstChildOfClass("SpotLight")
-	local pointLight = handle:FindFirstChild("AreaLight")
 	local sound = handle:FindFirstChildOfClass("Sound")
 
 	local newState = false
 	if spotLight then
 		newState = not spotLight.Enabled
-	elseif pointLight and pointLight:IsA("PointLight") then
-		newState = not pointLight.Enabled
 	end
 
 	if newState and batteryPercent <= 0 then
@@ -280,9 +264,6 @@ local function toggleBeam(tool: Tool)
 
 	if spotLight then
 		spotLight.Enabled = newState
-	end
-	if pointLight and pointLight:IsA("PointLight") then
-		pointLight.Enabled = newState
 	end
 
 	updateFlashlightBeam(batteryPercent)
@@ -331,10 +312,9 @@ local function watchForFlashlight(player: Player)
 			-- Sync visual state with server
 			local handle = tool:FindFirstChild("Handle")
 			local spotLight = handle and handle:FindFirstChildOfClass("SpotLight")
-			local pointLight = handle and handle:FindFirstChild("AreaLight")
-			if spotLight or pointLight then
+			if spotLight then
 				updateFlashlightBeam(batteryPercent)
-				reportBeamState((spotLight and spotLight.Enabled) or (pointLight and pointLight.Enabled) or false)
+				reportBeamState(spotLight.Enabled)
 			end
 		end
 
