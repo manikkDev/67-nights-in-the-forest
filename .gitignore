@@ -34,3 +34,7 @@ desktop.ini
 # Planning / architecture docs (local only)
 /roadmap*
 /architecture*
+
+# AI Orchestrator (contains API keys, state, logs — never commit)
+.orchestrator/
+TASKS.md
