@@ -134,144 +134,36 @@ local function collectGaitJoints(model)
 	return joints
 end
 
--- Build a lookup from body-part name → Motor6D for fast Pose application
-local function buildMotorLookup(model)
-	local lookup = {}
-	for _, desc in ipairs(model:GetDescendants()) do
-		if desc:IsA("Motor6D") and desc.Part1 then
-			lookup[desc.Part1.Name] = desc
-		end
-	end
-	return lookup
-end
-
--- Flatten nested Poses into a single-level map: name → CFrame
-local function flattenPoses(parent, out: {[string]: CFrame})
-	for _, child in ipairs(parent:GetChildren()) do
-		if child:IsA("Pose") then
-			out[child.Name] = child.CFrame
-			flattenPoses(child, out)
-		end
-	end
-end
-
 --[[
-	@summary  Load KeyframeSequences from the model's "KeyframeSequences"
-	          folder into a sorted, ready-to-play format.
-	          Each entry: { keyframes = { {time, poses} }, duration, looped }
-	@param    stalker  table
+	@summary  Register KeyframeSequences via KeyframeSequenceProvider
+	          and update the model's Animations folder with the local IDs.
+	          This bypasses the need for published animation asset IDs.
+	@param    model  Model
 ]]
-local function buildKeyframeAnims(stalker)
-	local kfFolder = stalker.model:FindFirstChild("KeyframeSequences")
+local function registerKeyframeAnims(model: Model)
+	local KSSP = game:GetService("KeyframeSequenceProvider")
+	local kfFolder = model:FindFirstChild("KeyframeSequences")
 	if not kfFolder then return end
 
-	stalker.kfAnims = {}
-	stalker.motorLookup = buildMotorLookup(stalker.model)
-
-	-- Names that should not loop (one-shot animations)
-	local nonLooping = { Jumpscare = true, StunnedStart = true, StunnedEnd = true, Attack = true }
+	local animFolder = model:FindFirstChild("Animations")
+	if not animFolder then
+		animFolder = Instance.new("Folder")
+		animFolder.Name = "Animations"
+		animFolder.Parent = model
+	end
 
 	for _, kfs in ipairs(kfFolder:GetChildren()) do
 		if kfs:IsA("KeyframeSequence") then
-			local keyframes = {}
-			for _, kf in ipairs(kfs:GetChildren()) do
-				if kf:IsA("Keyframe") then
-					local poses = {}
-					flattenPoses(kf, poses)
-					table.insert(keyframes, { time = kf.Time, poses = poses })
-				end
+			-- RegisterKeyframeSequence returns a hash (not a numeric asset ID).
+			-- It must be used as-is without the "rbxassetid://" prefix.
+			local assetId = KSSP:RegisterKeyframeSequence(kfs)
+			local animObj = animFolder:FindFirstChild(kfs.Name)
+			if not animObj then
+				animObj = Instance.new("Animation")
+				animObj.Name = kfs.Name
+				animObj.Parent = animFolder
 			end
-			table.sort(keyframes, function(a, b) return a.time < b.time end)
-			local duration = keyframes[#keyframes] and keyframes[#keyframes].time or 0
-			stalker.kfAnims[kfs.Name] = {
-				keyframes = keyframes,
-				duration = duration,
-				looped = not nonLooping[kfs.Name],
-			}
-		end
-	end
-end
-
---[[
-	@summary  Start playing a KeyframeSequence animation on the stalker.
-	@param    stalker  table
-	@param    name     string  -- animation name (Idle, Walk, Run, etc.)
-]]
-local function playKeyframeAnim(stalker, name: string)
-	if not stalker.kfAnims or not stalker.kfAnims[name] then return false end
-	stalker.currentKfAnim = name
-	stalker.kfAnimStartTime = os.clock()
-	return true
-end
-
---[[
-	@summary  Stop the current KeyframeSequence animation and reset
-	          all Motor6D.Transform values to identity.
-	@param    stalker  table
-]]
-local function stopKeyframeAnim(stalker)
-	if stalker.currentKfAnim then
-		-- Reset transforms
-		if stalker.motorLookup then
-			for _, motor in pairs(stalker.motorLookup) do
-				motor.Transform = CFrame.identity
-			end
-		end
-		stalker.currentKfAnim = nil
-		stalker.kfAnimStartTime = nil
-	end
-end
-
---[[
-	@summary  Advance the current KeyframeSequence animation by dt seconds.
-	          Applies interpolated poses to Motor6D.Transform.
-	@param    stalker  table
-	@param    dt       number
-]]
-local function updateKeyframeAnim(stalker, dt: number)
-	if not stalker.currentKfAnim or not stalker.kfAnims then return end
-	local anim = stalker.kfAnims[stalker.currentKfAnim]
-	if not anim or #anim.keyframes == 0 then return end
-
-	local elapsed = os.clock() - (stalker.kfAnimStartTime or os.clock())
-	local t = elapsed
-
-	if anim.looped and anim.duration > 0 then
-		t = t % anim.duration
-	elseif t >= anim.duration then
-		-- Non-looping animation finished — hold last frame
-		t = anim.duration
-	end
-
-	-- Find the two keyframes to interpolate between
-	local kf1, kf2
-	for i = 1, #anim.keyframes do
-		if anim.keyframes[i].time <= t then
-			kf1 = anim.keyframes[i]
-			kf2 = anim.keyframes[i + 1] or anim.keyframes[i]
-		else
-			if not kf1 then
-				kf1 = anim.keyframes[i]
-				kf2 = anim.keyframes[i]
-			end
-			break
-		end
-	end
-	if not kf1 then return end
-
-	local alpha = 0
-	if kf2 and kf2.time > kf1.time then
-		alpha = math.clamp((t - kf1.time) / (kf2.time - kf1.time), 0, 1)
-	end
-
-	-- Apply interpolated poses to Motor6D.Transform
-	for partName, motor in pairs(stalker.motorLookup) do
-		local p1 = kf1.poses[partName]
-		local p2 = kf2 and kf2.poses[partName] or p1
-		if p1 then
-			motor.Transform = p1:Lerp(p2 or p1, alpha)
-		else
-			motor.Transform = CFrame.identity
+			animObj.AnimationId = assetId
 		end
 	end
 end
@@ -327,6 +219,9 @@ local function buildAnimationTracks(stalker)
 		animator.Parent = humanoid
 	end
 
+	-- Register KeyframeSequences FIRST so the Animations folder has valid local IDs
+	registerKeyframeAnims(stalker.model)
+
 	local function loadTrack(id: string, looped: boolean): AnimationTrack?
 		local anim = Instance.new("Animation")
 		anim.AnimationId = id
@@ -367,9 +262,6 @@ local function buildAnimationTracks(stalker)
 	if not stalker.tracks.Idle then
 		stalker.tracks.Idle = loadTrack(DEFAULT_R6_IDLE_ID, true)
 	end
-
-	-- Load KeyframeSequence-based animations (bypasses asset ID permission issues)
-	buildKeyframeAnims(stalker)
 end
 
 --[[
@@ -382,7 +274,6 @@ local function stopAllTracks(stalker)
 			track:Stop(0.15)
 		end
 	end
-	stopKeyframeAnim(stalker)
 end
 
 --[[
@@ -392,14 +283,6 @@ end
     @param    name     string
 ]]
 local function playTrack(stalker, name: string)
-	-- Prefer KeyframeSequence animations (no asset ID permission needed)
-	if stalker.kfAnims and stalker.kfAnims[name] then
-		if stalker.currentKfAnim == name then return end
-		stopAllTracks(stalker)
-		playKeyframeAnim(stalker, name)
-		return
-	end
-	-- Fall back to AnimationTrack
 	local track = stalker.tracks[name]
 	if track and not track.IsPlaying then
 		stopAllTracks(stalker)
@@ -481,11 +364,10 @@ local function spawnStalker(key: string)
 
 	buildAnimationTracks(stalker)
 
-	-- The Deer has a custom skeleton where standard R6 animations don't map
-	-- correctly, so use procedural gait for leg/arm movement instead.
-	if key == "Deer" then
-		stalker.gaitJoints = collectGaitJoints(model)
-	end
+	-- Note: Procedural gait is disabled for the Deer because we now have
+	-- proper KeyframeSequence-based animations registered via
+	-- KeyframeSequenceProvider that handle all joint movement.
+	-- Using both would conflict as they both set Motor6D.Transform.
 
 	stalkers[key] = stalker
 
@@ -801,11 +683,8 @@ local function onHeartbeat(dt: number)
 		end
 		runStalkerBehavior(stalker)
 
-		-- Advance KeyframeSequence animation (custom animation player)
-		if stalker.currentKfAnim then
-			updateKeyframeAnim(stalker, dt)
-		elseif stalker.gaitJoints then
-			-- Fall back to procedural gait for custom-rig stalkers (Deer)
+		-- Apply procedural gait for custom-rig stalkers (Deer)
+		if stalker.gaitJoints then
 			local vel = stalker.rootPart.AssemblyLinearVelocity
 			local isMoving = Vector3.new(vel.X, 0, vel.Z).Magnitude > 1
 			applyProceduralGait(stalker, dt, isMoving and stalker.state ~= "Stunned")
