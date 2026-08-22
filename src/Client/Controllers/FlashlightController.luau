@@ -245,10 +245,8 @@ end
     @param    tool  Tool
 ]]
 local function toggleBeam(tool: Tool)
-	print("[FlashlightController] toggleBeam called, batteryPercent=", batteryPercent)
 	local handle = tool:FindFirstChild("Handle")
 	if not handle then
-		print("[FlashlightController] no handle found")
 		return
 	end
 	local spotLight = handle:FindFirstChildOfClass("SpotLight")
@@ -258,11 +256,9 @@ local function toggleBeam(tool: Tool)
 	if spotLight then
 		newState = not spotLight.Enabled
 	end
-	print("[FlashlightController] newState=", newState, "batteryPercent=", batteryPercent)
 
 	if newState and batteryPercent <= 0 then
 		-- Cannot turn on with empty battery
-		print("[FlashlightController] blocked: empty battery")
 		return
 	end
 
@@ -285,7 +281,6 @@ end
 local function wireTool(tool: Tool)
 	toolJanitor:Cleanup()
 	toolJanitor:Add(tool.Activated:Connect(function()
-		print("[FlashlightController] tool.Activated fired, isInGame=", gameStateController and gameStateController:IsInGame())
 		if not gameStateController or not gameStateController:IsInGame() then
 			return
 		end

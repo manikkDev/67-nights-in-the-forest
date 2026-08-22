@@ -74,6 +74,31 @@ local function hasFlashlightEquipped(player: Player): boolean
 end
 
 --[[
+    @summary  Check if the player's equipped flashlight SpotLight is
+              actually enabled.  This bypasses the client-to-server
+              remote entirely, reading the tool state directly on the
+              server.
+    @param    player  Player
+    @returns  boolean
+]]
+local function isFlashlightBeamOn(player: Player): boolean
+	local character = player.Character
+	if not character then
+		return false
+	end
+	local tool = character:FindFirstChild(FLASHLIGHT_TOOL_NAME)
+	if not tool or not tool:IsA("Tool") then
+		return false
+	end
+	local handle = tool:FindFirstChild("Handle")
+	if not handle then
+		return false
+	end
+	local spotLight = handle:FindFirstChildOfClass("SpotLight")
+	return spotLight ~= nil and spotLight.Enabled
+end
+
+--[[
     @summary  Broadcast the current battery state to the owning player.
     @param    player  Player
 ]]
@@ -191,6 +216,26 @@ local function checkAllBeams()
 
 	for player, isActive in pairs(beamActive) do
 		if not isActive or not player.Parent or not hasFlashlightEquipped(player) then
+			continue
+		end
+		for _, stalkerModel in ipairs(stalkerModels) do
+			if isBeamAlignedWithStalker(player, stalkerModel) then
+				if stalkerModel.Name == "Owl" and owlService then
+					owlService:ApplyFlashlightStun(stalkerModel, player)
+				elseif deerService then
+					deerService:ApplyFlashlightStun(stalkerModel, player)
+				end
+			end
+		end
+	end
+
+	-- Also check players who have the flashlight equipped and SpotLight
+	-- enabled, even if the client never reported beam state via remote.
+	for _, player in ipairs(Players:GetPlayers()) do
+		if beamActive[player] then
+			continue -- already checked above
+		end
+		if not player.Parent or not isFlashlightBeamOn(player) then
 			continue
 		end
 		for _, stalkerModel in ipairs(stalkerModels) do
