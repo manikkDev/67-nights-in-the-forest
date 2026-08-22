@@ -75,7 +75,7 @@ return {
 		ActiveDuring = "Night",
 		StatsKey = "WolvesKilled",
 		Loot = {
-			{ Resource = "RawMeat", Min = 1, Max = 2, Chance = 1 },
+			{ Resource = "RabbitMeat", Min = 1, Max = 2, Chance = 1 },
 		},
 	},
 	AlphaWolfModel = {
@@ -94,7 +94,7 @@ return {
 		ActiveDuring = "Night",
 		StatsKey = "WolvesKilled",
 		Loot = {
-			{ Resource = "RawMeat", Min = 2, Max = 3, Chance = 1 },
+			{ Resource = "RabbitMeat", Min = 2, Max = 3, Chance = 1 },
 		},
 	},
 	Bear = {
@@ -113,7 +113,7 @@ return {
 		ActiveDuring = "Always",
 		BakedAttackAnimName = "Attack",
 		Loot = {
-			{ Resource = "RawMeat", Min = 3, Max = 4, Chance = 1 },
+			{ Resource = "RabbitMeat", Min = 3, Max = 4, Chance = 1 },
 		},
 	},
 	Cultist = {

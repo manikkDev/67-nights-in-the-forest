@@ -377,7 +377,7 @@ local function grantLoot(record, player: Player)
 	for _, entry in ipairs(record.config.Loot or {}) do
 		if math.random() <= entry.Chance then
 			local amount = math.random(entry.Min, entry.Max)
-			if record.key == "Bunny" and entry.Resource == "RabbitMeat" then
+			if entry.Resource == "RabbitMeat" then
 				for _ = 1, amount do
 					local drop = inventoryService:BuildDropModel("RabbitMeat")
 					if drop then
