@@ -705,8 +705,10 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 	for _, stalker in pairs(stalkers) do
 		if stalker.model == model then
 			if not stalker.def.UsesFlashlightStun or stalker.state == "Stunned" or stalker.state == "Dormant" then
+				print("[DeerService] DEBUG ApplyFlashlightStun: rejected - state:", stalker.state, "UsesFlashlightStun:", stalker.def.UsesFlashlightStun)
 				return false
 			end
+			print("[DeerService] DEBUG ApplyFlashlightStun: STUNNING deer! state was:", stalker.state)
 
 			local now = os.clock()
 			if (now - stalker.lastStunTime) >= STUN_RESISTANCE_RECOVERY_TIME then
