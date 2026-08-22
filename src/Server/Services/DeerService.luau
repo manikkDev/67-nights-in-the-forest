@@ -41,6 +41,7 @@ local DeerService = Knit.CreateService({
 	Client = {
 		StalkerStunned = Knit.CreateSignal(),
 		StalkerContact = Knit.CreateSignal(),
+		StalkerActive = Knit.CreateSignal(),
 	},
 })
 
@@ -60,6 +61,13 @@ local RETREAT_HOLD_TIME = 3
 local GAIT_AMPLITUDE = math.rad(35)
 local GAIT_ARM_AMPLITUDE = math.rad(22)
 local IDLE_LERP_SPEED = 6
+
+-- Ram Monster starts appearing from night 8 onwards, with a 30% chance
+-- to replace the Deer on any given night (mirrors the 99 Nights wiki:
+-- "there is a chance for the Ram to spawn each night; if it does,
+-- the Deer will not spawn")
+local RAM_START_DAY = 8
+local RAM_SPAWN_CHANCE = 0.30
 
 local STALKER_DEFS = {
 	Deer = {
@@ -83,6 +91,8 @@ local campfireService: any = nil
 local spawnService: any = nil
 local stalkers: { [string]: any } = {}
 local deerSuppressed = false
+local activeStalkerKey: string? = nil  -- which stalker is active tonight ("Deer" or "RamMonster")
+local lastPhase: string? = nil
 
 -- // FUNCTIONS // --
 
@@ -199,6 +209,7 @@ local function buildAnimationTracks(stalker)
 					track.Looped = animInstance.Name ~= "Jumpscare"
 						and animInstance.Name ~= "StunnedStart"
 						and animInstance.Name ~= "StunnedEnd"
+						and animInstance.Name ~= "Attack"
 					stalker.tracks[animInstance.Name] = track
 				end
 			end
@@ -402,7 +413,36 @@ local function updateStalkerState(stalker)
 		return
 	end
 
-	if not timeService or timeService:GetCurrentPhase() ~= "Night" then
+	local currentPhase = timeService and timeService:GetCurrentPhase() or "Day"
+
+	-- Phase transition: decide which stalker is active tonight
+	if currentPhase ~= lastPhase then
+		lastPhase = currentPhase
+		if currentPhase == "Night" then
+			local dayNumber = timeService:GetDayNumber()
+			-- Roll for Ram Monster replacing the Deer (from RAM_START_DAY onwards)
+			if dayNumber >= RAM_START_DAY and math.random() <= RAM_SPAWN_CHANCE then
+				activeStalkerKey = "RamMonster"
+				print("[DeerService] The Ram Monster is active tonight (night", dayNumber, ")")
+			else
+				activeStalkerKey = "Deer"
+				print("[DeerService] The Deer is active tonight (night", dayNumber, ")")
+			end
+			broadcastToAll(DeerService.Client.StalkerActive, activeStalkerKey)
+		elseif currentPhase == "Day" then
+			activeStalkerKey = nil
+		end
+	end
+
+	if currentPhase ~= "Night" then
+		if stalker.state ~= "Dormant" then
+			enterDormant(stalker)
+		end
+		return
+	end
+
+	-- Only the active stalker for tonight is allowed to hunt
+	if stalker.key ~= activeStalkerKey then
 		if stalker.state ~= "Dormant" then
 			enterDormant(stalker)
 		end
@@ -515,6 +555,7 @@ local function runStalkerBehavior(stalker)
 			local targetHumanoid = character:FindFirstChildOfClass("Humanoid")
 			if targetHumanoid then
 				targetHumanoid:TakeDamage(stalker.def.AttackDamage)
+				playTrack(stalker, "Attack")
 				broadcastToAll(DeerService.Client.StalkerContact, stalker.rootPart.Position, stalker.key)
 			end
 		end
