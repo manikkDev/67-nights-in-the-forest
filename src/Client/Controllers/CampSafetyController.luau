@@ -48,7 +48,7 @@ local UNSAFE_TINT = Color3.fromRGB(255, 255, 255)
 
 local NIGHT_VISIBILITY_COLOR = Color3.fromRGB(200, 210, 230)
 local NIGHT_VISIBILITY_BRIGHTNESS = 0.5
-local NIGHT_VISIBILITY_RANGE = 22
+local NIGHT_VISIBILITY_RANGE = 38
 
 -- | State Management | --
 local colorCorrection: ColorCorrectionEffect? = nil

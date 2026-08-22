@@ -52,6 +52,8 @@ local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
 local DECISION_INTERVAL = 0.25
 local MIN_SPAWN_DIST = 25
 local MAX_SPAWN_DIST = 90
+local BUNNY_MIN_SPAWN_DIST = 70
+local BUNNY_MAX_SPAWN_DIST = 150
 local BEAR_MIN_SPAWN_DIST = 120
 local BEAR_MAX_SPAWN_DIST = 220
 local GAIT_AMPLITUDE = math.rad(35)
@@ -895,7 +897,7 @@ local function spawnPersistentPopulation()
 	persistentSpawned = true
 
 	for _ = 1, PERSISTENT_TARGET_COUNTS.Bunny do
-		local position = pickSpawnPosition()
+		local position = pickSpawnPosition(BUNNY_MIN_SPAWN_DIST, BUNNY_MAX_SPAWN_DIST)
 		if position then
 			AnimalAIService:SpawnNpc("Bunny", groundedCFrame(position))
 		end
@@ -936,6 +938,8 @@ local function checkPersistentRespawn(dt: number)
 				position = pickSpawnPosition(BEAR_MIN_SPAWN_DIST, BEAR_MAX_SPAWN_DIST)
 			elseif speciesKey == "WolfModel" then
 				position = pickSpawnPosition(WOLF_MIN_SPAWN_DIST, WOLF_MAX_SPAWN_DIST)
+			elseif speciesKey == "Bunny" then
+				position = pickSpawnPosition(BUNNY_MIN_SPAWN_DIST, BUNNY_MAX_SPAWN_DIST)
 			else
 				position = pickSpawnPosition()
 			end
