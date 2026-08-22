@@ -249,7 +249,7 @@ local function buildAnimationTracks(stalker)
 						and animInstance.Name ~= "StunnedEnd"
 						and animInstance.Name ~= "Attack"
 					-- Set explicit priorities so Attack/Stunned override Walk/Run
-					if animInstance.Name == "Attack" or animInstance.Name == "Jumpscare" then
+					if animInstance.Name == "Attack" or animInstance.Name == "Jumpscare" or animInstance.Name == "Scared" then
 						track.Priority = Enum.AnimationPriority.Action4
 					elseif animInstance.Name:match("^Stunned") then
 						track.Priority = Enum.AnimationPriority.Action4
@@ -565,7 +565,7 @@ local function runStalkerBehavior(stalker)
 	if stalker.state == "Dormant" or stalker.state == "Stunned" then
 		stalker.humanoid.WalkSpeed = 0
 		if stalker.state == "Stunned" then
-			playTrack(stalker, "StunnedLoop")
+			playTrack(stalker, "Scared")
 		end
 		return
 	end
@@ -667,7 +667,7 @@ end
 function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 	for _, stalker in pairs(stalkers) do
 		if stalker.model == model then
-			if not stalker.def.UsesFlashlightStun or stalker.state ~= "Pursuing" then
+			if not stalker.def.UsesFlashlightStun or (stalker.state ~= "Pursuing" and stalker.state ~= "Patrol") then
 				return false
 			end
 
@@ -687,17 +687,7 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 			stalker.stunUntil = now + duration
 			stalker.humanoid.WalkSpeed = 0
 			stopAllTracks(stalker)
-			playTrack(stalker, "StunnedStart")
-			task.delay(0.3, function()
-				if stalker.state == "Stunned" then
-					playTrack(stalker, "StunnedLoop")
-				end
-			end)
-			task.delay(duration, function()
-				if stalker.state == "Stunned" then
-					playTrack(stalker, "StunnedEnd")
-				end
-			end)
+			playTrack(stalker, "Scared")
 
 			broadcastToAll(DeerService.Client.StalkerStunned, stalker.rootPart.Position, stalker.key, duration)
 			return true
