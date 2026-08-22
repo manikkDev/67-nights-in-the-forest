@@ -248,6 +248,16 @@ local function buildAnimationTracks(stalker)
 						and animInstance.Name ~= "StunnedStart"
 						and animInstance.Name ~= "StunnedEnd"
 						and animInstance.Name ~= "Attack"
+					-- Set explicit priorities so Attack/Stunned override Walk/Run
+					if animInstance.Name == "Attack" or animInstance.Name == "Jumpscare" then
+						track.Priority = Enum.AnimationPriority.Action4
+					elseif animInstance.Name:match("^Stunned") then
+						track.Priority = Enum.AnimationPriority.Action4
+					elseif animInstance.Name == "Walk" or animInstance.Name == "Run" then
+						track.Priority = Enum.AnimationPriority.Action2
+					elseif animInstance.Name == "Idle" then
+						track.Priority = Enum.AnimationPriority.Idle
+					end
 					stalker.tracks[animInstance.Name] = track
 				end
 			end
