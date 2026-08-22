@@ -42,7 +42,7 @@ local FlashlightService = Knit.CreateService({
 -- | Configuration | --
 local FLASHLIGHT_TOOL_NAME = "Flashlight"
 local BEAM_RANGE = 35
-local BEAM_HALF_ANGLE = math.rad(25)
+local BEAM_HALF_ANGLE = math.rad(30)
 local CHECK_INTERVAL = 0.15
 local BATTERY_DRAIN_PER_SECOND = 5 -- 20 seconds of full use
 local BATTERY_RECHARGE_PER_SECOND = 1.5 -- slow passive recharge
@@ -170,7 +170,10 @@ local function isBeamAlignedWithStalker(player: Player, stalker: Model): boolean
 		return false
 	end
 
-	local stalkerPart = stalker.PrimaryPart or stalker:FindFirstChildWhichIsA("BasePart")
+	local stalkerPart = stalker.PrimaryPart
+		or stalker:FindFirstChild("HRP")
+		or stalker:FindFirstChild("HumanoidRootPart")
+		or stalker:FindFirstChildWhichIsA("BasePart", true)
 	if not stalkerPart then
 		return false
 	end

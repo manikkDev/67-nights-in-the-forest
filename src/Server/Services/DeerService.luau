@@ -302,7 +302,13 @@ local function playTrack(stalker, name: string)
 	-- Don't restart if already playing (avoids stutter on looping tracks
 	-- that are called every Heartbeat like Walk/Run/Idle)
 	if track.IsPlaying then return end
-	stopAllTracks(stalker)
+	-- Only stop locomotion tracks to avoid nuking Attack/Stunned animations
+	local locomotionTracks = { Walk = true, Run = true, Idle = true }
+	for trackName, t in pairs(stalker.tracks) do
+		if t ~= track and t.IsPlaying and locomotionTracks[trackName] then
+			t:Stop(0.15)
+		end
+	end
 	track:Play(0.15)
 end
 
@@ -349,6 +355,10 @@ local function spawnStalker(key: string)
 		model:Destroy()
 		return
 	end
+
+	-- Set PrimaryPart so external services (FlashlightService) can locate
+	-- the stalker's position via model.PrimaryPart
+	model.PrimaryPart = rootPart
 
 	-- Anchor the root part to keep the model suspended at the dormant position.
 	-- It will be un-anchored when the stalker activates at night.
@@ -582,10 +592,15 @@ local function runStalkerBehavior(stalker)
 		if stalker.state == "Stunned" then
 			local startTrack = stalker.tracks["StunnedStart"]
 			local loopTrack = stalker.tracks["StunnedLoop"]
+			-- Stop Attack track if it's still playing from a recent contact
+			local attackTrack = stalker.tracks["Attack"]
+			if attackTrack and attackTrack.IsPlaying then
+				attackTrack:Stop(0)
+			end
 			if startTrack and startTrack.IsPlaying then
 				-- Let StunnedStart finish, then switch to StunnedLoop in next tick
 			elseif loopTrack and not loopTrack.IsPlaying then
-				startTrack:Stop(0)
+				if startTrack then startTrack:Stop(0) end
 				loopTrack:Play(0.1)
 			end
 		end
@@ -689,7 +704,7 @@ end
 function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 	for _, stalker in pairs(stalkers) do
 		if stalker.model == model then
-			if not stalker.def.UsesFlashlightStun or (stalker.state ~= "Pursuing" and stalker.state ~= "Patrol") then
+			if not stalker.def.UsesFlashlightStun or stalker.state == "Stunned" or stalker.state == "Dormant" then
 				return false
 			end
 
@@ -709,8 +724,19 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 			stalker.stunUntil = now + duration
 			stalker.humanoid.WalkSpeed = 0
 			stalker.stunEndPlayed = false
+			-- Stop all tracks immediately so Attack/Run don't override StunnedStart
 			stopAllTracks(stalker)
-			playTrack(stalker, "StunnedStart")
+			-- Play StunnedStart directly (not via playTrack which would call stopAllTracks again)
+			local startTrack = stalker.tracks["StunnedStart"]
+			if startTrack then
+				startTrack:Play(0.1)
+			else
+				-- Fallback: if no StunnedStart track, play StunnedLoop directly
+				local loopTrack = stalker.tracks["StunnedLoop"]
+				if loopTrack then
+					loopTrack:Play(0.1)
+				end
+			end
 
 			broadcastToAll(DeerService.Client.StalkerStunned, stalker.rootPart.Position, stalker.key, duration)
 			return true
