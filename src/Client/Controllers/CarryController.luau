@@ -43,6 +43,7 @@ local PICKUP_RANGE = 12
 local PICKUP_COOLDOWN = 0.2
 local RAY_LENGTH = 32
 local HOVER_EMISSIVE = Color3.fromRGB(160, 220, 255)
+local BAG_TOOL_NAME = "Carry Bag"
 
 -- | State Management | --
 local localPlayer = Players.LocalPlayer
@@ -59,6 +60,19 @@ local draggingModel: Model? = nil
 local draggingResourceName: string? = nil
 local dragTarget: BasePart? = nil
 local lastDragTargetSent = 0
+
+-- | Helpers | --
+
+--[[
+    @summary  Return true when the player is holding the Carry Bag tool.
+]]
+local function isHoldingCarryBag(): boolean
+	local character = localPlayer.Character
+	if not character then
+		return false
+	end
+	return character:FindFirstChild(BAG_TOOL_NAME) ~= nil
+end
 
 -- // FUNCTIONS // --
 
@@ -330,6 +344,14 @@ local function updateHover()
 		return
 	end
 
+	if not isHoldingCarryBag() then
+		if draggingModel then
+			stopDrag()
+		end
+		clearHover()
+		return
+	end
+
 	if draggingModel and draggingResourceName then
 		if not draggingModel.Parent then
 			stopDrag()
@@ -452,6 +474,9 @@ local function onInputBegan(input: InputObject, gameProcessed: boolean)
 		return
 	end
 	if not gameStateController or not gameStateController:IsInGame() then
+		return
+	end
+	if not isHoldingCarryBag() then
 		return
 	end
 
