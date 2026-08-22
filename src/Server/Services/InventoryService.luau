@@ -52,6 +52,7 @@ local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local CARRY_BAG_NAME = "carry-bag"
 local CARRY_BAG_TOOL_NAME = "Carry Bag"
 local FLASHLIGHT_TOOL_NAME = "Flashlight"
+local TEST_INFINITE_WOOD = true
 local RESOURCE_NAMES = { "Wood", "Stone", "Berries", "Mushrooms", "RawMeat", "CookedMeat", "RabbitMeat", "OwlFeather" }
 
 local PICKUP_RANGE = 12
@@ -179,6 +180,24 @@ function InventoryService:AddResource(player: Player, name: string, amount: numb
 		return 0
 	end
 
+	-- TEST: infinite wood — bypass capacity check
+	if TEST_INFINITE_WOOD and name == "Wood" then
+		updatePlayerData(player, function(playerData)
+			playerData.Resources.Wood = (playerData.Resources.Wood or 0) + amount
+			if typeof(playerData.Inventory) ~= "table" then
+				playerData.Inventory = {}
+			end
+			if typeof(playerData.Inventory.PickupOrder) ~= "table" then
+				playerData.Inventory.PickupOrder = {}
+			end
+			for _ = 1, amount do
+				table.insert(playerData.Inventory.PickupOrder, "Wood")
+			end
+		end)
+		broadcastSnapshot(player)
+		return amount
+	end
+
 	local capacity = self:GetCapacity(player)
 	local carried = self:GetTotalCarried(player)
 	local room = math.max(0, capacity - carried)
@@ -221,6 +240,12 @@ function InventoryService:ConsumeResource(player: Player, name: string, amount: 
 	local data = getPlayerData(player)
 	if not data or (data.Resources[name] or 0) < amount then
 		return false
+	end
+
+	-- TEST: infinite wood — don't actually decrement
+	if TEST_INFINITE_WOOD and name == "Wood" then
+		broadcastSnapshot(player)
+		return true
 	end
 
 	updatePlayerData(player, function(playerData)
@@ -1162,6 +1187,9 @@ function InventoryService:KnitStart()
 		spawnService.PlayerSpawned:Connect(function(player: Player)
 			giveCarryBag(player)
 			giveFlashlight(player)
+			if TEST_INFINITE_WOOD then
+				self:AddResource(player, "Wood", 50)
+			end
 			broadcastSnapshot(player)
 		end)
 	end

@@ -156,7 +156,16 @@ local function isBeamAlignedWithStalker(player: Player, stalker: Model): boolean
 		return false
 	end
 
-	local angle = math.acos(math.clamp(rootPart.CFrame.LookVector.Unit:Dot(toStalker.Unit), -1, 1))
+	-- Use horizontal-only angle so height differences between player and
+	-- stalker don't cause the beam alignment to fail.  The HumanoidRootPart
+	-- LookVector is roughly horizontal, so comparing against a flattened
+	-- direction gives the correct "are they facing it?" answer.
+	local flatToStalker = Vector3.new(toStalker.X, 0, toStalker.Z)
+	local flatLook = Vector3.new(rootPart.CFrame.LookVector.X, 0, rootPart.CFrame.LookVector.Z)
+	if flatLook.Magnitude <= 0 or flatToStalker.Magnitude <= 0 then
+		return false
+	end
+	local angle = math.acos(math.clamp(flatLook.Unit:Dot(flatToStalker.Unit), -1, 1))
 	return angle <= BEAM_HALF_ANGLE
 end
 
