@@ -29,11 +29,28 @@ local HudController = Knit.CreateController({
 	Name = "HudController",
 })
 
+-- | Configuration | --
+local DAY_ICON_COLOR = Color3.fromRGB(255, 210, 80)
+local NIGHT_ICON_COLOR = Color3.fromRGB(220, 230, 255)
+local DAY_STROKE_COLOR = Color3.fromRGB(255, 180, 60)
+local NIGHT_STROKE_COLOR = Color3.fromRGB(100, 130, 220)
+local DAY_GRADIENT = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 70, 50)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(55, 50, 40)),
+})
+local NIGHT_GRADIENT = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 50, 75)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 30, 50)),
+})
+
 -- | State Management | --
-local dayLabelGui: ScreenGui? = nil
-local nightLabelGui: ScreenGui? = nil
-local dayTextLabel: TextLabel? = nil
-local nightTextLabel: TextLabel? = nil
+local phaseGui: ScreenGui? = nil
+local banner: Frame? = nil
+local icon: Frame? = nil
+local shadow: Frame? = nil
+local phaseText: TextLabel? = nil
+local gradient: UIGradient? = nil
+local stroke: UIStroke? = nil
 local currentDayNumber = 1
 local gameStateController: any = nil
 local labelsEnabled = false
@@ -41,83 +58,135 @@ local labelsEnabled = false
 -- // FUNCTIONS // --
 
 --[[
-    @summary  Create a TextLabel inside a ScreenGui for the phase indicator.
-    @param   gui  ScreenGui  -- the parent ScreenGui
-    @returns TextLabel
+    @summary  Build the top-center day/night banner and disable legacy labels.
 ]]
-local function createPhaseLabel(gui: ScreenGui): TextLabel
-	local label = Instance.new("TextLabel")
-	label.Name = "PhaseText"
-	label.Size = UDim2.new(0, 200, 0, 40)
-	label.Position = UDim2.new(0, 20, 0, 20)
-	label.BackgroundTransparency = 0.3
-	label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-	label.TextColor3 = Color3.fromRGB(255, 255, 255)
-	label.Font = Enum.Font.GothamBold
-	label.TextSize = 18
-	label.Text = "Day 1"
-	label.Visible = true
-	label.Parent = gui
-	return label
-end
-
---[[
-    @summary  Update the phase label text with the current day number.
-    @param   phase  string  -- "Day" or "Night"
-]]
-local function updateLabelText(phase: string)
-	local text = phase .. " " .. currentDayNumber
-	if dayTextLabel then
-		dayTextLabel.Text = text
-	end
-	if nightTextLabel then
-		nightTextLabel.Text = text
-	end
-end
-
---[[
-    @summary  Show the Day GUI, hide the Night GUI.
-]]
-local function showDay()
-	if dayLabelGui then dayLabelGui.Enabled = labelsEnabled end
-	if nightLabelGui then nightLabelGui.Enabled = false end
-	if dayTextLabel then dayTextLabel.Visible = true end
-	if nightTextLabel then nightTextLabel.Visible = false end
-	updateLabelText("Day")
-end
-
---[[
-    @summary  Show the Night GUI, hide the Day GUI.
-]]
-local function showNight()
-	if dayLabelGui then dayLabelGui.Enabled = false end
-	if nightLabelGui then nightLabelGui.Enabled = labelsEnabled end
-	if dayTextLabel then dayTextLabel.Visible = false end
-	if nightTextLabel then nightTextLabel.Visible = true end
-	updateLabelText("Night")
-end
-
--- // INITIALIZATION // --
-
-function HudController:KnitInit()
+local function createPhaseUi()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 	if not playerGui then
 		return
 	end
 
-	dayLabelGui = playerGui:WaitForChild("DayLabel")
-	nightLabelGui = playerGui:WaitForChild("NightLabel")
-	assert(dayLabelGui, "[HudController] DayLabel ScreenGui not found")
-	assert(nightLabelGui, "[HudController] NightLabel ScreenGui not found")
+	for _, name in ipairs({ "DayLabel", "NightLabel" }) do
+		local legacy = playerGui:FindFirstChild(name)
+		if legacy and legacy:IsA("ScreenGui") then
+			legacy.Enabled = false
+		end
+	end
 
-	dayTextLabel = createPhaseLabel(dayLabelGui)
-	nightTextLabel = createPhaseLabel(nightLabelGui)
+	phaseGui = Instance.new("ScreenGui")
+	phaseGui.Name = "PhaseIndicator"
+	phaseGui.ResetOnSpawn = false
+	phaseGui.IgnoreGuiInset = true
+	phaseGui.DisplayOrder = 50
+	phaseGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	phaseGui.Enabled = false
+	phaseGui.Parent = playerGui
 
-	-- Start in Day phase but keep labels hidden until the player spawns.
-	dayLabelGui.Enabled = false
-	nightLabelGui.Enabled = false
-	if dayTextLabel then dayTextLabel.Visible = false end
-	if nightTextLabel then nightTextLabel.Visible = false end
+	shadow = Instance.new("Frame")
+	shadow.Name = "BannerShadow"
+	shadow.Size = UDim2.new(0, 264, 0, 52)
+	shadow.Position = UDim2.new(0.5, 2, 0, 18)
+	shadow.AnchorPoint = Vector2.new(0.5, 0)
+	shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	shadow.BackgroundTransparency = 0.55
+	shadow.BorderSizePixel = 0
+	shadow.ZIndex = 1
+	shadow.Parent = phaseGui
+
+	local shadowCorner = Instance.new("UICorner")
+	shadowCorner.CornerRadius = UDim.new(0, 12)
+	shadowCorner.Parent = shadow
+
+	banner = Instance.new("Frame")
+	banner.Name = "PhaseBanner"
+	banner.Size = UDim2.new(0, 260, 0, 48)
+	banner.Position = UDim2.new(0.5, 0, 0, 16)
+	banner.AnchorPoint = Vector2.new(0.5, 0)
+	banner.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	banner.BackgroundTransparency = 0.15
+	banner.BorderSizePixel = 0
+	banner.ZIndex = 2
+	banner.Parent = phaseGui
+
+	local bannerCorner = Instance.new("UICorner")
+	bannerCorner.CornerRadius = UDim.new(0, 12)
+	bannerCorner.Parent = banner
+
+	gradient = Instance.new("UIGradient")
+	gradient.Rotation = 90
+	gradient.Color = DAY_GRADIENT
+	gradient.Parent = banner
+
+	stroke = Instance.new("UIStroke")
+	stroke.Thickness = 2
+	stroke.Transparency = 0.25
+	stroke.Color = DAY_STROKE_COLOR
+	stroke.Parent = banner
+
+	icon = Instance.new("Frame")
+	icon.Name = "PhaseIcon"
+	icon.Size = UDim2.new(0, 28, 0, 28)
+	icon.Position = UDim2.new(0, 14, 0.5, 0)
+	icon.AnchorPoint = Vector2.new(0, 0.5)
+	icon.BackgroundColor3 = DAY_ICON_COLOR
+	icon.BorderSizePixel = 0
+	icon.ZIndex = 3
+	icon.Parent = banner
+
+	local iconCorner = Instance.new("UICorner")
+	iconCorner.CornerRadius = UDim.new(1, 0)
+	iconCorner.Parent = icon
+
+	phaseText = Instance.new("TextLabel")
+	phaseText.Name = "PhaseText"
+	phaseText.Size = UDim2.new(1, -58, 1, 0)
+	phaseText.Position = UDim2.new(0, 50, 0, 0)
+	phaseText.BackgroundTransparency = 1
+	phaseText.TextColor3 = Color3.fromRGB(255, 255, 255)
+	phaseText.Font = Enum.Font.GothamBlack
+	phaseText.TextSize = 22
+	phaseText.TextXAlignment = Enum.TextXAlignment.Left
+	phaseText.TextYAlignment = Enum.TextYAlignment.Center
+	phaseText.Text = "Day 1"
+	phaseText.ZIndex = 3
+	phaseText.Parent = banner
+end
+
+--[[
+    @summary  Update banner colors and text for the current phase.
+    @param   phase  string  -- "Day" or "Night"
+]]
+local function updateBanner(phase: string, dayNumber: number)
+	if not banner or not icon or not phaseText or not stroke or not gradient then
+		return
+	end
+	local isDay = phase == "Day"
+	phaseText.Text = phase .. " " .. dayNumber
+	icon.BackgroundColor3 = if isDay then DAY_ICON_COLOR else NIGHT_ICON_COLOR
+	stroke.Color = if isDay then DAY_STROKE_COLOR else NIGHT_STROKE_COLOR
+	gradient.Color = if isDay then DAY_GRADIENT else NIGHT_GRADIENT
+end
+
+--[[
+    @summary  Show the Day banner.
+]]
+local function showDay()
+	if phaseGui then phaseGui.Enabled = labelsEnabled end
+	updateBanner("Day", currentDayNumber)
+end
+
+--[[
+    @summary  Show the Night banner.
+]]
+local function showNight()
+	if phaseGui then phaseGui.Enabled = labelsEnabled end
+	updateBanner("Night", currentDayNumber)
+end
+
+-- // INITIALIZATION // --
+
+function HudController:KnitInit()
+	createPhaseUi()
 end
 
 function HudController:KnitStart()
@@ -126,10 +195,7 @@ function HudController:KnitStart()
 
 	local function enableLabels()
 		labelsEnabled = true
-		if dayLabelGui then dayLabelGui.Enabled = true end
-		if nightLabelGui then nightLabelGui.Enabled = false end
-		if dayTextLabel then dayTextLabel.Visible = true end
-		if nightTextLabel then nightTextLabel.Visible = false end
+		if phaseGui then phaseGui.Enabled = true end
 	end
 
 	if gameStateController and gameStateController:IsInGame() then
@@ -175,7 +241,7 @@ function HudController:KnitStart()
 		end)
 	end
 
-	print("[HudController] Initialised — bound to TimeService signals")
+	print("[HudController] Initialised — day/night banner bound to TimeService")
 end
 
 return HudController
