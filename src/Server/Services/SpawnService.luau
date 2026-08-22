@@ -45,6 +45,9 @@ local TELEPORT_COOLDOWN = 5
 -- ⚠️ TESTING ONLY — set to false before publishing to skip direct-to-game spawn
 local TEST_SKIP_LOBBY = true
 
+-- ⚠️ TESTING ONLY — give player 1000 HP and full wood on spawn for testing
+local TEST_GIVE_RESOURCES = true
+
 -- | State Management | --
 local worldService: any = nil
 local matchFlowService: any = nil
@@ -180,6 +183,30 @@ end
 
 -- // INITIALIZATION // --
 
+-- ⚠️ TESTING ONLY — grant 1000 HP and full wood for testing
+local function grantTestResources(player: Player)
+	if not TEST_GIVE_RESOURCES then return end
+
+	-- Grant 1000 HP
+	local character = player.Character
+	if character then
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.MaxHealth = 1000
+			humanoid.Health = 1000
+		end
+	end
+
+	-- Grant full wood (fill to capacity)
+	task.delay(2, function()
+		local inventoryService = Knit.GetService("InventoryService")
+		if inventoryService then
+			local capacity = inventoryService:GetCapacity(player)
+			inventoryService:AddResource(player, "Wood", capacity)
+		end
+	end)
+end
+
 local function autoSpawnPlayer(player: Player)
 	if not TEST_SKIP_LOBBY then
 		return
@@ -212,11 +239,13 @@ local function autoSpawnPlayer(player: Player)
 			if matchFlowService then
 				matchFlowService.Client.FlowStateChanged:Fire(player, "InGame")
 			end
+			grantTestResources(player)
 		end)
 		return
 	end
 	task.wait(0.5)
 	SpawnService:SpawnPlayer(player)
+	grantTestResources(player)
 	-- Start the match clock if not already running
 	local timeService = Knit.GetService("TimeService")
 	if timeService and not timeService:IsRunning() then
@@ -234,6 +263,7 @@ local function autoSpawnPlayer(player: Player)
 	if matchFlowService then
 		matchFlowService.Client.FlowStateChanged:Fire(player, "InGame")
 	end
+	grantTestResources(player)
 end
 
 function SpawnService:KnitStart()
