@@ -50,6 +50,10 @@ local DAY_START_CLOCK = 6
 local DAY_END_CLOCK = 18
 local DAY_AMBIENT = Color3.fromRGB(128, 128, 128)
 local NIGHT_AMBIENT = Color3.fromRGB(20, 22, 32)
+local DAY_OUTDOOR_AMBIENT = Color3.fromRGB(128, 128, 128)
+local NIGHT_OUTDOOR_AMBIENT = Color3.fromRGB(12, 14, 20)
+local DAY_BRIGHTNESS = 1
+local NIGHT_BRIGHTNESS = 0.35
 local DAY_FOG_END = 100000
 local NIGHT_FOG_END = 80
 local TWEEN_DURATION = 8
@@ -103,6 +107,8 @@ local function transitionToDay()
 	local tweenInfo = TweenInfo.new(TWEEN_DURATION, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 	TweenService:Create(Lighting, tweenInfo, {
 		Ambient = DAY_AMBIENT,
+		OutdoorAmbient = DAY_OUTDOOR_AMBIENT,
+		Brightness = DAY_BRIGHTNESS,
 		FogEnd = DAY_FOG_END,
 	}):Play()
 end
@@ -114,6 +120,8 @@ local function transitionToNight()
 	local tweenInfo = TweenInfo.new(TWEEN_DURATION, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 	TweenService:Create(Lighting, tweenInfo, {
 		Ambient = NIGHT_AMBIENT,
+		OutdoorAmbient = NIGHT_OUTDOOR_AMBIENT,
+		Brightness = NIGHT_BRIGHTNESS,
 		FogEnd = NIGHT_FOG_END,
 	}):Play()
 end
@@ -185,6 +193,8 @@ end
 local function applyDayLightingImmediate()
 	Lighting.ClockTime = DAY_START_CLOCK
 	Lighting.Ambient = DAY_AMBIENT
+	Lighting.OutdoorAmbient = DAY_OUTDOOR_AMBIENT
+	Lighting.Brightness = DAY_BRIGHTNESS
 	Lighting.FogEnd = DAY_FOG_END
 end
 
@@ -217,6 +227,8 @@ end
 
 Lighting.ClockTime = DAY_START_CLOCK
 Lighting.Ambient = DAY_AMBIENT
+Lighting.OutdoorAmbient = DAY_OUTDOOR_AMBIENT
+Lighting.Brightness = DAY_BRIGHTNESS
 Lighting.FogEnd = DAY_FOG_END
 
 print("[TimeService] Initialised — waiting for match start")

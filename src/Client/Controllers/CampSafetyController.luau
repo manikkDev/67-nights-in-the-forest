@@ -46,6 +46,10 @@ local UNSAFE_BRIGHTNESS = -0.05
 local UNSAFE_SATURATION = 0
 local UNSAFE_TINT = Color3.fromRGB(255, 255, 255)
 
+local NIGHT_VISIBILITY_COLOR = Color3.fromRGB(200, 210, 230)
+local NIGHT_VISIBILITY_BRIGHTNESS = 0.5
+local NIGHT_VISIBILITY_RANGE = 22
+
 -- | State Management | --
 local colorCorrection: ColorCorrectionEffect? = nil
 local warningGui: ScreenGui? = nil
@@ -66,6 +70,7 @@ local checkTimer = 0
 local heartbeatConnection: RBXScriptConnection? = nil
 local safeZoneChangedConnection: RBXScriptConnection? = nil
 local gameStartedConnection: RBXScriptConnection? = nil
+local visibilityLightConnection: RBXScriptConnection? = nil
 
 -- // FUNCTIONS // --
 
@@ -142,6 +147,42 @@ local function cancelVisualTweens()
 end
 
 --[[
+    @summary  Create or update a soft, invisible point light around the
+              character so the player can see their immediate surroundings
+              at night without a visible glowing circle.
+    @param    enabled  boolean
+]]
+local function setVisibilityLight(enabled: boolean)
+	local player = Players.LocalPlayer
+	if not player then
+		return
+	end
+
+	local character = player.Character
+	if not character then
+		return
+	end
+
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if not rootPart or not rootPart:IsA("BasePart") then
+		return
+	end
+
+	local light = rootPart:FindFirstChild("NightVisibilityLight")
+	if not light or not light:IsA("PointLight") then
+		light = Instance.new("PointLight")
+		light.Name = "NightVisibilityLight"
+		light.Color = NIGHT_VISIBILITY_COLOR
+		light.Brightness = NIGHT_VISIBILITY_BRIGHTNESS
+		light.Range = NIGHT_VISIBILITY_RANGE
+		light.Shadows = false
+		light.Parent = rootPart
+	end
+
+	light.Enabled = enabled
+end
+
+--[[
     @summary  Tween the screen and warning to the appropriate visual state.
 ]]
 local function updateVisuals(state: "day" | "safeNight" | "unsafeNight" | "fireOut")
@@ -160,24 +201,28 @@ local function updateVisuals(state: "day" | "safeNight" | "unsafeNight" | "fireO
 	local warningText = nil
 	local tweenInfo = SAFE_TWEEN_INFO
 
-	if state == "unsafeNight" then
+	if state == "safeNight" then
+		ccTarget = { Brightness = 0, Saturation = 0, TintColor = Color3.fromRGB(255, 255, 255) }
+		warningTrans = 1
+		tweenInfo = SAFE_TWEEN_INFO
+		setVisibilityLight(true)
+	elseif state == "unsafeNight" then
 		ccTarget = { Brightness = 0, Saturation = 0, TintColor = Color3.fromRGB(255, 255, 255) }
 		warningText = "You are far from the firelight..."
 		warningTrans = 0
 		tweenInfo = UNSAFE_TWEEN_INFO
+		setVisibilityLight(true)
 	elseif state == "fireOut" then
 		ccTarget = { Brightness = 0, Saturation = 0, TintColor = Color3.fromRGB(255, 255, 255) }
 		warningText = "The campfire has gone out..."
 		warningTrans = 0
 		tweenInfo = UNSAFE_TWEEN_INFO
-	elseif state == "safeNight" then
-		ccTarget = { Brightness = 0, Saturation = 0, TintColor = Color3.fromRGB(255, 255, 255) }
-		warningTrans = 1
-		tweenInfo = SAFE_TWEEN_INFO
+		setVisibilityLight(true)
 	else -- day
 		ccTarget = { Brightness = 0, Saturation = 0, TintColor = Color3.fromRGB(255, 255, 255) }
 		warningTrans = 1
 		tweenInfo = SAFE_TWEEN_INFO
+		setVisibilityLight(false)
 	end
 
 	local ccTween = TweenService:Create(colorCorrection, tweenInfo, ccTarget)
@@ -212,6 +257,7 @@ local function onHeartbeat(dt: number)
 
 	if not isNight then
 		updateVisuals("day")
+		setVisibilityLight(false)
 		return
 	end
 
@@ -281,7 +327,21 @@ function CampSafetyController:KnitStart()
 	if timeService.GetPhaseState then
 		timeService.GetPhaseState:Observe(function(newValue: any)
 			isNight = newValue == "Night"
+			setVisibilityLight(isNight)
 		end)
+	end
+
+	local localPlayer = Players.LocalPlayer
+	if localPlayer then
+		if visibilityLightConnection then
+			visibilityLightConnection:Disconnect()
+		end
+		visibilityLightConnection = localPlayer.CharacterAdded:Connect(function()
+			setVisibilityLight(isNight)
+		end)
+		if localPlayer.Character then
+			setVisibilityLight(isNight)
+		end
 	end
 
 	-- Keep the SafeZoneChanged signal as a backup for immediate updates

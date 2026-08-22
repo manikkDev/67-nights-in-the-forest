@@ -100,11 +100,11 @@ local FIRE_SIZE_MAX = 12
 local FIRE_SIZE_LEVEL_MULTIPLIER = { 0.85, 1.0, 1.08, 1.16, 1.24, 1.4 }
 local FIRE_HEAT_MIN = 1
 local FIRE_HEAT_MAX = 10
-local LIGHT_RANGE_MIN = 4
-local LIGHT_RANGE_MAX = 12
+local LIGHT_RANGE_MIN = 6
+local LIGHT_RANGE_MAX = 120
 local LIGHT_RANGE_LEVEL_MULTIPLIER = { 0.85, 1.0, 1.08, 1.16, 1.24, 1.4 }
-local LIGHT_BRIGHTNESS_MIN = 0.3
-local LIGHT_BRIGHTNESS_MAX = 1
+local LIGHT_BRIGHTNESS_MIN = 0.8
+local LIGHT_BRIGHTNESS_MAX = 2
 local FUEL_BROADCAST_INTERVAL = 1
 local SAFE_ZONE_LINE_COUNT = 40
 local SAFE_ZONE_LINE_THICKNESS = 0.8
@@ -338,6 +338,8 @@ local function updateFireVisuals()
 
 	if pointLight then
 		pointLight.Enabled = isLit
+		pointLight.Color = Color3.fromRGB(255, 130, 60)
+		pointLight.Shadows = false
 		local targetRange = math.clamp(currentSafeZoneRadius * 1.2, LIGHT_RANGE_MIN, lightMax)
 		pointLight.Range = if isLit then targetRange else 0
 		pointLight.Brightness = if isLit then LIGHT_BRIGHTNESS_MIN + (LIGHT_BRIGHTNESS_MAX - LIGHT_BRIGHTNESS_MIN) * fraction + 0.5 else 0
@@ -726,8 +728,16 @@ local function setupCampfire()
 		end
 	end
 
-	if pointLight and fireCenter then
-		pointLight.Parent = fireCenter
+	if not pointLight and fireCenter then
+		local newPointLight: PointLight = Instance.new("PointLight")
+		newPointLight.Name = "CampfirePointLight"
+		newPointLight.Parent = fireCenter
+		pointLight = newPointLight
+	end
+
+	if pointLight then
+		pointLight.Color = Color3.fromRGB(255, 130, 60)
+		pointLight.Shadows = false
 	end
 
 	if map then

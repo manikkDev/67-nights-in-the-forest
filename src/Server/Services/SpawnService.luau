@@ -206,7 +206,8 @@ local function autoSpawnPlayer(player: Player)
 			local Lighting = game:GetService("Lighting")
 			Lighting.ClockTime = 0
 			Lighting.Ambient = Color3.fromRGB(20, 22, 32)
-			Lighting.OutdoorAmbient = Color3.fromRGB(20, 22, 32)
+			Lighting.OutdoorAmbient = Color3.fromRGB(12, 14, 20)
+			Lighting.Brightness = 0.35
 			-- Tell the client to skip lobby intro and unlock gameplay
 			if matchFlowService then
 				matchFlowService.Client.FlowStateChanged:Fire(player, "InGame")
@@ -227,7 +228,8 @@ local function autoSpawnPlayer(player: Player)
 	local Lighting = game:GetService("Lighting")
 	Lighting.ClockTime = 0
 	Lighting.Ambient = Color3.fromRGB(20, 22, 32)
-	Lighting.OutdoorAmbient = Color3.fromRGB(20, 22, 32)
+	Lighting.OutdoorAmbient = Color3.fromRGB(12, 14, 20)
+	Lighting.Brightness = 0.35
 	-- Tell the client to skip lobby intro and unlock gameplay
 	if matchFlowService then
 		matchFlowService.Client.FlowStateChanged:Fire(player, "InGame")
