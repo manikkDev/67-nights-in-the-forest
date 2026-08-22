@@ -616,14 +616,18 @@ local function runStalkerBehavior(stalker)
 			local targetHumanoid = character:FindFirstChildOfClass("Humanoid")
 			if targetHumanoid then
 				targetHumanoid:TakeDamage(stalker.def.AttackDamage)
-				-- Force-stop all tracks and play Attack with no fade for immediate strike
-				stopAllTracks(stalker)
+				-- Stop only Walk/Run (not all tracks) to avoid nuking Attack
+				if stalker.tracks.Walk and stalker.tracks.Walk.IsPlaying then
+					stalker.tracks.Walk:Stop(0.1)
+				end
+				if stalker.tracks.Run and stalker.tracks.Run.IsPlaying then
+					stalker.tracks.Run:Stop(0.1)
+				end
 				local attackTrack = stalker.tracks.Attack
 				if attackTrack then
-					attackTrack:Play(0)
+					attackTrack:Play(0.1)
 				end
 				broadcastToAll(DeerService.Client.StalkerContact, stalker.rootPart.Position, stalker.key)
-				print("[DeerService] Attack hit! dist=", math.round(dist), "dmg=", stalker.def.AttackDamage)
 			end
 		end
 	end
