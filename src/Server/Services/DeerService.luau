@@ -46,7 +46,7 @@ local DeerService = Knit.CreateService({
 
 -- | Configuration | --
 local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
-local DORMANT_HOLDING_POSITION = Vector3.new(0, -500, 0)
+local DORMANT_HOLDING_POSITION = Vector3.new(0, 300, 0)
 local DECISION_INTERVAL = 0.2
 local CONTACT_RANGE = 5
 local CONTACT_COOLDOWN = 1.2
@@ -253,6 +253,9 @@ local function enterDormant(stalker)
 	stalker.pursuitStartTime = nil
 	stalker.model:PivotTo(CFrame.new(DORMANT_HOLDING_POSITION))
 	stalker.humanoid.WalkSpeed = 0
+	if stalker.rootPart then
+		stalker.rootPart.Anchored = true
+	end
 	stopAllTracks(stalker)
 end
 
@@ -273,13 +276,6 @@ local function spawnStalker(key: string)
 	model.Parent = workspace
 	model:PivotTo(CFrame.new(DORMANT_HOLDING_POSITION))
 
-	-- Un-anchor all parts so the NPC can move (template may have anchored parts)
-	for _, part in ipairs(model:GetDescendants()) do
-		if part:IsA("BasePart") then
-			part.Anchored = false
-		end
-	end
-
 	local humanoid = model:FindFirstChildOfClass("Humanoid") or model:FindFirstChild("NPC")
 	-- Prefer HRP (the actual PrimaryPart) over HumanoidRootPart, since
 	-- HumanoidRootPart may be a non-colliding anchored dummy in custom rigs
@@ -288,6 +284,17 @@ local function spawnStalker(key: string)
 		warn("[DeerService] Template", def.ModelName, "missing Humanoid/root part")
 		model:Destroy()
 		return
+	end
+
+	-- Anchor the root part to keep the model suspended at the dormant position.
+	-- It will be un-anchored when the stalker activates at night.
+	rootPart.Anchored = true
+	-- Un-anchor everything else (including HumanoidRootPart, which is welded
+	-- to HRP — if it stays anchored the weld prevents the whole model from moving).
+	for _, part in ipairs(model:GetDescendants()) do
+		if part:IsA("BasePart") and part ~= rootPart then
+			part.Anchored = false
+		end
 	end
 
 	local stalker = {
@@ -426,6 +433,10 @@ local function updateStalkerState(stalker)
 			spawnPos = spawnPos + Vector3.new(0, 10, 0)
 		end
 		stalker.model:PivotTo(CFrame.new(spawnPos))
+		-- Un-anchor the root part so the Deer can walk
+		if stalker.rootPart then
+			stalker.rootPart.Anchored = false
+		end
 	end
 
 	if stalker.target then
@@ -469,8 +480,13 @@ local function runStalkerBehavior(stalker)
 	if stalker.state == "Retreating" then
 		stalker.humanoid.WalkSpeed = stalker.def.BaseSpeed
 		playTrack(stalker, "Run")
-		local away = stalker.rootPart.CFrame.LookVector
-		stalker.humanoid:MoveTo(stalker.rootPart.Position + away * -20)
+		local campfirePos = (worldService and worldService:GetCampfireCFrame() or CFrame.new()).Position
+		local awayDir = stalker.rootPart.Position - campfirePos
+		if awayDir.Magnitude < 1 then
+			awayDir = Vector3.new(1, 0, 0)
+		end
+		awayDir = Vector3.new(awayDir.X, 0, awayDir.Z).Unit
+		stalker.humanoid:MoveTo(stalker.rootPart.Position + awayDir * 40)
 		return
 	end
 
