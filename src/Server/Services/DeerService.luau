@@ -28,7 +28,7 @@ local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local Debris = game:GetService("Debris")
+local _Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -113,7 +113,7 @@ end
 	@param    model  Model
 	@returns  { { motor: Motor6D, originalC0: CFrame, isLeg: boolean, side: string } }
 ]]
-local function collectGaitJoints(model)
+local function _collectGaitJoints(model)
 	local joints = {}
 	for _, descendant in ipairs(model:GetDescendants()) do
 		if descendant:IsA("Motor6D") and descendant.Part1 then
@@ -374,6 +374,7 @@ local function spawnStalker(key: string)
 		consecutiveStuns = 0,
 		lastStunTime = 0,
 		stunUntil = 0,
+		stunEndPlayed = false,
 		retreatUntil = 0,
 		nextDecisionTime = 0,
 		pursuitStartTime = nil,
@@ -453,7 +454,21 @@ local function updateStalkerState(stalker)
 
 	if stalker.state == "Stunned" then
 		if now >= stalker.stunUntil then
-			stalker.state = if stalker.target then "Pursuing" else "Patrol"
+			-- Play StunnedEnd transition animation
+			if not stalker.stunEndPlayed then
+				stalker.stunEndPlayed = true
+				stopAllTracks(stalker)
+				local endTrack = stalker.tracks["StunnedEnd"]
+				if endTrack then
+					endTrack:Play(0.1)
+				end
+			end
+			-- Wait a brief moment for StunnedEnd to start before transitioning state
+			task.delay(0.3, function()
+				if stalker.state == "Stunned" and os.clock() >= stalker.stunUntil then
+					stalker.state = if stalker.target then "Pursuing" else "Patrol"
+				end
+			end)
 		end
 		return
 	end
@@ -565,7 +580,14 @@ local function runStalkerBehavior(stalker)
 	if stalker.state == "Dormant" or stalker.state == "Stunned" then
 		stalker.humanoid.WalkSpeed = 0
 		if stalker.state == "Stunned" then
-			playTrack(stalker, "Scared")
+			local startTrack = stalker.tracks["StunnedStart"]
+			local loopTrack = stalker.tracks["StunnedLoop"]
+			if startTrack and startTrack.IsPlaying then
+				-- Let StunnedStart finish, then switch to StunnedLoop in next tick
+			elseif loopTrack and not loopTrack.IsPlaying then
+				startTrack:Stop(0)
+				loopTrack:Play(0.1)
+			end
 		end
 		return
 	end
@@ -686,8 +708,9 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 			stalker.state = "Stunned"
 			stalker.stunUntil = now + duration
 			stalker.humanoid.WalkSpeed = 0
+			stalker.stunEndPlayed = false
 			stopAllTracks(stalker)
-			playTrack(stalker, "Scared")
+			playTrack(stalker, "StunnedStart")
 
 			broadcastToAll(DeerService.Client.StalkerStunned, stalker.rootPart.Position, stalker.key, duration)
 			return true
