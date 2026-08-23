@@ -121,11 +121,11 @@ Phase 3 is feature-complete but the current branch is still configured for testi
 
 ---
 
-# Phase 4 — Production Core, Four Rescues, and the Day 67 Ending
+## Phase 4 — Production Core, Four Rescues, and the Day 67 Ending
 
 Phase 4 converts the existing survival sandbox into a complete run with preparation, progression, objectives, failure, victory, replay, and release-quality presentation.
 
-## Phase 4 Definition of Done
+### Phase 4 Definition of Done
 
 A new player must be able to complete this exact path without admin commands or test flags:
 
@@ -142,9 +142,9 @@ A new player must be able to complete this exact path without admin commands or 
 
 ---
 
-## 4.0 — Production Stabilization Gate
+### 4.0 — Production Stabilization Gate
 
-### 4.0.1 Central Production Configuration
+#### 4.0.1 Central Production Configuration
 
 Create a shared `RunConfig.luau` and remove scattered production/test switches from services.
 
@@ -175,7 +175,7 @@ return table.freeze({
 
 Test overrides may activate only when `RunService:IsStudio()` and must print one startup summary. A published server must ignore them even if a developer accidentally leaves a flag enabled.
 
-### 4.0.2 Required Cleanup
+#### 4.0.2 Required Cleanup
 
 - Restore Health/MaxHealth to 100 in the profile migration/defaults.
 - Remove automatic Wood grants and infinite Wood consumption bypass.
@@ -185,15 +185,15 @@ Test overrides may activate only when `RunService:IsStudio()` and must print one
 - Replace `pcall(require)` behavior that silently leaves core services absent with a startup health report. A required service failure must block run creation and show a safe lobby error.
 - Record every Heartbeat/RenderStepped/event connection in Janitor or an explicit teardown owner.
 
-### 4.0.3 Exit Test
+#### 4.0.3 Exit Test
 
 A solo run and a two-client local server must complete lobby → Day 1 → night → raid warning/raid → food/campfire/combat without test resources, forced lighting, duplicate UI, or related console errors.
 
 ---
 
-## 4.1 — Run State, Persistence Boundary, and Character Lifecycle
+### 4.1 — Run State, Persistence Boundary, and Character Lifecycle
 
-### 4.1.1 New Authoritative Run Owner
+#### 4.1.1 New Authoritative Run Owner
 
 Add `RunStateService.luau`. It owns one server run and exposes immutable snapshots; other services request mutations through its server API.
 
@@ -216,7 +216,7 @@ export type RunState = {
 
 `RunId` is a GUID or monotonically changing token. Every delayed callback captures it and rechecks it after yielding. A callback from an old run must not mutate a new run.
 
-### 4.1.2 Separate Real Cycles from Displayed Progress
+#### 4.1.2 Separate Real Cycles from Displayed Progress
 
 - `CycleIndex` starts at 1 and increments by exactly one after every survived night.
 - Existing raid cadence, Owl/Ram unlock cadence, spawn scaling, and other scheduled events use `CycleIndex`.
@@ -225,7 +225,7 @@ export type RunState = {
 - This split prevents a 9x multiplier from skipping raids or incorrectly spawning nine cycles of enemies at once.
 - Services must stop reading one ambiguous `TimeService:GetDayNumber()` for both jobs. Add explicit `GetCycleIndex()` and `GetDisplayedDay()` methods/signals.
 
-### 4.1.3 Runtime State Must Reset Per Run
+#### 4.1.3 Runtime State Must Reset Per Run
 
 Move these out of persistent profile ownership:
 
@@ -267,7 +267,7 @@ Long-term profiles retain only:
 
 Migration must preserve legitimate lifetime values, discard old saved run resources/base/rescue/campfire state, set `DataVersion = 2`, and never reward a player for stale test Wood or 300 Health.
 
-### 4.1.4 Exact Respawn Rules
+#### 4.1.4 Exact Respawn Rules
 
 Set `Players.CharacterAutoLoads = false` on the server.
 
@@ -283,7 +283,7 @@ Set `Players.CharacterAutoLoads = false` on the server.
 
 Do not issue another reload until `CharacterAppearanceLoaded` has fired for the previous one. Remember that `LoadCharacterAsync()` clears Backpack and PlayerGui; tools and runtime UI must rebuild from authoritative state after character creation.
 
-### 4.1.5 Edge Cases
+#### 4.1.5 Edge Cases
 
 - A late joiner remains in the lobby and can join only the next run.
 - A disconnect removes the carrier from a child and drops the child safely.
@@ -293,9 +293,9 @@ Do not issue another reload until `CharacterAppearanceLoaded` has fired for the 
 
 ---
 
-## 4.2 — Loot, Resources, and Crafting Bench
+### 4.2 — Loot, Resources, and Crafting Bench
 
-### 4.2.1 Data Modules
+#### 4.2.1 Data Modules
 
 Add frozen, pure-data modules under `src/shared/`:
 
@@ -307,7 +307,7 @@ Add frozen, pure-data modules under `src/shared/`:
 
 Services read these modules. Controllers may read only client-safe display fields; the server independently calculates costs, caps, and outcomes.
 
-### 4.2.2 Minimum Run Economy
+#### 4.2.2 Minimum Run Economy
 
 | Resource               | Source                               | Purpose                                       |
 | ---------------------- | ------------------------------------ | --------------------------------------------- |
@@ -321,7 +321,7 @@ Services read these modules. Controllers may read only client-safe display field
 
 `Stone` should be removed from active recipe requirements unless Phase 4 also gives it a real source. Do not keep a resource field that cannot be earned.
 
-### 4.2.3 Landmark Chests
+#### 4.2.3 Landmark Chests
 
 Add `LootService.luau` and tag chest anchors with `RunChest` plus `LootTier`.
 
@@ -339,11 +339,11 @@ Initial loot targets:
 | Basic | 1–3 Scrap  | Coal, Berries, Mushroom, Raw Meat                         |
 | Gold  | 4–7 Scrap  | Bandage, Coal bundle, Cooked Meat, rare Spear replacement |
 
-### 4.2.4 Bench Interaction and Recipes
+#### 4.2.4 Bench Interaction and Recipes
 
 Reuse `ServerStorage.Assets.[Assets maps items].crafting-table` and place one at the main camp. Add `CraftingService` and `CraftingController`.
 
-#### Remote Contract
+##### Remote Contract
 
 - `GetBenchState() -> { tier, resources, recipeCounts }`
 - `RequestCraft(recipeId: string) -> { ok, code, placementToken?, itemId? }`
@@ -352,7 +352,7 @@ Reuse `ServerStorage.Assets.[Assets maps items].crafting-table` and place one at
 
 Failure codes: `INVALID_RECIPE`, `WRONG_TIER`, `CAP_REACHED`, `INSUFFICIENT_RESOURCES`, `NOT_NEAR_BENCH`, `NOT_ACTIVE`, `DOWNED`, `RATE_LIMITED`, `RUN_CHANGED`.
 
-#### Initial Recipe Table
+##### Initial Recipe Table
 
 | Tier | Recipe        | Cost                               | Per-run cap | Output/behavior                            |
 | ---- | ------------- | ---------------------------------- | ----------- | ------------------------------------------ |
@@ -373,7 +373,7 @@ Failure codes: `INVALID_RECIPE`, `WRONG_TIER`, `CAP_REACHED`, `INSUFFICIENT_RESO
 
 Crafting is atomic: validate live run and recipe, recompute owned resources, enforce the cap, deduct exactly once, create the server placement token/item, then broadcast deltas. A failed transaction deducts nothing.
 
-### 4.2.5 Navigation and Shared Storage
+#### 4.2.5 Navigation and Shared Storage
 
 **Map:** `MapController` renders a lightweight 2D panel rather than cloning the 8,000-part world into a ViewportFrame. Convert configured landmark/cave/camp world X/Z coordinates into normalized positions using the Base-map ground bounds. Undiscovered cave markers stay hidden; revealed caves, camp, selected waypoint, and living/downed teammates use icons plus text/tooltips. Keyboard uses `M`, gamepad uses a bound action, and touch uses a persistent map button.
 
@@ -383,9 +383,9 @@ Crafting is atomic: validate live run and recipe, recompute owned resources, enf
 
 ---
 
-## 4.3 — Server-Validated Building and Placement
+### 4.3 — Server-Validated Building and Placement
 
-### 4.3.1 Architecture
+#### 4.3.1 Architecture
 
 Add:
 
@@ -395,7 +395,7 @@ Add:
 
 A crafted placeable grants a random one-use placement token stored only on the server. The client receives its opaque token ID and structure display data.
 
-### 4.3.2 Client Preview
+#### 4.3.2 Client Preview
 
 - Clone a non-colliding local ghost from a client-safe preview model.
 - Raycast from pointer/camera to valid ground.
@@ -408,7 +408,7 @@ A crafted placeable grants a random one-use placement token stored only on the s
 
 Local validity is feedback only. It cannot place or spend resources.
 
-### 4.3.3 Authoritative Placement Request
+#### 4.3.3 Authoritative Placement Request
 
 `RequestPlace(tokenId: string, requestedCFrame: CFrame)` must validate:
 
@@ -424,7 +424,7 @@ Local validity is feedback only. It cannot place or spend resources.
 
 Only then clone the authoritative template, set attributes, parent to `Workspace.Runtime.Structures`, consume the token, and broadcast placement VFX. A rejected request keeps the token so the player can reposition.
 
-### 4.3.4 Structure Records
+#### 4.3.4 Structure Records
 
 Every structure receives:
 
@@ -436,7 +436,7 @@ Every structure receives:
 - `PlacedCycle`
 - behavior-specific attributes such as `Armed`, `Open`, or `ReadyCycle`
 
-### 4.3.5 Functional Behaviors
+#### 4.3.5 Functional Behaviors
 
 | Structure     | Required behavior                                                                                          |
 | ------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -451,11 +451,11 @@ NPC services must treat structures as obstacles/targets without letting a client
 
 ---
 
-## 4.4 — Beds and the 1x–9x Day Multiplier
+### 4.4 — Beds and the 1x–9x Day Multiplier
 
 The current roadmap's “interact with a bed to skip” behavior is replaced. In the reference loop, built beds and rescued children continuously increase how many displayed days pass after each survived night.
 
-### 4.4.1 Four Bed Variants
+#### 4.4.1 Four Bed Variants
 
 Create templates under `ServerStorage.Assets.[Assets Items].Beds`:
 
@@ -468,7 +468,7 @@ Create templates under `ServerStorage.Assets.[Assets Items].Beds`:
 
 Do not use random Creator Store bed models. All variants must have normalized pivots, one `PlacementFootprint` attribute/config, anchored static parts, no scripts, and a consistent low-poly style.
 
-### 4.4.2 Multiplier Formula
+#### 4.4.2 Multiplier Formula
 
 ```text
 multiplier = clamp(1 + uniquePlacedBeds + rescuedChildren, 1, 9)
@@ -482,7 +482,7 @@ multiplier = clamp(1 + uniquePlacedBeds + rescuedChildren, 1, 9)
 - If the result reaches 67, transition to `Ending` before another AI/raid cycle starts.
 - The Day 67 reward and result save use an idempotency key of `RunId + endingType`.
 
-### 4.4.3 HUD
+#### 4.4.3 HUD
 
 The day HUD must show both readable progression and cause:
 
@@ -493,9 +493,9 @@ The day HUD must show both readable progression and cause:
 
 ---
 
-## 4.5 — Four Guarded Caves and Child Rescues
+### 4.5 — Four Guarded Caves and Child Rescues
 
-### 4.5.1 Rescue Configuration
+#### 4.5.1 Rescue Configuration
 
 Use a single frozen table; services must not contain per-child branches.
 
@@ -508,7 +508,7 @@ Use a single frozen table; services must not contain per-child branches.
 
 Tent colors are assigned by rescue order: red, blue, yellow, purple. Child identity and tent order are stored separately.
 
-### 4.5.2 Cave Construction
+#### 4.5.2 Cave Construction
 
 - Import the **Kenney Modular Cave Kit** and build four compact caves from shared modules.
 - Use one entrance, short tunnel, guarded clearing, colored gate, and child room per cave.
@@ -518,14 +518,14 @@ Tent colors are assigned by rescue order: red, blue, yellow, purple. Child ident
 - Disable collision on decorative rocks; use Box/Hull collision for walkable modules; anchor static geometry.
 - Test all caves with StreamingEnabled and pathfinding from entrance to guard arena.
 
-### 4.5.3 Cave Availability
+#### 4.5.3 Cave Availability
 
 - A cave remains hidden/locked until the shared campfire reaches its configured level.
 - On unlock, reveal its distant marker/region and update the poster board.
 - Unlock is idempotent and run-owned; a reconnecting client receives the current cave snapshot.
 - Campfire level loss/fuel outage does not re-lock an already revealed cave, but the board waypoint requires the campfire to be lit.
 
-### 4.5.4 Guard Packs and Keys
+#### 4.5.4 Guard Packs and Keys
 
 `RescueService` requests guards from `AnimalAIService` with `GuardCaveId` and a bounded territory.
 
@@ -537,7 +537,7 @@ Tent colors are assigned by rescue order: red, blue, yellow, purple. Child ident
 - Key carries `CaveId`, `RunId`, and `KeyColor`; it unlocks only the matching live gate.
 - Gate unlock validates key ownership/carry state, range, cave state, and run token; it consumes the key once and tween-opens the gate.
 
-### 4.5.5 Child Variants
+#### 4.5.5 Child Variants
 
 - Use Dino and Kraken as the topology/rig standard; all four remain compatible R6 rigs.
 - Strip scripts and unneeded effects from duplicated rigs.
@@ -546,7 +546,7 @@ Tent colors are assigned by rescue order: red, blue, yellow, purple. Child ident
 - Do not copy wiki images, clothing textures, or third-party branded accessories.
 - Give each child a unique face treatment, name, cave palette, and tent nameplate so the variants are readable even without color.
 
-### 4.5.6 Child State Machine
+#### 4.5.6 Child State Machine
 
 ```text
 Locked → Available → Carried ↔ Dropped → Rescued
@@ -563,7 +563,7 @@ Rules:
 - Another player may pick up a dropped child.
 - Entering the **lit** camp safe zone finalizes rescue once. An unlit campfire does not complete rescue.
 
-### 4.5.7 Rescue Completion
+#### 4.5.7 Rescue Completion
 
 On first valid safe-zone entry:
 
@@ -577,7 +577,7 @@ On first valid safe-zone entry:
 8. Clear/reselect waypoints for all players.
 9. Increment run rescues; defer lifetime record mutation until results save.
 
-### 4.5.8 Poster Board and Waypoint
+#### 4.5.8 Poster Board and Waypoint
 
 Reuse a Base-map Hunters Lodge `Poster` part or mirror the lobby `Poster` at camp.
 
@@ -590,9 +590,9 @@ Reuse a Base-map Hunters Lodge `Poster` part or mirror the lobby `Poster` at cam
 
 ---
 
-## 4.6 — Downed, Revive, Elimination, Spectating, and Loss
+### 4.6 — Downed, Revive, Elimination, Spectating, and Loss
 
-### 4.6.1 Central Damage Boundary
+#### 4.6.1 Central Damage Boundary
 
 Add `PlayerLifeService.luau`. All player damage sources must route through:
 
@@ -602,7 +602,7 @@ PlayerLifeService:ApplyDamage(player, amount, source): DamageResult
 
 Refactor animal attacks, Deer/Ram/Owl contact, starvation, and future hazards to use it. Direct `Humanoid:TakeDamage()` outside this boundary would bypass downing and is not allowed.
 
-### 4.6.2 Life State Machine
+#### 4.6.2 Life State Machine
 
 ```text
 Alive → Downed → Alive (revived)
@@ -622,7 +622,7 @@ On down:
 - Create a revive prompt visible to living teammates.
 - Fire a team alert with the downed player's position.
 
-### 4.6.3 Revive
+#### 4.6.3 Revive
 
 - Reviver must be Alive, in the same current run, within prompt range, and own at least one Bandage.
 - Use a five-second hold. Movement out of range, reviver damage/down, target elimination, or run change cancels it.
@@ -632,7 +632,7 @@ On down:
 - A player cannot revive themselves.
 - Multiple simultaneous attempts resolve once; losing attempts consume nothing.
 
-### 4.6.4 Elimination and Spectating
+#### 4.6.4 Elimination and Spectating
 
 When bleed-out reaches zero:
 
@@ -643,7 +643,7 @@ When bleed-out reaches zero:
 - If no living teammate exists, show the run-loss transition.
 - Eliminated players remain spectators until the run ends.
 
-### 4.6.5 Team Loss
+#### 4.6.5 Team Loss
 
 End the run when no member can continue:
 
@@ -670,9 +670,9 @@ A dark results screen must distinguish an ordinary defeat from a technical abort
 
 ---
 
-## 4.7 — Day 67 Win, Ending, Results, and Replay
+### 4.7 — Day 67 Win, Ending, Results, and Replay
 
-### 4.7.1 Ending Trigger
+#### 4.7.1 Ending Trigger
 
 When dawn progression reaches 67:
 
@@ -683,7 +683,7 @@ When dawn progression reaches 67:
 5. Capture final statistics before cleanup.
 6. Play the ending once for all members.
 
-### 4.7.2 Ending Presentation
+#### 4.7.2 Ending Presentation
 
 - Fade from the final dawn to a controlled camera around the camp.
 - Show rescued children/tents and player-built defenses where they actually stand.
@@ -692,7 +692,7 @@ When dawn progression reaches 67:
 - Reduced Motion uses fades and fixed cameras instead of moving camera paths.
 - Players may skip only after the title reveal; one player cannot skip other players' results.
 
-### 4.7.3 Results
+#### 4.7.3 Results
 
 Show:
 
@@ -707,9 +707,9 @@ Show:
 - Revives and downs
 - Personal best indicators
 
-### 4.7.4 Idempotent Record Save
+#### 4.7.4 Idempotent Record Save
 
-Use one results transaction per player keyed by `RunId` in server memory. Update:
+Use one results transaction per player keyed by `RunId`. Compare the profile's persistent `Internal.LastAppliedRunId` before applying any totals, update records and that marker in the same non-yielding profile mutation, and also keep an in-memory completion set to suppress duplicate calls in the current server. Update:
 
 - Highest Day
 - Wins
@@ -717,9 +717,9 @@ Use one results transaction per player keyed by `RunId` in server memory. Update
 - Lifetime children rescued
 - Lifetime trees/kills/revives/playtime
 
-A retry may repeat the ProfileService mutation only if the same `RunId` has not already been applied. Never save structures, keys, resources, children, cave state, bench tier, or campfire state.
+A retry returns success without reapplying totals when `Internal.LastAppliedRunId` already equals the current `RunId`. Never save structures, keys, resources, children, cave state, bench tier, or campfire state.
 
-### 4.7.5 Return to Lobby and Replay
+#### 4.7.5 Return to Lobby and Replay
 
 - After results acknowledgement/timeout, transition `Ending → Ended`.
 - Destroy all run-owned instances and cleanup owners.
@@ -730,9 +730,9 @@ A retry may repeat the ProfileService mutation only if the same `RunId` has not 
 
 ---
 
-## 4.8 — Animation, VFX, Audio, UI, and Accessibility
+### 4.8 — Animation, VFX, Audio, UI, and Accessibility
 
-### 4.8.1 Animation Inventory and Ownership
+#### 4.8.1 Animation Inventory and Ownership
 
 The place contains useful source KeyframeSequences for Deer, Cultists, Wolf, Alpha Wolf, Bear, Bunny, and Axe. Phase 4 must stop treating all custom animals as if no authored motion exists.
 
@@ -759,7 +759,7 @@ Additional clips required:
 
 Do not depend on newly discovered public animation IDs without ownership/permission verification.
 
-### 4.8.2 Code-Driven VFX
+#### 4.8.2 Code-Driven VFX
 
 Use built-in particle textures, Beam, Trail, Highlight, TweenService, and Debris/Janitor. Every temporary emitter has Rate 0 and uses `:Emit()`; every anchor has a fixed lifetime.
 
@@ -778,7 +778,7 @@ Use built-in particle textures, Beam, Trail, Highlight, TweenService, and Debris
 
 Reduced Motion removes camera shake, large screen pulses, and moving UI while retaining readable color/icon feedback.
 
-### 4.8.3 Curated Free Audio Candidates
+#### 4.8.3 Curated Free Audio Candidates
 
 These candidates were found in the current Creator Store and must be previewed before use:
 
@@ -799,7 +799,7 @@ Audio acceptance:
 - Store all IDs/fallbacks in `AssetCatalog`; no ID is scattered across controllers.
 - If an ID fails moderation/permission, replace it with another official ProSoundEffects/APMOfficial asset, not an unknown reupload.
 
-### 4.8.4 UI Deliverables
+#### 4.8.4 UI Deliverables
 
 - Crafting menu: tier tabs, resource costs, caps, locked reason, input hints.
 - Placement HUD: item name, validity reason, rotate/place/cancel controls.
@@ -820,7 +820,7 @@ Requirements:
 - Disable gameplay controls while crafting/results menus own focus.
 - All runtime connections and created ScreenGuis belong to a controller Janitor.
 
-### 4.8.5 Intro and Poster Art
+#### 4.8.5 Intro and Poster Art
 
 `IntroAssets` currently has empty title/story image slots.
 
@@ -834,9 +834,9 @@ Optional owner-supplied original images may replace these slots. Do not copy scr
 
 ---
 
-## 4.9 — Asset Acquisition, Import, and Sanitization
+### 4.9 — Asset Acquisition, Import, and Sanitization
 
-### 4.9.1 Approved Free/CC0 Sources
+#### 4.9.1 Approved Free/CC0 Sources
 
 | Source                    | URL                                                 | Intended use                                                                      |
 | ------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------- |
@@ -848,7 +848,27 @@ Optional owner-supplied original images may replace these slots. Do not copy scr
 
 Keep the license/readme from every downloaded pack in the local asset source archive. Confirm the license at download time; a search-result summary alone is not a permanent license record.
 
-### 4.9.2 Import Checklist
+##### Phase 4 Asset Fulfillment Matrix
+
+| Needed asset                | Source/build method                                         | Required preparation                                                  |
+| --------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------- |
+| Four caves                  | Kenney Modular Cave Kit                                     | Build four compact layouts; recolor accents; author markers/collision |
+| Four rescue tents           | Kenney Tent or Studio primitives                            | Four material/color variants; child seat and nameplate markers        |
+| Old/Regular/Good/Giant Beds | Existing Bed and lodge bedroll geometry                     | Normalize pivots/footprints; create four variants; remove scripts     |
+| Log Gate                    | Derive from existing Log Wall                               | Add hinge/pivot, closed/open transforms, collision proxy              |
+| Bear Trap                   | Studio-authored wood/metal primitives                       | Trigger volume, jaws visual, armed/spent state; no Toolbox scripts    |
+| Farm Plot                   | Studio-authored soil/wood primitives                        | Crop marker attachments and ready-state visuals                       |
+| Storage Crate               | Derive from `basic-chest`                                   | Simplify lid; remove loot behavior; add interaction anchor            |
+| Bandage                     | Studio-authored white Fabric cylinders/roll                 | Pickup model and inventory icon/ViewportFrame                         |
+| Four cave keys              | Studio-authored low-poly key                                | Red/blue/yellow/gray variants; normalized pickup pivot                |
+| Guard collars               | Neon/fabric ring primitives attached to guard rigs          | Cave color plus icon/shape so color is not the only cue               |
+| Squid/Koala hats            | Studio-authored primitive accessories on duplicated R6 rigs | Unique silhouette, attachment fit, no copied texture/accessory        |
+| Missing board portraits     | ViewportFrames using owned child rigs                       | Neutral camera/lighting and generated status overlay                  |
+| Craft/build/rescue VFX      | Built-in particles, Beams, Highlights, tweens               | Pool/cleanup and Reduced Motion variants                              |
+| Ambience/interactions       | Approved official Creator Store audio in §4.8.3             | Permission, loop, loudness, and published-server checks               |
+| Story/ending images         | Owner originals or procedural scenes                        | Use fallback silhouettes/Viewports when not supplied                  |
+
+#### 4.9.2 Import Checklist
 
 For each FBX/OBJ/GLTF asset:
 
@@ -865,17 +885,17 @@ For each FBX/OBJ/GLTF asset:
 11. Place the sanitized template under the correct `ServerStorage.Assets` catalog folder.
 12. Test edit mode, solo runtime, two clients, and StreamingEnabled before using it in configuration.
 
-### 4.9.3 Rejected Asset Strategy
+#### 4.9.3 Rejected Asset Strategy
 
 Do not use generic Creator Store “99 Nights kit,” child NPC, dungeon, or bed models as production dependencies merely because they are free or recently uploaded. Search results are heavily keyword-spammed, often contain scripts, have inconsistent provenance, and produce a visibly copied/low-quality game. Existing place assets plus reputable CC0 geometry are safer, more coherent, and easier to maintain.
 
 ---
 
-## 4.10 — Exact Inputs Needed from the Owner
+### 4.10 — Exact Inputs Needed from the Owner
 
 Phase 4 coding can proceed with procedural placeholders, but final release requires these owner actions because assets live in the `.rbxlx` and cloud ownership cannot be solved by filesystem Luau alone.
 
-### Required
+#### Required
 
 - [ ] Approve the final Squid and Koala clothing palettes and simple accessory silhouettes.
 - [ ] Download/import the selected Kenney cave kit and preserve its license file.
@@ -884,7 +904,7 @@ Phase 4 coding can proceed with procedural placeholders, but final release requi
 - [ ] Preview and approve the five audio candidates in §4.8.3; confirm they play in a published private server.
 - [ ] Save and transfer the updated `.rbxlx` whenever assets change; Rojo does not version `ServerStorage.Assets` or map geometry.
 
-### Optional but Recommended for the Best Presentation
+#### Optional but Recommended for the Best Presentation
 
 - [ ] Four original story images: Deer sighting, four missing children, locked forest/police tape, survivors entering the forest.
 - [ ] One original game icon and two thumbnails using this game's own Day-67 identity.
@@ -895,9 +915,9 @@ If original images are not supplied, use the procedural silhouette and Studio Vi
 
 ---
 
-## 4.11 — Security, Performance, and Cleanup Contract
+### 4.11 — Security, Performance, and Cleanup Contract
 
-### 4.11.1 Remote Validation Matrix
+#### 4.11.1 Remote Validation Matrix
 
 | Request         | Server validation                                                                         |
 | --------------- | ----------------------------------------------------------------------------------------- |
@@ -920,7 +940,7 @@ General rules:
 - Rate-limit per action/player and clear cooldowns on run cleanup/player departure.
 - Return stable failure codes, not internal stack traces.
 
-### 4.11.2 Performance Budgets
+#### 4.11.2 Performance Budgets
 
 - Maximum 48 placed defenses/furniture, 8 farms, 10 active traps, 4 caves, and configured NPC caps per run.
 - No four-copy Ice Temple or similarly dense cave model.
@@ -931,7 +951,7 @@ General rules:
 - Pool or short-lifetime cleanup VFX; do not replicate cosmetic client-only particles from the server when unnecessary.
 - Static imported parts remain anchored; decorative collision and shadows are disabled.
 
-### 4.11.3 Cleanup Ownership
+#### 4.11.3 Cleanup Ownership
 
 Every run-created object belongs to one of:
 
@@ -945,25 +965,25 @@ A second run must not increase baseline active connections, tagged old instances
 
 ---
 
-## 4.12 — Ordered Acceptance Gates
+### 4.12 — Ordered Acceptance Gates
 
 Do not mark Phase 4 complete because files exist. Complete each gate through observable playtests.
 
-### Gate A — Phase 1–3 Production Regression
+#### Gate A — Phase 1–3 Production Regression
 
 - All test flags are off in published behavior.
 - Health is 100; Wood is finite; lobby/intro is reachable.
 - Day/night, hunger, campfire, forage, cooking, inventory, animals, stalkers, combat, and raids work in solo and two-client tests.
 - No high-frequency debug spam or related console errors.
 
-### Gate B — Clean Run Lifecycle
+#### Gate B — Clean Run Lifecycle
 
 - Start Run A, change resources/camp/structures, end it, and start Run B.
 - Run B begins at Day 1, Cycle 1, 1x, Tier 1, empty run inventory, no structures/rescues/keys.
 - No old timers, NPCs, tags, UI, audio, or connections affect Run B.
 - Downed/eliminated players never auto-respawn into the forest.
 
-### Gate C — Economy, Crafting, and Placement
+#### Gate C — Economy, Crafting, and Placement
 
 - Every loot source opens once and drops only server-selected valid items.
 - Every recipe succeeds with exact resources and fails atomically without them.
@@ -971,7 +991,7 @@ Do not mark Phase 4 complete because files exist. Complete each gate through obs
 - Placement accepts valid ground and rejects outside-zone, too-far, overlapping, steep, NaN, stale-token, duplicate-token, and over-cap requests.
 - Wall, gate, trap, farm, storage, and all beds perform their configured behavior.
 
-### Gate D — Four Rescue Arcs
+#### Gate D — Four Rescue Arcs
 
 For each cave:
 
@@ -983,7 +1003,7 @@ For each cave:
 - Lit safe-zone entry rescues once; unlit camp entry does not.
 - Tent/order, board, waypoint, multiplier, and result stats update correctly.
 
-### Gate E — Multiplier and Event Cadence
+#### Gate E — Multiplier and Event Cadence
 
 Test every contribution from 1x through 9x.
 
@@ -995,7 +1015,7 @@ Test every contribution from 1x through 9x.
 - Raids still occur every four real cycles and are never skipped by displayed-day jumps.
 - Day 67 ending fires once even if the final increment crosses beyond 67.
 
-### Gate F — Downed and Revive
+#### Gate F — Downed and Revive
 
 - Lethal NPC, stalker, raid, and starvation damage all enter Downed.
 - Down disables forbidden actions and drops carried child/item.
@@ -1004,7 +1024,7 @@ Test every contribution from 1x through 9x.
 - Bleed-out eliminates and starts spectating without character reload.
 - Solo loss and all-team loss trigger exactly once.
 
-### Gate G — Ending, Save, and Replay
+#### Gate G — Ending, Save, and Replay
 
 - Day 67 locks gameplay, pauses threats, plays the ending, and shows complete results.
 - Records update exactly once per RunId.
@@ -1012,7 +1032,7 @@ Test every contribution from 1x through 9x.
 - Return-to-lobby character reload occurs once and all UI/tools rebuild.
 - Replay starts clean and can reach gameplay again.
 
-### Gate H — Platform, Network, and Long-Session QA
+#### Gate H — Platform, Network, and Long-Session QA
 
 - Keyboard/mouse, touch emulator, and gamepad can complete every essential interaction.
 - Test solo, two clients, and five clients where available.
@@ -1022,7 +1042,7 @@ Test every contribution from 1x through 9x.
 - Run at least three complete accelerated test runs in one server and compare instance/connection/audio/animation memory baselines.
 - Capture MicroProfiler/SceneAnalysis data at camp during a raid and at the six-bear cave.
 
-### Release Criteria
+#### Release Criteria
 
 - Zero Phase 4-related errors in a full multiplayer run.
 - No permission failures for owned animations or approved audio in a published private server.
