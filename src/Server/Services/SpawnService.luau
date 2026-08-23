@@ -187,13 +187,13 @@ end
 local function grantTestResources(player: Player)
 	if not TEST_GIVE_RESOURCES then return end
 
-	-- Grant 1000 HP
+	-- Grant 200 HP (TEMP: normally 100)
 	local character = player.Character
 	if character then
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if humanoid then
-			humanoid.MaxHealth = 1000
-			humanoid.Health = 1000
+			humanoid.MaxHealth = 200
+			humanoid.Health = 200
 		end
 	end
 

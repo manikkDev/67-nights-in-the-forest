@@ -24,8 +24,8 @@ return {
 		CookedMeat = 0,
 	},
 	Survival = {
-		Health = 100,
-		MaxHealth = 100,
+		Health = 200, -- TEMP: normally 100
+		MaxHealth = 200, -- TEMP: normally 100
 		Hunger = 100,
 		MaxHunger = 100,
 		DeathCount = 0,
