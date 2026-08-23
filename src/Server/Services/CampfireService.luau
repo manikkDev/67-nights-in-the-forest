@@ -41,6 +41,7 @@ local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local Signal = require(ReplicatedStorage.Packages.Signal)
 
 -- | Objects | --
 local createSuccess, CampfireService = pcall(Knit.CreateService, {
@@ -81,6 +82,8 @@ end
 if not CampfireService.Client.IsLit then
 	CampfireService.Client.IsLit = Knit.CreateProperty(false)
 end
+
+CampfireService.LevelChangedServer = CampfireService.LevelChangedServer or Signal.new()
 
 -- | Configuration | --
 local FEED_RANGE = 10
@@ -236,6 +239,22 @@ function CampfireService:ApplyExternalDrain(amount: number)
 end
 
 --[[
+    @summary  Restore the campfire to its fresh-run state.
+]]
+function CampfireService:ResetForRun()
+	stateLoaded = true
+	level = 1
+	levelProgress = 0
+	maxFuel = MAX_FUEL_BY_LEVEL[1]
+	fuel = 0
+	isLit = false
+	feedCooldowns = {}
+	currentSafeZoneRadius = 0
+	lastBroadcastRadius = 0
+	CampfireService.LevelChangedServer:Fire(level, 0)
+end
+
+--[[
     @summary  Compute the level-progress value of one log at the current level.
     @returns  number
 ]]
@@ -257,6 +276,7 @@ local function processLevelUps()
 		for _, player in ipairs(Players:GetPlayers()) do
 			CampfireService.Client.LevelUp:Fire(player, level, level - 1, currentSafeZoneRadius, maxFuel)
 		end
+		CampfireService.LevelChangedServer:Fire(level, level - 1)
 	end
 
 	-- Cap progress at the final level's requirement so the bar sits at 100%.
@@ -646,9 +666,9 @@ local function scanForLogFuel()
 			continue
 		end
 
-		if resourceName == "Wood" then
+		if resourceName == "Wood" or resourceName == "Coal" then
 			consumedThisScan[model] = true
-			addFuel(1)
+			addFuel(if resourceName == "Coal" then 3 else 1)
 			model:Destroy()
 		elseif resourceName == "RawMeat" or resourceName == "RabbitMeat" then
 			consumedThisScan[model] = true
@@ -799,7 +819,6 @@ local function setupCampfire()
 	updateSafeZone()
 	broadcastSafeZone(nil, true)
 
-	print("[CampfireService] Campfire wired — level", level, "fuel", fuel, "/", maxFuel)
 end
 
 --[[
@@ -906,7 +925,6 @@ function CampfireService:KnitStart()
 		end
 	end
 
-	print("[CampfireService] Initialised — fuel/level drain active")
 end
 
 -- Rojo hot-reload path: if the service already existed, the new module's KnitStart
@@ -945,7 +963,6 @@ if not createSuccess then
 	setupCampfire()
 	CampfireService._HeartbeatConnection = RunService.Heartbeat:Connect(onHeartbeat)
 
-	print("[CampfireService] Hot-reloaded — level/fuel system wired")
 end
 
 Players.PlayerRemoving:Connect(function(player)

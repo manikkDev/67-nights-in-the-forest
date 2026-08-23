@@ -129,7 +129,6 @@ local function collectTreePivots()
 		end
 	end
 
-	print("[ForageService] Collected", #treePivots, "tree pivots for forage scatter")
 end
 
 --[[
@@ -350,7 +349,6 @@ local function spawnInitialForage()
 		spawnForagePickup("Mushrooms")
 	end
 
-	print("[ForageService] Spawned initial forage:", activePickups, "pickups")
 end
 
 -- // CLIENT REMOTES // --
@@ -419,7 +417,6 @@ function ForageService:KnitStart()
 	collectTreePivots()
 	task.delay(1, spawnInitialForage)
 
-	print("[ForageService] Initialised — forage/eat active")
 end
 
 return ForageService

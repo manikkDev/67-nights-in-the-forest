@@ -151,7 +151,6 @@ local function startRaid(dayNumber: number)
 	local count = computeRaidSize(dayNumber)
 	spawnRaidWave(count)
 	broadcastToAll(CultistRaidService.Client.RaidStarted, dayNumber, count)
-	print("[CultistRaidService] Raid started for day", dayNumber, "with", count, "cultists")
 end
 
 --[[
@@ -208,7 +207,6 @@ local function onHeartbeat(dt: number)
 	if survivors == 0 then
 		raidActive = false
 		broadcastToAll(CultistRaidService.Client.RaidCleared, raidDayNumber)
-		print("[CultistRaidService] Raid cleared for day", raidDayNumber)
 		return
 	end
 
@@ -227,7 +225,6 @@ function CultistRaidService:KnitStart()
 
 	RunService.Heartbeat:Connect(onHeartbeat)
 
-	print("[CultistRaidService] Initialised — raid timer active")
 end
 
 return CultistRaidService

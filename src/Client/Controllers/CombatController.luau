@@ -223,7 +223,6 @@ function CombatController:KnitStart()
 		flashDamage()
 	end)
 
-	print("[CombatController] Initialised — spear/hit feedback active")
 end
 
 return CombatController

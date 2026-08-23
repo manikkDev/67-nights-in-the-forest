@@ -126,7 +126,6 @@ function RaidBannerController:KnitStart()
 		showBanner("The raid has been repelled.", CLEARED_COLOR)
 	end)
 
-	print("[RaidBannerController] Initialised — raid banner active")
 end
 
 return RaidBannerController

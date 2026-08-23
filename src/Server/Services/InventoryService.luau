@@ -35,6 +35,7 @@ local RunService = game:GetService("RunService")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Constants = require(ReplicatedStorage.Shared.Constants)
+local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 
 -- | Objects | --
 local InventoryService = Knit.CreateService({
@@ -52,8 +53,19 @@ local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local CARRY_BAG_NAME = "carry-bag"
 local CARRY_BAG_TOOL_NAME = "Carry Bag"
 local FLASHLIGHT_TOOL_NAME = "Flashlight"
-local TEST_INFINITE_WOOD = true
-local RESOURCE_NAMES = { "Wood", "Stone", "Berries", "Mushrooms", "RawMeat", "CookedMeat", "RabbitMeat", "OwlFeather" }
+local RESOURCE_NAMES = {
+	"Wood",
+	"Scrap",
+	"Coal",
+	"Berries",
+	"Mushrooms",
+	"RawMeat",
+	"CookedMeat",
+	"RabbitMeat",
+	"OwlFeather",
+	"CultistGem",
+	"Bandage",
+}
 
 local PICKUP_RANGE = 12
 local DROP_SPACING = 2.2
@@ -64,12 +76,15 @@ local DRAG_MAX_DISTANCE = 50
 -- Map resources to the asset name in ITEMS_PATH.  Mushrooms use their own asset builder.
 local DROP_ASSETS: { [string]: string? } = {
 	Wood = "Log",
-	Stone = "Coal",
+	Coal = "Coal",
+	Scrap = "Coal",
 	Berries = "Carrot",
 	RawMeat = "rabbit-meat",
 	CookedMeat = "wolf-meat",
 	RabbitMeat = "rabbit-meat",
 	OwlFeather = nil :: string?,
+	CultistGem = nil :: string?,
+	Bandage = nil :: string?,
 }
 local MUSHROOM_ASSET_NAME = "Mushroom"
 
@@ -152,6 +167,15 @@ function InventoryService:GetTotalCarried(player: Player): number
 end
 
 --[[
+    @summary  Return whether a resource identifier is supported.
+    @param    name  string
+    @returns  boolean
+]]
+function InventoryService:IsResource(name: string): boolean
+	return table.find(RESOURCE_NAMES, name) ~= nil
+end
+
+--[[
     @summary  Fire the client-facing resources snapshot for one player.
     @param    player  Player  -- the Roblox player
 ]]
@@ -161,6 +185,14 @@ local function broadcastSnapshot(player: Player)
 		return
 	end
 	InventoryService.Client.ResourcesChanged:Fire(player, table.clone(data.Resources), InventoryService:GetCapacity(player))
+end
+
+--[[
+    @summary  Push the current resource state to one player.
+    @param    player  Player
+]]
+function InventoryService:Refresh(player: Player)
+	broadcastSnapshot(player)
 end
 
 --[[
@@ -178,24 +210,6 @@ function InventoryService:AddResource(player: Player, name: string, amount: numb
 	local data = getPlayerData(player)
 	if not data then
 		return 0
-	end
-
-	-- TEST: infinite wood — bypass capacity check
-	if TEST_INFINITE_WOOD and name == "Wood" then
-		updatePlayerData(player, function(playerData)
-			playerData.Resources.Wood = (playerData.Resources.Wood or 0) + amount
-			if typeof(playerData.Inventory) ~= "table" then
-				playerData.Inventory = {}
-			end
-			if typeof(playerData.Inventory.PickupOrder) ~= "table" then
-				playerData.Inventory.PickupOrder = {}
-			end
-			for _ = 1, amount do
-				table.insert(playerData.Inventory.PickupOrder, "Wood")
-			end
-		end)
-		broadcastSnapshot(player)
-		return amount
 	end
 
 	local capacity = self:GetCapacity(player)
@@ -240,12 +254,6 @@ function InventoryService:ConsumeResource(player: Player, name: string, amount: 
 	local data = getPlayerData(player)
 	if not data or (data.Resources[name] or 0) < amount then
 		return false
-	end
-
-	-- TEST: infinite wood — don't actually decrement
-	if TEST_INFINITE_WOOD and name == "Wood" then
-		broadcastSnapshot(player)
-		return true
 	end
 
 	updatePlayerData(player, function(playerData)
@@ -1187,8 +1195,9 @@ function InventoryService:KnitStart()
 		spawnService.PlayerSpawned:Connect(function(player: Player)
 			giveCarryBag(player)
 			giveFlashlight(player)
-			if TEST_INFINITE_WOOD then
+			if RunConfig.IsTestEnabled("GrantResources") then
 				self:AddResource(player, "Wood", 50)
+				self:AddResource(player, "Scrap", 30)
 			end
 			broadcastSnapshot(player)
 		end)
@@ -1241,8 +1250,6 @@ function InventoryService:KnitStart()
 	end
 
 	RunService.Heartbeat:Connect(cleanupDrags)
-
-	print("[InventoryService] Initialised — capacity & carry-bag tool active")
 end
 
 return InventoryService

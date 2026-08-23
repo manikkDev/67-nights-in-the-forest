@@ -383,7 +383,6 @@ function CampSafetyController:KnitStart()
 		end
 	end
 
-	print("[CampSafetyController] Initialised — safe zone warning active")
 end
 
 return CampSafetyController

@@ -32,6 +32,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 
 -- | Objects | --
 local TimeService = Knit.CreateService({
@@ -39,15 +40,14 @@ local TimeService = Knit.CreateService({
 	Client = {
 		DayStarted = Knit.CreateSignal(),
 		NightStarted = Knit.CreateSignal(),
+		DawnAdvanced = Knit.CreateSignal(),
 		GetPhaseState = Knit.CreateProperty("Day"),
 	},
 })
 
 -- | Configuration | --
-local DAY_DURATION = 15 -- TEMP: reduced for testing (normally 120)
-local NIGHT_DURATION = 120
-local DAY_START_CLOCK = 6
-local DAY_END_CLOCK = 18
+local DAY_START_CLOCK = RunConfig.DayStartClock
+local DAY_END_CLOCK = RunConfig.DayEndClock
 local DAY_AMBIENT = Color3.fromRGB(128, 128, 128)
 local NIGHT_AMBIENT = Color3.fromRGB(20, 22, 32)
 local DAY_OUTDOOR_AMBIENT = Color3.fromRGB(128, 128, 128)
@@ -62,9 +62,12 @@ local TWEEN_DURATION = 8
 local currentPhase: "Day" | "Night" = "Day"
 local phaseTimer = 0
 local clockTime = DAY_START_CLOCK
-local dayNumber = 1
+local cycleIndex = 1
+local displayedDay = 1
 local isRunning = false
 local heartbeatConnection: RBXScriptConnection? = nil
+local multiplierProvider: (() -> number)? = nil
+local dawnListeners: { (payload: { [string]: any }) -> () } = {}
 
 -- // FUNCTIONS // --
 
@@ -85,19 +88,84 @@ function TimeService:GetClockTime(): number
 end
 
 --[[
-    @summary  Return the current day number (starts at 1).
+    @summary  Return how many night cycles have actually been played.
+    @desc     Scheduling (raids, entity unlocks, spawn scaling) must use
+              this value, never the displayed progress value.
+    @returns  number
+]]
+function TimeService:GetCycleIndex(): number
+	return cycleIndex
+end
+
+--[[
+    @summary  Return the survival progress value shown to players.
+    @returns  number
+]]
+function TimeService:GetDisplayedDay(): number
+	return displayedDay
+end
+
+--[[
+    @summary  Return the scheduling cycle index.
     @returns  number
 ]]
 function TimeService:GetDayNumber(): number
-	return dayNumber
+	return cycleIndex
 end
 
 function TimeService.Client:GetDayNumber(_player: Player): number
-	return dayNumber
+	return displayedDay
+end
+
+function TimeService.Client:GetProgress(_player: Player): { [string]: any }
+	return {
+		displayedDay = displayedDay,
+		cycleIndex = cycleIndex,
+		goalDay = RunConfig.GoalDay,
+		phase = currentPhase,
+	}
 end
 
 function TimeService:IsRunning(): boolean
 	return isRunning
+end
+
+--[[
+    @summary  Pause the clock without resetting run progress.
+]]
+function TimeService:Pause()
+	isRunning = false
+end
+
+--[[
+    @summary  Register the source of the current day multiplier.
+    @param    provider  function  -- returns the current multiplier
+]]
+function TimeService:SetMultiplierProvider(provider: () -> number)
+	multiplierProvider = provider
+end
+
+--[[
+    @summary  Register a server listener for dawn progression.
+    @param    listener  function  -- receives the dawn payload
+]]
+function TimeService:OnDawn(listener: (payload: { [string]: any }) -> ())
+	table.insert(dawnListeners, listener)
+end
+
+--[[
+    @summary  Return the currently active day multiplier.
+    @returns  number
+]]
+local function getMultiplier(): number
+	if not multiplierProvider then
+		return RunConfig.BaseMultiplier
+	end
+	local ok, value = pcall(multiplierProvider)
+	if not ok or typeof(value) ~= "number" then
+		return RunConfig.BaseMultiplier
+	end
+	return math.clamp(math.floor(value), RunConfig.BaseMultiplier, RunConfig.MaxMultiplier)
 end
 
 --[[
@@ -138,16 +206,35 @@ local function broadcastSignal(signal, ...)
 end
 
 --[[
-    @summary  Switch to the day phase.
+    @summary  Switch to the day phase and apply survival progression.
 ]]
 local function startDay()
 	currentPhase = "Day"
 	phaseTimer = 0
-	dayNumber += 1
+	cycleIndex += 1
+
+	local multiplier = getMultiplier()
+	local previousDay = displayedDay
+	displayedDay = math.min(RunConfig.GoalDay, displayedDay + multiplier)
+
 	transitionToDay()
 	TimeService.Client.GetPhaseState:Set("Day")
-	broadcastSignal(TimeService.Client.DayStarted, dayNumber)
-	print("[TimeService] Day", dayNumber, "started")
+
+	local payload = {
+		previousDay = previousDay,
+		displayedDay = displayedDay,
+		cycleIndex = cycleIndex,
+		multiplier = multiplier,
+		goalDay = RunConfig.GoalDay,
+		reachedGoal = displayedDay >= RunConfig.GoalDay,
+	}
+
+	broadcastSignal(TimeService.Client.DayStarted, cycleIndex)
+	broadcastSignal(TimeService.Client.DawnAdvanced, payload)
+
+	for _, listener in ipairs(dawnListeners) do
+		task.spawn(listener, payload)
+	end
 end
 
 --[[
@@ -158,8 +245,7 @@ local function startNight()
 	phaseTimer = 0
 	transitionToNight()
 	TimeService.Client.GetPhaseState:Set("Night")
-	broadcastSignal(TimeService.Client.NightStarted, dayNumber)
-	print("[TimeService] Night", dayNumber, "started")
+	broadcastSignal(TimeService.Client.NightStarted, cycleIndex)
 end
 
 --[[
@@ -173,7 +259,7 @@ local function onHeartbeat(dt: number)
 
 	phaseTimer += dt
 
-	local duration = if currentPhase == "Day" then DAY_DURATION else NIGHT_DURATION
+	local duration = RunConfig.GetPhaseDuration(currentPhase)
 	local progress = phaseTimer / duration
 	clockTime = if currentPhase == "Day"
 		then DAY_START_CLOCK + (DAY_END_CLOCK - DAY_START_CLOCK) * progress
@@ -199,8 +285,8 @@ local function applyDayLightingImmediate()
 end
 
 --[[
-    @summary  Begin the day/night clock at Day 1.
-    @desc    Idempotent. Does not increment dayNumber.
+    @summary  Begin the day/night clock at the start of a run.
+    @desc    Idempotent while already running.
 ]]
 function TimeService:StartMatch()
 	if isRunning then
@@ -211,16 +297,41 @@ function TimeService:StartMatch()
 	currentPhase = "Day"
 	phaseTimer = 0
 	clockTime = DAY_START_CLOCK
-	dayNumber = 1
+	cycleIndex = 1
+	displayedDay = 1
 	applyDayLightingImmediate()
 	TimeService.Client.GetPhaseState:Set("Day")
-	broadcastSignal(TimeService.Client.DayStarted, dayNumber)
+	broadcastSignal(TimeService.Client.DayStarted, cycleIndex)
+	broadcastSignal(TimeService.Client.DawnAdvanced, {
+		previousDay = 1,
+		displayedDay = 1,
+		cycleIndex = 1,
+		multiplier = getMultiplier(),
+		goalDay = RunConfig.GoalDay,
+		reachedGoal = false,
+	})
 
 	if not heartbeatConnection then
 		heartbeatConnection = RunService.Heartbeat:Connect(onHeartbeat)
 	end
+end
 
-	print("[TimeService] Match started — Day 1")
+--[[
+    @summary  Stop the clock and restore the pre-run lighting baseline.
+]]
+function TimeService:ResetMatch()
+	isRunning = false
+	currentPhase = "Day"
+	phaseTimer = 0
+	clockTime = DAY_START_CLOCK
+	cycleIndex = 1
+	displayedDay = 1
+	applyDayLightingImmediate()
+	TimeService.Client.GetPhaseState:Set("Day")
+	if heartbeatConnection then
+		heartbeatConnection:Disconnect()
+		heartbeatConnection = nil
+	end
 end
 
 -- // INITIALIZATION // --
@@ -230,7 +341,5 @@ Lighting.Ambient = DAY_AMBIENT
 Lighting.OutdoorAmbient = DAY_OUTDOOR_AMBIENT
 Lighting.Brightness = DAY_BRIGHTNESS
 Lighting.FogEnd = DAY_FOG_END
-
-print("[TimeService] Initialised — waiting for match start")
 
 return TimeService

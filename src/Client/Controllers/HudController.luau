@@ -174,6 +174,7 @@ end
 function HudController:KnitStart()
 	gameStateController = Knit.GetController("GameStateController")
 	local timeService = Knit.GetService("TimeService")
+	local runStateService = Knit.GetService("RunStateService")
 
 	local function enableLabels()
 		labelsEnabled = true
@@ -191,21 +192,30 @@ function HudController:KnitStart()
 		end
 	end
 
-	timeService.DayStarted:Connect(function(dayNumber)
-		if typeof(dayNumber) == "number" then
-			currentDayNumber = dayNumber
+	timeService.DayStarted:Connect(function()
+		if labelsEnabled then
+			showDay()
+		end
+	end)
+
+	timeService.NightStarted:Connect(function()
+		if labelsEnabled then
+			showNight()
+		end
+	end)
+
+	timeService.DawnAdvanced:Connect(function(payload)
+		if typeof(payload) == "table" and typeof(payload.displayedDay) == "number" then
+			currentDayNumber = payload.displayedDay
 		end
 		if labelsEnabled then
 			showDay()
 		end
 	end)
 
-	timeService.NightStarted:Connect(function(dayNumber)
-		if typeof(dayNumber) == "number" then
-			currentDayNumber = dayNumber
-		end
-		if labelsEnabled then
-			showNight()
+	timeService:GetProgress():andThen(function(progress)
+		if typeof(progress) == "table" and typeof(progress.displayedDay) == "number" then
+			currentDayNumber = progress.displayedDay
 		end
 	end)
 
@@ -223,7 +233,15 @@ function HudController:KnitStart()
 		end)
 	end
 
-	print("[HudController] Initialised — day/night banner bound to TimeService")
+	runStateService.RunPhaseChanged:Connect(function(payload)
+		if typeof(payload) == "table" and payload.phase == "Lobby" then
+			labelsEnabled = false
+			currentDayNumber = 1
+			if phaseGui then
+				phaseGui.Enabled = false
+			end
+		end
+	end)
 end
 
 return HudController

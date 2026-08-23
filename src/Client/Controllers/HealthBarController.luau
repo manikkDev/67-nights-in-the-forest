@@ -290,7 +290,6 @@ function HealthBarController:KnitStart()
 	end)
 
 	startHideLoop()
-	print("[HealthBarController] Initialised — NPC health bars active")
 end
 
 return HealthBarController

@@ -527,7 +527,6 @@ function FlashlightController:KnitStart()
 	end
 
 	updateBatteryUI()
-	print("[FlashlightController] Initialised — battery panel + toggle active")
 end
 
 return FlashlightController

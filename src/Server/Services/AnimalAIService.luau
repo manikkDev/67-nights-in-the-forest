@@ -34,6 +34,7 @@ local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local Signal = require(ReplicatedStorage.Packages.Signal)
 local NpcConfig = require(ReplicatedStorage.Shared.NpcConfig)
 local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 
@@ -46,6 +47,8 @@ local AnimalAIService = Knit.CreateService({
 		NpcHealthChanged = Knit.CreateSignal(),
 	},
 })
+
+AnimalAIService.NpcDiedServer = Signal.new()
 
 -- | Configuration | --
 local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
@@ -80,6 +83,8 @@ local timeService: any = nil
 local spawnService: any = nil
 local inventoryService: any = nil
 local playerDataService: any = nil
+local playerLifeService: any = nil
+local runStateService: any = nil
 local activeNpcs: { [Model]: any } = {}
 local speciesCounts: { [string]: number } = {}
 local lastPhase: string = "Day"
@@ -88,6 +93,7 @@ local persistentSpawned = false
 local respawnCheckTimer = 0
 local treePivots: { CFrame } = {}
 local groundBounds: { minX: number, maxX: number, minZ: number, maxZ: number }? = nil
+local spawnPersistentPopulation: (() -> ())? = nil
 
 -- // FUNCTIONS // --
 
@@ -123,7 +129,6 @@ local function collectSpawnArea()
 		end
 	end
 
-	print("[AnimalAIService] Collected", #treePivots, "tree pivots for spawn scatter")
 end
 
 --[[
@@ -472,6 +477,7 @@ local function killNpc(record, attacker: Player?)
 	end
 
 	broadcastToAll(AnimalAIService.Client.NpcDied, record.model, record.model:GetPivot().Position, record.key)
+	AnimalAIService.NpcDiedServer:Fire(record.model, record.key, attacker)
 
 	if record.humanoid then
 		record.humanoid.WalkSpeed = 0
@@ -531,6 +537,9 @@ local function findNearestPlayer(position: Vector3, range: number): (Player?, nu
 	local nearestDist: number? = nil
 	for _, player in ipairs(Players:GetPlayers()) do
 		if spawnService and not spawnService:IsPlayerSpawned(player) then
+			continue
+		end
+		if playerLifeService and not playerLifeService:IsAlive(player) then
 			continue
 		end
 		local character = player.Character
@@ -739,14 +748,13 @@ local function runStateBehavior(record, dt: number)
 		local now = os.clock()
 		if not record.lastAttackTime or (now - record.lastAttackTime) >= config.AttackCooldown then
 			record.lastAttackTime = now
-			local character = record.target and (record.target :: Player).Character
-			local targetHumanoid = character and character:FindFirstChildOfClass("Humanoid")
-			if targetHumanoid then
+			local targetPlayer = record.target :: Player?
+			if targetPlayer and playerLifeService and playerLifeService:IsAlive(targetPlayer) then
 				playLunge(record)
 				if record.tracks and record.tracks.Attack then
 					record.tracks.Attack:Play()
 				end
-				targetHumanoid:TakeDamage(config.AttackDamage)
+				playerLifeService:ApplyDamage(targetPlayer, config.AttackDamage, record.speciesKey)
 				broadcastToAll(AnimalAIService.Client.NpcAttacked, record.rootPart.Position)
 			end
 		end
@@ -852,10 +860,39 @@ end
 ]]
 function AnimalAIService:DespawnAllOfSpecies(speciesKey: string)
 	for model, record in pairs(activeNpcs) do
-		if record.key == speciesKey then
+		if record.key == speciesKey and model:GetAttribute("GuardCaveId") == nil then
 			cleanupRecord(record)
 		end
 	end
+end
+
+--[[
+    @summary  Destroy every generic NPC without scheduling replacements.
+]]
+function AnimalAIService:CleanupAll()
+	for _, record in pairs(activeNpcs) do
+		cleanupRecord(record)
+	end
+	activeNpcs = {}
+	speciesCounts = {}
+	persistentSpawned = false
+	respawnCheckTimer = 0
+end
+
+--[[
+    @summary  Destroy all generic NPCs and start a fresh run population.
+]]
+function AnimalAIService:ResetForRun()
+	self:CleanupAll()
+	lastPhase = "Day"
+	nightSpawnDone = false
+
+	local capturedRunId = runStateService and runStateService:GetRunId()
+	task.delay(1, function()
+		if runStateService and runStateService:IsCurrentRun(capturedRunId) then
+			spawnPersistentPopulation()
+		end
+	end)
 end
 
 --[[
@@ -890,7 +927,7 @@ end
     @summary  Spawn the always-present Bunny/Bear population once,
               at server start (they persist across the whole run).
 ]]
-local function spawnPersistentPopulation()
+spawnPersistentPopulation = function()
 	if persistentSpawned then
 		return
 	end
@@ -985,13 +1022,16 @@ function AnimalAIService:KnitStart()
 	spawnService = Knit.GetService("SpawnService")
 	inventoryService = Knit.GetService("InventoryService")
 	playerDataService = Knit.GetService("PlayerDataService")
+	playerLifeService = Knit.GetService("PlayerLifeService")
+	runStateService = Knit.GetService("RunStateService")
 
 	collectSpawnArea()
-	task.delay(3, spawnPersistentPopulation)
+	runStateService.RunCleaned:Connect(function()
+		AnimalAIService:CleanupAll()
+	end)
 
 	RunService.Heartbeat:Connect(onHeartbeat)
 
-	print("[AnimalAIService] Initialised — animal AI active")
 end
 
 return AnimalAIService

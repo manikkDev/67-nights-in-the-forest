@@ -1,0 +1,487 @@
+--[[
+    @file    RunStateService.luau
+    @author  manik
+    @date    2025
+
+    @summary
+    Authoritative owner of one forest run: lifecycle phase, run token,
+    membership, day multiplier, run statistics, and per-run cleanup.
+
+    @description
+    Every Phase 4 system asks this service whether a run is active and
+    whether a captured token is still current before mutating state.
+    Run-scoped profile tables are cleared when a run starts and again
+    when it ends, so a finished camp never carries into the next run.
+
+    @exports
+    - RunStateService:GetRunId()                 -> string
+    - RunStateService:GetPhase()                 -> RunPhase
+    - RunStateService:IsActive()                 -> boolean
+    - RunStateService:IsCurrentRun(runId)        -> boolean
+    - RunStateService:IsMember(player)           -> boolean
+    - RunStateService:StartRun(players)          -> string?
+    - RunStateService:EndRun(reason, payload)
+    - RunStateService:GetRuntimeFolder()         -> Folder
+    - RunStateService:AddMultiplierSource(key, amount)
+    - RunStateService:GetMultiplier()            -> number
+    - RunStateService:IncrementStat(player, key, amount)
+    - Knit Signal: RunPhaseChanged(phase, payload)
+]]
+
+-- // VARIABLES // --
+
+-- | Services | --
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
+
+-- | Modules | --
+local Knit = require(ReplicatedStorage.Packages.Knit)
+local Signal = require(ReplicatedStorage.Packages.Signal)
+local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
+
+-- | Objects | --
+local RunStateService = Knit.CreateService({
+	Name = "RunStateService",
+	Client = {
+		RunPhaseChanged = Knit.CreateSignal(),
+		MultiplierChanged = Knit.CreateSignal(),
+		RunEnded = Knit.CreateSignal(),
+	},
+})
+
+export type RunPhase = "Lobby" | "Starting" | "Active" | "Ending" | "Ended"
+
+RunStateService.PhaseChanged = Signal.new()
+RunStateService.RunStarted = Signal.new()
+RunStateService.RunEnding = Signal.new()
+RunStateService.RunCleaned = Signal.new()
+
+-- | Configuration | --
+local RUNTIME_FOLDER_NAME = "Runtime"
+local RUN_SCOPED_PROFILE_KEYS = { "Resources", "Base", "Rescue", "Stats", "Campfire", "Inventory" }
+
+-- | State Management | --
+local playerDataService: any = nil
+local timeService: any = nil
+local spawnService: any = nil
+local campfireService: any = nil
+local animalAIService: any = nil
+
+local runId = ""
+local phase: RunPhase = "Lobby"
+local runStartedAt = 0
+local members: { [Player]: boolean } = {}
+local multiplierSources: { [string]: number } = {}
+local runtimeFolder: Folder? = nil
+local cleanupCallbacks: { () -> () } = {}
+
+-- // FUNCTIONS // --
+
+-- | Private | --
+
+--[[
+    @summary  Return a fresh copy of a run-scoped profile table.
+    @param    key  string  -- top-level profile table name
+    @returns  table
+]]
+local function freshRunTable(key: string): { [string]: any }
+	if key == "Resources" then
+		return {
+			Wood = 0,
+			Scrap = 0,
+			Coal = 0,
+			Berries = 0,
+			Mushrooms = 0,
+			RawMeat = 0,
+			RabbitMeat = 0,
+			CookedMeat = 0,
+			OwlFeather = 0,
+			CultistGem = 0,
+			Bandage = 0,
+		}
+	elseif key == "Base" then
+		return { BedCount = 0, DayMultiplier = 1, UnlockedStructures = {} }
+	elseif key == "Rescue" then
+		return { ChildrenRescued = {}, CavesUnlocked = {} }
+	elseif key == "Stats" then
+		return {
+			TreesChopped = 0,
+			WolvesKilled = 0,
+			CultistsKilled = 0,
+			StructuresBuilt = 0,
+			ChildrenRescued = 0,
+			Revives = 0,
+			Downs = 0,
+			TotalPlaytime = 0,
+		}
+	elseif key == "Campfire" then
+		return { Level = 1, Progress = 0, Fuel = 0 }
+	end
+	return { HasBag = true, PickupOrder = {} }
+end
+
+--[[
+    @summary  Reset every run-scoped table on one player's profile.
+    @param    player  Player
+]]
+local function resetPlayerRunData(player: Player)
+	if not playerDataService then
+		return
+	end
+	playerDataService:UpdateData(player, function(data)
+		for _, key in ipairs(RUN_SCOPED_PROFILE_KEYS) do
+			data[key] = freshRunTable(key)
+		end
+		data.Survival = data.Survival or {}
+		data.Survival.Health = RunConfig.StartingHealth
+		data.Survival.MaxHealth = RunConfig.StartingHealth
+		data.Survival.Hunger = RunConfig.StartingHunger
+		data.Survival.MaxHunger = RunConfig.StartingHunger
+	end)
+end
+
+--[[
+    @summary  Create or reuse the folder that holds all run instances.
+    @returns  Folder
+]]
+local function ensureRuntimeFolder(): Folder
+	if runtimeFolder and runtimeFolder.Parent then
+		return runtimeFolder
+	end
+	local existing = workspace:FindFirstChild(RUNTIME_FOLDER_NAME)
+	if existing and existing:IsA("Folder") then
+		runtimeFolder = existing
+		return existing
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = RUNTIME_FOLDER_NAME
+	folder.Parent = workspace
+	runtimeFolder = folder
+	return folder
+end
+
+--[[
+    @summary  Broadcast the current lifecycle phase to every member.
+    @param    payload  table?  -- optional extra state for clients
+]]
+local function broadcastPhase(payload: { [string]: any }?)
+	local data = payload or {}
+	data.phase = phase
+	data.runId = runId
+	for _, player in ipairs(Players:GetPlayers()) do
+		RunStateService.Client.RunPhaseChanged:Fire(player, data)
+	end
+	RunStateService.PhaseChanged:Fire(phase, data)
+end
+
+-- | Public | --
+
+--[[
+    @summary  Return the identifier of the current run.
+    @returns  string
+]]
+function RunStateService:GetRunId(): string
+	return runId
+end
+
+--[[
+    @summary  Return the current lifecycle phase.
+    @returns  RunPhase
+]]
+function RunStateService:GetPhase(): RunPhase
+	return phase
+end
+
+--[[
+    @summary  Return whether gameplay actions are currently permitted.
+    @returns  boolean
+]]
+function RunStateService:IsActive(): boolean
+	return phase == "Active"
+end
+
+--[[
+    @summary  Return whether a captured token still matches the live run.
+    @param    token  string?
+    @returns  boolean
+]]
+function RunStateService:IsCurrentRun(token: string?): boolean
+	return token ~= nil and token == runId and runId ~= ""
+end
+
+--[[
+    @summary  Return whether a player belongs to the current run.
+    @param    player  Player
+    @returns  boolean
+]]
+function RunStateService:IsMember(player: Player): boolean
+	return members[player] == true
+end
+
+--[[
+    @summary  Return every player still participating in the run.
+    @returns  { Player }
+]]
+function RunStateService:GetMembers(): { Player }
+	local list = {}
+	for player in pairs(members) do
+		if player.Parent then
+			table.insert(list, player)
+		end
+	end
+	return list
+end
+
+--[[
+    @summary  Return the folder that owns all run-created instances.
+    @returns  Folder
+]]
+function RunStateService:GetRuntimeFolder(): Folder
+	return ensureRuntimeFolder()
+end
+
+--[[
+    @summary  Register work that must run when the current run is cleaned.
+    @param    callback  function
+]]
+function RunStateService:AddCleanupTask(callback: () -> ())
+	table.insert(cleanupCallbacks, callback)
+end
+
+--[[
+    @summary  Return the number of seconds the run has been going.
+    @returns  number
+]]
+function RunStateService:GetElapsedSeconds(): number
+	if runStartedAt <= 0 then
+		return 0
+	end
+	return os.clock() - runStartedAt
+end
+
+--[[
+    @summary  Set how many multiplier points one named source contributes.
+    @param    key     string  -- unique source identifier
+    @param    amount  number  -- points contributed by that source
+]]
+function RunStateService:AddMultiplierSource(key: string, amount: number)
+	if typeof(key) ~= "string" or typeof(amount) ~= "number" then
+		return
+	end
+	multiplierSources[key] = math.max(0, math.floor(amount))
+
+	local multiplier = self:GetMultiplier()
+	for _, player in ipairs(Players:GetPlayers()) do
+		RunStateService.Client.MultiplierChanged:Fire(player, {
+			multiplier = multiplier,
+			sources = table.clone(multiplierSources),
+		})
+	end
+end
+
+--[[
+    @summary  Return the active day multiplier from all live sources.
+    @returns  number
+]]
+function RunStateService:GetMultiplier(): number
+	local total = RunConfig.BaseMultiplier
+	for _, amount in pairs(multiplierSources) do
+		total += amount
+	end
+	return math.clamp(total, RunConfig.BaseMultiplier, RunConfig.MaxMultiplier)
+end
+
+--[[
+    @summary  Return a copy of the current multiplier contributions.
+    @returns  table
+]]
+function RunStateService:GetMultiplierSources(): { [string]: number }
+	return table.clone(multiplierSources)
+end
+
+--[[
+    @summary  Increase one run statistic for a player.
+    @param    player  Player
+    @param    key     string
+    @param    amount  number?
+]]
+function RunStateService:IncrementStat(player: Player, key: string, amount: number?)
+	if not playerDataService or not player.Parent then
+		return
+	end
+	local delta = amount or 1
+	playerDataService:UpdateData(player, function(data)
+		data.Stats = data.Stats or freshRunTable("Stats")
+		data.Stats[key] = (data.Stats[key] or 0) + delta
+	end)
+end
+
+--[[
+    @summary  Add a player to the live run without restarting it.
+    @param    player  Player
+]]
+function RunStateService:AddMember(player: Player)
+	if phase == "Lobby" or phase == "Ended" then
+		return
+	end
+	members[player] = true
+end
+
+--[[
+    @summary  Begin a new run for the given players.
+    @param    participants  { Player }
+    @returns  string?  -- the new run identifier, or nil when refused
+]]
+function RunStateService:StartRun(participants: { Player }): string?
+	if phase == "Active" or phase == "Starting" or phase == "Ending" then
+		return nil
+	end
+	if #participants == 0 or not playerDataService then
+		return nil
+	end
+	for _, player in ipairs(participants) do
+		if not player.Parent or not playerDataService:GetData(player) then
+			return nil
+		end
+	end
+
+	runId = HttpService:GenerateGUID(false)
+	phase = "Starting"
+	runStartedAt = os.clock()
+	members = {}
+	multiplierSources = {}
+	cleanupCallbacks = {}
+
+	for _, player in ipairs(participants) do
+		if player.Parent then
+			members[player] = true
+			resetPlayerRunData(player)
+		end
+	end
+
+	ensureRuntimeFolder()
+	if campfireService then
+		campfireService:ResetForRun()
+	end
+	if animalAIService then
+		animalAIService:ResetForRun()
+	end
+	broadcastPhase({ startedAt = runStartedAt })
+	RunStateService.RunStarted:Fire(runId)
+
+	phase = "Active"
+	broadcastPhase({ startedAt = runStartedAt })
+
+	return runId
+end
+
+--[[
+    @summary  Move the run into its ending sequence exactly once.
+    @param    reason   string
+    @param    payload  table?
+    @returns  boolean  -- true when this call performed the transition
+]]
+function RunStateService:BeginEnding(reason: string, payload: { [string]: any }?): boolean
+	if phase ~= "Active" then
+		return false
+	end
+
+	phase = "Ending"
+
+	local data = payload or {}
+	data.reason = reason
+	data.elapsedSeconds = self:GetElapsedSeconds()
+	data.multiplier = self:GetMultiplier()
+
+	broadcastPhase(data)
+	RunStateService.RunEnding:Fire(reason, data)
+
+	return true
+end
+
+--[[
+    @summary  Destroy run-owned state and return the server to the lobby.
+    @param    reason  string
+]]
+function RunStateService:CleanupRun(reason: string)
+	if phase == "Lobby" then
+		return
+	end
+
+	phase = "Ended"
+
+	for _, callback in ipairs(cleanupCallbacks) do
+		local ok, err = pcall(callback)
+		if not ok then
+			warn("[RunStateService] Cleanup task failed:", err)
+		end
+	end
+	cleanupCallbacks = {}
+
+	if runtimeFolder then
+		runtimeFolder:Destroy()
+		runtimeFolder = nil
+	end
+
+	if timeService then
+		timeService:ResetMatch()
+	end
+
+	for player in pairs(members) do
+		if player.Parent then
+			resetPlayerRunData(player)
+			if spawnService then
+				spawnService:ResetPlayer(player)
+			end
+		end
+	end
+
+	members = {}
+	multiplierSources = {}
+	runStartedAt = 0
+	runId = ""
+	phase = "Lobby"
+
+	broadcastPhase({ reason = reason })
+	RunStateService.RunCleaned:Fire(reason)
+end
+
+--[[
+    @summary  Client-facing snapshot of the run for HUD binding.
+    @param    player  Player  -- injected by Knit
+    @returns  table
+]]
+function RunStateService.Client:GetSnapshot(player: Player): { [string]: any }
+	return {
+		runId = runId,
+		phase = phase,
+		isMember = members[player] == true,
+		multiplier = RunStateService:GetMultiplier(),
+		sources = table.clone(multiplierSources),
+		goalDay = RunConfig.GoalDay,
+		elapsedSeconds = RunStateService:GetElapsedSeconds(),
+	}
+end
+
+-- // INITIALIZATION // --
+
+function RunStateService:KnitStart()
+	playerDataService = Knit.GetService("PlayerDataService")
+	timeService = Knit.GetService("TimeService")
+	spawnService = Knit.GetService("SpawnService")
+	campfireService = Knit.GetService("CampfireService")
+	animalAIService = Knit.GetService("AnimalAIService")
+
+	if timeService then
+		timeService:SetMultiplierProvider(function()
+			return RunStateService:GetMultiplier()
+		end)
+	end
+
+	Players.PlayerRemoving:Connect(function(player)
+		members[player] = nil
+	end)
+end
+
+return RunStateService

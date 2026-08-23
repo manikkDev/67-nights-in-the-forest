@@ -65,7 +65,6 @@ function GameStateController:MarkIntroComplete()
 	if gameStartedSignal then
 		gameStartedSignal:Fire()
 	end
-	print("[GameStateController] Game started — intro complete")
 end
 
 -- // INITIALIZATION // --
@@ -81,6 +80,9 @@ function GameStateController:KnitStart()
 	matchFlow.FlowStateChanged:Connect(function(state: string)
 		if state == "Lobby" or state == "Waiting" or state == "Countdown" or state == "Story" or state == "Day1" then
 			flowState = state
+			if state == "Lobby" then
+				isInGame = false
+			end
 		elseif state == "InGame" then
 			flowState = "Day1"
 			-- Safety net: if IntroController is not present or already destroyed,
@@ -94,7 +96,6 @@ function GameStateController:KnitStart()
 		end
 	end)
 
-	print("[GameStateController] Initialised")
 end
 
 return GameStateController

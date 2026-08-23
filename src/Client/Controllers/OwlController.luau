@@ -265,7 +265,6 @@ function OwlController:KnitStart()
 		showBanner("The Owl has flown away.", Color3.fromRGB(150, 200, 150))
 	end)
 
-	print("[OwlController] Initialised — Owl UI active")
 end
 
 return OwlController

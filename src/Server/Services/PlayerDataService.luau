@@ -32,6 +32,7 @@ local Signal = require(ReplicatedStorage.Packages.Signal)
 local ProfileService = require(ServerScriptService.ServerPackages.ProfileService)
 local ProfileTemplate = require(script.Parent.Parent.Data.ProfileTemplate)
 local Constants = require(ReplicatedStorage.Shared.Constants)
+local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 
 -- | Objects | --
 local PlayerDataService = Knit.CreateService({
@@ -85,6 +86,101 @@ function PlayerDataService:UpdateData(player: Player, fn: (data: { [string]: any
 end
 
 --[[
+    @summary  Apply one completed run to lifetime records exactly once.
+    @param    player   Player
+    @param    runId    string
+    @param    result   table  -- validated final run values
+    @returns  boolean, string
+]]
+function PlayerDataService:ApplyRunRecords(player: Player, runId: string, result: { [string]: any }): (boolean, string)
+	if runId == "" or typeof(result) ~= "table" then
+		return false, "INVALID_RESULT"
+	end
+
+	local profile = profiles[player]
+	if not profile then
+		return false, "PROFILE_NOT_LOADED"
+	end
+
+	local data = profile.Data
+	data.Internal = data.Internal or { LastAppliedRunId = "" }
+	if data.Internal.LastAppliedRunId == runId then
+		return true, "ALREADY_APPLIED"
+	end
+
+	data.Records = data.Records or {}
+	local records = data.Records
+	local displayedDay = math.max(0, math.floor(tonumber(result.displayedDay) or 0))
+	local elapsedSeconds = math.max(0, tonumber(result.elapsedSeconds) or 0)
+
+	records.HighestDay = math.max(records.HighestDay or 0, displayedDay)
+	if result.victory == true then
+		records.Wins = (records.Wins or 0) + 1
+		if elapsedSeconds > 0 and ((records.FastestDay67Seconds or 0) <= 0 or elapsedSeconds < records.FastestDay67Seconds) then
+			records.FastestDay67Seconds = elapsedSeconds
+		end
+	end
+
+	local additiveKeys = {
+		childrenRescued = "ChildrenRescued",
+		treesChopped = "TreesChopped",
+		wolvesKilled = "WolvesKilled",
+		cultistsKilled = "CultistsKilled",
+		revives = "Revives",
+		deaths = "Deaths",
+	}
+	for resultKey, recordKey in pairs(additiveKeys) do
+		local amount = math.max(0, math.floor(tonumber(result[resultKey]) or 0))
+		records[recordKey] = (records[recordKey] or 0) + amount
+	end
+	records.TotalPlaytime = (records.TotalPlaytime or 0) + elapsedSeconds
+
+	data.Internal.LastAppliedRunId = runId
+	return true, "APPLIED"
+end
+
+--[[
+    @summary  Bring a legacy profile up to the current schema version.
+    @desc     Older saves stored run progress and inflated test health.
+              Those tables are discarded so a returning player cannot
+              start a fresh run with a finished camp or 300 health.
+    @param    data  table  -- the reconciled profile data
+]]
+local function migrateProfile(data: { [string]: any })
+	if (data.DataVersion or 1) >= 2 then
+		return
+	end
+
+	local legacyStats = data.Stats or {}
+	data.Records = data.Records or {}
+	data.Records.TreesChopped = (data.Records.TreesChopped or 0) + (legacyStats.TreesChopped or 0)
+	data.Records.WolvesKilled = (data.Records.WolvesKilled or 0) + (legacyStats.WolvesKilled or 0)
+	data.Records.TotalPlaytime = (data.Records.TotalPlaytime or 0) + (legacyStats.TotalPlaytime or 0)
+
+	local legacySurvival = data.Survival or {}
+	data.Records.HighestDay = math.max(data.Records.HighestDay or 0, legacySurvival.HighestNightSurvived or 0)
+	data.Records.Deaths = (data.Records.Deaths or 0) + (legacySurvival.DeathCount or 0)
+
+	data.Survival = {
+		Health = RunConfig.StartingHealth,
+		MaxHealth = RunConfig.StartingHealth,
+		Hunger = RunConfig.StartingHunger,
+		MaxHunger = RunConfig.StartingHunger,
+		DeathCount = 0,
+		HighestNightSurvived = 0,
+	}
+
+	data.Resources = nil
+	data.Base = nil
+	data.Rescue = nil
+	data.Stats = nil
+	data.Campfire = nil
+	data.Inventory = nil
+
+	data.DataVersion = 2
+end
+
+--[[
     @summary  Load a profile for a player with session-locking.
     @desc     Called on PlayerAdded.  If the profile cannot be loaded
               within AUTO_LOAD_TIMEOUT seconds, the player is kicked.
@@ -98,8 +194,11 @@ local function loadProfile(player: Player)
 	end)
 
 	if profile then
+		migrateProfile(profile.Data)
 		profile:Reconcile()
 		-- Reset vital stats to max on each join so players don't spawn starving
+		profile.Data.Survival.MaxHealth = RunConfig.StartingHealth
+		profile.Data.Survival.MaxHunger = RunConfig.StartingHunger
 		profile.Data.Survival.Hunger = profile.Data.Survival.MaxHunger
 		profile.Data.Survival.Health = profile.Data.Survival.MaxHealth
 		profile:ListenToRelease(function()

@@ -47,6 +47,7 @@ local BROADCAST_INTERVAL = 1
 -- | State Management | --
 local playerDataService: any = nil
 local spawnService: any = nil
+local playerLifeService: any = nil
 local broadcastTimer = 0
 
 -- // FUNCTIONS // --
@@ -96,12 +97,8 @@ local function tickPlayer(player: Player, dt: number)
 		playerData.Survival.Hunger = newHunger
 	end)
 
-	if newHunger <= 0 then
-		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if humanoid then
-			humanoid:TakeDamage(STARVE_DAMAGE_PER_SEC * dt)
-		end
+	if newHunger <= 0 and playerLifeService then
+		playerLifeService:ApplyDamage(player, STARVE_DAMAGE_PER_SEC * dt, "Starvation")
 	end
 end
 
@@ -167,6 +164,7 @@ end
 function HungerService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 	spawnService = Knit.GetService("SpawnService")
+	playerLifeService = Knit.GetService("PlayerLifeService")
 	RunService.Heartbeat:Connect(onHeartbeat)
 
 	local function fireInitialHunger(player: Player)
@@ -184,7 +182,6 @@ function HungerService:KnitStart()
 		fireInitialHunger(player)
 	end
 
-	print("[HungerService] Initialised — hunger drain active")
 end
 
 return HungerService

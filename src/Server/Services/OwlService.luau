@@ -93,6 +93,7 @@ local spawnService: any = nil
 local animalAIService: any = nil
 local inventoryService: any = nil
 local deerService: any = nil
+local playerLifeService: any = nil
 
 local owl: any = nil
 local lastPhase = ""
@@ -265,7 +266,6 @@ local function spawnOwl()
 		IsImmune = true,
 	})
 
-	print("[OwlService] Owl spawned and registered as immune combat target")
 end
 
 --[[
@@ -471,7 +471,6 @@ local function summonWolves()
 		animalAIService:SpawnNpc("WolfModel", CFrame.new(pos + offset + Vector3.new(0, 5, 0)))
 	end
 	wolfSummoned = true
-	print("[OwlService] Summoned wolves to scare players")
 end
 
 --[[
@@ -486,6 +485,9 @@ local function updateDetection(dt: number)
 	local anyMoving = false
 	for _, player in ipairs(Players:GetPlayers()) do
 		if spawnService and not spawnService:IsPlayerSpawned(player) then
+			continue
+		end
+		if playerLifeService and not playerLifeService:IsAlive(player) then
 			continue
 		end
 		local character = player.Character
@@ -553,6 +555,9 @@ local function findHuntableTarget(fromPosition: Vector3): Player?
 	local nearestDist = math.huge
 	for _, player in ipairs(Players:GetPlayers()) do
 		if spawnService and not spawnService:IsPlayerSpawned(player) then
+			continue
+		end
+		if playerLifeService and not playerLifeService:IsAlive(player) then
 			continue
 		end
 		local character = player.Character
@@ -725,10 +730,10 @@ local function runOwlBehavior(dt: number)
 		local now = os.clock()
 		if dist <= CONTACT_RANGE and (now - owl.lastContactTime) >= CONTACT_COOLDOWN then
 			owl.lastContactTime = now
-			local targetHumanoid = character:FindFirstChildOfClass("Humanoid")
-			if targetHumanoid then
-				local damage = 25 + (timeService and timeService:GetDayNumber() or 1) * 2
-				targetHumanoid:TakeDamage(damage)
+			local targetPlayer = owl.target :: Player?
+			if targetPlayer and playerLifeService and playerLifeService:IsAlive(targetPlayer) then
+				local damage = 25 + (timeService and timeService:GetCycleIndex() or 1) * 2
+				playerLifeService:ApplyDamage(targetPlayer, damage, "Owl")
 				broadcastToAll(OwlService.Client.OwlContact, owl.rootPart.Position)
 			end
 		end
@@ -788,7 +793,6 @@ local function checkNightTransition()
 					if owlActiveTonight and owl and owl.state == "Dormant" then
 						broadcastToAll(OwlService.Client.OwlActive)
 						enterFlyingIn()
-						print("[OwlService] The Owl has woken up on night", dayNumber)
 					end
 				end)
 			end
@@ -805,6 +809,33 @@ local function checkNightTransition()
 end
 
 -- | Public | --
+
+--[[
+    @summary  Return the Owl to its hidden dormant state.
+]]
+function OwlService:ResetForRun()
+	owlActiveTonight = false
+	wolfSummoned = false
+	lastPhase = ""
+	if not owl then
+		return
+	end
+	if owl.flyHeartbeat then
+		owl.flyHeartbeat:Disconnect()
+		owl.flyHeartbeat = nil
+	end
+	owl.state = "Dormant"
+	owl.target = nil
+	owl.detectionMeter = 0
+	owl.pursuitStartTime = nil
+	owl.rootPart.Anchored = true
+	owl.humanoid.WalkSpeed = 0
+	stopAllTracks(owl)
+	owl.model:PivotTo(CFrame.new(DORMANT_HOLDING_POSITION))
+	if deerService then
+		deerService:SuppressDeer(false)
+	end
+end
 
 --[[
     @summary  Interrupt the Owl's pursuit with a flashlight stun.
@@ -852,6 +883,7 @@ function OwlService:KnitStart()
 	animalAIService = Knit.GetService("AnimalAIService")
 	inventoryService = Knit.GetService("InventoryService")
 	deerService = Knit.GetService("DeerService")
+	playerLifeService = Knit.GetService("PlayerLifeService")
 
 	task.delay(3, function()
 		spawnOwl()
@@ -862,7 +894,6 @@ function OwlService:KnitStart()
 		onHeartbeat(dt)
 	end)
 
-	print("[OwlService] Initialised — Owl AI active")
 end
 
 return OwlService

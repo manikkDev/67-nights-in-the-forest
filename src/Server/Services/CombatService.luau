@@ -274,7 +274,6 @@ function CombatService:KnitStart()
 		end
 	end
 
-	print("[CombatService] Initialised — melee combat active")
 end
 
 Players.PlayerRemoving:Connect(function(player)

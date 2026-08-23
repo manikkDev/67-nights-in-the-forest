@@ -90,6 +90,7 @@ local worldService: any = nil
 local timeService: any = nil
 local campfireService: any = nil
 local spawnService: any = nil
+local playerLifeService: any = nil
 local stalkers: { [string]: any } = {}
 local deerSuppressed = false
 local activeStalkerKey: string? = nil  -- which stalker is active tonight ("Deer" or "RamMonster")
@@ -421,6 +422,9 @@ local function findHuntableTarget(fromPosition: Vector3): (Player?, Vector3?)
 		if spawnService and not spawnService:IsPlayerSpawned(player) then
 			continue
 		end
+		if playerLifeService and not playerLifeService:IsAlive(player) then
+			continue
+		end
 		local character = player.Character
 		local rootPart = character and character:FindFirstChild("HumanoidRootPart")
 		if not rootPart or not rootPart:IsA("BasePart") then
@@ -501,10 +505,8 @@ local function updateStalkerState(stalker)
 			-- Roll for Ram Monster replacing the Deer (from RAM_START_DAY onwards)
 			if dayNumber >= RAM_START_DAY and math.random() <= RAM_SPAWN_CHANCE then
 				activeStalkerKey = "RamMonster"
-				print("[DeerService] The Ram Monster is active tonight (night", dayNumber, ")")
 			else
 				activeStalkerKey = "Deer"
-				print("[DeerService] The Deer is active tonight (night", dayNumber, ")")
 			end
 			broadcastToAll(DeerService.Client.StalkerActive, activeStalkerKey)
 		elseif currentPhase == "Day" then
@@ -650,9 +652,9 @@ local function runStalkerBehavior(stalker)
 		if dist <= CONTACT_RANGE and (now - stalker.lastContactTime) >= CONTACT_COOLDOWN then
 			stalker.lastContactTime = now
 			stalker.attackUntil = now + ATTACK_LOCKOUT
-			local targetHumanoid = character:FindFirstChildOfClass("Humanoid")
-			if targetHumanoid then
-				targetHumanoid:TakeDamage(stalker.def.AttackDamage)
+			local targetPlayer = stalker.target :: Player?
+			if targetPlayer and playerLifeService and playerLifeService:IsAlive(targetPlayer) then
+				playerLifeService:ApplyDamage(targetPlayer, stalker.def.AttackDamage, stalker.key)
 				-- Stop only Walk/Run (not all tracks) to avoid nuking Attack
 				if stalker.tracks.Walk and stalker.tracks.Walk.IsPlaying then
 					stalker.tracks.Walk:Stop(0.1)
@@ -695,6 +697,18 @@ function DeerService:IsDeerActive(): boolean
 end
 
 --[[
+    @summary  Return every stalker to its hidden dormant state.
+]]
+function DeerService:ResetForRun()
+	deerSuppressed = false
+	activeStalkerKey = nil
+	lastPhase = nil
+	for _, stalker in pairs(stalkers) do
+		enterDormant(stalker)
+	end
+end
+
+--[[
     @summary  Interrupt a stalker's pursuit with a flashlight stun,
               shortening the duration for each consecutive use.
     @param    model   Model    -- the Deer/Ram Monster model
@@ -705,10 +719,8 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 	for _, stalker in pairs(stalkers) do
 		if stalker.model == model then
 			if not stalker.def.UsesFlashlightStun or stalker.state == "Stunned" or stalker.state == "Dormant" then
-				print("[DeerService] DEBUG ApplyFlashlightStun: rejected - state:", stalker.state, "UsesFlashlightStun:", stalker.def.UsesFlashlightStun)
 				return false
 			end
-			print("[DeerService] DEBUG ApplyFlashlightStun: STUNNING deer! state was:", stalker.state)
 
 			local now = os.clock()
 			if (now - stalker.lastStunTime) >= STUN_RESISTANCE_RECOVERY_TIME then
@@ -775,6 +787,7 @@ function DeerService:KnitStart()
 	timeService = Knit.GetService("TimeService")
 	campfireService = Knit.GetService("CampfireService")
 	spawnService = Knit.GetService("SpawnService")
+	playerLifeService = Knit.GetService("PlayerLifeService")
 
 	task.delay(3, function()
 		spawnStalker("Deer")
@@ -782,8 +795,6 @@ function DeerService:KnitStart()
 	end)
 
 	RunService.Heartbeat:Connect(onHeartbeat)
-
-	print("[DeerService] Initialised — Deer/Ram Monster stalker AI active")
 end
 
 return DeerService

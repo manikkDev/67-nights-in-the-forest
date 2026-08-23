@@ -366,7 +366,6 @@ function WorldService:KnitStart()
 		bonfire = placeBonfire(baseMap, ground)
 		forestReady = true
 		disableBrokenScripts(baseMap)
-		print("[WorldService] Maps loaded")
 	end
 end
 

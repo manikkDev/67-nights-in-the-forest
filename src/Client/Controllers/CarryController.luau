@@ -557,7 +557,6 @@ function CarryController:KnitStart()
 	UserInputService.InputEnded:Connect(onInputEnded)
 	RunService.RenderStepped:Connect(updateHover)
 
-	print("[CarryController] Initialised — cursor F-pickup/drop active")
 end
 
 --[[

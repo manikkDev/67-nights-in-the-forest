@@ -39,7 +39,6 @@ local CookingService = Knit.CreateService({
 
 function CookingService:KnitStart()
 	-- Raw meat is cooked automatically when dropped onto the lit fire.
-	print("[CookingService] Initialised — prompt removed; auto-cook via CampfireService")
 end
 
 return CookingService

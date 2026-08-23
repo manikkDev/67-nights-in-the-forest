@@ -248,6 +248,7 @@ end
 function HungerController:KnitStart()
 	local gameStateController = Knit.GetController("GameStateController")
 	local hungerService = Knit.GetService("HungerService")
+	local runStateService = Knit.GetService("RunStateService")
 
 	local function showGui()
 		if survivalGui then
@@ -267,7 +268,11 @@ function HungerController:KnitStart()
 		setFillAndLabel(hungerFill, hungerValueLabel, hunger, maxHunger, HUNGER_COLOR)
 	end)
 
-	print("[HungerController] Initialised — bound to Health/Hunger")
+	runStateService.RunPhaseChanged:Connect(function(payload)
+		if typeof(payload) == "table" and payload.phase == "Lobby" and survivalGui then
+			survivalGui.Enabled = false
+		end
+	end)
 end
 
 return HungerController

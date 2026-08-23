@@ -62,6 +62,7 @@ local DAY1_HOLD_SECONDS = Constants.MATCH_DAY1_HOLD_SECONDS or 2
 -- | State Management | --
 local spawnService: any = nil
 local timeService: any = nil
+local runStateService: any = nil
 local sessions: { [Player]: Session } = {}
 
 -- // FUNCTIONS // --
@@ -111,11 +112,69 @@ local function destroySession(owner: Player)
 		return
 	end
 	cancelTimer(session)
-	sessions[owner] = nil
+	for player, mappedSession in pairs(sessions) do
+		if mappedSession == session then
+			sessions[player] = nil
+		end
+	end
 end
 
 local function getSessionFor(player: Player): Session?
 	return sessions[player]
+end
+
+--[[
+    @summary  Merge other waiting players into the host's pending run.
+    @param    hostSession  Session
+]]
+local function mergeWaitingSessions(hostSession: Session)
+	local candidates = {}
+	local seen = {}
+	for _, candidate in pairs(sessions) do
+		if candidate ~= hostSession and candidate.state == "Waiting" and not seen[candidate] then
+			seen[candidate] = true
+			table.insert(candidates, candidate)
+		end
+	end
+
+	local memberCount = 0
+	for _ in pairs(hostSession.players) do
+		memberCount += 1
+	end
+	for _, candidate in ipairs(candidates) do
+		for player in pairs(candidate.players) do
+			if memberCount >= Constants.MAX_PLAYERS then
+				return
+			end
+			if player.Parent and not hostSession.players[player] then
+				hostSession.players[player] = true
+				sessions[player] = hostSession
+				memberCount += 1
+			end
+		end
+		cancelTimer(candidate)
+	end
+end
+
+--[[
+    @summary  Remove one player while preserving a viable shared session.
+    @param    player  Player
+]]
+local function removePlayerFromSession(player: Player)
+	local session = sessions[player]
+	if not session then
+		return
+	end
+	sessions[player] = nil
+	session.players[player] = nil
+	if not next(session.players) then
+		cancelTimer(session)
+		return
+	end
+	if session.host == player then
+		session.host = next(session.players) :: Player
+	end
+	fireToSession(session, MatchFlowService.Client.RosterChanged, buildRoster(session))
 end
 
 function MatchFlowService:GetState(player: Player): FlowState
@@ -140,8 +199,23 @@ local function beginStory(session: Session)
 			return
 		end
 
+		local participants = {}
 		for player in pairs(session.players) do
-			if player.Parent and spawnService then
+			if player.Parent then
+				table.insert(participants, player)
+			end
+		end
+
+		local startedRunId = runStateService and runStateService:StartRun(participants) or nil
+		if not startedRunId then
+			session.state = "Waiting"
+			fireToSession(session, MatchFlowService.Client.FlowStateChanged, "Waiting")
+			fireToSession(session, MatchFlowService.Client.RosterChanged, buildRoster(session))
+			return
+		end
+
+		for _, player in ipairs(participants) do
+			if spawnService then
 				spawnService:SpawnPlayer(player)
 			end
 		end
@@ -152,7 +226,6 @@ local function beginStory(session: Session)
 
 		session.state = "Day1"
 		fireToSession(session, MatchFlowService.Client.FlowStateChanged, "Day1")
-		print("[MatchFlowService] Teleported to base map")
 
 		-- Hold Day 1 on black, then reveal world and begin gameplay.
 		task.delay(DAY1_HOLD_SECONDS, function()
@@ -161,7 +234,6 @@ local function beginStory(session: Session)
 			end
 			session.state = "InGame"
 			fireToSession(session, MatchFlowService.Client.FlowStateChanged, "InGame")
-			print("[MatchFlowService] Match started")
 		end)
 	end)
 end
@@ -216,7 +288,6 @@ function MatchFlowService:EnterWaiting(player: Player)
 
 	MatchFlowService.Client.FlowStateChanged:Fire(player, "Waiting")
 	MatchFlowService.Client.RosterChanged:Fire(player, buildRoster(session))
-	print("[MatchFlowService] Create party opened for", player.Name)
 end
 
 -- // INITIALIZATION // --
@@ -229,13 +300,27 @@ function MatchFlowService:KnitInit()
 		self.Client.FlowStateChanged = comm:CreateSignal("FlowStateChanged", false)
 		self.Client.Countdown = comm:CreateSignal("Countdown", false)
 		self.Client.RosterChanged = comm:CreateSignal("RosterChanged", false)
-		print("[MatchFlowService] Client signals created in KnitInit")
 	end
 end
 
 function MatchFlowService:KnitStart()
 	spawnService = Knit.GetService("SpawnService")
 	timeService = Knit.GetService("TimeService")
+	runStateService = Knit.GetService("RunStateService")
+
+	runStateService.RunCleaned:Connect(function()
+		local uniqueSessions = {}
+		for _, session in pairs(sessions) do
+			if not uniqueSessions[session] then
+				uniqueSessions[session] = true
+				cancelTimer(session)
+			end
+		end
+		sessions = {}
+		for _, player in ipairs(Players:GetPlayers()) do
+			MatchFlowService.Client.FlowStateChanged:Fire(player, "Lobby")
+		end
+	end)
 
 	self.Client.RequestStart:Connect(function(player: Player)
 		local session = getSessionFor(player)
@@ -249,6 +334,7 @@ function MatchFlowService:KnitStart()
 			return
 		end
 
+		mergeWaitingSessions(session)
 		cancelTimer(session)
 		local now = getServerNow()
 		session.state = "Countdown"
@@ -262,12 +348,9 @@ function MatchFlowService:KnitStart()
 			duration = session.duration,
 		})
 		fireToSession(session, MatchFlowService.Client.RosterChanged, buildRoster(session))
-		print("[MatchFlowService] Countdown started for", player.Name)
 	end)
 end
 
-Players.PlayerRemoving:Connect(function(player)
-	destroySession(player)
-end)
+Players.PlayerRemoving:Connect(removePlayerFromSession)
 
 return MatchFlowService

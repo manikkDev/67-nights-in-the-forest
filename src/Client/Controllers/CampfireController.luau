@@ -777,6 +777,7 @@ function CampfireController:KnitStart()
 	buildWarning()
 
 	local gameStateController = Knit.GetController("GameStateController")
+	local runStateService = Knit.GetService("RunStateService")
 	campfireService = Knit.GetService("CampfireService")
 
 	local function onGameStarted()
@@ -785,6 +786,9 @@ function CampfireController:KnitStart()
 		end
 		if warningGui then
 			warningGui.Enabled = true
+		end
+		if topLevelBillboard then
+			topLevelBillboard.Enabled = true
 		end
 	end
 
@@ -819,10 +823,18 @@ function CampfireController:KnitStart()
 		end)
 	end
 
+	runStateService.RunPhaseChanged:Connect(function(payload)
+		if typeof(payload) == "table" and payload.phase == "Lobby" then
+			if campfireGui then campfireGui.Enabled = false end
+			if warningGui then warningGui.Enabled = false end
+			if levelUpGui then levelUpGui.Enabled = false end
+			if topLevelBillboard then topLevelBillboard.Enabled = false end
+		end
+	end)
+
 	RunService.Heartbeat:Connect(onHeartbeat)
 
 	-- The initial state is sent by the server through the signal connections.
-	print("[CampfireController] Initialised")
 end
 
 return CampfireController

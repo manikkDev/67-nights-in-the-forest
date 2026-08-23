@@ -391,7 +391,6 @@ local function registerAllTrees()
 		end
 	end
 
-	print("[HarvestService] Registered", registeredCount, "trees")
 end
 
 --[[
@@ -552,7 +551,6 @@ local function publishAxeAnimation()
 	anim.AnimationId = "rbxassetid://522635514"
 	anim.Parent = ReplicatedStorage
 
-	print("[HarvestService] Axe strike animation published to ReplicatedStorage")
 end
 
 -- // INITIALIZATION // --
@@ -587,7 +585,6 @@ function HarvestService:KnitStart()
 		end)
 	end
 
-	print("[HarvestService] Initialised — chop/pickup wired")
 end
 
 Players.PlayerRemoving:Connect(function(player)

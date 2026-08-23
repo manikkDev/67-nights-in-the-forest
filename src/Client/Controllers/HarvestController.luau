@@ -227,7 +227,6 @@ function HarvestController:KnitStart()
 		end
 	end
 
-	print("[HarvestController] Initialised — chop feedback wired")
 end
 
 return HarvestController

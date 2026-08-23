@@ -29,6 +29,7 @@ local CollectionService = game:GetService("CollectionService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 
 -- | Objects | --
@@ -167,7 +168,6 @@ local function isBeamAlignedWithStalker(player: Player, stalker: Model): boolean
 	local character = player.Character
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
 	if not rootPart or not rootPart:IsA("BasePart") then
-		print("[FlashlightService] DEBUG isBeamAligned: no player rootPart")
 		return false
 	end
 
@@ -176,14 +176,12 @@ local function isBeamAlignedWithStalker(player: Player, stalker: Model): boolean
 		or stalker:FindFirstChild("HumanoidRootPart")
 		or stalker:FindFirstChildWhichIsA("BasePart", true)
 	if not stalkerPart then
-		print("[FlashlightService] DEBUG isBeamAligned: no stalker part for", stalker.Name)
 		return false
 	end
 
 	local toStalker = stalkerPart.Position - rootPart.Position
 	local distance = toStalker.Magnitude
 	if distance > BEAM_RANGE or distance <= 0 then
-		print(string.format("[FlashlightService] DEBUG isBeamAligned: %s too far (%.1f > %d)", stalker.Name, distance, BEAM_RANGE))
 		return false
 	end
 
@@ -192,14 +190,15 @@ local function isBeamAlignedWithStalker(player: Player, stalker: Model): boolean
 	local flatToStalker = Vector3.new(toStalker.X, 0, toStalker.Z)
 	local flatLook = Vector3.new(rootPart.CFrame.LookVector.X, 0, rootPart.CFrame.LookVector.Z)
 	if flatLook.Magnitude <= 0 or flatToStalker.Magnitude <= 0 then
-		print("[FlashlightService] DEBUG isBeamAligned: zero magnitude vector")
 		return false
 	end
 	local angle = math.acos(math.clamp(flatLook.Unit:Dot(flatToStalker.Unit), -1, 1))
-	local angleDeg = math.deg(angle)
 	local aligned = angle <= BEAM_HALF_ANGLE
-	print(string.format("[FlashlightService] DEBUG isBeamAligned: %s dist=%.1f angle=%.1f deg (threshold=%.1f) => %s",
-		stalker.Name, distance, angleDeg, math.deg(BEAM_HALF_ANGLE), aligned and "YES" or "NO"))
+
+	if aligned and RunConfig.IsTestEnabled("VerboseFlashlight") then
+		print(string.format("[FlashlightService] beam aligned with %s at %.1f studs", stalker.Name, distance))
+	end
+
 	return aligned
 end
 
@@ -220,30 +219,8 @@ local function checkAllBeams()
 		end
 	end
 	if #stalkerModels == 0 then
-		print("[FlashlightService] DEBUG checkAllBeams: no stalker models found, tagged count:", #candidates)
 		return
 	end
-
-	-- Count active beams
-	local beamCount = 0
-	for _, active in pairs(beamActive) do
-		if active then beamCount += 1 end
-	end
-
-	-- Count fallback beams (SpotLight enabled but not in beamActive)
-	local fallbackCount = 0
-	for _, player in ipairs(Players:GetPlayers()) do
-		if not beamActive[player] and isFlashlightBeamOn(player) then
-			fallbackCount += 1
-		end
-	end
-
-	if beamCount == 0 and fallbackCount == 0 then
-		return -- no beams on, don't spam logs
-	end
-
-	print(string.format("[FlashlightService] DEBUG checkAllBeams: %d stalkers, %d beamActive, %d fallback beams",
-		#stalkerModels, beamCount, fallbackCount))
 
 	for player, isActive in pairs(beamActive) do
 		if not isActive or not player.Parent or not hasFlashlightEquipped(player) then
@@ -251,7 +228,6 @@ local function checkAllBeams()
 		end
 		for _, stalkerModel in ipairs(stalkerModels) do
 			if isBeamAlignedWithStalker(player, stalkerModel) then
-				print("[FlashlightService] DEBUG: beam aligned! Calling ApplyFlashlightStun for", stalkerModel.Name)
 				if stalkerModel.Name == "Owl" and owlService then
 					owlService:ApplyFlashlightStun(stalkerModel, player)
 				elseif deerService then
@@ -270,10 +246,8 @@ local function checkAllBeams()
 		if not player.Parent or not isFlashlightBeamOn(player) then
 			continue
 		end
-		print("[FlashlightService] DEBUG: fallback beam detected for", player.Name)
 		for _, stalkerModel in ipairs(stalkerModels) do
 			if isBeamAlignedWithStalker(player, stalkerModel) then
-				print("[FlashlightService] DEBUG: fallback beam aligned! Calling ApplyFlashlightStun for", stalkerModel.Name)
 				if stalkerModel.Name == "Owl" and owlService then
 					owlService:ApplyFlashlightStun(stalkerModel, player)
 				elseif deerService then
@@ -338,7 +312,6 @@ function FlashlightService:KnitStart()
 	deerService = Knit.GetService("DeerService")
 	owlService = Knit.GetService("OwlService")
 	RunService.Heartbeat:Connect(onHeartbeat)
-	print("[FlashlightService] Initialised — battery + beam-stun validation active")
 end
 
 Players.PlayerRemoving:Connect(function(player)

@@ -25,6 +25,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages.Signal)
+local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 
 -- | Objects | --
 local SpawnService = Knit.CreateService({
@@ -42,15 +43,10 @@ local SPAWN_RADIUS = 15
 local SPAWN_HEIGHT = 5
 local TELEPORT_COOLDOWN = 5
 
--- ⚠️ TESTING ONLY — set to false before publishing to skip direct-to-game spawn
-local TEST_SKIP_LOBBY = true
-
--- ⚠️ TESTING ONLY — give player 1000 HP and full wood on spawn for testing
-local TEST_GIVE_RESOURCES = true
-
 -- | State Management | --
 local worldService: any = nil
 local matchFlowService: any = nil
+local runStateService: any = nil
 local spawnedPlayers: { [Player]: boolean } = {}
 local teleportCooldowns: { [Player]: number } = {}
 
@@ -91,7 +87,6 @@ function SpawnService:SpawnPlayer(player: Player)
 	primaryPart.CFrame = targetCFrame
 
 	spawnedPlayers[player] = true
-	print("[SpawnService] Teleported", player.Name, "to base-map")
 	SpawnService.Client.PlayerSpawned:Fire(player)
 	SpawnService.PlayerSpawned:Fire(player)
 end
@@ -153,7 +148,6 @@ local function wireTeleporters()
 					end)
 				end
 			end
-			print("[SpawnService] Wired teleporter:", child.Name)
 		end
 	end
 end
@@ -183,103 +177,114 @@ end
 
 -- // INITIALIZATION // --
 
--- ⚠️ TESTING ONLY — grant 1000 HP and full wood for testing
-local function grantTestResources(player: Player)
-	if not TEST_GIVE_RESOURCES then return end
-
-	-- Grant 200 HP (TEMP: normally 100)
-	local character = player.Character
-	if character then
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
-		if humanoid then
-			humanoid.MaxHealth = 200
-			humanoid.Health = 200
-		end
-	end
-
-	-- Grant full wood (fill to capacity)
-	task.delay(2, function()
-		local inventoryService = Knit.GetService("InventoryService")
-		if inventoryService then
-			local capacity = inventoryService:GetCapacity(player)
-			inventoryService:AddResource(player, "Wood", capacity)
-		end
-	end)
+--[[
+    @summary  Clear the spawned flag so a player can join the next run.
+    @param    player  Player
+]]
+function SpawnService:ResetPlayer(player: Player)
+	spawnedPlayers[player] = nil
+	teleportCooldowns[player] = nil
 end
 
+--[[
+    @summary  Move an existing character back to a safe lobby position.
+    @param    player  Player
+    @returns  boolean
+]]
+function SpawnService:ReturnToLobby(player: Player): boolean
+	local character = player.Character
+	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+	local lobbyMap = worldService and worldService:GetLobbyMap()
+	if not rootPart or not rootPart:IsA("BasePart") or not lobbyMap then
+		return false
+	end
+	local destination = lobbyMap:FindFirstChild("TeleportHere", true)
+	local targetCFrame = if destination and destination:IsA("BasePart")
+		then destination.CFrame * CFrame.new(0, 4, 0)
+		else lobbyMap:GetPivot() * CFrame.new(0, 8, 0)
+	rootPart.Anchored = false
+	rootPart.CFrame = targetCFrame
+	self:ResetPlayer(player)
+	return true
+end
+
+--[[
+    @summary  Studio-only shortcut that skips the lobby and starts a run.
+    @param    player  Player
+]]
 local function autoSpawnPlayer(player: Player)
-	if not TEST_SKIP_LOBBY then
+	if not RunConfig.IsTestEnabled("SkipLobby") then
 		return
 	end
 	if spawnedPlayers[player] then
 		return
 	end
-	-- Wait for character to be ready
-	local character = player.Character
-	if not character then
-		local conn
-		conn = player.CharacterAdded:Connect(function(char)
-			conn:Disconnect()
-			task.wait(0.5)
-			SpawnService:SpawnPlayer(player)
-			-- Start the match clock if not already running
-			local timeService = Knit.GetService("TimeService")
-			if timeService and not timeService:IsRunning() then
-				timeService:StartMatch()
-			end
-			-- Give client Knit controllers time to connect signals before firing state change
-			task.wait(1)
-			-- Force night lighting for flashlight testing
-			local Lighting = game:GetService("Lighting")
-			Lighting.ClockTime = 0
-			Lighting.Ambient = Color3.fromRGB(20, 22, 32)
-			Lighting.OutdoorAmbient = Color3.fromRGB(12, 14, 20)
-			Lighting.Brightness = 0.35
-			-- Tell the client to skip lobby intro and unlock gameplay
-			if matchFlowService then
-				matchFlowService.Client.FlowStateChanged:Fire(player, "InGame")
-			end
-			grantTestResources(player)
-		end)
-		return
+
+	if not player.Character then
+		player.CharacterAdded:Wait()
 	end
 	task.wait(0.5)
+
+	if not player.Parent then
+		return
+	end
+
+	if runStateService and runStateService:GetPhase() == "Lobby" then
+		local startedRunId = nil
+		for _ = 1, 30 do
+			startedRunId = runStateService:StartRun({ player })
+			if startedRunId or not player.Parent or runStateService:GetPhase() ~= "Lobby" then
+				break
+			end
+			task.wait(0.5)
+		end
+		if not startedRunId and runStateService:GetPhase() == "Lobby" then
+			warn("[SpawnService] Studio test could not start because the profile was not ready")
+			return
+		end
+	end
 	SpawnService:SpawnPlayer(player)
-	grantTestResources(player)
-	-- Start the match clock if not already running
+
 	local timeService = Knit.GetService("TimeService")
 	if timeService and not timeService:IsRunning() then
 		timeService:StartMatch()
 	end
-	-- Give client Knit controllers time to connect signals before firing state change
+
 	task.wait(1)
-	-- Force night lighting for flashlight testing
-	local Lighting = game:GetService("Lighting")
-	Lighting.ClockTime = 0
-	Lighting.Ambient = Color3.fromRGB(20, 22, 32)
-	Lighting.OutdoorAmbient = Color3.fromRGB(12, 14, 20)
-	Lighting.Brightness = 0.35
-	-- Tell the client to skip lobby intro and unlock gameplay
+
+	if not player.Parent then
+		return
+	end
+
+	if RunConfig.IsTestEnabled("ForceNight") then
+		local Lighting = game:GetService("Lighting")
+		Lighting.ClockTime = 0
+		Lighting.Ambient = Color3.fromRGB(20, 22, 32)
+		Lighting.OutdoorAmbient = Color3.fromRGB(12, 14, 20)
+		Lighting.Brightness = 0.35
+	end
+
 	if matchFlowService then
 		matchFlowService.Client.FlowStateChanged:Fire(player, "InGame")
 	end
-	grantTestResources(player)
 end
 
 function SpawnService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	matchFlowService = Knit.GetService("MatchFlowService")
+	runStateService = Knit.GetService("RunStateService")
 	wireTeleporters()
 
-	if TEST_SKIP_LOBBY then
-		print("[SpawnService] TEST_SKIP_LOBBY is ON — players will spawn directly in base-map")
-		-- Give the world a moment to load before auto-spawning
+	if RunConfig.IsTestEnabled("SkipLobby") then
+		warn("[SpawnService] Studio test: SkipLobby is enabled")
 		task.delay(1, function()
 			for _, player in ipairs(Players:GetPlayers()) do
-				autoSpawnPlayer(player)
+				task.spawn(autoSpawnPlayer, player)
 			end
 		end)
-		Players.PlayerAdded:Connect(autoSpawnPlayer)
+		Players.PlayerAdded:Connect(function(player)
+			task.spawn(autoSpawnPlayer, player)
+		end)
 	end
 end
 

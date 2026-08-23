@@ -831,7 +831,6 @@ function IntroController:KnitStart()
 		showTitleScreen()
 	end
 
-	print("[IntroController] Initialised — flowState:", flowState)
 end
 
 return IntroController

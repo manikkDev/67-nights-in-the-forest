@@ -76,7 +76,6 @@ end
 function ProceduralAnimController:KnitStart()
 	gameStateController = Knit.GetController("GameStateController")
 	janitor:Add(RunService.Heartbeat:Connect(onHeartbeat), "Disconnect")
-	print("[ProceduralAnimController] Initialised — idle breathing active")
 end
 
 return ProceduralAnimController

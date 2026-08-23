@@ -64,10 +64,24 @@ local TWEEN_CAPACITY = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDire
 
 -- Content data
 local EDIBLE_RESOURCES = { Berries = true, Mushrooms = true, RawMeat = true, CookedMeat = true, RabbitMeat = true }
-local ROW_ORDER = { "Wood", "Stone", "Berries", "Mushrooms", "RabbitMeat", "RawMeat", "CookedMeat" }
+local ROW_ORDER = {
+	"Wood",
+	"Scrap",
+	"Coal",
+	"Berries",
+	"Mushrooms",
+	"RabbitMeat",
+	"RawMeat",
+	"CookedMeat",
+	"Bandage",
+	"CultistGem",
+}
 local ROW_COLORS = {
 	Wood = Color3.fromRGB(170, 110, 65),
-	Stone = Color3.fromRGB(155, 155, 155),
+	Scrap = Color3.fromRGB(150, 155, 165),
+	Coal = Color3.fromRGB(70, 70, 75),
+	Bandage = Color3.fromRGB(235, 235, 225),
+	CultistGem = Color3.fromRGB(175, 90, 210),
 	Berries = Color3.fromRGB(195, 50, 80),
 	Mushrooms = Color3.fromRGB(210, 110, 95),
 	RawMeat = Color3.fromRGB(200, 100, 100),
@@ -76,7 +90,10 @@ local ROW_COLORS = {
 }
 local ROW_DESCRIPTIONS = {
 	Wood = "Used for building and fueling campfires.",
-	Stone = "A sturdy material for crafting structures.",
+	Scrap = "Salvaged metal used for advanced crafting.",
+	Coal = "Burns far longer than wood in the campfire.",
+	Bandage = "Revives a downed teammate.",
+	CultistGem = "A rare cultist relic used in late crafting.",
 	Berries = "Restores a small amount of hunger.",
 	Mushrooms = "Restores a small amount of hunger.",
 	RawMeat = "Cook it at the campfire to restore more hunger.",
@@ -1128,7 +1145,6 @@ function InventoryController:KnitInit()
 		return
 	end
 	gui.Parent = playerGui
-	print("[InventoryController] Bag GUI built and parented")
 end
 
 function InventoryController:KnitStart()
@@ -1143,10 +1159,13 @@ function InventoryController:KnitStart()
 			updateDisplay(resources, capacity)
 		end)
 
-		local snapshot = inventoryService.GetSnapshot()
-		if snapshot then
-			updateDisplay(snapshot.resources, snapshot.capacity)
-		end
+		inventoryService:GetSnapshot():andThen(function(snapshot)
+			if typeof(snapshot) == "table" then
+				updateDisplay(snapshot.resources, snapshot.capacity)
+			end
+		end):catch(function(err)
+			warn("[InventoryController] Initial snapshot failed:", err)
+		end)
 	end
 
 	local ok, err = pcall(function()
@@ -1161,8 +1180,6 @@ function InventoryController:KnitStart()
 
 	if not ok then
 		warn("[InventoryController] KnitStart error:", err)
-	else
-		print("[InventoryController] Initialised — professional carry bag UI bound")
 	end
 end
 
