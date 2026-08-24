@@ -165,9 +165,15 @@ end
     @summary  Build the crafting interface once for the local player.
 ]]
 local function buildUi()
-	if gui then
+	if gui and gui.Parent then
 		return
 	end
+	gui = nil
+	panel = nil
+	titleLabel = nil
+	resourcesLabel = nil
+	listFrame = nil
+	table.clear(buttons)
 
 	local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "CraftingGui"
@@ -276,23 +282,29 @@ end
 ]]
 local function openMenu()
 	buildUi()
+	-- Enable the GUI immediately so the menu is visible even if the
+	-- GetBenchState request fails or is slow. The snapshot refreshes
+	-- the display once it arrives.
+	if gui then
+		gui.Enabled = true
+	end
+	-- Only enter gamepad selection mode when a gamepad is actually
+	-- connected. Forcing SelectedObject on mouse/touch users hijacks
+	-- pointer input and breaks clicking on recipe buttons.
+	if #UserInputService:GetConnectedGamepads() > 0 then
+		local firstRecipe = orderedRecipes()[1]
+		if firstRecipe and buttons[firstRecipe.Id] then
+			GuiService.SelectedObject = buttons[firstRecipe.Id]
+		end
+	end
 	craftingService:GetBenchState():andThen(function(snapshot)
 		if typeof(snapshot) == "table" then
 			currentState = snapshot
 		end
 		refreshDisplay()
-		if gui then
-			gui.Enabled = true
-		end
-		-- Only enter gamepad selection mode when a gamepad is actually
-		-- connected. Forcing SelectedObject on mouse/touch users hijacks
-		-- pointer input and breaks clicking on recipe buttons.
-		if #UserInputService:GetConnectedGamepads() > 0 then
-			local firstRecipe = orderedRecipes()[1]
-			if firstRecipe and buttons[firstRecipe.Id] then
-				GuiService.SelectedObject = buttons[firstRecipe.Id]
-			end
-		end
+	end):catch(function()
+		-- Menu is already open; just refresh with whatever state we have.
+		refreshDisplay()
 	end)
 end
 
