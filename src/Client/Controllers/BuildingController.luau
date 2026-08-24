@@ -142,8 +142,9 @@ local function updateGhost()
 
 	local definition = StructureConfig[activeStructureId]
 	local y = result.Position.Y + definition.Footprint.Y * 0.5
-	currentCFrame = CFrame.new(result.Position.X, y, result.Position.Z) * CFrame.Angles(0, yaw, 0)
-	ghost.CFrame = currentCFrame
+	local placedCFrame = CFrame.new(result.Position.X, y, result.Position.Z) * CFrame.Angles(0, yaw, 0)
+	currentCFrame = placedCFrame
+	ghost.CFrame = placedCFrame
 	local rootPart = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 	currentValid = rootPart ~= nil and (rootPart.Position - result.Position).Magnitude <= 35
 	ghost.Color = if currentValid then VALID_COLOR else INVALID_COLOR
@@ -229,18 +230,19 @@ local function startPlacement(tokenId: string, structureId: string)
 	activeStructureId = structureId
 	yaw = 0
 
-	ghost = Instance.new("Part")
-	ghost.Name = "PlacementGhost"
-	ghost.Size = definition.Footprint
-	ghost.Anchored = true
-	ghost.CanCollide = false
-	ghost.CanQuery = false
-	ghost.CanTouch = false
-	ghost.Material = Enum.Material.ForceField
-	ghost.Transparency = 0.55
-	ghost.Color = INVALID_COLOR
-	ghost.Parent = workspace
-	placementJanitor:Add(ghost)
+	local ghostPart = Instance.new("Part")
+	ghostPart.Name = "PlacementGhost"
+	ghostPart.Size = definition.Footprint
+	ghostPart.Anchored = true
+	ghostPart.CanCollide = false
+	ghostPart.CanQuery = false
+	ghostPart.CanTouch = false
+	ghostPart.Material = Enum.Material.ForceField
+	ghostPart.Transparency = 0.55
+	ghostPart.Color = INVALID_COLOR
+	ghostPart.Parent = workspace
+	ghost = ghostPart
+	placementJanitor:Add(ghostPart)
 	placementJanitor:Add(RunService.RenderStepped:Connect(updateGhost), "Disconnect")
 
 	ContextActionService:BindAction(ACTION_ROTATE, onPlacementAction, true, Enum.KeyCode.R, Enum.KeyCode.Q, Enum.KeyCode.ButtonR1)
@@ -253,7 +255,9 @@ local function startPlacement(tokenId: string, structureId: string)
 	ContextActionService:SetPosition(ACTION_PLACE, UDim2.new(1, -95, 1, -170))
 	ContextActionService:SetPosition(ACTION_CANCEL, UDim2.new(1, -95, 1, -95))
 
-	statusGui.Enabled = true
+	if statusGui then
+		statusGui.Enabled = true
+	end
 	setStatus(definition.DisplayName .. "  •  Select valid ground", false)
 end
 
