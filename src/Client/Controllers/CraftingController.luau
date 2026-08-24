@@ -13,6 +13,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GuiService = game:GetService("GuiService")
+local UserInputService = game:GetService("UserInputService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -151,6 +152,16 @@ local function requestCraft(recipeId: string)
 end
 
 --[[
+    @summary  Close the menu and exit gamepad selection mode.
+]]
+local function closeMenu()
+	if gui then
+		gui.Enabled = false
+	end
+	GuiService.SelectedObject = nil
+end
+
+--[[
     @summary  Build the crafting interface once for the local player.
 ]]
 local function buildUi()
@@ -209,9 +220,7 @@ local function buildUi()
 	local closeCorner = Instance.new("UICorner")
 	closeCorner.CornerRadius = UDim.new(0, 8)
 	closeCorner.Parent = close
-	close.Activated:Connect(function()
-		screenGui.Enabled = false
-	end)
+	close.Activated:Connect(closeMenu)
 
 	local resources = Instance.new("TextLabel")
 	resources.Position = UDim2.new(0, 18, 0, 51)
@@ -275,9 +284,14 @@ local function openMenu()
 		if gui then
 			gui.Enabled = true
 		end
-		local firstRecipe = orderedRecipes()[1]
-		if firstRecipe and buttons[firstRecipe.Id] then
-			GuiService.SelectedObject = buttons[firstRecipe.Id]
+		-- Only enter gamepad selection mode when a gamepad is actually
+		-- connected. Forcing SelectedObject on mouse/touch users hijacks
+		-- pointer input and breaks clicking on recipe buttons.
+		if #UserInputService:GetConnectedGamepads() > 0 then
+			local firstRecipe = orderedRecipes()[1]
+			if firstRecipe and buttons[firstRecipe.Id] then
+				GuiService.SelectedObject = buttons[firstRecipe.Id]
+			end
 		end
 	end)
 end
