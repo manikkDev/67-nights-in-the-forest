@@ -70,69 +70,75 @@ local function createPhaseUi()
 		end
 	end
 
-	phaseGui = Instance.new("ScreenGui")
-	phaseGui.Name = "PhaseIndicator"
-	phaseGui.ResetOnSpawn = false
-	phaseGui.IgnoreGuiInset = true
-	phaseGui.DisplayOrder = 50
-	phaseGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-	phaseGui.Enabled = false
-	phaseGui.Parent = playerGui
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "PhaseIndicator"
+	screenGui.ResetOnSpawn = false
+	screenGui.IgnoreGuiInset = true
+	screenGui.DisplayOrder = 50
+	screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+	screenGui.Enabled = false
+	screenGui.Parent = playerGui
+	phaseGui = screenGui
 
-	shadow = Instance.new("Frame")
-	shadow.Name = "BannerShadow"
-	shadow.Size = UDim2.new(0, 144, 0, 40)
-	shadow.Position = UDim2.new(0.5, 2, 0, 14)
-	shadow.AnchorPoint = Vector2.new(0.5, 0)
-	shadow.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-	shadow.BackgroundTransparency = 0.55
-	shadow.BorderSizePixel = 0
-	shadow.ZIndex = 1
-	shadow.Parent = phaseGui
+	local shadowFrame = Instance.new("Frame")
+	shadowFrame.Name = "BannerShadow"
+	shadowFrame.Size = UDim2.new(0, 144, 0, 40)
+	shadowFrame.Position = UDim2.new(0.5, 2, 0, 14)
+	shadowFrame.AnchorPoint = Vector2.new(0.5, 0)
+	shadowFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	shadowFrame.BackgroundTransparency = 0.55
+	shadowFrame.BorderSizePixel = 0
+	shadowFrame.ZIndex = 1
+	shadowFrame.Parent = screenGui
+	shadow = shadowFrame
 
 	local shadowCorner = Instance.new("UICorner")
 	shadowCorner.CornerRadius = UDim.new(0, 10)
-	shadowCorner.Parent = shadow
+	shadowCorner.Parent = shadowFrame
 
-	banner = Instance.new("Frame")
-	banner.Name = "PhaseBanner"
-	banner.Size = UDim2.new(0, 140, 0, 36)
-	banner.Position = UDim2.new(0.5, 0, 0, 12)
-	banner.AnchorPoint = Vector2.new(0.5, 0)
-	banner.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	banner.BackgroundTransparency = 0.15
-	banner.BorderSizePixel = 0
-	banner.ZIndex = 2
-	banner.Parent = phaseGui
+	local bannerFrame = Instance.new("Frame")
+	bannerFrame.Name = "PhaseBanner"
+	bannerFrame.Size = UDim2.new(0, 140, 0, 36)
+	bannerFrame.Position = UDim2.new(0.5, 0, 0, 12)
+	bannerFrame.AnchorPoint = Vector2.new(0.5, 0)
+	bannerFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	bannerFrame.BackgroundTransparency = 0.15
+	bannerFrame.BorderSizePixel = 0
+	bannerFrame.ZIndex = 2
+	bannerFrame.Parent = screenGui
+	banner = bannerFrame
 
 	local bannerCorner = Instance.new("UICorner")
 	bannerCorner.CornerRadius = UDim.new(0, 10)
-	bannerCorner.Parent = banner
+	bannerCorner.Parent = bannerFrame
 
-	gradient = Instance.new("UIGradient")
-	gradient.Rotation = 90
-	gradient.Color = DAY_GRADIENT
-	gradient.Parent = banner
+	local uiGradient = Instance.new("UIGradient")
+	uiGradient.Rotation = 90
+	uiGradient.Color = DAY_GRADIENT
+	uiGradient.Parent = bannerFrame
+	gradient = uiGradient
 
-	stroke = Instance.new("UIStroke")
-	stroke.Thickness = 1.5
-	stroke.Transparency = 0.25
-	stroke.Color = DAY_STROKE_COLOR
-	stroke.Parent = banner
+	local uiStroke = Instance.new("UIStroke")
+	uiStroke.Thickness = 1.5
+	uiStroke.Transparency = 0.25
+	uiStroke.Color = DAY_STROKE_COLOR
+	uiStroke.Parent = bannerFrame
+	stroke = uiStroke
 
-	phaseText = Instance.new("TextLabel")
-	phaseText.Name = "PhaseText"
-	phaseText.Size = UDim2.new(1, -16, 1, 0)
-	phaseText.Position = UDim2.new(0, 8, 0, 0)
-	phaseText.BackgroundTransparency = 1
-	phaseText.TextColor3 = Color3.fromRGB(255, 255, 255)
-	phaseText.Font = Enum.Font.GothamBlack
-	phaseText.TextSize = 20
-	phaseText.TextXAlignment = Enum.TextXAlignment.Center
-	phaseText.TextYAlignment = Enum.TextYAlignment.Center
-	phaseText.Text = "Day 1"
-	phaseText.ZIndex = 3
-	phaseText.Parent = banner
+	local textLabel = Instance.new("TextLabel")
+	textLabel.Name = "PhaseText"
+	textLabel.Size = UDim2.new(1, -16, 1, 0)
+	textLabel.Position = UDim2.new(0, 8, 0, 0)
+	textLabel.BackgroundTransparency = 1
+	textLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	textLabel.Font = Enum.Font.GothamBlack
+	textLabel.TextSize = 20
+	textLabel.TextXAlignment = Enum.TextXAlignment.Center
+	textLabel.TextYAlignment = Enum.TextYAlignment.Center
+	textLabel.Text = "Day 1"
+	textLabel.ZIndex = 3
+	textLabel.Parent = bannerFrame
+	phaseText = textLabel
 end
 
 --[[

@@ -52,95 +52,102 @@ local function buildUi()
 	if gui then
 		return
 	end
-	gui = Instance.new("ScreenGui")
-	gui.Name = "RescueGui"
-	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = false
-	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "RescueGui"
+	screenGui.ResetOnSpawn = false
+	screenGui.IgnoreGuiInset = false
+	screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	gui = screenGui
 
-	waypointFrame = Instance.new("Frame")
-	waypointFrame.AnchorPoint = Vector2.new(0.5, 0)
-	waypointFrame.Position = UDim2.new(0.5, 0, 0, 86)
-	waypointFrame.Size = UDim2.fromOffset(300, 62)
-	waypointFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
-	waypointFrame.BackgroundTransparency = 0.18
-	waypointFrame.Visible = false
-	waypointFrame.Parent = gui
+	local waypoint = Instance.new("Frame")
+	waypoint.AnchorPoint = Vector2.new(0.5, 0)
+	waypoint.Position = UDim2.new(0.5, 0, 0, 86)
+	waypoint.Size = UDim2.fromOffset(300, 62)
+	waypoint.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+	waypoint.BackgroundTransparency = 0.18
+	waypoint.Visible = false
+	waypoint.Parent = screenGui
+	waypointFrame = waypoint
 	local waypointCorner = Instance.new("UICorner")
 	waypointCorner.CornerRadius = UDim.new(0, 10)
-	waypointCorner.Parent = waypointFrame
+	waypointCorner.Parent = waypoint
 
-	arrowLabel = Instance.new("TextLabel")
-	arrowLabel.Position = UDim2.fromOffset(10, 8)
-	arrowLabel.Size = UDim2.fromOffset(44, 44)
-	arrowLabel.BackgroundTransparency = 1
-	arrowLabel.Font = Enum.Font.GothamBlack
-	arrowLabel.Text = "▲"
-	arrowLabel.TextColor3 = Color3.fromRGB(220, 70, 60)
-	arrowLabel.TextSize = 34
-	arrowLabel.Parent = waypointFrame
+	local arrow = Instance.new("TextLabel")
+	arrow.Position = UDim2.fromOffset(10, 8)
+	arrow.Size = UDim2.fromOffset(44, 44)
+	arrow.BackgroundTransparency = 1
+	arrow.Font = Enum.Font.GothamBlack
+	arrow.Text = "▲"
+	arrow.TextColor3 = Color3.fromRGB(220, 70, 60)
+	arrow.TextSize = 34
+	arrow.Parent = waypoint
+	arrowLabel = arrow
 
-	waypointLabel = Instance.new("TextLabel")
-	waypointLabel.Position = UDim2.fromOffset(58, 8)
-	waypointLabel.Size = UDim2.new(1, -68, 1, -16)
-	waypointLabel.BackgroundTransparency = 1
-	waypointLabel.Font = Enum.Font.GothamBold
-	waypointLabel.TextColor3 = Color3.fromRGB(240, 235, 220)
-	waypointLabel.TextSize = 16
-	waypointLabel.TextWrapped = true
-	waypointLabel.TextXAlignment = Enum.TextXAlignment.Left
-	waypointLabel.Parent = waypointFrame
+	local waypointText = Instance.new("TextLabel")
+	waypointText.Position = UDim2.fromOffset(58, 8)
+	waypointText.Size = UDim2.new(1, -68, 1, -16)
+	waypointText.BackgroundTransparency = 1
+	waypointText.Font = Enum.Font.GothamBold
+	waypointText.TextColor3 = Color3.fromRGB(240, 235, 220)
+	waypointText.TextSize = 16
+	waypointText.TextWrapped = true
+	waypointText.TextXAlignment = Enum.TextXAlignment.Left
+	waypointText.Parent = waypoint
+	waypointLabel = waypointText
 
-	progressLabel = Instance.new("TextLabel")
-	progressLabel.AnchorPoint = Vector2.new(1, 0)
-	progressLabel.Position = UDim2.new(1, -18, 0, 86)
-	progressLabel.Size = UDim2.fromOffset(170, 36)
-	progressLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
-	progressLabel.BackgroundTransparency = 0.2
-	progressLabel.Font = Enum.Font.GothamBold
-	progressLabel.Text = "CHILDREN  0 / 4"
-	progressLabel.TextColor3 = Color3.fromRGB(235, 225, 195)
-	progressLabel.TextSize = 15
-	progressLabel.Parent = gui
+	local progress = Instance.new("TextLabel")
+	progress.AnchorPoint = Vector2.new(1, 0)
+	progress.Position = UDim2.new(1, -18, 0, 86)
+	progress.Size = UDim2.fromOffset(170, 36)
+	progress.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
+	progress.BackgroundTransparency = 0.2
+	progress.Font = Enum.Font.GothamBold
+	progress.Text = "CHILDREN  0 / 4"
+	progress.TextColor3 = Color3.fromRGB(235, 225, 195)
+	progress.TextSize = 15
+	progress.Parent = screenGui
+	progressLabel = progress
 	local progressCorner = Instance.new("UICorner")
 	progressCorner.CornerRadius = UDim.new(0, 8)
-	progressCorner.Parent = progressLabel
+	progressCorner.Parent = progress
 
-	carryLabel = Instance.new("TextLabel")
-	carryLabel.AnchorPoint = Vector2.new(0.5, 1)
-	carryLabel.Position = UDim2.new(0.5, 0, 1, -82)
-	carryLabel.Size = UDim2.new(0.8, 0, 0, 46)
-	carryLabel.BackgroundColor3 = Color3.fromRGB(35, 30, 25)
-	carryLabel.BackgroundTransparency = 0.12
-	carryLabel.Font = Enum.Font.GothamBold
-	carryLabel.Text = "Carrying child  •  G / B to drop"
-	carryLabel.TextColor3 = Color3.fromRGB(245, 230, 190)
-	carryLabel.TextSize = 17
-	carryLabel.Visible = false
-	carryLabel.Parent = gui
+	local carry = Instance.new("TextLabel")
+	carry.AnchorPoint = Vector2.new(0.5, 1)
+	carry.Position = UDim2.new(0.5, 0, 1, -82)
+	carry.Size = UDim2.new(0.8, 0, 0, 46)
+	carry.BackgroundColor3 = Color3.fromRGB(35, 30, 25)
+	carry.BackgroundTransparency = 0.12
+	carry.Font = Enum.Font.GothamBold
+	carry.Text = "Carrying child  •  G / B to drop"
+	carry.TextColor3 = Color3.fromRGB(245, 230, 190)
+	carry.TextSize = 17
+	carry.Visible = false
+	carry.Parent = screenGui
+	carryLabel = carry
 	local carryConstraint = Instance.new("UISizeConstraint")
 	carryConstraint.MaxSize = Vector2.new(480, 46)
-	carryConstraint.Parent = carryLabel
+	carryConstraint.Parent = carry
 	local carryCorner = Instance.new("UICorner")
 	carryCorner.CornerRadius = UDim.new(0, 9)
-	carryCorner.Parent = carryLabel
+	carryCorner.Parent = carry
 
-	bannerLabel = Instance.new("TextLabel")
-	bannerLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-	bannerLabel.Position = UDim2.fromScale(0.5, 0.28)
-	bannerLabel.Size = UDim2.new(0.85, 0, 0, 72)
-	bannerLabel.BackgroundTransparency = 1
-	bannerLabel.Font = Enum.Font.GothamBlack
-	bannerLabel.TextColor3 = Color3.fromRGB(245, 220, 135)
-	bannerLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
-	bannerLabel.TextStrokeTransparency = 0.25
-	bannerLabel.TextScaled = true
-	bannerLabel.Visible = false
-	bannerLabel.Parent = gui
+	local banner = Instance.new("TextLabel")
+	banner.AnchorPoint = Vector2.new(0.5, 0.5)
+	banner.Position = UDim2.fromScale(0.5, 0.28)
+	banner.Size = UDim2.new(0.85, 0, 0, 72)
+	banner.BackgroundTransparency = 1
+	banner.Font = Enum.Font.GothamBlack
+	banner.TextColor3 = Color3.fromRGB(245, 220, 135)
+	banner.TextStrokeColor3 = Color3.new(0, 0, 0)
+	banner.TextStrokeTransparency = 0.25
+	banner.TextScaled = true
+	banner.Visible = false
+	banner.Parent = screenGui
+	bannerLabel = banner
 	local bannerConstraint = Instance.new("UITextSizeConstraint")
 	bannerConstraint.MaxTextSize = 34
 	bannerConstraint.MinTextSize = 18
-	bannerConstraint.Parent = bannerLabel
+	bannerConstraint.Parent = banner
 end
 
 --[[
@@ -148,6 +155,9 @@ end
     @param    text  string
 ]]
 local function showBanner(text: string)
+	if not bannerLabel then
+		return
+	end
 	bannerLabel.Text = text
 	bannerLabel.Visible = true
 	bannerHideAt = os.clock() + 4
@@ -182,10 +192,14 @@ end
 ]]
 local function setCarrying(childId: string?)
 	carryingChild = childId
-	carryLabel.Visible = childId ~= nil
+	if carryLabel then
+		carryLabel.Visible = childId ~= nil
+	end
 	ContextActionService:UnbindAction(DROP_ACTION)
 	if childId then
-		carryLabel.Text = "Carrying " .. childId .. " Kid  •  G / B to drop"
+		if carryLabel then
+			carryLabel.Text = "Carrying " .. childId .. " Kid  •  G / B to drop"
+		end
 		ContextActionService:BindAction(DROP_ACTION, onDropAction, true, Enum.KeyCode.G, Enum.KeyCode.ButtonB)
 		ContextActionService:SetTitle(DROP_ACTION, "Drop Child")
 		ContextActionService:SetPosition(DROP_ACTION, UDim2.new(1, -105, 1, -100))
@@ -196,17 +210,24 @@ end
     @summary  Update the waypoint direction and distance every rendered frame.
 ]]
 local function updateWaypoint()
-	if bannerLabel.Visible and os.clock() >= bannerHideAt then
+	if bannerLabel and bannerLabel.Visible and os.clock() >= bannerHideAt then
 		bannerLabel.Visible = false
 	end
 	if not targetPosition then
-		waypointFrame.Visible = false
+		if waypointFrame then
+			waypointFrame.Visible = false
+		end
 		return
 	end
 	local rootPart = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 	local camera = workspace.CurrentCamera
 	if not rootPart or not rootPart:IsA("BasePart") or not camera then
-		waypointFrame.Visible = false
+		if waypointFrame then
+			waypointFrame.Visible = false
+		end
+		return
+	end
+	if not waypointFrame or not arrowLabel or not waypointLabel then
 		return
 	end
 	waypointFrame.Visible = true
@@ -226,7 +247,9 @@ function RescueController:KnitStart()
 	rescueService = Knit.GetService("RescueService")
 	local runStateService = Knit.GetService("RunStateService")
 	buildUi()
-	gui.Enabled = false
+	if gui then
+		gui.Enabled = false
+	end
 
 	janitor:Add(rescueService.WaypointChanged:Connect(function(payload)
 		if typeof(payload) ~= "table" or payload.cleared == true then
@@ -252,7 +275,9 @@ function RescueController:KnitStart()
 
 	janitor:Add(rescueService.RescueChanged:Connect(function(payload)
 		if typeof(payload) == "table" then
-			progressLabel.Text = string.format("CHILDREN  %d / 4", payload.rescuedCount or 0)
+			if progressLabel then
+				progressLabel.Text = string.format("CHILDREN  %d / 4", payload.rescuedCount or 0)
+			end
 			showBanner((payload.displayName or "Child") .. " RESCUED  •  " .. tostring(payload.multiplier or 1) .. "x DAYS")
 			if targetName == payload.displayName then
 				targetPosition = nil
@@ -262,7 +287,9 @@ function RescueController:KnitStart()
 
 	rescueService:GetSnapshot():andThen(function(snapshot)
 		if typeof(snapshot) == "table" then
-			progressLabel.Text = string.format("CHILDREN  %d / 4", snapshot.rescuedCount or 0)
+			if progressLabel then
+				progressLabel.Text = string.format("CHILDREN  %d / 4", snapshot.rescuedCount or 0)
+			end
 			setCarrying(snapshot.carrying)
 		end
 	end)
@@ -272,12 +299,18 @@ function RescueController:KnitStart()
 			return
 		end
 		if payload.phase == "Active" then
-			gui.Enabled = true
+			if gui then
+				gui.Enabled = true
+			end
 		elseif payload.phase == "Lobby" then
-			gui.Enabled = false
+			if gui then
+				gui.Enabled = false
+			end
 			targetPosition = nil
 			setCarrying(nil)
-			progressLabel.Text = "CHILDREN  0 / 4"
+			if progressLabel then
+				progressLabel.Text = "CHILDREN  0 / 4"
+			end
 		end
 	end), "Disconnect")
 

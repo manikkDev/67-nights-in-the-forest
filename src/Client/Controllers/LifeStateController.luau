@@ -51,57 +51,62 @@ local function buildUi()
 	if gui then
 		return
 	end
-	gui = Instance.new("ScreenGui")
-	gui.Name = "LifeStateGui"
-	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = true
-	gui.Enabled = false
-	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "LifeStateGui"
+	screenGui.ResetOnSpawn = false
+	screenGui.IgnoreGuiInset = true
+	screenGui.Enabled = false
+	screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	gui = screenGui
 
-	overlay = Instance.new("Frame")
-	overlay.Size = UDim2.fromScale(1, 1)
-	overlay.BackgroundColor3 = Color3.fromRGB(45, 5, 8)
-	overlay.BackgroundTransparency = 0.42
-	overlay.BorderSizePixel = 0
-	overlay.Parent = gui
+	local overlayFrame = Instance.new("Frame")
+	overlayFrame.Size = UDim2.fromScale(1, 1)
+	overlayFrame.BackgroundColor3 = Color3.fromRGB(45, 5, 8)
+	overlayFrame.BackgroundTransparency = 0.42
+	overlayFrame.BorderSizePixel = 0
+	overlayFrame.Parent = screenGui
+	overlay = overlayFrame
 
-	titleLabel = Instance.new("TextLabel")
-	titleLabel.AnchorPoint = Vector2.new(0.5, 0.5)
-	titleLabel.Position = UDim2.fromScale(0.5, 0.4)
-	titleLabel.Size = UDim2.new(0.9, 0, 0, 60)
-	titleLabel.BackgroundTransparency = 1
-	titleLabel.Font = Enum.Font.GothamBlack
-	titleLabel.Text = "YOU ARE DOWNED"
-	titleLabel.TextColor3 = Color3.fromRGB(245, 225, 215)
-	titleLabel.TextScaled = true
-	titleLabel.Parent = overlay
+	local title = Instance.new("TextLabel")
+	title.AnchorPoint = Vector2.new(0.5, 0.5)
+	title.Position = UDim2.fromScale(0.5, 0.4)
+	title.Size = UDim2.new(0.9, 0, 0, 60)
+	title.BackgroundTransparency = 1
+	title.Font = Enum.Font.GothamBlack
+	title.Text = "YOU ARE DOWNED"
+	title.TextColor3 = Color3.fromRGB(245, 225, 215)
+	title.TextScaled = true
+	title.Parent = overlayFrame
+	titleLabel = title
 	local titleConstraint = Instance.new("UITextSizeConstraint")
 	titleConstraint.MaxTextSize = 40
 	titleConstraint.MinTextSize = 20
-	titleConstraint.Parent = titleLabel
+	titleConstraint.Parent = title
 
-	timerLabel = Instance.new("TextLabel")
-	timerLabel.AnchorPoint = Vector2.new(0.5, 0)
-	timerLabel.Position = UDim2.fromScale(0.5, 0.48)
-	timerLabel.Size = UDim2.fromOffset(240, 48)
-	timerLabel.BackgroundTransparency = 1
-	timerLabel.Font = Enum.Font.GothamBlack
-	timerLabel.Text = "45.0"
-	timerLabel.TextColor3 = Color3.fromRGB(255, 90, 80)
-	timerLabel.TextSize = 34
-	timerLabel.Parent = overlay
+	local timer = Instance.new("TextLabel")
+	timer.AnchorPoint = Vector2.new(0.5, 0)
+	timer.Position = UDim2.fromScale(0.5, 0.48)
+	timer.Size = UDim2.fromOffset(240, 48)
+	timer.BackgroundTransparency = 1
+	timer.Font = Enum.Font.GothamBlack
+	timer.Text = "45.0"
+	timer.TextColor3 = Color3.fromRGB(255, 90, 80)
+	timer.TextSize = 34
+	timer.Parent = overlayFrame
+	timerLabel = timer
 
-	hintLabel = Instance.new("TextLabel")
-	hintLabel.AnchorPoint = Vector2.new(0.5, 0)
-	hintLabel.Position = UDim2.fromScale(0.5, 0.56)
-	hintLabel.Size = UDim2.new(0.85, 0, 0, 52)
-	hintLabel.BackgroundTransparency = 1
-	hintLabel.Font = Enum.Font.Gotham
-	hintLabel.Text = "A teammate needs a Bandage to revive you"
-	hintLabel.TextColor3 = Color3.fromRGB(225, 215, 210)
-	hintLabel.TextSize = 17
-	hintLabel.TextWrapped = true
-	hintLabel.Parent = overlay
+	local hint = Instance.new("TextLabel")
+	hint.AnchorPoint = Vector2.new(0.5, 0)
+	hint.Position = UDim2.fromScale(0.5, 0.56)
+	hint.Size = UDim2.new(0.85, 0, 0, 52)
+	hint.BackgroundTransparency = 1
+	hint.Font = Enum.Font.Gotham
+	hint.Text = "A teammate needs a Bandage to revive you"
+	hint.TextColor3 = Color3.fromRGB(225, 215, 210)
+	hint.TextSize = 17
+	hint.TextWrapped = true
+	hint.Parent = overlayFrame
+	hintLabel = hint
 end
 
 --[[
@@ -176,6 +181,9 @@ end
 local function applyState(state: string, payload)
 	selfState = state
 	buildUi()
+	if not gui or not overlay or not titleLabel or not timerLabel or not hintLabel then
+		return
+	end
 	if state == "Downed" then
 		bleedOutAt = payload.bleedOutAt or workspace:GetServerTimeNow()
 		gui.Enabled = true
