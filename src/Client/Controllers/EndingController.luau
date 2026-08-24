@@ -122,6 +122,9 @@ end
 ]]
 local function showEnding(payload)
 	buildUi()
+	if not gui or not backdrop or not titleLabel or not subtitleLabel or not statsLabel then
+		return
+	end
 	gui.Enabled = true
 	backdrop.BackgroundTransparency = 1
 	titleLabel.TextTransparency = 1
@@ -149,6 +152,9 @@ local function showResults(result)
 		elseif string.sub(sourceName, 1, 6) == "Child:" then
 			childCount += 1
 		end
+	end
+	if not statsLabel then
+		return
 	end
 	statsLabel.Text = table.concat({
 		"RUN RESULTS",
