@@ -610,9 +610,10 @@ function BuildingService:KnitStart()
 		structures = {}
 		placementCooldowns = {}
 		groundPart = nil
-		structuresFolder = Instance.new("Folder")
-		structuresFolder.Name = "Structures"
-		structuresFolder.Parent = runStateService:GetRuntimeFolder()
+		local folder = Instance.new("Folder")
+		folder.Name = "Structures"
+		folder.Parent = runStateService:GetRuntimeFolder()
+		structuresFolder = folder
 	end)
 	runStateService.RunCleaned:Connect(function()
 		structures = {}

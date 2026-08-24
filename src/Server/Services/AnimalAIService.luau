@@ -889,7 +889,7 @@ function AnimalAIService:ResetForRun()
 
 	local capturedRunId = runStateService and runStateService:GetRunId()
 	task.delay(1, function()
-		if runStateService and runStateService:IsCurrentRun(capturedRunId) then
+		if runStateService and runStateService:IsCurrentRun(capturedRunId) and spawnPersistentPopulation then
 			spawnPersistentPopulation()
 		end
 	end)

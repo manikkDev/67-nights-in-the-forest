@@ -106,19 +106,6 @@ local function cancelTimer(session: Session)
 	end
 end
 
-local function destroySession(owner: Player)
-	local session = sessions[owner]
-	if not session then
-		return
-	end
-	cancelTimer(session)
-	for player, mappedSession in pairs(sessions) do
-		if mappedSession == session then
-			sessions[player] = nil
-		end
-	end
-end
-
 local function getSessionFor(player: Player): Session?
 	return sessions[player]
 end

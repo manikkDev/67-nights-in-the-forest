@@ -31,7 +31,7 @@ local titleLabel: TextLabel? = nil
 local resourcesLabel: TextLabel? = nil
 local listFrame: ScrollingFrame? = nil
 local buttons: { [string]: TextButton } = {}
-local currentState = { tier = 1, resources = {}, recipeCounts = {}, unlocks = {} }
+local currentState: { tier: number, resources: { [string]: number }, recipeCounts: { [string]: number }, unlocks: { [string]: boolean } } = { tier = 1, resources = {}, recipeCounts = {}, unlocks = {} }
 local requestPending = false
 
 -- // FUNCTIONS // --
@@ -158,39 +158,42 @@ local function buildUi()
 		return
 	end
 
-	gui = Instance.new("ScreenGui")
-	gui.Name = "CraftingGui"
-	gui.ResetOnSpawn = false
-	gui.IgnoreGuiInset = false
-	gui.Enabled = false
-	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "CraftingGui"
+	screenGui.ResetOnSpawn = false
+	screenGui.IgnoreGuiInset = false
+	screenGui.Enabled = false
+	screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	gui = screenGui
 
-	panel = Instance.new("Frame")
-	panel.Name = "Panel"
-	panel.AnchorPoint = Vector2.new(0.5, 0.5)
-	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.new(0.82, 0, 0.82, 0)
-	panel.BackgroundColor3 = Color3.fromRGB(24, 24, 27)
-	panel.BorderSizePixel = 0
-	panel.Parent = gui
+	local panelFrame = Instance.new("Frame")
+	panelFrame.Name = "Panel"
+	panelFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+	panelFrame.Position = UDim2.fromScale(0.5, 0.5)
+	panelFrame.Size = UDim2.new(0.82, 0, 0.82, 0)
+	panelFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27)
+	panelFrame.BorderSizePixel = 0
+	panelFrame.Parent = screenGui
+	panel = panelFrame
 	local sizeConstraint = Instance.new("UISizeConstraint")
 	sizeConstraint.MaxSize = Vector2.new(720, 620)
 	sizeConstraint.MinSize = Vector2.new(300, 360)
-	sizeConstraint.Parent = panel
+	sizeConstraint.Parent = panelFrame
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 12)
-	corner.Parent = panel
+	corner.Parent = panelFrame
 
-	titleLabel = Instance.new("TextLabel")
-	titleLabel.Name = "Title"
-	titleLabel.Position = UDim2.new(0, 18, 0, 12)
-	titleLabel.Size = UDim2.new(1, -90, 0, 34)
-	titleLabel.BackgroundTransparency = 1
-	titleLabel.Font = Enum.Font.GothamBlack
-	titleLabel.TextColor3 = Color3.fromRGB(235, 225, 195)
-	titleLabel.TextSize = 22
-	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-	titleLabel.Parent = panel
+	local title = Instance.new("TextLabel")
+	title.Name = "Title"
+	title.Position = UDim2.new(0, 18, 0, 12)
+	title.Size = UDim2.new(1, -90, 0, 34)
+	title.BackgroundTransparency = 1
+	title.Font = Enum.Font.GothamBlack
+	title.TextColor3 = Color3.fromRGB(235, 225, 195)
+	title.TextSize = 22
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.Parent = panelFrame
+	titleLabel = title
 
 	local close = Instance.new("TextButton")
 	close.Name = "Close"
@@ -202,38 +205,40 @@ local function buildUi()
 	close.Text = "X"
 	close.TextColor3 = Color3.new(1, 1, 1)
 	close.TextSize = 18
-	close.Parent = panel
+	close.Parent = panelFrame
 	local closeCorner = Instance.new("UICorner")
 	closeCorner.CornerRadius = UDim.new(0, 8)
 	closeCorner.Parent = close
 	close.Activated:Connect(function()
-		gui.Enabled = false
+		screenGui.Enabled = false
 	end)
 
-	resourcesLabel = Instance.new("TextLabel")
-	resourcesLabel.Position = UDim2.new(0, 18, 0, 51)
-	resourcesLabel.Size = UDim2.new(1, -36, 0, 26)
-	resourcesLabel.BackgroundTransparency = 1
-	resourcesLabel.Font = Enum.Font.Gotham
-	resourcesLabel.TextColor3 = Color3.fromRGB(185, 185, 190)
-	resourcesLabel.TextSize = 14
-	resourcesLabel.TextXAlignment = Enum.TextXAlignment.Left
-	resourcesLabel.Parent = panel
+	local resources = Instance.new("TextLabel")
+	resources.Position = UDim2.new(0, 18, 0, 51)
+	resources.Size = UDim2.new(1, -36, 0, 26)
+	resources.BackgroundTransparency = 1
+	resources.Font = Enum.Font.Gotham
+	resources.TextColor3 = Color3.fromRGB(185, 185, 190)
+	resources.TextSize = 14
+	resources.TextXAlignment = Enum.TextXAlignment.Left
+	resources.Parent = panelFrame
+	resourcesLabel = resources
 
-	listFrame = Instance.new("ScrollingFrame")
-	listFrame.Name = "Recipes"
-	listFrame.Position = UDim2.new(0, 16, 0, 84)
-	listFrame.Size = UDim2.new(1, -32, 1, -100)
-	listFrame.BackgroundTransparency = 1
-	listFrame.BorderSizePixel = 0
-	listFrame.ScrollBarThickness = 6
-	listFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	listFrame.CanvasSize = UDim2.new()
-	listFrame.Parent = panel
+	local recipeList = Instance.new("ScrollingFrame")
+	recipeList.Name = "Recipes"
+	recipeList.Position = UDim2.new(0, 16, 0, 84)
+	recipeList.Size = UDim2.new(1, -32, 1, -100)
+	recipeList.BackgroundTransparency = 1
+	recipeList.BorderSizePixel = 0
+	recipeList.ScrollBarThickness = 6
+	recipeList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	recipeList.CanvasSize = UDim2.new()
+	recipeList.Parent = panelFrame
+	listFrame = recipeList
 	local layout = Instance.new("UIListLayout")
 	layout.Padding = UDim.new(0, 7)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
-	layout.Parent = listFrame
+	layout.Parent = recipeList
 
 	for order, recipe in ipairs(orderedRecipes()) do
 		local button = Instance.new("TextButton")
@@ -246,7 +251,7 @@ local function buildUi()
 		button.TextSize = 15
 		button.TextWrapped = true
 		button.Selectable = true
-		button.Parent = listFrame
+		button.Parent = recipeList
 		local buttonCorner = Instance.new("UICorner")
 		buttonCorner.CornerRadius = UDim.new(0, 8)
 		buttonCorner.Parent = button
@@ -267,7 +272,9 @@ local function openMenu()
 			currentState = snapshot
 		end
 		refreshDisplay()
-		gui.Enabled = true
+		if gui then
+			gui.Enabled = true
+		end
 		local firstRecipe = orderedRecipes()[1]
 		if firstRecipe and buttons[firstRecipe.Id] then
 			GuiService.SelectedObject = buttons[firstRecipe.Id]

@@ -245,7 +245,7 @@ function CombatService.Client:RequestAttack(player: Player)
 		attackCooldowns[player] = now
 		local handlers = CombatTargetRegistry.Get(target)
 		if handlers then
-			local killed, immune = handlers.ApplyDamage(WEAPON_DAMAGE[weaponName] or 10, player)
+			local _killed, immune = handlers.ApplyDamage(WEAPON_DAMAGE[weaponName] or 10, player)
 			broadcastToAll(CombatService.Client.AttackLanded, target:GetPivot().Position, weaponName, immune == true)
 		end
 		return

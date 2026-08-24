@@ -57,7 +57,6 @@ local beamOn = false
 local batteryPercent = 100
 local lowBatteryWarning = false
 
-local panelGui: ScreenGui? = nil
 local panelFrame: Frame? = nil
 local batteryBar: Frame? = nil
 local batteryFill: Frame? = nil
@@ -469,7 +468,6 @@ local function buildBatteryPanel()
 	warn.TextXAlignment = Enum.TextXAlignment.Right
 	warn.Parent = frame
 
-	panelGui = gui
 	panelFrame = frame
 	batteryBar = barContainer
 	batteryFill = fill

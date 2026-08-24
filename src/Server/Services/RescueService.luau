@@ -21,7 +21,6 @@ local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local HttpService = game:GetService("HttpService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -62,7 +61,6 @@ local worldService: any = nil
 local campfireService: any = nil
 local animalAIService: any = nil
 local playerLifeService: any = nil
-local timeService: any = nil
 
 local caveRecords: { [string]: any } = {}
 local carriedBy: { [Player]: string } = {}
@@ -264,12 +262,14 @@ local function buildCaves()
 	rescueOrder = 0
 	rescueCheckTimer = 0
 
-	cavesFolder = Instance.new("Folder")
-	cavesFolder.Name = "Caves"
-	cavesFolder.Parent = runStateService:GetRuntimeFolder()
-	tentsFolder = Instance.new("Folder")
-	tentsFolder.Name = "RescueTents"
-	tentsFolder.Parent = runStateService:GetRuntimeFolder()
+	local caves = Instance.new("Folder")
+	caves.Name = "Caves"
+	caves.Parent = runStateService:GetRuntimeFolder()
+	cavesFolder = caves
+	local tents = Instance.new("Folder")
+	tents.Name = "RescueTents"
+	tents.Parent = runStateService:GetRuntimeFolder()
+	tentsFolder = tents
 
 	local campfireCFrame = worldService:GetCampfireCFrame()
 	if not campfireCFrame then
@@ -404,19 +404,20 @@ local function createPosterBoard()
 	if not campfireCFrame then
 		return
 	end
-	posterBoard = Instance.new("Part")
-	posterBoard.Name = "MissingChildrenBoard"
-	posterBoard.Size = Vector3.new(10, 7, 0.8)
-	posterBoard.Anchored = true
-	posterBoard.Material = Enum.Material.WoodPlanks
-	posterBoard.Color = Color3.fromRGB(100, 67, 42)
-	posterBoard.CFrame = campfireCFrame * CFrame.new(-13, 4, 0) * CFrame.Angles(0, math.rad(90), 0)
-	posterBoard.Parent = runStateService:GetRuntimeFolder()
+	local board = Instance.new("Part")
+	board.Name = "MissingChildrenBoard"
+	board.Size = Vector3.new(10, 7, 0.8)
+	board.Anchored = true
+	board.Material = Enum.Material.WoodPlanks
+	board.Color = Color3.fromRGB(100, 67, 42)
+	board.CFrame = campfireCFrame * CFrame.new(-13, 4, 0) * CFrame.Angles(0, math.rad(90), 0)
+	board.Parent = runStateService:GetRuntimeFolder()
+	posterBoard = board
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.ActionText = "Track Child"
 	prompt.ObjectText = "Missing Children"
 	prompt.MaxActivationDistance = PICKUP_RANGE
-	prompt.Parent = posterBoard
+	prompt.Parent = board
 	prompt.Triggered:Connect(function(player)
 		RescueService:SelectBoardTarget(player)
 	end)
@@ -770,7 +771,6 @@ function RescueService:KnitStart()
 	campfireService = Knit.GetService("CampfireService")
 	animalAIService = Knit.GetService("AnimalAIService")
 	playerLifeService = Knit.GetService("PlayerLifeService")
-	timeService = Knit.GetService("TimeService")
 
 	runStateService.RunStarted:Connect(function()
 		buildCaves()

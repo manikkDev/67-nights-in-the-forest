@@ -77,29 +77,31 @@ local function buildStatusUi()
 	if statusGui then
 		return
 	end
-	statusGui = Instance.new("ScreenGui")
-	statusGui.Name = "BuildingPlacementGui"
-	statusGui.ResetOnSpawn = false
-	statusGui.Enabled = false
-	statusGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "BuildingPlacementGui"
+	screenGui.ResetOnSpawn = false
+	screenGui.Enabled = false
+	screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	statusGui = screenGui
 
-	statusLabel = Instance.new("TextLabel")
-	statusLabel.AnchorPoint = Vector2.new(0.5, 1)
-	statusLabel.Position = UDim2.new(0.5, 0, 1, -100)
-	statusLabel.Size = UDim2.new(0.8, 0, 0, 58)
-	statusLabel.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
-	statusLabel.BackgroundTransparency = 0.15
-	statusLabel.Font = Enum.Font.GothamBold
-	statusLabel.TextColor3 = VALID_COLOR
-	statusLabel.TextSize = 17
-	statusLabel.TextWrapped = true
-	statusLabel.Parent = statusGui
+	local label = Instance.new("TextLabel")
+	label.AnchorPoint = Vector2.new(0.5, 1)
+	label.Position = UDim2.new(0.5, 0, 1, -100)
+	label.Size = UDim2.new(0.8, 0, 0, 58)
+	label.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+	label.BackgroundTransparency = 0.15
+	label.Font = Enum.Font.GothamBold
+	label.TextColor3 = VALID_COLOR
+	label.TextSize = 17
+	label.TextWrapped = true
+	label.Parent = screenGui
+	statusLabel = label
 	local constraint = Instance.new("UISizeConstraint")
 	constraint.MaxSize = Vector2.new(580, 58)
-	constraint.Parent = statusLabel
+	constraint.Parent = label
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 10)
-	corner.Parent = statusLabel
+	corner.Parent = label
 end
 
 --[[

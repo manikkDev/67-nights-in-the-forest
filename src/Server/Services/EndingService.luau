@@ -32,7 +32,6 @@ local timeService: any = nil
 local playerDataService: any = nil
 local playerLifeService: any = nil
 local rescueService: any = nil
-local buildingService: any = nil
 local animalAIService: any = nil
 local deerService: any = nil
 local owlService: any = nil
@@ -135,7 +134,6 @@ function EndingService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 	playerLifeService = Knit.GetService("PlayerLifeService")
 	rescueService = Knit.GetService("RescueService")
-	buildingService = Knit.GetService("BuildingService")
 	animalAIService = Knit.GetService("AnimalAIService")
 	deerService = Knit.GetService("DeerService")
 	owlService = Knit.GetService("OwlService")
