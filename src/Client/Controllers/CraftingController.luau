@@ -300,11 +300,17 @@ end
 
 function CraftingController:KnitStart()
 	craftingService = Knit.GetService("CraftingService")
+	local runStateService = Knit.GetService("RunStateService")
 	buildUi()
 	craftingService.OpenCrafting:Connect(openMenu)
 	craftingService.CraftSucceeded:Connect(function(_recipeId, result)
-		if typeof(result) == "table" and result.outputKind == "Placement" and gui then
-			gui.Enabled = false
+		if typeof(result) == "table" and result.outputKind == "Placement" and gui and gui.Enabled then
+			closeMenu()
+		end
+	end)
+	runStateService.RunPhaseChanged:Connect(function(payload)
+		if typeof(payload) == "table" and payload.phase == "Lobby" then
+			closeMenu()
 		end
 	end)
 	craftingService.CraftingStateChanged:Connect(function(snapshot)
