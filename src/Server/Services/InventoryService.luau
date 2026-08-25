@@ -36,6 +36,7 @@ local RunService = game:GetService("RunService")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
+local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
 
 -- | Objects | --
 local InventoryService = Knit.CreateService({
@@ -65,6 +66,12 @@ local RESOURCE_NAMES = {
 	"OwlFeather",
 	"CultistGem",
 	"Bandage",
+	"Bolt",
+	"OldRadio",
+	"SheetMetal",
+	"Tyre",
+	"BrokenFan",
+	"BrokenMicrowave",
 }
 
 local PICKUP_RANGE = 12
@@ -85,6 +92,12 @@ local DROP_ASSETS: { [string]: string? } = {
 	OwlFeather = nil :: string?,
 	CultistGem = nil :: string?,
 	Bandage = nil :: string?,
+	Bolt = nil :: string?,
+	OldRadio = nil :: string?,
+	SheetMetal = nil :: string?,
+	Tyre = nil :: string?,
+	BrokenFan = nil :: string?,
+	BrokenMicrowave = nil :: string?,
 }
 local MUSHROOM_ASSET_NAME = "Mushroom"
 
@@ -173,6 +186,20 @@ end
 ]]
 function InventoryService:IsResource(name: string): boolean
 	return table.find(RESOURCE_NAMES, name) ~= nil
+end
+
+--[[
+    @summary  Return the player's current count of a single resource.
+    @param    player  Player
+    @param    name    string  -- one of RESOURCE_NAMES
+    @returns  number
+]]
+function InventoryService:GetResourceCount(player: Player, name: string): number
+	local data = getPlayerData(player)
+	if not data then
+		return 0
+	end
+	return data.Resources[name] or 0
 end
 
 --[[
@@ -274,6 +301,28 @@ function InventoryService:ConsumeResource(player: Player, name: string, amount: 
 
 	broadcastSnapshot(player)
 	return true
+end
+
+--[[
+    @summary  Consume one junk item and grant its Scrap yield.
+    @desc     Called by GrinderService when a player grinds a junk item.
+              Does NOT check proximity to the grinder — that is the
+              caller's responsibility.
+    @param    player   Player
+    @param    junkId   string  -- key into JunkItemConfig
+    @returns  number           -- scrap actually granted (0 on failure)
+]]
+function InventoryService:GrindJunk(player: Player, junkId: string): number
+	local config = JunkItemConfig[junkId]
+	if not config then
+		return 0
+	end
+	local consumed = self:ConsumeResource(player, junkId, 1)
+	if not consumed then
+		return 0
+	end
+	local added = self:AddResource(player, "Scrap", config.ScrapYield)
+	return added
 end
 
 -- // PICKUP / DROP // --
@@ -404,6 +453,113 @@ function InventoryService:BuildMushroomModel(): Model
 end
 
 --[[
+    @summary  Build a generated 3D model for a junk item from primitives.
+    @desc     Each junk item gets a recognizable shape built from basic
+              Roblox parts, colored and materialized per JunkItemConfig.
+    @param    itemId  string  -- key into JunkItemConfig
+    @returns  Model
+]]
+local function buildJunkModel(itemId: string): Model
+	local config = JunkItemConfig[itemId]
+	if not config then
+		local fallback = Instance.new("Model")
+		fallback.Name = itemId .. "Pickup"
+		local p = Instance.new("Part")
+		p.Name = "Main"
+		p.Size = Vector3.new(1, 1, 1)
+		p.Color = Color3.fromRGB(150, 150, 150)
+		p.Material = Enum.Material.Metal
+		p.Parent = fallback
+		fallback.PrimaryPart = p
+		return fallback
+	end
+
+	local model = Instance.new("Model")
+	model.Name = itemId .. "Pickup"
+	local color = config.Color
+	local material = config.Material
+
+	local function makePart(name: string, size: Vector3, cframe: CFrame, shape: Enum.PartType?): Part
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Size = size
+		p.Color = color
+		p.Material = material
+		p.Anchored = false
+		p.CanCollide = true
+		if shape then
+			p.Shape = shape
+		end
+		p.CFrame = cframe
+		p.Parent = model
+		return p
+	end
+
+	if itemId == "Bolt" then
+		-- Hex head + threaded shaft
+		local head = makePart("Head", Vector3.new(0.5, 0.3, 0.5), CFrame.new(0, 0.15, 0), Enum.PartType.Block)
+		local shaft = makePart("Shaft", Vector3.new(0.2, 0.6, 0.2), CFrame.new(0, -0.3, 0), Enum.PartType.Cylinder)
+		shaft.Orientation = Vector3.new(0, 0, 90)
+		model.PrimaryPart = head
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = head
+		weld.Part1 = shaft
+		weld.Parent = head
+
+	elseif itemId == "OldRadio" then
+		-- Wooden box with a knob and antenna
+		local body = makePart("Body", Vector3.new(1.2, 0.8, 0.6), CFrame.new(0, 0, 0))
+		local knob = makePart("Knob", Vector3.new(0.2, 0.2, 0.2), CFrame.new(0.4, 0.2, 0.31), Enum.PartType.Cylinder)
+		knob.Orientation = Vector3.new(90, 0, 0)
+		local antenna = makePart("Antenna", Vector3.new(0.08, 1.2, 0.08), CFrame.new(-0.4, 0.8, 0), Enum.PartType.Cylinder)
+		model.PrimaryPart = body
+		for _, p in ipairs({ knob, antenna }) do
+			local w = Instance.new("WeldConstraint")
+			w.Part0 = body
+			w.Part1 = p
+			w.Parent = body
+		end
+
+	elseif itemId == "SheetMetal" then
+		-- Flat thin plate
+		local plate = makePart("Plate", Vector3.new(1.5, 0.1, 1.0), CFrame.new(0, 0, 0))
+		model.PrimaryPart = plate
+
+	elseif itemId == "Tyre" then
+		-- Black rubber ring (torus approximation via cylinder with hole)
+		local ring = makePart("Ring", Vector3.new(1.0, 1.0, 0.4), CFrame.new(0, 0, 0), Enum.PartType.Cylinder)
+		ring.Orientation = Vector3.new(90, 0, 0)
+		model.PrimaryPart = ring
+
+	elseif itemId == "BrokenFan" then
+		-- Base + broken blades
+		local base = makePart("Base", Vector3.new(0.8, 0.3, 0.8), CFrame.new(0, 0, 0))
+		local blade1 = makePart("Blade1", Vector3.new(0.8, 0.1, 0.15), CFrame.new(0.4, 0.2, 0) * CFrame.Angles(0, 0, 0))
+		local blade2 = makePart("Blade2", Vector3.new(0.5, 0.1, 0.15), CFrame.new(-0.2, 0.2, 0.3) * CFrame.Angles(0, math.rad(120), 0))
+		model.PrimaryPart = base
+		for _, p in ipairs({ blade1, blade2 }) do
+			local w = Instance.new("WeldConstraint")
+			w.Part0 = base
+			w.Part1 = p
+			w.Parent = base
+		end
+
+	elseif itemId == "BrokenMicrowave" then
+		-- Box body + door
+		local body = makePart("Body", Vector3.new(1.4, 0.9, 1.0), CFrame.new(0, 0, 0))
+		local door = makePart("Door", Vector3.new(1.2, 0.8, 0.1), CFrame.new(0, 0, 0.55))
+		door.Color = Color3.fromRGB(180, 180, 175)
+		model.PrimaryPart = body
+		local w = Instance.new("WeldConstraint")
+		w.Part0 = body
+		w.Part1 = door
+		w.Parent = body
+	end
+
+	return model
+end
+
+--[[
     @summary  Make a fresh clone of a resource asset (or build one) and tag
               it with the attributes CarryController/HarvestService/ForageService
               will look for.
@@ -415,6 +571,8 @@ local function buildDropModel(resourceName: string): Model
 
 	if resourceName == "Mushrooms" then
 		model = buildMushroomProp()
+	elseif JunkItemConfig[resourceName] then
+		model = buildJunkModel(resourceName)
 	else
 		local assetName = DROP_ASSETS[resourceName]
 		local source = assetName and ITEMS_PATH:FindFirstChild(assetName)

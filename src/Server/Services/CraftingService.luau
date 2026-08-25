@@ -47,6 +47,7 @@ local runStateService: any = nil
 local playerDataService: any = nil
 local inventoryService: any = nil
 local worldService: any = nil
+local grinderService: any = nil
 
 local benchTier = 1
 local benchModel: Model? = nil
@@ -217,6 +218,11 @@ local function placeBench()
 			end
 		end)
 	end
+
+	-- Place the grinder next to the bench (opposite side of campfire)
+	if grinderService then
+		grinderService:PlaceGrinder(campfireCFrame)
+	end
 end
 
 --[[
@@ -365,6 +371,7 @@ function CraftingService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 	inventoryService = Knit.GetService("InventoryService")
 	worldService = Knit.GetService("WorldService")
+	grinderService = Knit.GetService("GrinderService")
 
 	runStateService.RunStarted:Connect(resetForRun)
 	runStateService.RunCleaned:Connect(function()

@@ -58,6 +58,12 @@ return {
 		OwlFeather = 0,
 		CultistGem = 0,
 		Bandage = 0,
+		Bolt = 0,
+		OldRadio = 0,
+		SheetMetal = 0,
+		Tyre = 0,
+		BrokenFan = 0,
+		BrokenMicrowave = 0,
 	},
 
 	Survival = {

@@ -28,6 +28,7 @@ local UserInputService = game:GetService("UserInputService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
 
 -- | Objects | --
 local InventoryController = Knit.CreateController({
@@ -75,6 +76,12 @@ local ROW_ORDER = {
 	"CookedMeat",
 	"Bandage",
 	"CultistGem",
+	"Bolt",
+	"OldRadio",
+	"SheetMetal",
+	"Tyre",
+	"BrokenFan",
+	"BrokenMicrowave",
 }
 local ROW_COLORS = {
 	Wood = Color3.fromRGB(170, 110, 65),
@@ -87,6 +94,12 @@ local ROW_COLORS = {
 	RawMeat = Color3.fromRGB(200, 100, 100),
 	CookedMeat = Color3.fromRGB(215, 160, 80),
 	RabbitMeat = Color3.fromRGB(200, 100, 100),
+	Bolt = Color3.fromRGB(140, 140, 145),
+	OldRadio = Color3.fromRGB(80, 60, 45),
+	SheetMetal = Color3.fromRGB(170, 170, 175),
+	Tyre = Color3.fromRGB(30, 30, 30),
+	BrokenFan = Color3.fromRGB(100, 100, 105),
+	BrokenMicrowave = Color3.fromRGB(220, 220, 215),
 }
 local ROW_DESCRIPTIONS = {
 	Wood = "Used for building and fueling campfires.",
@@ -99,6 +112,12 @@ local ROW_DESCRIPTIONS = {
 	RawMeat = "Cook it at the campfire to restore more hunger.",
 	CookedMeat = "A filling meal that restores lots of hunger.",
 	RabbitMeat = "Fresh rabbit meat. Cook it at the campfire.",
+	Bolt = "Junk. Grind at the Grinder for 1 Scrap.",
+	OldRadio = "Junk. Grind at the Grinder for 2 Scrap.",
+	SheetMetal = "Junk. Grind at the Grinder for 2 Scrap.",
+	Tyre = "Junk. Grind at the Grinder for 2 Scrap.",
+	BrokenFan = "Junk. Grind at the Grinder for 3 Scrap.",
+	BrokenMicrowave = "Junk. Grind at the Grinder for 4 Scrap.",
 }
 
 -- | State Management | --
@@ -256,7 +275,9 @@ local function showTooltip(row: Frame, resourceName: string, count: number)
 		return
 	end
 
-	tooltipTitle.Text = resourceName
+	local junkConfig = JunkItemConfig[resourceName]
+	local displayName = junkConfig and junkConfig.DisplayName or resourceName
+	tooltipTitle.Text = displayName
 	tooltipCount.Text = "Count: " .. tostring(count)
 	tooltipDesc.Text = ROW_DESCRIPTIONS[resourceName] or ""
 
@@ -519,6 +540,8 @@ end
 ]]
 local function buildRow(resourceName: string, index: number, parent: Frame): RowEntry
 	local color = ROW_COLORS[resourceName] or Color3.fromRGB(120, 120, 120)
+	local junkConfig = JunkItemConfig[resourceName]
+	local displayName = junkConfig and junkConfig.DisplayName or resourceName
 
 	local row = Instance.new("Frame")
 	row.Name = resourceName .. "Row"
@@ -577,10 +600,21 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	iconInitial.Name = "Initial"
 	iconInitial.Size = UDim2.new(1, 0, 1, 0)
 	iconInitial.BackgroundTransparency = 1
-	iconInitial.Text = string.sub(resourceName, 1, 1)
+	-- Show bolt symbol for junk items, first letter for everything else
+	if junkConfig then
+		local bolts = ""
+		for _ = 1, junkConfig.BoltCount do
+			bolts ..= "\u{1F529}"
+		end
+		iconInitial.Text = bolts
+		iconInitial.Font = Enum.Font.GothamBold
+		iconInitial.TextSize = 11
+	else
+		iconInitial.Text = string.sub(resourceName, 1, 1)
+		iconInitial.Font = Enum.Font.GothamBlack
+		iconInitial.TextSize = 15
+	end
 	iconInitial.TextColor3 = Color3.fromRGB(255, 255, 255)
-	iconInitial.Font = Enum.Font.GothamBlack
-	iconInitial.TextSize = 15
 	iconInitial.TextXAlignment = Enum.TextXAlignment.Center
 	iconInitial.TextYAlignment = Enum.TextYAlignment.Center
 	iconInitial.Parent = icon
@@ -620,7 +654,7 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	nameLabel.Size = UDim2.new(1, 0, 0, 15)
 	nameLabel.Position = UDim2.new(0, 0, 0, 0)
 	nameLabel.BackgroundTransparency = 1
-	nameLabel.Text = resourceName
+	nameLabel.Text = displayName
 	nameLabel.TextColor3 = Color3.fromRGB(225, 225, 235)
 	nameLabel.Font = Enum.Font.GothamBold
 	nameLabel.TextSize = 13
@@ -935,8 +969,12 @@ local function updateDisplay(resources: { [string]: number }?, capacity: number?
 		end
 
 		-- Update tooltip if currently visible for this row.
-		if tooltipFrame and tooltipFrame.Visible and tooltipTitle and tooltipCount and tooltipTitle.Text == resourceName then
-			tooltipCount.Text = "Count: " .. tostring(count)
+		if tooltipFrame and tooltipFrame.Visible and tooltipTitle and tooltipCount then
+			local junkCfg = JunkItemConfig[resourceName]
+			local expectedTitle = junkCfg and junkCfg.DisplayName or resourceName
+			if tooltipTitle.Text == expectedTitle then
+				tooltipCount.Text = "Count: " .. tostring(count)
+			end
 		end
 	end
 
