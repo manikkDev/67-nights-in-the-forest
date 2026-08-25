@@ -19,7 +19,6 @@
 -- | Services | --
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 
@@ -38,7 +37,6 @@ local inventoryService: any = nil
 local gui: ScreenGui? = nil
 local panel: Frame? = nil
 local listFrame: ScrollingFrame? = nil
-local bladeConnection: any = nil
 
 -- // FUNCTIONS // --
 
@@ -254,10 +252,19 @@ local function playVfx(payload: { [string]: any })
 		return
 	end
 
-	-- Spark particles
+	-- Find the grinder model to attach particles to
+	local runtime = workspace:FindFirstChild("Runtime")
+	local grinder = runtime and runtime:FindFirstChild("Grinder")
+	local bodyPart = grinder and grinder:FindFirstChild("Body")
+	if not bodyPart or not bodyPart:IsA("BasePart") then
+		return
+	end
+
+	-- Spark particles attached to the grinder body
 	local attachment = Instance.new("Attachment")
-	attachment.Position = Vector3.new(0, 3, 0)
-	attachment.Parent = workspace:FindFirstChild("Runtime")
+	attachment.Name = "GrinderSparkAtt"
+	attachment.Position = Vector3.new(0, 2, 0) -- relative to the body part
+	attachment.Parent = bodyPart
 
 	local particles = Instance.new("ParticleEmitter")
 	particles.Name = "GrinderSparks"
@@ -270,16 +277,6 @@ local function playVfx(payload: { [string]: any })
 	particles.SpreadAngle = Vector2.new(45, 45)
 	particles.Parent = attachment
 
-	-- Position the attachment at the grinder
-	local runtime = workspace:FindFirstChild("Runtime")
-	if runtime then
-		local grinder = runtime:FindFirstChild("Grinder")
-		if grinder and grinder:IsA("Model") then
-			attachment.Parent = grinder
-			attachment.Position = Vector3.new(0, 3, 0)
-		end
-	end
-
 	particles:Emit(15)
 	task.delay(1, function()
 		if attachment then
@@ -291,35 +288,11 @@ local function playVfx(payload: { [string]: any })
 	local sound = Instance.new("Sound")
 	sound.SoundId = "rbxassetid://9112810051"
 	sound.Volume = 0.5
-	sound.Parent = workspace
+	sound.Parent = bodyPart
 	sound:Play()
 	task.delay(2, function()
 		sound:Destroy()
 	end)
-end
-
---[[
-    @summary  Spin the grinder blade every frame.
-]]
-local function spinBlade()
-	local runtime = workspace:FindFirstChild("Runtime")
-	if not runtime then
-		return
-	end
-	local grinder = runtime:FindFirstChild("Grinder")
-	if not grinder or not grinder:IsA("Model") then
-		return
-	end
-	local blade = grinder:FindFirstChild("Blade")
-	local blade2 = grinder:FindFirstChild("Blade2")
-	if blade and blade:IsA("BasePart") then
-		local currentAngle = os.clock() * 8
-		blade.CFrame = CFrame.new(blade.Position) * CFrame.Angles(0, currentAngle, 0)
-	end
-	if blade2 and blade2:IsA("BasePart") then
-		local currentAngle = os.clock() * 8
-		blade2.CFrame = CFrame.new(blade2.Position) * CFrame.Angles(0, currentAngle, 0)
-	end
 end
 
 -- // INITIALIZATION // --
@@ -330,9 +303,6 @@ function GrinderController:KnitStart()
 
 	grinderService.OpenGrinder:Connect(openGrinder)
 	grinderService.GrinderProcessed:Connect(playVfx)
-
-	-- Spin the blade every frame
-	RunService.RenderStepped:Connect(spinBlade)
 end
 
 return GrinderController

@@ -28,7 +28,6 @@ local Debris = game:GetService("Debris")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
-local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 
 -- | Objects | --
 local FacilityService = Knit.CreateService({

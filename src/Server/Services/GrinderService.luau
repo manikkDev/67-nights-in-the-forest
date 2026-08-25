@@ -85,13 +85,23 @@ local function buildGrinderModel(): Model
 	hopper.CFrame = CFrame.new(0, 3.5, 0)
 	hopper.Parent = model
 
-	-- Spinning blade (visual only, rotated by client)
+	-- Spinning blade assembly (rotated by a HingeConstraint on the server)
+	local bladePivot = Instance.new("Part")
+	bladePivot.Name = "BladePivot"
+	bladePivot.Size = Vector3.new(0.4, 0.4, 0.4)
+	bladePivot.Color = Color3.fromRGB(60, 60, 65)
+	bladePivot.Material = Enum.Material.Metal
+	bladePivot.Anchored = true
+	bladePivot.CanCollide = false
+	bladePivot.CFrame = CFrame.new(0, 2.8, 0)
+	bladePivot.Parent = model
+
 	local blade = Instance.new("Part")
 	blade.Name = "Blade"
 	blade.Size = Vector3.new(2.5, 0.2, 0.3)
 	blade.Color = Color3.fromRGB(180, 180, 185)
 	blade.Material = Enum.Material.Metal
-	blade.Anchored = true
+	blade.Anchored = false
 	blade.CanCollide = false
 	blade.CFrame = CFrame.new(0, 2.8, 0)
 	blade.Parent = model
@@ -101,10 +111,39 @@ local function buildGrinderModel(): Model
 	blade2.Size = Vector3.new(2.5, 0.2, 0.3)
 	blade2.Color = Color3.fromRGB(180, 180, 185)
 	blade2.Material = Enum.Material.Metal
-	blade2.Anchored = true
+	blade2.Anchored = false
 	blade2.CanCollide = false
 	blade2.CFrame = CFrame.new(0, 2.8, 0) * CFrame.Angles(0, math.rad(90), 0)
 	blade2.Parent = model
+
+	-- Weld blades together so they rotate as one unit
+	local bladeWeld = Instance.new("WeldConstraint")
+	bladeWeld.Part0 = blade
+	bladeWeld.Part1 = blade2
+	bladeWeld.Parent = blade
+
+	-- Attachments for the hinge
+	local pivotAtt = Instance.new("Attachment")
+	pivotAtt.Name = "PivotAtt"
+	pivotAtt.Axis = Vector3.new(0, 1, 0)
+	pivotAtt.SecondaryAxis = Vector3.new(0, 0, 1)
+	pivotAtt.Parent = bladePivot
+
+	local bladeAtt = Instance.new("Attachment")
+	bladeAtt.Name = "BladeAtt"
+	bladeAtt.Axis = Vector3.new(0, 1, 0)
+	bladeAtt.SecondaryAxis = Vector3.new(0, 0, 1)
+	bladeAtt.Parent = blade
+
+	-- HingeConstraint to spin the blade
+	local hinge = Instance.new("HingeConstraint")
+	hinge.Name = "BladeHinge"
+	hinge.Attachment0 = pivotAtt
+	hinge.Attachment1 = bladeAtt
+	hinge.ActuatorType = Enum.ActuatorType.Motor
+	hinge.MotorMaxTorque = 100
+	hinge.AngularVelocity = 8
+	hinge.Parent = bladePivot
 
 	-- Chute where scrap comes out
 	local chute = Instance.new("Part")
@@ -134,8 +173,9 @@ function GrinderService:PlaceGrinder(campfireCFrame: CFrame)
 	end
 
 	local model = buildGrinderModel()
-	local pivot = model:GetPivot()
-	model:PivotTo(campfireCFrame * GRINDER_OFFSET * CFrame.new(0, 0, 0) * pivot.Rotation)
+	-- Position the grinder at the campfire offset; the model's parts
+	-- are authored around the origin so PivotTo moves them all together.
+	model:PivotTo(campfireCFrame * GRINDER_OFFSET)
 	model.Parent = runStateService:GetRuntimeFolder()
 	grinderModel = model
 	grinderPosition = model:GetPivot().Position
