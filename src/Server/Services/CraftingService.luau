@@ -185,6 +185,8 @@ local function placeBench()
 			descendant:Destroy()
 		elseif descendant:IsA("BasePart") then
 			descendant.Anchored = true
+		elseif descendant:IsA("ProximityPrompt") then
+			descendant:Destroy()
 		end
 	end
 	clone.Parent = runStateService:GetRuntimeFolder()
