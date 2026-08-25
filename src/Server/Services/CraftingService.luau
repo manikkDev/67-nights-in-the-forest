@@ -196,7 +196,21 @@ local function placeBench()
 	clone:PivotTo(campfireCFrame * BENCH_OFFSET * CFrame.new(0, size.Y * 0.5, 0) * pivot.Rotation)
 	benchModel = clone
 
-	local anchor = clone.PrimaryPart or clone:FindFirstChildWhichIsA("BasePart", true)
+	-- Pick the part closest to the model's center so the ProximityPrompt
+	-- appears in the middle of the bench instead of a corner/leg.
+	local center = clone:GetPivot().Position
+	local anchor: BasePart? = nil
+	local bestDistance = math.huge
+	for _, descendant in ipairs(clone:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			local distance = (descendant.Position - center).Magnitude
+			if distance < bestDistance then
+				bestDistance = distance
+				anchor = descendant
+			end
+		end
+	end
+
 	if anchor then
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.Name = "CraftingPrompt"
