@@ -44,7 +44,7 @@ local NIGHT_GRADIENT = ColorSequence.new({
 -- | State Management | --
 local phaseGui: ScreenGui? = nil
 local banner: Frame? = nil
-local shadow: Frame? = nil
+local _shadow: Frame? = nil
 local phaseText: TextLabel? = nil
 local gradient: UIGradient? = nil
 local stroke: UIStroke? = nil
@@ -90,7 +90,7 @@ local function createPhaseUi()
 	shadowFrame.BorderSizePixel = 0
 	shadowFrame.ZIndex = 1
 	shadowFrame.Parent = screenGui
-	shadow = shadowFrame
+	_shadow = shadowFrame
 
 	local shadowCorner = Instance.new("UICorner")
 	shadowCorner.CornerRadius = UDim.new(0, 10)

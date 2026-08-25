@@ -27,10 +27,10 @@ local CraftingController = Knit.CreateController({
 -- | State Management | --
 local craftingService: any = nil
 local gui: ScreenGui? = nil
-local panel: Frame? = nil
+local _panel: Frame? = nil
 local titleLabel: TextLabel? = nil
 local resourcesLabel: TextLabel? = nil
-local listFrame: ScrollingFrame? = nil
+local _listFrame: ScrollingFrame? = nil
 local buttons: { [string]: TextButton } = {}
 local currentState: { tier: number, resources: { [string]: number }, recipeCounts: { [string]: number }, unlocks: { [string]: boolean } } = { tier = 1, resources = {}, recipeCounts = {}, unlocks = {} }
 local requestPending = false
@@ -169,10 +169,10 @@ local function buildUi()
 		return
 	end
 	gui = nil
-	panel = nil
+	_panel = nil
 	titleLabel = nil
 	resourcesLabel = nil
-	listFrame = nil
+	_listFrame = nil
 	table.clear(buttons)
 
 	local screenGui = Instance.new("ScreenGui")
@@ -191,7 +191,7 @@ local function buildUi()
 	panelFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27)
 	panelFrame.BorderSizePixel = 0
 	panelFrame.Parent = screenGui
-	panel = panelFrame
+	_panel = panelFrame
 	local sizeConstraint = Instance.new("UISizeConstraint")
 	sizeConstraint.MaxSize = Vector2.new(720, 620)
 	sizeConstraint.MinSize = Vector2.new(300, 360)
@@ -249,7 +249,7 @@ local function buildUi()
 	recipeList.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	recipeList.CanvasSize = UDim2.new()
 	recipeList.Parent = panelFrame
-	listFrame = recipeList
+	_listFrame = recipeList
 	local layout = Instance.new("UIListLayout")
 	layout.Padding = UDim.new(0, 7)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder

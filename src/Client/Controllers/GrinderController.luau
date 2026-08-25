@@ -19,8 +19,6 @@
 -- | Services | --
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local SoundService = game:GetService("SoundService")
-local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -35,8 +33,11 @@ local GrinderController = Knit.CreateController({
 local grinderService: any = nil
 local inventoryService: any = nil
 local gui: ScreenGui? = nil
-local panel: Frame? = nil
 local listFrame: ScrollingFrame? = nil
+
+-- Forward declaration so buildUi's callbacks can reference refreshList
+-- before it is defined below.
+local refreshList: () -> ()
 
 -- // FUNCTIONS // --
 
@@ -77,7 +78,6 @@ local function buildUi()
 	panelFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27)
 	panelFrame.BorderSizePixel = 0
 	panelFrame.Parent = screenGui
-	panel = panelFrame
 	local sizeConstraint = Instance.new("UISizeConstraint")
 	sizeConstraint.MaxSize = Vector2.new(560, 480)
 	sizeConstraint.MinSize = Vector2.new(300, 280)
@@ -160,7 +160,7 @@ end
 --[[
     @summary  Refresh the junk item list from the current inventory snapshot.
 ]]
-local function refreshList()
+refreshList = function()
 	if not listFrame then
 		return
 	end

@@ -45,7 +45,6 @@ local GRIND_COOLDOWN = 0.15
 -- | State Management | --
 local runStateService: any = nil
 local inventoryService: any = nil
-local craftingService: any = nil
 local grinderModel: Model? = nil
 local grinderPosition: Vector3? = nil
 local cooldowns: { [Player]: number } = {}
@@ -305,7 +304,6 @@ end
 function GrinderService:KnitStart()
 	runStateService = Knit.GetService("RunStateService")
 	inventoryService = Knit.GetService("InventoryService")
-	craftingService = Knit.GetService("CraftingService")
 
 	runStateService.RunCleaned:Connect(function()
 		if grinderModel then
