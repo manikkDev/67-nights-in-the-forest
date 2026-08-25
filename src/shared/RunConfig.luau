@@ -17,7 +17,7 @@ local RunService = game:GetService("RunService")
 
 local StudioTest = {
 	Enabled = true,
-	SkipLobby = false,
+	SkipLobby = true, -- TEMP: skip lobby for testing, revert to false when done
 	GrantResources = false,
 	InfiniteWood = false,
 	FastClock = false,
