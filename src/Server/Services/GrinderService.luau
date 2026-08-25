@@ -4,13 +4,15 @@
     @date    2025
 
     @summary
-    Server-authoritative junk-to-scrap grinder placed next to the crafting bench.
+    Server-authoritative junk-to-scrap shredder placed next to the crafting bench.
 
     @description
-    Places a generated grinder model beside the crafting bench each run.
-    Players interact via ProximityPrompt to open the grind UI, then
-    select junk items to convert into Scrap. Validates proximity and
-    run membership on every grind request.
+    Clones the pre-placed "Shredder" model from ServerStorage Assets Items
+    and positions it beside the crafting bench each run. Players interact
+    via ProximityPrompt to open the grind UI, then select junk items to
+    convert into Scrap. Validates proximity and run membership on every
+    grind request. Preserves the asset's built-in animations, constraints,
+    and sounds.
 
     @exports
     - Knit Signal: OpenGrinder()          (server -> client, open UI)
@@ -22,10 +24,12 @@
 -- // VARIABLES // --
 
 -- | Services | --
+local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local Constants = require(ReplicatedStorage.Shared.Constants)
 local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
 
 -- | Objects | --
@@ -38,15 +42,18 @@ local GrinderService = Knit.CreateService({
 })
 
 -- | Configuration | --
-local GRINDER_OFFSET = CFrame.new(-14, 0, 0)
+-- Place the shredder beside the crafting bench (bench is at +14, 0, 0).
+local GRINDER_OFFSET = CFrame.new(14, 0, 8)
 local GRIND_RANGE = 10
 local GRIND_COOLDOWN = 0.15
+local SHREDDER_ASSET_NAME = "Shredder"
 
 -- | State Management | --
 local runStateService: any = nil
 local inventoryService: any = nil
 local grinderModel: Model? = nil
 local grinderPosition: Vector3? = nil
+local grinderPrimaryPart: BasePart? = nil
 local cooldowns: { [Player]: number } = {}
 
 -- // FUNCTIONS // --
@@ -54,115 +61,78 @@ local cooldowns: { [Player]: number } = {}
 -- | Private | --
 
 --[[
-    @summary  Build the grinder model from primitive parts.
-    @returns  Model
+    @summary  Find the best part to use as PrimaryPart in the shredder model.
+    @desc     Prefers an existing PrimaryPart, then the largest anchored
+              part (usually the main body), then the first BasePart.
+    @param    model  Model
+    @returns  BasePart?
 ]]
-local function buildGrinderModel(): Model
-	local model = Instance.new("Model")
+local function findPrimaryPart(model: Model): BasePart?
+	if model.PrimaryPart and model.PrimaryPart.Parent then
+		return model.PrimaryPart
+	end
+
+	local best: BasePart? = nil
+	local bestVolume = 0
+	for _, desc in ipairs(model:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			local volume = desc.Size.X * desc.Size.Y * desc.Size.Z
+			if volume > bestVolume then
+				bestVolume = volume
+				best = desc
+			end
+		end
+	end
+	return best
+end
+
+--[[
+    @summary  Clone and prepare the Shredder asset from ServerStorage.
+    @desc     Clones the pre-placed Shredder model, disables any scripts
+              it contains (to prevent conflicts), ensures a PrimaryPart
+              is set, and anchors all non-constraint parts. Preserves
+              constraints and motors so built-in animations still work.
+    @returns  Model?
+]]
+local function buildShredderModel(): Model?
+	local itemsPath = ServerStorage.Assets:FindFirstChild(Constants.ITEMS_PATH)
+	if not itemsPath then
+		warn("[GrinderService] Assets Items folder not found in ServerStorage")
+		return nil
+	end
+
+	local source = itemsPath:FindFirstChild(SHREDDER_ASSET_NAME)
+	if not source then
+		warn(("[GrinderService] '%s' asset not found in Assets Items"):format(SHREDDER_ASSET_NAME))
+		return nil
+	end
+
+	local model = source:Clone()
 	model.Name = "Grinder"
 
-	-- Main body — a dark metal box
-	local body = Instance.new("Part")
-	body.Name = "Body"
-	body.Size = Vector3.new(4, 3, 4)
-	body.Color = Color3.fromRGB(45, 45, 50)
-	body.Material = Enum.Material.Metal
-	body.Anchored = true
-	body.CanCollide = true
-	body.CFrame = CFrame.new(0, 1.5, 0)
-	body.Parent = model
-	model.PrimaryPart = body
+	-- Disable any scripts the asset author included to prevent conflicts.
+	for _, desc in ipairs(model:GetDescendants()) do
+		if desc:IsA("Script") or desc:IsA("LocalScript") then
+			desc.Disabled = true
+		end
+	end
 
-	-- Hopper opening — a lighter funnel on top
-	local hopper = Instance.new("Part")
-	hopper.Name = "Hopper"
-	hopper.Size = Vector3.new(3, 1, 3)
-	hopper.Color = Color3.fromRGB(60, 60, 65)
-	hopper.Material = Enum.Material.Metal
-	hopper.Anchored = true
-	hopper.CanCollide = false
-	hopper.CFrame = CFrame.new(0, 3.5, 0)
-	hopper.Parent = model
-
-	-- Spinning blade assembly (rotated by a HingeConstraint on the server)
-	local bladePivot = Instance.new("Part")
-	bladePivot.Name = "BladePivot"
-	bladePivot.Size = Vector3.new(0.4, 0.4, 0.4)
-	bladePivot.Color = Color3.fromRGB(60, 60, 65)
-	bladePivot.Material = Enum.Material.Metal
-	bladePivot.Anchored = true
-	bladePivot.CanCollide = false
-	bladePivot.CFrame = CFrame.new(0, 2.8, 0)
-	bladePivot.Parent = model
-
-	local blade = Instance.new("Part")
-	blade.Name = "Blade"
-	blade.Size = Vector3.new(2.5, 0.2, 0.3)
-	blade.Color = Color3.fromRGB(180, 180, 185)
-	blade.Material = Enum.Material.Metal
-	blade.Anchored = false
-	blade.CanCollide = false
-	blade.CFrame = CFrame.new(0, 2.8, 0)
-	blade.Parent = model
-
-	local blade2 = Instance.new("Part")
-	blade2.Name = "Blade2"
-	blade2.Size = Vector3.new(2.5, 0.2, 0.3)
-	blade2.Color = Color3.fromRGB(180, 180, 185)
-	blade2.Material = Enum.Material.Metal
-	blade2.Anchored = false
-	blade2.CanCollide = false
-	blade2.CFrame = CFrame.new(0, 2.8, 0) * CFrame.Angles(0, math.rad(90), 0)
-	blade2.Parent = model
-
-	-- Weld blades together so they rotate as one unit
-	local bladeWeld = Instance.new("WeldConstraint")
-	bladeWeld.Part0 = blade
-	bladeWeld.Part1 = blade2
-	bladeWeld.Parent = blade
-
-	-- Attachments for the hinge
-	local pivotAtt = Instance.new("Attachment")
-	pivotAtt.Name = "PivotAtt"
-	pivotAtt.Axis = Vector3.new(0, 1, 0)
-	pivotAtt.SecondaryAxis = Vector3.new(0, 0, 1)
-	pivotAtt.Parent = bladePivot
-
-	local bladeAtt = Instance.new("Attachment")
-	bladeAtt.Name = "BladeAtt"
-	bladeAtt.Axis = Vector3.new(0, 1, 0)
-	bladeAtt.SecondaryAxis = Vector3.new(0, 0, 1)
-	bladeAtt.Parent = blade
-
-	-- HingeConstraint to spin the blade
-	local hinge = Instance.new("HingeConstraint")
-	hinge.Name = "BladeHinge"
-	hinge.Attachment0 = pivotAtt
-	hinge.Attachment1 = bladeAtt
-	hinge.ActuatorType = Enum.ActuatorType.Motor
-	hinge.MotorMaxTorque = 100
-	hinge.AngularVelocity = 8
-	hinge.Parent = bladePivot
-
-	-- Chute where scrap comes out
-	local chute = Instance.new("Part")
-	chute.Name = "Chute"
-	chute.Size = Vector3.new(1.5, 0.5, 1)
-	chute.Color = Color3.fromRGB(35, 35, 40)
-	chute.Material = Enum.Material.Metal
-	chute.Anchored = true
-	chute.CanCollide = false
-	chute.CFrame = CFrame.new(0, 0.5, 2.2)
-	chute.Parent = model
+	-- Ensure PrimaryPart is set.
+	if not model.PrimaryPart then
+		local primary = findPrimaryPart(model)
+		if primary then
+			model.PrimaryPart = primary
+		end
+	end
 
 	return model
 end
 
 --[[
-    @summary  Place the grinder next to the crafting bench.
+    @summary  Place the shredder next to the crafting bench.
     @desc     Called by CraftingService.placeBench() after the bench
-              is positioned. The grinder goes on the opposite side
-              of the campfire from the bench.
+              is positioned. The shredder goes beside the bench on
+              the same side of the campfire.
     @param    campfireCFrame  CFrame  -- the campfire anchor
 ]]
 function GrinderService:PlaceGrinder(campfireCFrame: CFrame)
@@ -171,22 +141,39 @@ function GrinderService:PlaceGrinder(campfireCFrame: CFrame)
 		grinderModel = nil
 	end
 
-	local model = buildGrinderModel()
-	-- Position the grinder at the campfire offset; the model's parts
-	-- are authored around the origin so PivotTo moves them all together.
-	model:PivotTo(campfireCFrame * GRINDER_OFFSET)
+	local model = buildShredderModel()
+	if not model then
+		return
+	end
+
+	-- Position the shredder at the offset from the campfire.
+	-- Measure the model's bounding box so it sits flush on the ground.
+	local _, size = model:GetBoundingBox()
+	local groundOffset = CFrame.new(0, size.Y * 0.5, 0)
+	model:PivotTo(campfireCFrame * GRINDER_OFFSET * groundOffset)
 	model.Parent = runStateService:GetRuntimeFolder()
 	grinderModel = model
 	grinderPosition = model:GetPivot().Position
+	grinderPrimaryPart = model.PrimaryPart
 
-	-- Add ProximityPrompt on the body
-	local prompt = Instance.new("ProximityPrompt")
+	-- Add or reuse a ProximityPrompt on the primary part.
+	local anchor = model.PrimaryPart
+	if not anchor then
+		anchor = model:FindFirstChildWhichIsA("BasePart", true)
+	end
+	if not anchor then
+		warn("[GrinderService] Shredder model has no BasePart for ProximityPrompt")
+		return
+	end
+
+	local existingPrompt = anchor:FindFirstChildWhichIsA("ProximityPrompt")
+	local prompt = existingPrompt or Instance.new("ProximityPrompt")
 	prompt.Name = "GrindPrompt"
 	prompt.ActionText = "Grind"
-	prompt.ObjectText = "Grinder"
+	prompt.ObjectText = "Shredder"
 	prompt.MaxActivationDistance = GRIND_RANGE
 	prompt.HoldDuration = 0
-	prompt.Parent = model.PrimaryPart
+	prompt.Parent = anchor
 	prompt.Triggered:Connect(function(player)
 		if runStateService:IsActive() and runStateService:IsMember(player) then
 			GrinderService.Client.OpenGrinder:Fire(player)
@@ -256,6 +243,14 @@ function GrinderService:GetGrinderPosition(): Vector3?
 	return grinderPosition
 end
 
+--[[
+    @summary  Return the grinder's primary part (for client VFX attachment).
+    @returns  BasePart?
+]]
+function GrinderService:GetGrinderPrimaryPart(): BasePart?
+	return grinderPrimaryPart
+end
+
 -- | Client Remotes | --
 
 --[[
@@ -311,6 +306,7 @@ function GrinderService:KnitStart()
 			grinderModel = nil
 		end
 		grinderPosition = nil
+		grinderPrimaryPart = nil
 		cooldowns = {}
 	end)
 
