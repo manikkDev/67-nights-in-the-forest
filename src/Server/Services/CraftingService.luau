@@ -219,7 +219,7 @@ local function placeBench()
 		end)
 	end
 
-	-- Place the grinder next to the bench (opposite side of campfire)
+	-- Place the shredder next to the bench (same side of campfire)
 	if grinderService then
 		grinderService:PlaceGrinder(campfireCFrame)
 	end

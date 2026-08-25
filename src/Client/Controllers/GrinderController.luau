@@ -95,7 +95,7 @@ local function buildUi()
 	title.TextColor3 = Color3.fromRGB(235, 225, 195)
 	title.TextSize = 22
 	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.Text = "GRINDER  \u{2699}  JUNK \u{2192} SCRAP"
+	title.Text = "SHREDDER  \u{2699}  JUNK \u{2192} SCRAP"
 	title.Parent = panelFrame
 
 	local close = Instance.new("TextButton")
@@ -244,6 +244,69 @@ local function openGrinder()
 end
 
 --[[
+    @summary  Find the grinder model in the workspace.
+    @returns  Model?
+]]
+local function findGrinderModel(): Model?
+	local runtime = workspace:FindFirstChild("Runtime")
+	return runtime and runtime:FindFirstChild("Grinder")
+end
+
+--[[
+    @summary  Find the best part to attach VFX to in the grinder model.
+    @desc     Prefers the PrimaryPart, then the largest part.
+    @param    model  Model
+    @returns  BasePart?
+]]
+local function findVfxAnchor(model: Model): BasePart?
+	if model.PrimaryPart and model.PrimaryPart.Parent then
+		return model.PrimaryPart
+	end
+	local best: BasePart? = nil
+	local bestVolume = 0
+	for _, desc in ipairs(model:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			local volume = desc.Size.X * desc.Size.Y * desc.Size.Z
+			if volume > bestVolume then
+				bestVolume = volume
+				best = desc
+			end
+		end
+	end
+	return best
+end
+
+--[[
+    @summary  Play any built-in grinding sounds the shredder asset has.
+    @desc     Searches the model for Sound instances and plays them.
+              Falls back to a default grinding sound if none are found.
+    @param    model  Model
+]]
+local function playGrindSound(model: Model)
+	local foundBuiltIn = false
+	for _, desc in ipairs(model:GetDescendants()) do
+		if desc:IsA("Sound") and desc.SoundId ~= "" then
+			desc:Play()
+			foundBuiltIn = true
+		end
+	end
+	if not foundBuiltIn then
+		-- Fallback grinding sound
+		local sound = Instance.new("Sound")
+		sound.Name = "GrindSoundFallback"
+		sound.SoundId = "rbxassetid://9112810051"
+		sound.Volume = 0.5
+		sound.Parent = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+		if sound.Parent then
+			sound:Play()
+			task.delay(2, function()
+				sound:Destroy()
+			end)
+		end
+	end
+end
+
+--[[
     @summary  Play VFX when a junk item is ground.
     @param    payload  table  -- { position, scrapAmount, junkId }
 ]]
@@ -252,19 +315,21 @@ local function playVfx(payload: { [string]: any })
 		return
 	end
 
-	-- Find the grinder model to attach particles to
-	local runtime = workspace:FindFirstChild("Runtime")
-	local grinder = runtime and runtime:FindFirstChild("Grinder")
-	local bodyPart = grinder and grinder:FindFirstChild("Body")
-	if not bodyPart or not bodyPart:IsA("BasePart") then
+	local grinder = findGrinderModel()
+	if not grinder or not grinder:IsA("Model") then
 		return
 	end
 
-	-- Spark particles attached to the grinder body
+	local anchor = findVfxAnchor(grinder)
+	if not anchor then
+		return
+	end
+
+	-- Spark particles attached to the shredder
 	local attachment = Instance.new("Attachment")
 	attachment.Name = "GrinderSparkAtt"
-	attachment.Position = Vector3.new(0, 2, 0) -- relative to the body part
-	attachment.Parent = bodyPart
+	attachment.Position = Vector3.new(0, 2, 0) -- offset above the anchor part
+	attachment.Parent = anchor
 
 	local particles = Instance.new("ParticleEmitter")
 	particles.Name = "GrinderSparks"
@@ -284,15 +349,8 @@ local function playVfx(payload: { [string]: any })
 		end
 	end)
 
-	-- Grinding sound
-	local sound = Instance.new("Sound")
-	sound.SoundId = "rbxassetid://9112810051"
-	sound.Volume = 0.5
-	sound.Parent = bodyPart
-	sound:Play()
-	task.delay(2, function()
-		sound:Destroy()
-	end)
+	-- Play grinding sound (built-in or fallback)
+	playGrindSound(grinder)
 end
 
 -- // INITIALIZATION // --
