@@ -185,8 +185,6 @@ local function placeBench()
 			descendant:Destroy()
 		elseif descendant:IsA("BasePart") then
 			descendant.Anchored = true
-		elseif descendant:IsA("ProximityPrompt") then
-			descendant:Destroy()
 		end
 	end
 	clone.Parent = runStateService:GetRuntimeFolder()
@@ -196,29 +194,23 @@ local function placeBench()
 	clone:PivotTo(campfireCFrame * BENCH_OFFSET * CFrame.new(0, size.Y * 0.5, 0) * pivot.Rotation)
 	benchModel = clone
 
-	-- Pick the part closest to the model's center so the ProximityPrompt
-	-- appears in the middle of the bench instead of a corner/leg.
-	local center = clone:GetPivot().Position
-	local anchor: BasePart? = nil
-	local bestDistance = math.huge
-	for _, descendant in ipairs(clone:GetDescendants()) do
-		if descendant:IsA("BasePart") then
-			local distance = (descendant.Position - center).Magnitude
-			if distance < bestDistance then
-				bestDistance = distance
-				anchor = descendant
-			end
+	-- Reuse the prompt the model author placed (keeps its original
+	-- attachment offset/position). Fall back to the primary part if none.
+	local prompt = clone:FindFirstChildWhichIsA("ProximityPrompt", true)
+	if not prompt then
+		local anchor = clone.PrimaryPart or clone:FindFirstChildWhichIsA("BasePart", true)
+		if anchor then
+			prompt = Instance.new("ProximityPrompt")
+			prompt.Parent = anchor
 		end
 	end
 
-	if anchor then
-		local prompt = Instance.new("ProximityPrompt")
+	if prompt then
 		prompt.Name = "CraftingPrompt"
 		prompt.ActionText = "Craft"
 		prompt.ObjectText = "Crafting Bench"
 		prompt.MaxActivationDistance = BENCH_RANGE
 		prompt.HoldDuration = 0.25
-		prompt.Parent = anchor
 		prompt.Triggered:Connect(function(player)
 			if runStateService:IsActive() and runStateService:IsMember(player) then
 				CraftingService.Client.OpenCrafting:Fire(player)
