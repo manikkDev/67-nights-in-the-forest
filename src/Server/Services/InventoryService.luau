@@ -960,12 +960,20 @@ local function stopDrag(player: Player)
 
 	local model = entry.model
 	if model and model.Parent then
+		-- Check if this is a junk item — after drag release, junk items
+		-- should use physics so they fall to the ground instead of floating.
+		local resourceName = model:GetAttribute("Resource")
+		local isJunk = resourceName and JunkItemConfig[resourceName] ~= nil
+
 		for _, desc in ipairs(model:GetDescendants()) do
 			if desc:IsA("BasePart") then
 				if entry.originalCanCollide[desc] ~= nil then
 					desc.CanCollide = entry.originalCanCollide[desc]
 				end
-				if entry.originalAnchored[desc] ~= nil then
+				if isJunk then
+					-- Junk items: unanchor after drag so they fall to the ground
+					desc.Anchored = false
+				elseif entry.originalAnchored[desc] ~= nil then
 					desc.Anchored = entry.originalAnchored[desc]
 				end
 			end
