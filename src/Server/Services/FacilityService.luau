@@ -332,7 +332,15 @@ local function spawnJunkItem(facilityModel: Model, junkId: string)
 	if not model then
 		return
 	end
-	model:PivotTo(CFrame.new(result.Position + Vector3.new(0, 0.5, 0)) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+
+	-- Calculate the model's bounding box so it sits ON the ground, not in it.
+	-- GetBoundingBox returns the CFrame of the model's center and its size.
+	local _, size = model:GetBoundingBox()
+	local halfHeight = size.Y / 2
+	-- Minimum offset so the bottom of the model rests on the ground surface
+	local spawnY = result.Position.Y + halfHeight + 0.1
+
+	model:PivotTo(CFrame.new(result.Position.X, spawnY, result.Position.Z) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
 	model.Parent = baseMap
 	Debris:AddItem(model, JUNK_LIFETIME)
 	table.insert(junkModels, model)

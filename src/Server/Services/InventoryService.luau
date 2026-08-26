@@ -633,10 +633,37 @@ local function buildDropModel(resourceName: string): Model
 		end
 	end
 
-	-- Prepare physics: let them fall and rest on the ground, and make sure
-	-- every part is interactive for mouse raycasts and touch.
+	-- Prepare physics: weld all parts to PrimaryPart so the model stays
+	-- together, then unanchor so it can rest on the ground naturally.
+	local primary = model.PrimaryPart
+	if not primary then
+		local first = model:FindFirstChildWhichIsA("BasePart", true)
+		if first then
+			model.PrimaryPart = first
+			primary = first
+		end
+	end
+
 	for _, descendant in ipairs(model:GetDescendants()) do
 		if descendant:IsA("BasePart") then
+			-- Weld every part to the PrimaryPart so the model doesn't scatter
+			if primary and descendant ~= primary then
+				-- Skip if already welded (avoid duplicate welds)
+				local alreadyWelded = false
+				for _, constraint in ipairs(descendant:GetConstraints()) do
+					if constraint:IsA("WeldConstraint") then
+						alreadyWelded = true
+						break
+					end
+				end
+				if not alreadyWelded then
+					local weld = Instance.new("WeldConstraint")
+					weld.Name = "JunkWeld"
+					weld.Part0 = primary
+					weld.Part1 = descendant
+					weld.Parent = descendant
+				end
+			end
 			descendant.Anchored = false
 			descendant.CanCollide = true
 			descendant.CanQuery = true
