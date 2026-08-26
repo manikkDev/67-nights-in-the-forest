@@ -310,10 +310,6 @@ local function spawnJunkItem(facilityModel: Model, junkId: string)
 		return
 	end
 	local pivot = facilityModel:GetPivot().Position
-	local angle = math.random() * math.pi * 2
-	local radius = 2 + math.random() * 8
-	local offsetX = math.cos(angle) * radius
-	local offsetZ = math.sin(angle) * radius
 
 	local baseMap = worldService:GetBaseMap()
 	if not baseMap then
@@ -325,16 +321,26 @@ local function spawnJunkItem(facilityModel: Model, junkId: string)
 		return
 	end
 
-	-- Use the stored groundY (top surface of the ground plate) instead
-	-- of raycasting.  This is more reliable than per-item raycasts.
+	-- Scatter items widely around the facility — use a larger radius
+	-- and golden-angle distribution so they don't clump together.
+	local itemIndex = #junkModels + 1
+	local golden = itemIndex * 2.3999632297
+	local radius = 5 + math.sqrt(itemIndex) * 4
+	local offsetX = math.cos(golden) * radius + (math.random() - 0.5) * 4
+	local offsetZ = math.sin(golden) * radius + (math.random() - 0.5) * 4
+
 	local spawnX = pivot.X + offsetX
 	local spawnZ = pivot.Z + offsetZ
+
 	-- Get the distance from the model's pivot to its lowest part
 	local bottomOffset = inventoryService:GetModelBottomOffset(model)
 	-- Place pivot so the lowest part sits 0.5 studs above the ground
 	local spawnY = groundY + bottomOffset + 0.5
 
-	model:PivotTo(CFrame.new(spawnX, spawnY, spawnZ) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+	-- Do NOT apply random rotation — keep the model's authored orientation
+	-- so it appears upright as designed.  Only apply a small random Y rotation.
+	local yaw = (math.random() - 0.5) * math.rad(30)  -- +/- 15 degrees
+	model:PivotTo(CFrame.new(spawnX, spawnY, spawnZ) * CFrame.Angles(0, yaw, 0))
 	model.Parent = baseMap
 	Debris:AddItem(model, JUNK_LIFETIME)
 	table.insert(junkModels, model)
