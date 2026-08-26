@@ -325,6 +325,79 @@ local function playGrindSound(model: Model)
 end
 
 --[[
+    @summary  Spawn a visible metal sheet output at the grinder chute.
+    @desc     Creates a small metallic part representing the ground
+              output, plus a floating "+N Scrap" billboard so the
+              player can see the result of grinding — matching the
+              reference game where the shredder visibly produces
+              metal sheets.
+    @param    anchor       BasePart  -- grinder part to attach to
+    @param    scrapAmount  number
+]]
+local function spawnMetalSheetOutput(anchor: BasePart, scrapAmount: number)
+	local outputPos = anchor.Position + Vector3.new(0, 1.5, -1.5)
+
+	-- Metal sheet part (thin, metallic, slightly rusted)
+	local sheet = Instance.new("Part")
+	sheet.Name = "GrinderOutput"
+	sheet.Size = Vector3.new(1.2, 0.1, 0.8)
+	sheet.Color = Color3.fromRGB(140, 140, 150)
+	sheet.Material = Enum.Material.Metal
+	sheet.Anchored = true
+	sheet.CanCollide = false
+	sheet.Position = outputPos
+	sheet.Orientation = Vector3.new(0, math.random(0, 360), 0)
+	sheet.Transparency = 0
+	sheet.Parent = workspace
+
+	-- Floating "+N Scrap" billboard above the sheet
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "ScrapLabel"
+	billboard.Size = UDim2.new(0, 120, 0, 30)
+	billboard.StudsOffset = Vector3.new(0, 1.5, 0)
+	billboard.AlwaysOnTop = true
+	billboard.Parent = sheet
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Text = ("+%d \u{1F529} Scrap"):format(scrapAmount)
+	label.TextColor3 = Color3.fromRGB(255, 200, 80)
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.TextStrokeTransparency = 0.3
+	label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	label.Parent = billboard
+
+	-- Animate: rise slightly, then fade out
+	local TweenService = game:GetService("TweenService")
+	local startTime = os.clock()
+
+	-- Rise the sheet slightly then let it fade
+	task.spawn(function()
+		-- Brief hover
+		local riseTween = TweenService:Create(
+			sheet,
+			TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ Position = outputPos + Vector3.new(0, 0.5, 0) }
+		)
+		riseTween:Play()
+
+		task.wait(1.5)
+
+		-- Fade out
+		local fadeTween = TweenService:Create(
+			sheet,
+			TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+			{ Transparency = 1 }
+		)
+		fadeTween:Play()
+		fadeTween.Completed:Wait()
+		sheet:Destroy()
+	end)
+end
+
+--[[
     @summary  Play VFX when a junk item is ground.
     @desc     Emits spark particles, smoke puffs, and metal shard debris
               from the shredder, plus plays the grinding sound.
@@ -350,6 +423,12 @@ local function playVfx(payload: { [string]: any })
 	attachment.Name = "GrinderVfxAtt"
 	attachment.Position = Vector3.new(0, 2, 0)
 	attachment.Parent = anchor
+
+	-- Spawn visible metal sheet output so the player can see the
+	-- result of grinding (matches the reference game behavior).
+	if payload.scrapAmount and payload.scrapAmount > 0 then
+		spawnMetalSheetOutput(anchor, payload.scrapAmount)
+	end
 
 	-- 1. Spark particles (orange/yellow, fast, short-lived)
 	local sparks = Instance.new("ParticleEmitter")

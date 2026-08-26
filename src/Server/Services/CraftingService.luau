@@ -477,6 +477,9 @@ function CraftingService:KnitStart()
 		sanitizeBench(manual, false)
 		print("[CraftingService] Sanitized manual crafting-table on KnitStart")
 	end
+	-- Also sweep all of Workspace for any unauthorized sounds that
+	-- may have been created by the package before sanitization.
+	destroyUnauthorizedSounds()
 
 	runStateService.RunStarted:Connect(resetForRun)
 	runStateService.RunCleaned:Connect(function()
