@@ -558,6 +558,12 @@ local function buildJunkModel(itemId: string): Model
 		if source:IsA("Model") then
 			local clone = source:Clone()
 			clone.Name = itemId .. "Pickup"
+			-- Disable all scripts inside the cloned asset (e.g. RadioScript)
+			for _, desc in ipairs(clone:GetDescendants()) do
+				if desc:IsA("Script") or desc:IsA("LocalScript") or desc:IsA("ModuleScript") then
+					desc.Disabled = true
+				end
+			end
 			if not clone.PrimaryPart then
 				local first = clone:FindFirstChildWhichIsA("BasePart", true)
 				if first then
@@ -960,10 +966,36 @@ local function stopDrag(player: Player)
 
 	local model = entry.model
 	if model and model.Parent then
-		-- Check if this is a junk item — after drag release, junk items
-		-- should use physics so they fall to the ground instead of floating.
 		local resourceName = model:GetAttribute("Resource")
 		local isJunk = resourceName and JunkItemConfig[resourceName] ~= nil
+
+		-- Check if the item was dropped near the shredder.
+		-- If it's a junk item near the shredder, auto-grind it.
+		if isJunk then
+			local grinderService = Knit.GetService("GrinderService")
+			local grinderPos = grinderService:GetGrinderPosition()
+			if grinderPos then
+				local modelPos = model:GetPivot().Position
+				local dist = (modelPos - grinderPos).Magnitude
+				if dist <= 12 then
+					-- Auto-grind: add scrap and destroy the item
+					local config = JunkItemConfig[resourceName]
+					if config then
+						InventoryService:AddResource(player, "Scrap", config.ScrapYield)
+						model:Destroy()
+						dragging[player] = nil
+						draggedBy[model] = nil
+						-- Fire VFX
+						grinderService.Client.GrinderProcessed:Fire(player, {
+							position = grinderPos,
+							scrapAmount = config.ScrapYield,
+							junkId = resourceName,
+						})
+						return
+					end
+				end
+			end
+		end
 
 		for _, desc in ipairs(model:GetDescendants()) do
 			if desc:IsA("BasePart") then
