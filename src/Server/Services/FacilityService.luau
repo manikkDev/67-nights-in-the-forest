@@ -46,9 +46,9 @@ local JUNK_LIFETIME = 600
 local GROUND_RAY_HEIGHT = 500
 
 local FACILITY_COUNTS = {
-	Playground = { min = 4, max = 5 },
-	Restroom = { min = 2, max = 3 },
-	Clinic = { min = 1, max = 2 },
+	Playground = { min = 6, max = 8 },
+	Restroom = { min = 3, max = 5 },
+	Clinic = { min = 2, max = 3 },
 }
 
 -- Loot tables per facility type (sourced from the 99 Nights wiki)
@@ -62,7 +62,7 @@ local FACILITY_LOOT = {
 	Clinic = { "Bolt", "SheetMetal", "Tyre", "OldRadio", "BrokenFan", "BrokenMicrowave", "MetalChair" },
 }
 
-local JUNK_PER_FACILITY = { min = 3, max = 6 }
+local JUNK_PER_FACILITY = { min = 5, max = 10 }
 
 -- | State Management | --
 local runStateService: any = nil
