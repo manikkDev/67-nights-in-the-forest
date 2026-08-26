@@ -34,6 +34,7 @@ local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local Signal = require(ReplicatedStorage.Packages.Signal)
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
@@ -48,8 +49,8 @@ local InventoryService = Knit.CreateService({
 })
 
 -- Server-side signal so other services (e.g. CraftingService) can
--- react to resource changes without polling.
-InventoryService.ServerResourcesChanged = Knit.CreateSignal()
+-- react to resource changes without polling.  NOT a Knit remote.
+InventoryService.ServerResourcesChanged = Signal.new()
 
 -- | Configuration | --
 local BASE_CAPACITY = 40
