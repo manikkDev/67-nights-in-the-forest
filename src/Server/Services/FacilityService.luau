@@ -306,6 +306,7 @@ end
 ]]
 local function spawnJunkItem(facilityModel: Model, junkId: string)
 	if not inventoryService then
+		warn("[FacilityService] No inventoryService")
 		return
 	end
 	local pivot = facilityModel:GetPivot().Position
@@ -317,6 +318,7 @@ local function spawnJunkItem(facilityModel: Model, junkId: string)
 	-- Raycast to find ground
 	local baseMap = worldService:GetBaseMap()
 	if not baseMap then
+		warn("[FacilityService] No baseMap for junk spawn")
 		return
 	end
 	local params = RaycastParams.new()
@@ -325,25 +327,26 @@ local function spawnJunkItem(facilityModel: Model, junkId: string)
 	local origin = Vector3.new(pivot.X + offsetX, GROUND_RAY_HEIGHT, pivot.Z + offsetZ)
 	local result = workspace:Raycast(origin, Vector3.new(0, -GROUND_RAY_HEIGHT * 2, 0), params)
 	if not result then
+		warn(("[FacilityService] Ground ray missed at (%.1f, %.1f) for %s"):format(origin.X, origin.Z, junkId))
 		return
 	end
 
 	local model = inventoryService:BuildDropModel(junkId)
 	if not model then
+		warn(("[FacilityService] BuildDropModel returned nil for %s"):format(junkId))
 		return
 	end
 
 	-- Calculate the model's bounding box so it sits ON the ground, not in it.
-	-- GetBoundingBox returns the CFrame of the model's center and its size.
 	local _, size = model:GetBoundingBox()
 	local halfHeight = size.Y / 2
-	-- Minimum offset so the bottom of the model rests on the ground surface
 	local spawnY = result.Position.Y + halfHeight + 0.1
 
 	model:PivotTo(CFrame.new(result.Position.X, spawnY, result.Position.Z) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
 	model.Parent = baseMap
 	Debris:AddItem(model, JUNK_LIFETIME)
 	table.insert(junkModels, model)
+	print(("[FacilityService] Spawned %s at (%.1f, %.1f, %.1f) parent=%s"):format(junkId, result.Position.X, spawnY, result.Position.Z, baseMap.Name))
 end
 
 --[[
@@ -393,6 +396,7 @@ local function spawnFacilities()
 		warn("[FacilityService] Base map not found")
 		return
 	end
+	print(("[FacilityService] Base map: %s, descendants: %d"):format(baseMap:GetFullName(), #baseMap:GetDescendants()))
 	for _, descendant in ipairs(baseMap:GetDescendants()) do
 		if descendant:IsA("BasePart") and descendant.Name == "\u{417}\u{435}\u{43C}\u{43B}\u{44F}" then
 			local halfSize = descendant.Size / 2
@@ -402,28 +406,34 @@ local function spawnFacilities()
 				minZ = descendant.Position.Z - halfSize.Z,
 				maxZ = descendant.Position.Z + halfSize.Z,
 			}
+			print(("[FacilityService] Ground bounds: minX=%.1f maxX=%.1f minZ=%.1f maxZ=%.1f"):format(groundBounds.minX, groundBounds.maxX, groundBounds.minZ, groundBounds.maxZ))
 			break
 		end
 	end
 	campfirePosition = worldService:GetCampfireCFrame() and worldService:GetCampfireCFrame().Position or nil
 	if not groundBounds or not campfirePosition then
-		warn("[FacilityService] Could not determine ground bounds or campfire position")
+		warn(("[FacilityService] groundBounds=%s campfirePosition=%s"):format(tostring(groundBounds), tostring(campfirePosition)))
 		return
 	end
+	print(("[FacilityService] Campfire position: (%.1f, %.1f, %.1f)"):format(campfirePosition.X, campfirePosition.Y, campfirePosition.Z))
 
 	local folder = Instance.new("Folder")
 	folder.Name = "Facilities"
 	folder.Parent = runStateService:GetRuntimeFolder()
 
+	local totalSpawned = 0
 	for facilityType, counts in pairs(FACILITY_COUNTS) do
 		local count = math.random(counts.min, counts.max)
+		print(("[FacilityService] Spawning %d %s"):format(count, facilityType))
 		for _ = 1, count do
 			local position = randomFacilityPosition()
 			if not position then
+				warn(("[FacilityService] No position found for %s"):format(facilityType))
 				continue
 			end
 			local model = buildFacility(facilityType)
 			if not model then
+				warn(("[FacilityService] buildFacility returned nil for %s"):format(facilityType))
 				continue
 			end
 			model:PivotTo(CFrame.new(position) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
@@ -431,8 +441,10 @@ local function spawnFacilities()
 			local facility = { model = model, type = facilityType }
 			table.insert(facilities, facility)
 			populateFacility(facility)
+			totalSpawned += 1
 		end
 	end
+	print(("[FacilityService] Total facilities spawned: %d, junk models: %d"):format(totalSpawned, #junkModels))
 end
 
 -- // INITIALIZATION // --
