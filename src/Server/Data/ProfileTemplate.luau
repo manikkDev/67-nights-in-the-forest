@@ -64,6 +64,7 @@ return {
 		Tyre = 0,
 		BrokenFan = 0,
 		BrokenMicrowave = 0,
+		MetalChair = 0,
 	},
 
 	Survival = {

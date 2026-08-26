@@ -72,6 +72,7 @@ local RESOURCE_NAMES = {
 	"Tyre",
 	"BrokenFan",
 	"BrokenMicrowave",
+	"MetalChair",
 }
 
 local PICKUP_RANGE = 12
@@ -453,20 +454,34 @@ function InventoryService:BuildMushroomModel(): Model
 end
 
 --[[
-    @summary  Build a junk item model by cloning the 3D asset from
-              ServerStorage > Assets > Assets Items > Bolts Items.
-    @desc     Falls back to a simple part if the asset is missing.
-              The folder name and model names match what the developer
-              placed in Studio.
+    @summary  Map a JunkItemConfig id to the actual 3D model name in
+              ServerStorage > Assets > Assets Items > Bolts items.
+    @desc     The model names in the folder differ slightly from the
+              code ids, so this table keeps the lookup clean.
+]]
+local JUNK_ASSET_NAMES: { [string]: string } = {
+	Bolt = "Bolt",
+	SheetMetal = "Sheet Metal Plate",
+	OldRadio = "Classic Radio",
+	BrokenFan = "Desk Fan",
+	BrokenMicrowave = "Microwave",
+	MetalChair = "Metal Chair",
+	Tyre = "Tyre",
+}
+
+--[[
+    @summary  Build a junk item model by cloning the 3D asset.
+    @desc     Looks in ServerStorage > Assets > Assets Items > Bolts items.
+              Falls back to a simple primitive if the asset is missing.
     @param    itemId  string  -- key into JunkItemConfig
     @returns  Model
 ]]
 local function buildJunkModel(itemId: string): Model
-	-- Look in ServerStorage > Assets > Assets Items > Bolts Items
 	local itemsPath = ServerStorage:FindFirstChild("Assets")
 		and ServerStorage.Assets:FindFirstChild(Constants.ITEMS_PATH)
-	local boltsFolder = itemsPath and itemsPath:FindFirstChild("Bolts Items")
-	local source = boltsFolder and boltsFolder:FindFirstChild(itemId)
+	local boltsFolder = itemsPath and itemsPath:FindFirstChild("Bolts items")
+	local assetName = JUNK_ASSET_NAMES[itemId]
+	local source = boltsFolder and assetName and boltsFolder:FindFirstChild(assetName)
 
 	if source and source:IsA("Model") then
 		local clone = source:Clone()
@@ -482,7 +497,7 @@ local function buildJunkModel(itemId: string): Model
 	end
 
 	-- Fallback: simple colored part if the 3D asset is missing
-	warn(("[InventoryService] Junk asset '%s' not found in Bolts Items, using fallback"):format(itemId))
+	warn(("[InventoryService] Junk asset '%s' (%s) not found in Bolts items, using fallback"):format(itemId, assetName or "?"))
 	local config = JunkItemConfig[itemId]
 	local fallback = Instance.new("Model")
 	fallback.Name = itemId .. "Pickup"

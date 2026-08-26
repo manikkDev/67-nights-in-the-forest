@@ -84,6 +84,15 @@ local JunkItems: { [string]: JunkItem } = {
 		Material = Enum.Material.Rubber,
 		Description = "A worn rubber tyre. Grinds into 3 Scrap.",
 	},
+	MetalChair = {
+		Id = "MetalChair",
+		DisplayName = "Metal Chair",
+		ScrapYield = 3,
+		BoltCount = 3,
+		Color = Color3.fromRGB(90, 95, 100),
+		Material = Enum.Material.Metal,
+		Description = "A rusted metal chair. Grinds into 3 Scrap.",
+	},
 }
 
 for _, item in pairs(JunkItems) do

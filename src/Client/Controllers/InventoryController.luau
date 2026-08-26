@@ -82,6 +82,7 @@ local ROW_ORDER = {
 	"BrokenFan",
 	"BrokenMicrowave",
 	"Tyre",
+	"MetalChair",
 }
 local ROW_COLORS = {
 	Wood = Color3.fromRGB(170, 110, 65),
@@ -95,11 +96,12 @@ local ROW_COLORS = {
 	CookedMeat = Color3.fromRGB(215, 160, 80),
 	RabbitMeat = Color3.fromRGB(200, 100, 100),
 	Bolt = Color3.fromRGB(140, 140, 145),
-	OldRadio = Color3.fromRGB(80, 60, 45),
 	SheetMetal = Color3.fromRGB(170, 170, 175),
-	Tyre = Color3.fromRGB(30, 30, 30),
+	OldRadio = Color3.fromRGB(80, 60, 45),
 	BrokenFan = Color3.fromRGB(100, 100, 105),
 	BrokenMicrowave = Color3.fromRGB(220, 220, 215),
+	Tyre = Color3.fromRGB(30, 30, 30),
+	MetalChair = Color3.fromRGB(90, 95, 100),
 }
 local ROW_DESCRIPTIONS = {
 	Wood = "Used for building and fueling campfires.",
@@ -118,6 +120,7 @@ local ROW_DESCRIPTIONS = {
 	BrokenFan = "Junk. Grind at the Shredder for 2 Scrap.",
 	BrokenMicrowave = "Junk. Grind at the Shredder for 3 Scrap.",
 	Tyre = "Junk. Grind at the Shredder for 3 Scrap.",
+	MetalChair = "Junk. Grind at the Shredder for 3 Scrap.",
 }
 
 -- | State Management | --

@@ -52,13 +52,14 @@ local FACILITY_COUNTS = {
 }
 
 -- Loot tables per facility type (sourced from the 99 Nights wiki)
--- Playground (common): all six junk types
+-- Playground (common): Bolt, Sheet Metal, Old Radio, Broken Fan, Broken Microwave, Tyre
 -- Restroom (uncommon): Old Radio, Bolt, Broken Fan
--- Clinic (rare): Bolt, Sheet Metal, Tyre, Old Radio, Broken Fan, Broken Microwave
+-- Clinic (rare): healing items, plus Bolt, Sheet Metal, Tyre, Old Radio,
+--                 Broken Fan, Broken Microwave, Metal Chair
 local FACILITY_LOOT = {
 	Playground = { "Bolt", "SheetMetal", "OldRadio", "BrokenFan", "BrokenMicrowave", "Tyre" },
 	Restroom = { "Bolt", "OldRadio", "BrokenFan" },
-	Clinic = { "Bolt", "SheetMetal", "Tyre", "OldRadio", "BrokenFan", "BrokenMicrowave" },
+	Clinic = { "Bolt", "SheetMetal", "Tyre", "OldRadio", "BrokenFan", "BrokenMicrowave", "MetalChair" },
 }
 
 local JUNK_PER_FACILITY = { min = 3, max = 6 }
