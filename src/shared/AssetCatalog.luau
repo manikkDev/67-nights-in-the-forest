@@ -14,6 +14,8 @@ return table.freeze({
 		CaveDrip = "rbxassetid://9120505513",
 		TransitionWhoosh = "rbxassetid://9120698420",
 		BuildImpact = "rbxassetid://9120188626",
+		GrindMetal = "rbxassetid://9116635756",
+		GrindMetalGroan = "rbxassetid://9116635970",
 	}),
 	Animations = table.freeze({}),
 	Images = table.freeze({}),

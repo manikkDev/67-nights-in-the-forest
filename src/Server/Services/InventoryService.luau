@@ -985,7 +985,10 @@ local function stopDrag(player: Player)
 						model:Destroy()
 						dragging[player] = nil
 						draggedBy[model] = nil
-						-- Fire VFX
+						-- Trigger blade spin + sound on the server
+						grinderService:StartGrindAnimation()
+						grinderService:StopGrindAnimation()
+						-- Fire VFX to the client (sparks, smoke, shards, sound)
 						grinderService.Client.GrinderProcessed:Fire(player, {
 							position = grinderPos,
 							scrapAmount = config.ScrapYield,

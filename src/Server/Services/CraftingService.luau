@@ -212,7 +212,10 @@ local function placeBench()
 		clone = source:Clone()
 		clone.Name = "CraftingBench"
 		for _, descendant in ipairs(clone:GetDescendants()) do
-			if descendant:IsA("BaseScript") or descendant:IsA("ModuleScript") then
+			if descendant:IsA("BaseScript") or descendant:IsA("ModuleScript")
+				or descendant:IsA("PackageLink") or descendant:IsA("TextureConfiguration") then
+				descendant:Destroy()
+			elseif descendant:IsA("Sound") then
 				descendant:Destroy()
 			elseif descendant:IsA("BasePart") then
 				descendant.Anchored = true

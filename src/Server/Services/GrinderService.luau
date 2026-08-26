@@ -47,6 +47,9 @@ local GRINDER_OFFSET = CFrame.new(14, 0, 18)
 local GRIND_RANGE = 10
 local GRIND_COOLDOWN = 0.15
 local SHREDDER_ASSET_NAME = "Shredder"
+local IDLE_SPIN_SPEED = 8      -- rad/s, slow idle rotation
+local GRIND_SPIN_SPEED = 35    -- rad/s, fast grinding rotation
+local GRIND_SOUND_ID = "rbxassetid://9116635756"
 
 -- | State Management | --
 local runStateService: any = nil
@@ -56,6 +59,13 @@ local grinderPosition: Vector3? = nil
 local grinderPrimaryPart: BasePart? = nil
 local isManualModel = false
 local cooldowns: { [Player]: number } = {}
+local bladePart: BasePart? = nil
+local bladeHinge: HingeConstraint? = nil
+local bladeAngularVel: AngularVelocity? = nil
+local bladeAttachment0: Attachment? = nil
+local bladeAttachment1: Attachment? = nil
+local grindSound: Sound? = nil
+local grindStopTimer: any = nil
 
 -- // FUNCTIONS // --
 
@@ -87,19 +97,119 @@ local function findPrimaryPart(model: Model): BasePart?
 end
 
 --[[
-    @summary  Anchor every BasePart in a model and disable its scripts.
-    @desc     Keeps constraints/motors intact (so built-in animations still
-              work) but freezes the assembly in world space so it can't fall.
+    @summary  Find the blade/cylinder part in the shredder model.
+    @desc     Searches for parts named Blade, Cylinder, Drum, Grinder, etc.
+              Falls back to the smallest cylindrical part (likely the blade).
     @param    model  Model
+    @returns  BasePart?
 ]]
-local function anchorAndSanitize(model: Model)
+local function findBladePart(model: Model): BasePart?
+	local bladeNames = { "blade", "cylinder", "drum", "grinder", "spinner", "rotor", "gear", "teeth" }
+	-- First, search by name
 	for _, desc in ipairs(model:GetDescendants()) do
-		if desc:IsA("Script") or desc:IsA("LocalScript") then
-			desc.Disabled = true
-		elseif desc:IsA("BasePart") then
-			desc.Anchored = true
+		if desc:IsA("BasePart") then
+			local lowerName = desc.Name:lower()
+			for _, bladeName in ipairs(bladeNames) do
+				if lowerName:find(bladeName, 1, true) then
+					return desc
+				end
+			end
 		end
 	end
+	-- Fallback: find a part that has a Motor6D or HingeConstraint (already spinning)
+	for _, desc in ipairs(model:GetDescendants()) do
+		if desc:IsA("HingeConstraint") or desc:IsA("Motor6D") or desc:IsA("AngularConstraint") then
+			local att0 = desc.Attachment0
+			if att0 and att0.Parent and att0.Parent:IsA("BasePart") then
+				return att0.Parent
+			end
+		end
+	end
+	return nil
+end
+
+--[[
+    @summary  Anchor the shredder body but keep the blade free to spin.
+    @desc     Anchors all parts except the blade part, disables scripts,
+              destroys PackageLinks/Sounds that cause asset errors.
+    @param    model  Model
+    @param    blade  BasePart? -- the blade part to keep unanchored
+]]
+local function anchorAndSanitize(model: Model, blade: BasePart?)
+	for _, desc in ipairs(model:GetDescendants()) do
+		if desc:IsA("Script") or desc:IsA("LocalScript") or desc:IsA("ModuleScript") then
+			desc.Disabled = true
+		elseif desc:IsA("PackageLink") or desc:IsA("TextureConfiguration") then
+			desc:Destroy()
+		elseif desc:IsA("Sound") then
+			-- Remove unauthorized sounds from the asset
+			if desc.SoundId == "rbxassetid://6160151677" then
+				desc:Destroy()
+			end
+		elseif desc:IsA("BasePart") then
+			-- Anchor everything except the blade part
+			if desc ~= blade then
+				desc.Anchored = true
+			else
+				desc.Anchored = false
+				desc.CanCollide = false
+				desc.CanQuery = true
+			end
+		end
+	end
+end
+
+--[[
+    @summary  Set up a spinning blade on the shredder using HingeConstraint.
+    @desc     Creates attachments and a HingeConstraint + AngularVelocity
+              so the blade spins continuously at idle speed.
+    @param    model  Model
+    @param    blade  BasePart -- the blade part to spin
+]]
+local function setupBladeSpin(model: Model, blade: BasePart)
+	-- Find an anchor part near the blade (the body part the blade attaches to)
+	local anchorPart = model.PrimaryPart
+	if not anchorPart or anchorPart == blade then
+		for _, desc in ipairs(model:GetDescendants()) do
+			if desc:IsA("BasePart") and desc ~= blade and desc.Anchored then
+				anchorPart = desc
+				break
+			end
+		end
+	end
+	if not anchorPart or anchorPart == blade then
+		-- Can't set up spin without an anchor
+		blade.Anchored = true
+		return
+	end
+
+	-- Create attachments on both the blade and the anchor
+	bladeAttachment0 = Instance.new("Attachment")
+	bladeAttachment0.Name = "BladeAtt"
+	bladeAttachment0.Position = Vector3.zero
+	bladeAttachment0.Parent = blade
+
+	bladeAttachment1 = Instance.new("Attachment")
+	bladeAttachment1.Name = "BladeAnchorAtt"
+	bladeAttachment1.Position = blade.Position - anchorPart.Position
+	bladeAttachment1.Parent = anchorPart
+
+	-- HingeConstraint lets the blade rotate around the Y axis
+	bladeHinge = Instance.new("HingeConstraint")
+	bladeHinge.Name = "BladeHinge"
+	bladeHinge.Attachment0 = bladeAttachment0
+	bladeHinge.Attachment1 = bladeAttachment1
+	bladeHinge.ActuatorType = Enum.ActuatorType.Motor
+	bladeHinge.MotorMaxTorque = 1000
+	bladeHinge.Parent = model
+
+	-- AngularVelocity drives the spin speed
+	bladeAngularVel = Instance.new("AngularVelocity")
+	bladeAngularVel.Name = "BladeSpin"
+	bladeAngularVel.Attachment0 = bladeAttachment0
+	bladeAngularVel.AngularVelocity = Vector3.new(0, IDLE_SPIN_SPEED, 0)
+	bladeAngularVel.MaxTorque = 1000
+	bladeAngularVel.Parent = blade
 end
 
 --[[
@@ -211,8 +321,29 @@ function GrinderService:PlaceGrinder(campfireCFrame: CFrame)
 		end
 	end
 
-	anchorAndSanitize(model)
+	-- Find the blade part before anchoring (so we keep it free to spin)
+	bladePart = findBladePart(model)
+	anchorAndSanitize(model, bladePart)
 	attachPrompt(model)
+
+	-- Set up the spinning blade if we found one
+	if bladePart then
+		setupBladeSpin(model, bladePart)
+	end
+
+	-- Create a persistent grinding sound on the shredder
+	local soundAnchor = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+	if soundAnchor then
+		grindSound = Instance.new("Sound")
+		grindSound.Name = "GrindSound"
+		grindSound.SoundId = GRIND_SOUND_ID
+		grindSound.Volume = 0.6
+		grindSound.Looped = true
+		grindSound.RollOffMaxDistance = 30
+		grindSound.RollOffMinDistance = 5
+		grindSound.RollOffMode = Enum.RollOffMode.Linear
+		grindSound.Parent = soundAnchor
+	end
 
 	grinderModel = model
 	grinderPosition = model:GetPivot().Position
@@ -262,11 +393,13 @@ local function processGrind(player: Player, junkId: string): number
 
 	local added = inventoryService:GrindJunk(player, junkId)
 	if added > 0 then
+		GrinderService:StartGrindAnimation()
 		GrinderService.Client.GrinderProcessed:Fire(player, {
 			position = grinderPosition,
 			scrapAmount = added,
 			junkId = junkId,
 		})
+		GrinderService:StopGrindAnimation()
 	end
 	return added
 end
@@ -287,6 +420,44 @@ end
 ]]
 function GrinderService:GetGrinderPrimaryPart(): BasePart?
 	return grinderPrimaryPart
+end
+
+--[[
+    @summary  Speed up the blade and play the grinding sound.
+    @desc     Called when a junk item is being ground (via UI or drag).
+]]
+function GrinderService:StartGrindAnimation()
+	if bladeAngularVel then
+		bladeAngularVel.AngularVelocity = Vector3.new(0, GRIND_SPIN_SPEED, 0)
+	end
+	if grindSound and not grindSound.IsPlaying then
+		grindSound:Play()
+	end
+	-- Cancel any pending stop timer
+	if grindStopTimer then
+		task.cancel(grindStopTimer)
+		grindStopTimer = nil
+	end
+end
+
+--[[
+    @summary  Slow the blade back to idle and stop the sound after a delay.
+    @desc     Called after grinding is complete.  The sound continues for
+              1.5s then fades, matching the real game's behavior.
+]]
+function GrinderService:StopGrindAnimation()
+	if grindStopTimer then
+		task.cancel(grindStopTimer)
+	end
+	grindStopTimer = task.delay(1.5, function()
+		if bladeAngularVel then
+			bladeAngularVel.AngularVelocity = Vector3.new(0, IDLE_SPIN_SPEED, 0)
+		end
+		if grindSound then
+			grindSound:Stop()
+		end
+		grindStopTimer = nil
+	end)
 end
 
 -- | Client Remotes | --
@@ -347,6 +518,16 @@ function GrinderService:KnitStart()
 		grinderPrimaryPart = nil
 		isManualModel = false
 		cooldowns = {}
+		bladePart = nil
+		bladeHinge = nil
+		bladeAngularVel = nil
+		bladeAttachment0 = nil
+		bladeAttachment1 = nil
+		grindSound = nil
+		if grindStopTimer then
+			task.cancel(grindStopTimer)
+			grindStopTimer = nil
+		end
 	end)
 
 	local Players = game:GetService("Players")

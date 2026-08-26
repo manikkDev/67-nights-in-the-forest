@@ -23,6 +23,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
+local AssetCatalog = require(ReplicatedStorage.Shared.AssetCatalog)
 
 -- | Objects | --
 local GrinderController = Knit.CreateController({
@@ -249,7 +250,13 @@ end
 ]]
 local function findGrinderModel(): Model?
 	local runtime = workspace:FindFirstChild("Runtime")
-	return runtime and runtime:FindFirstChild("Grinder")
+	if runtime then
+		local g = runtime:FindFirstChild("Grinder") or runtime:FindFirstChild("Shredder")
+		if g then return g end
+	end
+	-- Also check Workspace directly (manual placement)
+	local wsModel = workspace:FindFirstChild("Grinder") or workspace:FindFirstChild("Shredder")
+	return wsModel
 end
 
 --[[
@@ -277,37 +284,50 @@ local function findVfxAnchor(model: Model): BasePart?
 end
 
 --[[
-    @summary  Play any built-in grinding sounds the shredder asset has.
-    @desc     Searches the model for Sound instances and plays them.
-              Falls back to a default grinding sound if none are found.
+    @summary  Play a metal grinding sound effect at the shredder.
+    @desc     Uses AssetCatalog grinding sounds.  Creates a temporary
+              Sound on the shredder's anchor part that plays for ~2s.
     @param    model  Model
 ]]
 local function playGrindSound(model: Model)
-	local foundBuiltIn = false
-	for _, desc in ipairs(model:GetDescendants()) do
-		if desc:IsA("Sound") and desc.SoundId ~= "" then
-			desc:Play()
-			foundBuiltIn = true
-		end
+	local anchor = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+	if not anchor then
+		return
 	end
-	if not foundBuiltIn then
-		-- Fallback grinding sound
-		local sound = Instance.new("Sound")
-		sound.Name = "GrindSoundFallback"
-		sound.SoundId = "rbxassetid://9112810051"
-		sound.Volume = 0.5
-		sound.Parent = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
-		if sound.Parent then
-			sound:Play()
-			task.delay(2, function()
-				sound:Destroy()
-			end)
-		end
-	end
+
+	-- Primary grinding sound
+	local sound = Instance.new("Sound")
+	sound.Name = "GrindVfxSound"
+	sound.SoundId = AssetCatalog.Audio.GrindMetal
+	sound.Volume = 0.7
+	sound.RollOffMaxDistance = 30
+	sound.RollOffMinDistance = 5
+	sound.RollOffMode = Enum.RollOffMode.Linear
+	sound.Parent = anchor
+	sound:Play()
+	task.delay(2.5, function()
+		sound:Destroy()
+	end)
+
+	-- Secondary groan sound for depth
+	local groan = Instance.new("Sound")
+	groan.Name = "GrindVfxGroan"
+	groan.SoundId = AssetCatalog.Audio.GrindMetalGroan
+	groan.Volume = 0.4
+	groan.RollOffMaxDistance = 25
+	groan.RollOffMinDistance = 5
+	groan.RollOffMode = Enum.RollOffMode.Linear
+	groan.Parent = anchor
+	groan:Play()
+	task.delay(2, function()
+		groan:Destroy()
+	end)
 end
 
 --[[
     @summary  Play VFX when a junk item is ground.
+    @desc     Emits spark particles, smoke puffs, and metal shard debris
+              from the shredder, plus plays the grinding sound.
     @param    payload  table  -- { position, scrapAmount, junkId }
 ]]
 local function playVfx(payload: { [string]: any })
@@ -325,31 +345,69 @@ local function playVfx(payload: { [string]: any })
 		return
 	end
 
-	-- Spark particles attached to the shredder
+	-- Attachment at the top of the shredder where items go in
 	local attachment = Instance.new("Attachment")
-	attachment.Name = "GrinderSparkAtt"
-	attachment.Position = Vector3.new(0, 2, 0) -- offset above the anchor part
+	attachment.Name = "GrinderVfxAtt"
+	attachment.Position = Vector3.new(0, 2, 0)
 	attachment.Parent = anchor
 
-	local particles = Instance.new("ParticleEmitter")
-	particles.Name = "GrinderSparks"
-	particles.Texture = "rbxasset://textures/particles/spark.dds"
-	particles.Color = ColorSequence.new(Color3.fromRGB(255, 200, 80))
-	particles.Size = NumberSequence.new(0.15, 0)
-	particles.Lifetime = NumberRange.new(0.3, 0.6)
-	particles.Rate = 0
-	particles.Speed = NumberRange.new(4, 8)
-	particles.SpreadAngle = Vector2.new(45, 45)
-	particles.Parent = attachment
+	-- 1. Spark particles (orange/yellow, fast, short-lived)
+	local sparks = Instance.new("ParticleEmitter")
+	sparks.Name = "GrinderSparks"
+	sparks.Texture = "rbxasset://textures/particles/spark.dds"
+	sparks.Color = ColorSequence.new(Color3.fromRGB(255, 200, 80), Color3.fromRGB(255, 140, 30))
+	sparks.Size = NumberSequence.new(0.2, 0)
+	sparks.Lifetime = NumberRange.new(0.3, 0.7)
+	sparks.Rate = 0
+	sparks.Speed = NumberRange.new(5, 10)
+	sparks.SpreadAngle = Vector2.new(60, 60)
+	sparks.Gravity = Vector3.new(0, -15, 0)
+	sparks.Parent = attachment
+	sparks:Emit(25)
 
-	particles:Emit(15)
-	task.delay(1, function()
+	-- 2. Smoke puff (gray, expanding, slow)
+	local smoke = Instance.new("ParticleEmitter")
+	smoke.Name = "GrinderSmoke"
+	smoke.Texture = "rbxasset://textures/particles/smoke_main.dds"
+	smoke.Color = ColorSequence.new(Color3.fromRGB(180, 180, 180), Color3.fromRGB(100, 100, 100))
+	smoke.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.5),
+		NumberSequenceKeypoint.new(1, 2),
+	})
+	smoke.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.3),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	smoke.Lifetime = NumberRange.new(0.8, 1.5)
+	smoke.Rate = 0
+	smoke.Speed = NumberRange.new(1, 3)
+	smoke.SpreadAngle = Vector2.new(30, 30)
+	smoke.Gravity = Vector3.new(0, 5, 0)
+	smoke.Parent = attachment
+	smoke:Emit(8)
+
+	-- 3. Metal shard debris (small gray squares, gravity-affected)
+	local shards = Instance.new("ParticleEmitter")
+	shards.Name = "GrinderShards"
+	shards.Texture = "rbxasset://textures/particles/spark.dds"
+	shards.Color = ColorSequence.new(Color3.fromRGB(160, 160, 170), Color3.fromRGB(100, 100, 110))
+	shards.Size = NumberSequence.new(0.1, 0.05)
+	shards.Lifetime = NumberRange.new(0.5, 1.0)
+	shards.Rate = 0
+	shards.Speed = NumberRange.new(3, 7)
+	shards.SpreadAngle = Vector2.new(45, 45)
+	shards.Gravity = Vector3.new(0, -25, 0)
+	shards.Parent = attachment
+	shards:Emit(12)
+
+	-- Clean up after VFX completes
+	task.delay(2, function()
 		if attachment then
 			attachment:Destroy()
 		end
 	end)
 
-	-- Play grinding sound (built-in or fallback)
+	-- Play the grinding sound
 	playGrindSound(grinder)
 end
 
