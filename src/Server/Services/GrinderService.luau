@@ -7,12 +7,11 @@
     Server-authoritative junk-to-scrap shredder placed next to the crafting bench.
 
     @description
-    Clones the pre-placed "Shredder" model from ServerStorage Assets Items
-    and positions it beside the crafting bench each run. Players interact
-    via ProximityPrompt to open the grind UI, then select junk items to
-    convert into Scrap. Validates proximity and run membership on every
-    grind request. Preserves the asset's built-in animations, constraints,
-    and sounds.
+    Uses a pre-placed "Shredder" model. A copy can live in
+    ServerStorage.Assets["Assets Items"] for auto-placement, or the
+    developer can drag a model named "Shredder" or "Grinder" directly
+    into Workspace to position it by hand. Players interact via a
+    ProximityPrompt to open the grind UI and convert junk into Scrap.
 
     @exports
     - Knit Signal: OpenGrinder()          (server -> client, open UI)
@@ -26,6 +25,7 @@
 -- | Services | --
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -42,8 +42,8 @@ local GrinderService = Knit.CreateService({
 })
 
 -- | Configuration | --
--- Place the shredder beside the crafting bench (bench is at +14, 0, 0).
-local GRINDER_OFFSET = CFrame.new(14, 0, 8)
+-- Default spot: well clear of the bench (bench is at +14, 0, 0 from campfire).
+local GRINDER_OFFSET = CFrame.new(14, 0, 18)
 local GRIND_RANGE = 10
 local GRIND_COOLDOWN = 0.15
 local SHREDDER_ASSET_NAME = "Shredder"
@@ -54,6 +54,7 @@ local inventoryService: any = nil
 local grinderModel: Model? = nil
 local grinderPosition: Vector3? = nil
 local grinderPrimaryPart: BasePart? = nil
+local isManualModel = false
 local cooldowns: { [Player]: number } = {}
 
 -- // FUNCTIONS // --
@@ -61,9 +62,8 @@ local cooldowns: { [Player]: number } = {}
 -- | Private | --
 
 --[[
-    @summary  Find the best part to use as PrimaryPart in the shredder model.
-    @desc     Prefers an existing PrimaryPart, then the largest anchored
-              part (usually the main body), then the first BasePart.
+    @summary  Find the best part to use as PrimaryPart in a model.
+    @desc     Prefers an existing PrimaryPart, then the largest part.
     @param    model  Model
     @returns  BasePart?
 ]]
@@ -87,11 +87,36 @@ local function findPrimaryPart(model: Model): BasePart?
 end
 
 --[[
+    @summary  Anchor every BasePart in a model and disable its scripts.
+    @desc     Keeps constraints/motors intact (so built-in animations still
+              work) but freezes the assembly in world space so it can't fall.
+    @param    model  Model
+]]
+local function anchorAndSanitize(model: Model)
+	for _, desc in ipairs(model:GetDescendants()) do
+		if desc:IsA("Script") or desc:IsA("LocalScript") then
+			desc.Disabled = true
+		elseif desc:IsA("BasePart") then
+			desc.Anchored = true
+		end
+	end
+end
+
+--[[
+    @summary  Find a manually placed Shredder/Grinder in Workspace.
+    @returns  Model?
+]]
+local function findManualShredder(): Model?
+	local workspaceModel = workspace:FindFirstChild("Shredder")
+		or workspace:FindFirstChild("Grinder")
+	if workspaceModel and workspaceModel:IsA("Model") then
+		return workspaceModel
+	end
+	return nil
+end
+
+--[[
     @summary  Clone and prepare the Shredder asset from ServerStorage.
-    @desc     Clones the pre-placed Shredder model, disables any scripts
-              it contains (to prevent conflicts), ensures a PrimaryPart
-              is set, and anchors all non-constraint parts. Preserves
-              constraints and motors so built-in animations still work.
     @returns  Model?
 ]]
 local function buildShredderModel(): Model?
@@ -109,58 +134,15 @@ local function buildShredderModel(): Model?
 
 	local model = source:Clone()
 	model.Name = "Grinder"
-
-	-- Disable any scripts the asset author included to prevent conflicts.
-	for _, desc in ipairs(model:GetDescendants()) do
-		if desc:IsA("Script") or desc:IsA("LocalScript") then
-			desc.Disabled = true
-		end
-	end
-
-	-- Ensure PrimaryPart is set.
-	if not model.PrimaryPart then
-		local primary = findPrimaryPart(model)
-		if primary then
-			model.PrimaryPart = primary
-		end
-	end
-
 	return model
 end
 
 --[[
-    @summary  Place the shredder next to the crafting bench.
-    @desc     Called by CraftingService.placeBench() after the bench
-              is positioned. The shredder goes beside the bench on
-              the same side of the campfire.
-    @param    campfireCFrame  CFrame  -- the campfire anchor
+    @summary  Attach a Grind ProximityPrompt to the shredder model.
+    @param    model  Model
 ]]
-function GrinderService:PlaceGrinder(campfireCFrame: CFrame)
-	if grinderModel then
-		grinderModel:Destroy()
-		grinderModel = nil
-	end
-
-	local model = buildShredderModel()
-	if not model then
-		return
-	end
-
-	-- Position the shredder at the offset from the campfire.
-	-- Measure the model's bounding box so it sits flush on the ground.
-	local _, size = model:GetBoundingBox()
-	local groundOffset = CFrame.new(0, size.Y * 0.5, 0)
-	model:PivotTo(campfireCFrame * GRINDER_OFFSET * groundOffset)
-	model.Parent = runStateService:GetRuntimeFolder()
-	grinderModel = model
-	grinderPosition = model:GetPivot().Position
-	grinderPrimaryPart = model.PrimaryPart
-
-	-- Add or reuse a ProximityPrompt on the primary part.
-	local anchor = model.PrimaryPart
-	if not anchor then
-		anchor = model:FindFirstChildWhichIsA("BasePart", true)
-	end
+local function attachPrompt(model: Model)
+	local anchor = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
 	if not anchor then
 		warn("[GrinderService] Shredder model has no BasePart for ProximityPrompt")
 		return
@@ -179,6 +161,62 @@ function GrinderService:PlaceGrinder(campfireCFrame: CFrame)
 			GrinderService.Client.OpenGrinder:Fire(player)
 		end
 	end)
+end
+
+--[[
+    @summary  Place the shredder next to the crafting bench.
+    @desc     Called by CraftingService.placeBench() after the bench
+              is positioned. A manually placed "Shredder"/"Grinder"
+              in Workspace takes priority and is left exactly where the
+              developer put it. Otherwise a copy is cloned from
+              ServerStorage and placed at the configured offset.
+    @param    campfireCFrame  CFrame  -- the campfire anchor
+]]
+function GrinderService:PlaceGrinder(campfireCFrame: CFrame)
+	if grinderModel and not isManualModel then
+		grinderModel:Destroy()
+	end
+	grinderModel = nil
+	grinderPosition = nil
+	grinderPrimaryPart = nil
+	isManualModel = false
+
+	local model = findManualShredder()
+	if model then
+		isManualModel = true
+		-- Keep the model exactly where the developer placed it.
+		model.Name = "Grinder"
+	else
+		model = buildShredderModel()
+		if not model then
+			return
+		end
+
+		-- Position the cloned shredder clearly clear of the bench.
+		local pivot = model:GetPivot()
+		local _, size = model:GetBoundingBox()
+		local groundOffset = CFrame.new(0, size.Y * 0.5, 0)
+		model:PivotTo(campfireCFrame * GRINDER_OFFSET * groundOffset * pivot.Rotation)
+		model.Parent = runStateService:GetRuntimeFolder()
+	end
+
+	if not model then
+		return
+	end
+
+	if not model.PrimaryPart then
+		local primary = findPrimaryPart(model)
+		if primary then
+			model.PrimaryPart = primary
+		end
+	end
+
+	anchorAndSanitize(model)
+	attachPrompt(model)
+
+	grinderModel = model
+	grinderPosition = model:GetPivot().Position
+	grinderPrimaryPart = model.PrimaryPart
 end
 
 --[[
@@ -301,12 +339,13 @@ function GrinderService:KnitStart()
 	inventoryService = Knit.GetService("InventoryService")
 
 	runStateService.RunCleaned:Connect(function()
-		if grinderModel then
+		if grinderModel and not isManualModel then
 			grinderModel:Destroy()
-			grinderModel = nil
 		end
+		grinderModel = nil
 		grinderPosition = nil
 		grinderPrimaryPart = nil
+		isManualModel = false
 		cooldowns = {}
 	end)
 

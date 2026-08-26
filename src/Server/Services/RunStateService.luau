@@ -34,6 +34,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -159,6 +160,17 @@ local function ensureRuntimeFolder(): Folder
 	folder.Parent = workspace
 	runtimeFolder = folder
 	return folder
+end
+
+--[[
+    @summary  Clear every child from the runtime folder.
+    @desc     Called before a new run starts so there are no duplicates.
+]]
+local function clearRuntimeFolder()
+	local folder = ensureRuntimeFolder()
+	for _, child in ipairs(folder:GetChildren()) do
+		child:Destroy()
+	end
 end
 
 --[[
@@ -361,6 +373,7 @@ function RunStateService:StartRun(participants: { Player }): string?
 	end
 
 	ensureRuntimeFolder()
+	clearRuntimeFolder()
 	if campfireService then
 		campfireService:ResetForRun()
 	end
@@ -419,9 +432,18 @@ function RunStateService:CleanupRun(reason: string)
 	end
 	cleanupCallbacks = {}
 
-	if runtimeFolder then
-		runtimeFolder:Destroy()
-		runtimeFolder = nil
+	if RunService:IsStudio() then
+		-- Keep the Runtime folder visible in Studio edit mode so the
+		-- developer can inspect and reposition run-created objects. The
+		-- folder is cleared on the next StartRun.
+		if runtimeFolder then
+			runtimeFolder = nil
+		end
+	else
+		if runtimeFolder then
+			runtimeFolder:Destroy()
+			runtimeFolder = nil
+		end
 	end
 
 	if timeService then
