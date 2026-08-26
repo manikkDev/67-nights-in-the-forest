@@ -515,7 +515,7 @@ end
     @param    names   {string}  -- ordered list of names to try
     @returns  Model?
 ]]
-local function findJunkModel(folder: Instance, names: { string }): Model?
+local function findJunkModel(folder: Instance, names: { string }): Instance?
 	-- Build a case-insensitive lookup of all children
 	local byLowerName: { [string]: Instance } = {}
 	for _, child in ipairs(folder:GetChildren()) do
@@ -524,7 +524,7 @@ local function findJunkModel(folder: Instance, names: { string }): Model?
 
 	for _, name in ipairs(names) do
 		local found = byLowerName[name:lower()]
-		if found and found:IsA("Model") then
+		if found and (found:IsA("Model") or found:IsA("BasePart")) then
 			return found
 		end
 	end
@@ -533,7 +533,7 @@ local function findJunkModel(folder: Instance, names: { string }): Model?
 	for _, name in ipairs(names) do
 		local lower = name:lower()
 		for _, desc in ipairs(folder:GetDescendants()) do
-			if desc:IsA("Model") and desc.Name:lower() == lower then
+			if (desc:IsA("Model") or desc:IsA("BasePart")) and desc.Name:lower() == lower then
 				return desc
 			end
 		end
@@ -554,17 +554,27 @@ local function buildJunkModel(itemId: string): Model
 	local nameVariants = JUNK_ASSET_NAMES[itemId]
 	local source = folder and nameVariants and findJunkModel(folder, nameVariants)
 
-	if source and source:IsA("Model") then
-		local clone = source:Clone()
-		clone.Name = itemId .. "Pickup"
-		-- Ensure PrimaryPart is set
-		if not clone.PrimaryPart then
-			local first = clone:FindFirstChildWhichIsA("BasePart", true)
-			if first then
-				clone.PrimaryPart = first
+	if source then
+		if source:IsA("Model") then
+			local clone = source:Clone()
+			clone.Name = itemId .. "Pickup"
+			if not clone.PrimaryPart then
+				local first = clone:FindFirstChildWhichIsA("BasePart", true)
+				if first then
+					clone.PrimaryPart = first
+				end
 			end
+			return clone
+		elseif source:IsA("BasePart") then
+			-- Asset is a single part (e.g. MeshPart), wrap it in a Model
+			local model = Instance.new("Model")
+			model.Name = itemId .. "Pickup"
+			local clone = source:Clone()
+			clone.Name = "Main"
+			clone.Parent = model
+			model.PrimaryPart = clone
+			return model
 		end
-		return clone
 	end
 
 	-- Fallback: simple colored part if the 3D asset is missing
@@ -648,15 +658,18 @@ local function buildDropModel(resourceName: string): Model
 
 	for _, descendant in ipairs(model:GetDescendants()) do
 		if descendant:IsA("BasePart") then
-			-- Weld every part to the PrimaryPart so the model doesn't scatter
+			-- Weld every part to the PrimaryPart so the model doesn't scatter.
+			-- Use pcall for GetConstraints since some nested parts may error.
 			if primary and descendant ~= primary then
 				local alreadyWelded = false
-				for _, constraint in ipairs(descendant:GetConstraints()) do
-					if constraint:IsA("WeldConstraint") then
-						alreadyWelded = true
-						break
+				pcall(function()
+					for _, constraint in ipairs(descendant:GetConstraints()) do
+						if constraint:IsA("WeldConstraint") then
+							alreadyWelded = true
+							break
+						end
 					end
-				end
+				end)
 				if not alreadyWelded then
 					local weld = Instance.new("WeldConstraint")
 					weld.Name = "JunkWeld"
@@ -668,7 +681,7 @@ local function buildDropModel(resourceName: string): Model
 			-- Junk items are anchored in place — no physics, no sinking.
 			-- Wood/forage items use physics so they can fall and rest.
 			descendant.Anchored = isJunk
-			descendant.CanCollide = true  -- all items need collision for raycasts
+			descendant.CanCollide = true
 			descendant.CanQuery = true
 			descendant.CanTouch = true
 		end
