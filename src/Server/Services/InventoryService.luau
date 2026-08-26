@@ -633,8 +633,8 @@ local function buildDropModel(resourceName: string): Model
 		end
 	end
 
-	-- Prepare physics: weld all parts to PrimaryPart so the model stays
-	-- together, then unanchor so it can rest on the ground naturally.
+	-- Prepare model: ensure PrimaryPart, weld parts together, and make
+	-- every part queryable for mouse raycasts.
 	local primary = model.PrimaryPart
 	if not primary then
 		local first = model:FindFirstChildWhichIsA("BasePart", true)
@@ -644,11 +644,12 @@ local function buildDropModel(resourceName: string): Model
 		end
 	end
 
+	local isJunk = JunkItemConfig[resourceName] ~= nil
+
 	for _, descendant in ipairs(model:GetDescendants()) do
 		if descendant:IsA("BasePart") then
 			-- Weld every part to the PrimaryPart so the model doesn't scatter
 			if primary and descendant ~= primary then
-				-- Skip if already welded (avoid duplicate welds)
 				local alreadyWelded = false
 				for _, constraint in ipairs(descendant:GetConstraints()) do
 					if constraint:IsA("WeldConstraint") then
@@ -664,8 +665,10 @@ local function buildDropModel(resourceName: string): Model
 					weld.Parent = descendant
 				end
 			end
-			descendant.Anchored = false
-			descendant.CanCollide = true
+			-- Junk items are anchored in place — no physics, no sinking.
+			-- Wood/forage items use physics so they can fall and rest.
+			descendant.Anchored = isJunk
+			descendant.CanCollide = not isJunk  -- junk doesn't need collision
 			descendant.CanQuery = true
 			descendant.CanTouch = true
 		end
@@ -692,6 +695,29 @@ end
 ]]
 function InventoryService:BuildDropModel(resourceName: string): Model
 	return buildDropModel(resourceName)
+end
+
+--[[
+    @summary  Return the distance from the model's pivot to the lowest
+              BasePart in the model.  Used by FacilityService to place
+              junk items so they sit ON the ground instead of in it.
+    @param    model  Model
+    @returns  number  -- how far below the pivot the lowest part is
+]]
+function InventoryService:GetModelBottomOffset(model: Model): number
+	local pivotY = model:GetPivot().Position.Y
+	local lowestY = math.huge
+	for _, desc in ipairs(model:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			if desc.Position.Y < lowestY then
+				lowestY = desc.Position.Y
+			end
+		end
+	end
+	if lowestY == math.huge then
+		return 0
+	end
+	return pivotY - lowestY  -- positive if lowest part is below pivot
 end
 
 --[[

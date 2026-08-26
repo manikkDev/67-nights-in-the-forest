@@ -337,14 +337,10 @@ local function spawnJunkItem(facilityModel: Model, junkId: string)
 		return
 	end
 
-	-- Measure the model before rotating: how far is the pivot above the
-	-- bottom of the model's bounding box?  Then place the pivot so the
-	-- bounding box bottom rests on the ground, not below it.
-	local pivotY = model:GetPivot().Position.Y
-	local cf, size = model:GetBoundingBox()
-	local bottomY = cf.Position.Y - size.Y / 2
-	local pivotToBottom = bottomY - pivotY  -- negative if bottom is below pivot
-	local spawnY = result.Position.Y + 0.1 - pivotToBottom
+	-- Get the distance from the model's pivot to its lowest part.
+	-- Place the pivot so the lowest part sits just above the ground.
+	local bottomOffset = inventoryService:GetModelBottomOffset(model)
+	local spawnY = result.Position.Y + bottomOffset + 0.1
 
 	model:PivotTo(CFrame.new(result.Position.X, spawnY, result.Position.Z) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
 	model.Parent = baseMap
