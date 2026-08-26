@@ -454,34 +454,105 @@ function InventoryService:BuildMushroomModel(): Model
 end
 
 --[[
-    @summary  Map a JunkItemConfig id to the actual 3D model name in
-              ServerStorage > Assets > Assets Items > Bolts items.
-    @desc     The model names in the folder differ slightly from the
-              code ids, so this table keeps the lookup clean.
+    @summary  Map a JunkItemConfig id to possible 3D model names.
+    @desc     The model names in the folder differ from the code ids,
+              so this table lists every name variant to try.
 ]]
-local JUNK_ASSET_NAMES: { [string]: string } = {
-	Bolt = "Bolt",
-	SheetMetal = "Sheet Metal Plate",
-	OldRadio = "Classic Radio",
-	BrokenFan = "Desk Fan",
-	BrokenMicrowave = "Microwave",
-	MetalChair = "Metal Chair",
-	Tyre = "Tyre",
+local JUNK_ASSET_NAMES: { [string]: { string } } = {
+	Bolt = { "Bolt", "Bolts" },
+	SheetMetal = { "Sheet Metal Plate", "SheetMetal", "Sheet Metal", "SheetMetalPlate" },
+	OldRadio = { "Classic Radio", "OldRadio", "Old Radio", "Radio" },
+	BrokenFan = { "Desk Fan", "BrokenFan", "Broken Fan", "Fan", "DeskFan" },
+	BrokenMicrowave = { "Microwave", "BrokenMicrowave", "Broken Microwave" },
+	MetalChair = { "Metal Chair", "MetalChair", "Chair" },
+	Tyre = { "Tyre", "Tire", "TyreModel" },
 }
+
+-- Cache the junk folder so we only search once
+local junkFolderCache: Instance? = nil
+
+--[[
+    @summary  Find the junk assets folder anywhere under ServerStorage.
+    @desc     Searches recursively for a folder named "Bolts items",
+              "Bolts Items", "bolts items", or similar.
+    @returns  Instance?
+]]
+local function findJunkFolder(): Instance?
+	if junkFolderCache then
+		return junkFolderCache
+	end
+
+	local assets = ServerStorage:FindFirstChild("Assets")
+	if not assets then
+		return nil
+	end
+
+	-- Search all descendants for a folder matching "bolts items" (case-insensitive)
+	for _, desc in ipairs(assets:GetDescendants()) do
+		if desc:IsA("Folder") or desc:IsA("Model") then
+			local name = desc.Name:lower()
+			if name == "bolts items" or name == "bolts" or name == "boltsitems" then
+				junkFolderCache = desc
+				return desc
+			end
+		end
+	end
+
+	-- If no dedicated folder, try the Assets Items folder directly
+	local itemsPath = assets:FindFirstChild(Constants.ITEMS_PATH)
+	if itemsPath then
+		junkFolderCache = itemsPath
+		return itemsPath
+	end
+
+	return nil
+end
+
+--[[
+    @summary  Find a junk model by trying multiple name variants.
+    @desc     Case-insensitive search through the junk folder.
+    @param    folder  Instance  -- the folder to search
+    @param    names   {string}  -- ordered list of names to try
+    @returns  Model?
+]]
+local function findJunkModel(folder: Instance, names: { string }): Model?
+	-- Build a case-insensitive lookup of all children
+	local byLowerName: { [string]: Instance } = {}
+	for _, child in ipairs(folder:GetChildren()) do
+		byLowerName[child.Name:lower()] = child
+	end
+
+	for _, name in ipairs(names) do
+		local found = byLowerName[name:lower()]
+		if found and found:IsA("Model") then
+			return found
+		end
+	end
+
+	-- Also search descendants (in case models are nested)
+	for _, name in ipairs(names) do
+		local lower = name:lower()
+		for _, desc in ipairs(folder:GetDescendants()) do
+			if desc:IsA("Model") and desc.Name:lower() == lower then
+				return desc
+			end
+		end
+	end
+
+	return nil
+end
 
 --[[
     @summary  Build a junk item model by cloning the 3D asset.
-    @desc     Looks in ServerStorage > Assets > Assets Items > Bolts items.
+    @desc     Searches ServerStorage for the junk folder and model.
               Falls back to a simple primitive if the asset is missing.
     @param    itemId  string  -- key into JunkItemConfig
     @returns  Model
 ]]
 local function buildJunkModel(itemId: string): Model
-	local itemsPath = ServerStorage:FindFirstChild("Assets")
-		and ServerStorage.Assets:FindFirstChild(Constants.ITEMS_PATH)
-	local boltsFolder = itemsPath and itemsPath:FindFirstChild("Bolts items")
-	local assetName = JUNK_ASSET_NAMES[itemId]
-	local source = boltsFolder and assetName and boltsFolder:FindFirstChild(assetName)
+	local folder = findJunkFolder()
+	local nameVariants = JUNK_ASSET_NAMES[itemId]
+	local source = folder and nameVariants and findJunkModel(folder, nameVariants)
 
 	if source and source:IsA("Model") then
 		local clone = source:Clone()
@@ -497,7 +568,6 @@ local function buildJunkModel(itemId: string): Model
 	end
 
 	-- Fallback: simple colored part if the 3D asset is missing
-	warn(("[InventoryService] Junk asset '%s' (%s) not found in Bolts items, using fallback"):format(itemId, assetName or "?"))
 	local config = JunkItemConfig[itemId]
 	local fallback = Instance.new("Model")
 	fallback.Name = itemId .. "Pickup"
@@ -1286,6 +1356,21 @@ function InventoryService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 	worldService = Knit.GetService("WorldService")
 	spawnService = Knit.GetService("SpawnService")
+
+	-- Diagnostic: log junk folder discovery
+	local junkFolder = findJunkFolder()
+	if junkFolder then
+		local names = {}
+		for _, child in ipairs(junkFolder:GetChildren()) do
+			table.insert(names, child.Name .. "(" .. child.ClassName .. ")")
+		end
+		print(("[InventoryService] Junk folder found: '%s' with children: %s"):format(
+			junkFolder:GetFullName(),
+			table.concat(names, ", ")
+		))
+	else
+		warn("[InventoryService] No junk folder found under ServerStorage.Assets")
+	end
 
 	bagTemplate = buildCarryBagTool()
 	flashlightTemplate = ITEMS_PATH:FindFirstChild(FLASHLIGHT_TOOL_NAME)
