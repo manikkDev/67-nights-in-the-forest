@@ -694,9 +694,8 @@ local function buildDropModel(resourceName: string): Model
 					weld.Parent = descendant
 				end
 			end
-			-- Junk items are anchored in place — no physics, no sinking.
-			-- Wood/forage items use physics so they can fall and rest.
-			descendant.Anchored = isJunk
+			-- All dropped items use physics so they fall to the ground.
+			descendant.Anchored = false
 			descendant.CanCollide = true
 			descendant.CanQuery = true
 			descendant.CanTouch = true
