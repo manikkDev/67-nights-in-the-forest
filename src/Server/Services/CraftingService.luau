@@ -190,12 +190,17 @@ end
 local function sanitizeBench(model: Model, anchor: boolean)
 	local doomed: { Instance } = {}
 	for _, descendant in ipairs(model:GetDescendants()) do
+		local className = descendant.ClassName
 		if descendant:IsA("BaseScript")
 			or descendant:IsA("ModuleScript")
 			or descendant:IsA("PackageLink")
 			or descendant:IsA("TextureConfiguration")
 			or descendant:IsA("Sound")
+			or className == "Package"
+			or className == "Configuration"
 		then
+			table.insert(doomed, descendant)
+		elseif descendant:IsA("Sound") and descendant.SoundId == "rbxassetid://6160151677" then
 			table.insert(doomed, descendant)
 		elseif anchor and descendant:IsA("BasePart") then
 			descendant.Anchored = true
@@ -203,6 +208,28 @@ local function sanitizeBench(model: Model, anchor: boolean)
 	end
 	for _, instance in ipairs(doomed) do
 		instance:Destroy()
+	end
+end
+
+--[[
+    @summary  Destroy any Sound in Workspace that references the
+              unauthorized asset ID 6160151677.
+    @desc     The crafting-table package creates Sounds dynamically
+              that may end up parented outside the model.  Sweep
+              Workspace to catch stragglers.
+]]
+local function destroyUnauthorizedSounds()
+	local doomed: { Instance } = {}
+	for _, descendant in ipairs(workspace:GetDescendants()) do
+		if descendant:IsA("Sound") and descendant.SoundId == "rbxassetid://6160151677" then
+			table.insert(doomed, descendant)
+		end
+	end
+	for _, sound in ipairs(doomed) do
+		sound:Destroy()
+	end
+	if #doomed > 0 then
+		print(("[CraftingService] Destroyed %d unauthorized sound(s)"):format(#doomed))
 	end
 end
 
@@ -437,6 +464,19 @@ function CraftingService:KnitStart()
 	inventoryService = Knit.GetService("InventoryService")
 	worldService = Knit.GetService("WorldService")
 	grinderService = Knit.GetService("GrinderService")
+
+	-- Immediately sanitize any manually-placed crafting-table in
+	-- Workspace.  The asset ships with nested PackageLink /
+	-- TextureConfiguration modules that call require() on unowned
+	-- asset IDs and load an unauthorized sound (6160151677).  These
+	-- fire on game load before Knit starts; we can't prevent the
+	-- first burst, but destroying them here stops the repeating
+	-- sound-load errors that continue throughout the session.
+	local manual = findManualBench()
+	if manual then
+		sanitizeBench(manual, false)
+		print("[CraftingService] Sanitized manual crafting-table on KnitStart")
+	end
 
 	runStateService.RunStarted:Connect(resetForRun)
 	runStateService.RunCleaned:Connect(function()
