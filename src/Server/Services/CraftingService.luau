@@ -177,6 +177,36 @@ local function findManualBench(): Model?
 end
 
 --[[
+    @summary  Strip package/script/sound content that errors at runtime.
+    @desc     The crafting-table asset ships with nested PackageLink and
+              TextureConfiguration modules that call require() on asset
+              IDs this place doesn't own, plus a Sound referencing the
+              unauthorized asset 6160151677.  Both spam the Output window
+              on every run.  Collect first, then destroy, so we never
+              mutate the tree we are iterating.
+    @param    model   Model
+    @param    anchor  boolean  -- anchor BaseParts (clones only)
+]]
+local function sanitizeBench(model: Model, anchor: boolean)
+	local doomed: { Instance } = {}
+	for _, descendant in ipairs(model:GetDescendants()) do
+		if descendant:IsA("BaseScript")
+			or descendant:IsA("ModuleScript")
+			or descendant:IsA("PackageLink")
+			or descendant:IsA("TextureConfiguration")
+			or descendant:IsA("Sound")
+		then
+			table.insert(doomed, descendant)
+		elseif anchor and descendant:IsA("BasePart") then
+			descendant.Anchored = true
+		end
+	end
+	for _, instance in ipairs(doomed) do
+		instance:Destroy()
+	end
+end
+
+--[[
     @summary  Place the existing crafting table beside the campfire.
     @desc     A manually placed "crafting-table" or "CraftingBench" in
               Workspace is used exactly where the developer put it and
@@ -211,16 +241,6 @@ local function placeBench()
 
 		clone = source:Clone()
 		clone.Name = "CraftingBench"
-		for _, descendant in ipairs(clone:GetDescendants()) do
-			if descendant:IsA("BaseScript") or descendant:IsA("ModuleScript")
-				or descendant:IsA("PackageLink") or descendant:IsA("TextureConfiguration") then
-				descendant:Destroy()
-			elseif descendant:IsA("Sound") then
-				descendant:Destroy()
-			elseif descendant:IsA("BasePart") then
-				descendant.Anchored = true
-			end
-		end
 
 		local pivot = clone:GetPivot()
 		local _, size = clone:GetBoundingBox()
@@ -231,6 +251,12 @@ local function placeBench()
 	if not clone then
 		return
 	end
+
+	-- Sanitize BOTH the manual and cloned bench.  The manual
+	-- "crafting-table" in Workspace ships with PackageLink /
+	-- TextureConfiguration content that tries to require unowned asset
+	-- IDs and load an unauthorized sound, spamming the Output window.
+	sanitizeBench(clone, not isManualBench)
 
 	benchModel = clone
 

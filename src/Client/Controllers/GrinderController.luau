@@ -361,7 +361,7 @@ local function playVfx(payload: { [string]: any })
 	sparks.Rate = 0
 	sparks.Speed = NumberRange.new(5, 10)
 	sparks.SpreadAngle = Vector2.new(60, 60)
-	sparks.Gravity = Vector3.new(0, -15, 0)
+	sparks.Acceleration = Vector3.new(0, -15, 0)
 	sparks.Parent = attachment
 	sparks:Emit(25)
 
@@ -382,7 +382,7 @@ local function playVfx(payload: { [string]: any })
 	smoke.Rate = 0
 	smoke.Speed = NumberRange.new(1, 3)
 	smoke.SpreadAngle = Vector2.new(30, 30)
-	smoke.Gravity = Vector3.new(0, 5, 0)
+	smoke.Acceleration = Vector3.new(0, 5, 0)
 	smoke.Parent = attachment
 	smoke:Emit(8)
 
@@ -396,7 +396,7 @@ local function playVfx(payload: { [string]: any })
 	shards.Rate = 0
 	shards.Speed = NumberRange.new(3, 7)
 	shards.SpreadAngle = Vector2.new(45, 45)
-	shards.Gravity = Vector3.new(0, -25, 0)
+	shards.Acceleration = Vector3.new(0, -25, 0)
 	shards.Parent = attachment
 	shards:Emit(12)
 
