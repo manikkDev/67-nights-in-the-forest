@@ -51,6 +51,7 @@ local grinderService: any = nil
 
 local benchTier = 1
 local benchModel: Model? = nil
+local isManualBench = false
 local recipeCounts: { [string]: number } = {}
 local unlocks: { [string]: boolean } = {}
 local placementTokens: { [Player]: { [string]: { structureId: string, runId: string } } } = {}
@@ -163,36 +164,71 @@ local function broadcastState()
 end
 
 --[[
+    @summary  Find a manually placed crafting table in Workspace.
+    @returns  Model?
+]]
+local function findManualBench(): Model?
+	local manual = workspace:FindFirstChild("crafting-table")
+		or workspace:FindFirstChild("CraftingBench")
+	if manual and manual:IsA("Model") then
+		return manual
+	end
+	return nil
+end
+
+--[[
     @summary  Place the existing crafting table beside the campfire.
+    @desc     A manually placed "crafting-table" or "CraftingBench" in
+              Workspace is used exactly where the developer put it and
+              survives run cleanup so it stays visible in Studio.
 ]]
 local function placeBench()
-	if benchModel then
+	if benchModel and not isManualBench then
 		benchModel:Destroy()
-		benchModel = nil
 	end
+	benchModel = nil
+	isManualBench = false
 
-	local mapsItems = ServerStorage.Assets:FindFirstChild("Assets maps items")
-	local source = mapsItems and mapsItems:FindFirstChild("crafting-table")
+	local manual = findManualBench()
 	local campfireCFrame = worldService and worldService:GetCampfireCFrame()
-	if not source or not source:IsA("Model") or not campfireCFrame then
-		warn("[CraftingService] crafting-table asset or campfire is missing")
+	if not campfireCFrame then
+		warn("[CraftingService] campfire is missing")
 		return
 	end
 
-	local clone = source:Clone()
-	clone.Name = "CraftingBench"
-	for _, descendant in ipairs(clone:GetDescendants()) do
-		if descendant:IsA("BaseScript") or descendant:IsA("ModuleScript") then
-			descendant:Destroy()
-		elseif descendant:IsA("BasePart") then
-			descendant.Anchored = true
+	local clone: Model?
+	if manual then
+		isManualBench = true
+		manual.Name = "CraftingBench"
+		clone = manual
+	else
+		local mapsItems = ServerStorage.Assets:FindFirstChild("Assets maps items")
+		local source = mapsItems and mapsItems:FindFirstChild("crafting-table")
+		if not source or not source:IsA("Model") then
+			warn("[CraftingService] crafting-table asset is missing")
+			return
 		end
-	end
-	clone.Parent = runStateService:GetRuntimeFolder()
 
-	local pivot = clone:GetPivot()
-	local _, size = clone:GetBoundingBox()
-	clone:PivotTo(campfireCFrame * BENCH_OFFSET * CFrame.new(0, size.Y * 0.5, 0) * pivot.Rotation)
+		clone = source:Clone()
+		clone.Name = "CraftingBench"
+		for _, descendant in ipairs(clone:GetDescendants()) do
+			if descendant:IsA("BaseScript") or descendant:IsA("ModuleScript") then
+				descendant:Destroy()
+			elseif descendant:IsA("BasePart") then
+				descendant.Anchored = true
+			end
+		end
+
+		local pivot = clone:GetPivot()
+		local _, size = clone:GetBoundingBox()
+		clone:PivotTo(campfireCFrame * BENCH_OFFSET * CFrame.new(0, size.Y * 0.5, 0) * pivot.Rotation)
+		clone.Parent = runStateService:GetRuntimeFolder()
+	end
+
+	if not clone then
+		return
+	end
+
 	benchModel = clone
 
 	-- Reuse the prompt the model author placed (keeps its original
@@ -375,7 +411,11 @@ function CraftingService:KnitStart()
 
 	runStateService.RunStarted:Connect(resetForRun)
 	runStateService.RunCleaned:Connect(function()
+		if benchModel and not isManualBench then
+			benchModel:Destroy()
+		end
 		benchModel = nil
+		isManualBench = false
 		placementTokens = {}
 		craftCooldowns = {}
 	end)
