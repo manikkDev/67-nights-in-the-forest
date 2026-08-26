@@ -668,7 +668,7 @@ local function buildDropModel(resourceName: string): Model
 			-- Junk items are anchored in place — no physics, no sinking.
 			-- Wood/forage items use physics so they can fall and rest.
 			descendant.Anchored = isJunk
-			descendant.CanCollide = not isJunk  -- junk doesn't need collision
+			descendant.CanCollide = true  -- all items need collision for raycasts
 			descendant.CanQuery = true
 			descendant.CanTouch = true
 		end

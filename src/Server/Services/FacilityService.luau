@@ -39,8 +39,8 @@ local FacilityService = Knit.CreateService({
 
 -- | Configuration | --
 local CAMP_RADIUS = 110
-local MIN_FACILITY_DISTANCE = 130
-local MAX_FACILITY_DISTANCE = 400
+local MIN_FACILITY_DISTANCE = 80
+local MAX_FACILITY_DISTANCE = 600
 local RESPAWN_TIME = 90
 local JUNK_LIFETIME = 600
 local GROUND_RAY_HEIGHT = 500
@@ -71,6 +71,7 @@ local inventoryService: any = nil
 local facilities: { { model: Model, type: string, junkSpawns: { Vector3 } } } = {}
 local junkModels: { Model } = {}
 local groundBounds: { minX: number, maxX: number, minZ: number, maxZ: number }? = nil
+local groundY: number = 0
 local campfirePosition: Vector3? = nil
 
 -- // FUNCTIONS // --
@@ -306,47 +307,37 @@ end
 ]]
 local function spawnJunkItem(facilityModel: Model, junkId: string)
 	if not inventoryService then
-		warn("[FacilityService] No inventoryService")
 		return
 	end
 	local pivot = facilityModel:GetPivot().Position
 	local angle = math.random() * math.pi * 2
-	local radius = 3 + math.random() * 6
+	local radius = 2 + math.random() * 8
 	local offsetX = math.cos(angle) * radius
 	local offsetZ = math.sin(angle) * radius
 
-	-- Raycast to find ground
 	local baseMap = worldService:GetBaseMap()
 	if not baseMap then
-		warn("[FacilityService] No baseMap for junk spawn")
-		return
-	end
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = { baseMap }
-	local origin = Vector3.new(pivot.X + offsetX, GROUND_RAY_HEIGHT, pivot.Z + offsetZ)
-	local result = workspace:Raycast(origin, Vector3.new(0, -GROUND_RAY_HEIGHT * 2, 0), params)
-	if not result then
-		warn(("[FacilityService] Ground ray missed at (%.1f, %.1f) for %s"):format(origin.X, origin.Z, junkId))
 		return
 	end
 
 	local model = inventoryService:BuildDropModel(junkId)
 	if not model then
-		warn(("[FacilityService] BuildDropModel returned nil for %s"):format(junkId))
 		return
 	end
 
-	-- Get the distance from the model's pivot to its lowest part.
-	-- Place the pivot so the lowest part sits just above the ground.
+	-- Use the stored groundY (top surface of the ground plate) instead
+	-- of raycasting.  This is more reliable than per-item raycasts.
+	local spawnX = pivot.X + offsetX
+	local spawnZ = pivot.Z + offsetZ
+	-- Get the distance from the model's pivot to its lowest part
 	local bottomOffset = inventoryService:GetModelBottomOffset(model)
-	local spawnY = result.Position.Y + bottomOffset + 0.1
+	-- Place pivot so the lowest part sits 0.5 studs above the ground
+	local spawnY = groundY + bottomOffset + 0.5
 
-	model:PivotTo(CFrame.new(result.Position.X, spawnY, result.Position.Z) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+	model:PivotTo(CFrame.new(spawnX, spawnY, spawnZ) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
 	model.Parent = baseMap
 	Debris:AddItem(model, JUNK_LIFETIME)
 	table.insert(junkModels, model)
-	print(("[FacilityService] Spawned %s at (%.1f, %.1f, %.1f) parent=%s"):format(junkId, result.Position.X, spawnY, result.Position.Z, baseMap.Name))
 end
 
 --[[
@@ -406,7 +397,8 @@ local function spawnFacilities()
 				minZ = descendant.Position.Z - halfSize.Z,
 				maxZ = descendant.Position.Z + halfSize.Z,
 			}
-			print(("[FacilityService] Ground bounds: minX=%.1f maxX=%.1f minZ=%.1f maxZ=%.1f"):format(groundBounds.minX, groundBounds.maxX, groundBounds.minZ, groundBounds.maxZ))
+			groundY = descendant.Position.Y + halfSize.Y
+			print(("[FacilityService] Ground bounds: minX=%.1f maxX=%.1f minZ=%.1f maxZ=%.1f topY=%.1f"):format(groundBounds.minX, groundBounds.maxX, groundBounds.minZ, groundBounds.maxZ, groundY))
 			break
 		end
 	end
