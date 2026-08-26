@@ -77,11 +77,11 @@ local ROW_ORDER = {
 	"Bandage",
 	"CultistGem",
 	"Bolt",
-	"OldRadio",
 	"SheetMetal",
-	"Tyre",
+	"OldRadio",
 	"BrokenFan",
 	"BrokenMicrowave",
+	"Tyre",
 }
 local ROW_COLORS = {
 	Wood = Color3.fromRGB(170, 110, 65),
@@ -112,12 +112,12 @@ local ROW_DESCRIPTIONS = {
 	RawMeat = "Cook it at the campfire to restore more hunger.",
 	CookedMeat = "A filling meal that restores lots of hunger.",
 	RabbitMeat = "Fresh rabbit meat. Cook it at the campfire.",
-	Bolt = "Junk. Grind at the Grinder for 1 Scrap.",
-	OldRadio = "Junk. Grind at the Grinder for 2 Scrap.",
-	SheetMetal = "Junk. Grind at the Grinder for 2 Scrap.",
-	Tyre = "Junk. Grind at the Grinder for 2 Scrap.",
-	BrokenFan = "Junk. Grind at the Grinder for 3 Scrap.",
-	BrokenMicrowave = "Junk. Grind at the Grinder for 4 Scrap.",
+	Bolt = "Junk. Grind at the Shredder for 1 Scrap.",
+	SheetMetal = "Junk. Grind at the Shredder for 1 Scrap.",
+	OldRadio = "Junk. Grind at the Shredder for 2 Scrap.",
+	BrokenFan = "Junk. Grind at the Shredder for 2 Scrap.",
+	BrokenMicrowave = "Junk. Grind at the Shredder for 3 Scrap.",
+	Tyre = "Junk. Grind at the Shredder for 3 Scrap.",
 }
 
 -- | State Management | --
