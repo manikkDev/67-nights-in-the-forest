@@ -164,151 +164,198 @@ local function broadcastState()
 end
 
 --[[
-    @summary  Find a manually placed crafting table in Workspace.
-    @returns  Model?
+    @summary  Find and DESTROY any manually placed crafting-table.
+    @desc     The packaged "crafting-table" asset ships with nested
+              PackageLink / TextureConfiguration modules that call
+              require() on unowned asset IDs and load an unauthorized
+              sound (6160151677).  These fire on Workspace load BEFORE
+              any server script runs, and the package scripts keep
+              creating new Sound instances throughout the session.
+              Sanitization cannot stop this because the scripts already
+              executed.  The only reliable fix is to destroy the entire
+              model and replace it with a clean, code-built table.
 ]]
-local function findManualBench(): Model?
+local function destroyManualBench()
 	local manual = workspace:FindFirstChild("crafting-table")
 		or workspace:FindFirstChild("CraftingBench")
 	if manual and manual:IsA("Model") then
-		return manual
+		manual.Name = "DestroyedBench"
+		manual:Destroy()
+		print("[CraftingService] Destroyed packaged crafting-table (PackageLink source)")
 	end
-	return nil
 end
 
 --[[
-    @summary  Strip package/script/sound content that errors at runtime.
-    @desc     The crafting-table asset ships with nested PackageLink and
-              TextureConfiguration modules that call require() on asset
-              IDs this place doesn't own, plus a Sound referencing the
-              unauthorized asset 6160151677.  Both spam the Output window
-              on every run.  Collect first, then destroy, so we never
-              mutate the tree we are iterating.
-    @param    model   Model
-    @param    anchor  boolean  -- anchor BaseParts (clones only)
+    @summary  Build a clean crafting bench from primitive parts.
+    @desc     No PackageLink, no TextureConfiguration, no unauthorized
+              sounds — just a simple wooden table with a ProximityPrompt.
+              This replaces the packaged asset entirely.
+    @param    campfireCFrame  CFrame  -- anchor for positioning
+    @returns  Model
 ]]
-local function sanitizeBench(model: Model, anchor: boolean)
-	local doomed: { Instance } = {}
-	for _, descendant in ipairs(model:GetDescendants()) do
-		local className = descendant.ClassName
-		if descendant:IsA("BaseScript")
-			or descendant:IsA("ModuleScript")
-			or descendant:IsA("PackageLink")
-			or descendant:IsA("TextureConfiguration")
-			or descendant:IsA("Sound")
-			or className == "Package"
-			or className == "Configuration"
-		then
-			table.insert(doomed, descendant)
-		elseif descendant:IsA("Sound") and descendant.SoundId == "rbxassetid://6160151677" then
-			table.insert(doomed, descendant)
-		elseif anchor and descendant:IsA("BasePart") then
-			descendant.Anchored = true
+local function buildCleanBench(campfireCFrame: CFrame): Model
+	local model = Instance.new("Model")
+	model.Name = "CraftingBench"
+
+	local top = Instance.new("Part")
+	top.Name = "TableTop"
+	top.Size = Vector3.new(4, 0.4, 3)
+	top.Color = Color3.fromRGB(101, 67, 33)
+	top.Material = Enum.Material.WoodPlanks
+	top.Anchored = true
+	top.CanCollide = true
+	top.TopSurface = Enum.SurfaceType.Smooth
+	top.BottomSurface = Enum.SurfaceType.Smooth
+	top.Parent = model
+
+	model.PrimaryPart = top
+
+	-- Four legs
+	local legPositions = {
+		Vector3.new(1.7, -1.2, 1.2),
+		Vector3.new(-1.7, -1.2, 1.2),
+		Vector3.new(1.7, -1.2, -1.2),
+		Vector3.new(-1.7, -1.2, -1.2),
+	}
+	for i, offset in ipairs(legPositions) do
+		local leg = Instance.new("Part")
+		leg.Name = "Leg" .. tostring(i)
+		leg.Size = Vector3.new(0.3, 2.4, 0.3)
+		leg.Color = Color3.fromRGB(80, 50, 25)
+		leg.Material = Enum.Material.Wood
+		leg.Anchored = true
+		leg.CanCollide = true
+		leg.Parent = model
+		-- Position will be set by PivotTo on the model
+	end
+
+	-- Position the entire bench
+	local groundY = campfireCFrame.Position.Y
+	local benchCFrame = campfireCFrame * BENCH_OFFSET
+	-- Top surface at ~1.5 studs high (legs go into ground)
+	top.CFrame = benchCFrame * CFrame.new(0, 1.5, 0)
+	for i, offset in ipairs(legPositions) do
+		local leg = model:FindFirstChild("Leg" .. tostring(i))
+		if leg then
+			leg.CFrame = top.CFrame * CFrame.new(offset)
 		end
 	end
-	for _, instance in ipairs(doomed) do
-		instance:Destroy()
-	end
-end
 
---[[
-    @summary  Destroy any Sound in Workspace that references the
-              unauthorized asset ID 6160151677.
-    @desc     The crafting-table package creates Sounds dynamically
-              that may end up parented outside the model.  Sweep
-              Workspace to catch stragglers.
-]]
-local function destroyUnauthorizedSounds()
-	local doomed: { Instance } = {}
-	for _, descendant in ipairs(workspace:GetDescendants()) do
-		if descendant:IsA("Sound") and descendant.SoundId == "rbxassetid://6160151677" then
-			table.insert(doomed, descendant)
+	-- ProximityPrompt on the tabletop
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "CraftingPrompt"
+	prompt.ActionText = "Craft"
+	prompt.ObjectText = "Crafting Bench"
+	prompt.MaxActivationDistance = BENCH_RANGE
+	prompt.HoldDuration = 0.25
+	prompt.Parent = top
+	prompt.Triggered:Connect(function(player)
+		if runStateService:IsActive() and runStateService:IsMember(player) then
+			CraftingService.Client.OpenCrafting:Fire(player)
 		end
+	end)
+
+	return model
+end
+
+--[[
+    @summary  Update the visual resource stacks on the crafting bench.
+    @desc     Shows piled wood logs and metal sheets on the tabletop,
+              matching the reference game where you can see collected
+              resources stacked on the bench.
+    @param    resources  table  -- { Wood = N, Scrap = N, ... }
+]]
+local stackFolder: Folder? = nil
+local function updateResourceStacks(resources: { [string]: number }?)
+	if not benchModel or not benchModel.Parent then
+		return
 	end
-	for _, sound in ipairs(doomed) do
-		sound:Destroy()
+	if not stackFolder or not stackFolder.Parent then
+		stackFolder = Instance.new("Folder")
+		stackFolder.Name = "ResourceStacks"
+		stackFolder.Parent = benchModel
 	end
-	if #doomed > 0 then
-		print(("[CraftingService] Destroyed %d unauthorized sound(s)"):format(#doomed))
+	-- Clear existing stacks
+	for _, child in ipairs(stackFolder:GetChildren()) do
+		child:Destroy()
+	end
+	if not resources then
+		return
+	end
+
+	local topPart = benchModel:FindFirstChild("TableTop")
+	if not topPart then
+		return
+	end
+	local topPos = topPart.Position + Vector3.new(0, 0.25, 0) -- just above surface
+
+	-- Wood logs: stack small brown cylinders on the left side
+	local woodCount = math.min(resources.Wood or 0, 20) -- cap visual at 20
+	for i = 1, woodCount do
+		local log = Instance.new("Part")
+		log.Name = "WoodLog" .. tostring(i)
+		log.Size = Vector3.new(0.3, 0.3, 1.2)
+		log.Color = Color3.fromRGB(120, 80, 40)
+		log.Material = Enum.Material.Wood
+		log.Anchored = true
+		log.CanCollide = false
+		-- Stack in a pyramid pattern on the left
+		local row = math.floor((i - 1) / 4)
+		local col = (i - 1) % 4
+		local x = -1.2 + col * 0.35
+		local z = -0.4 + (row % 2) * 0.3
+		local y = 0.2 + math.floor(row / 2) * 0.3
+		log.CFrame = topPart.CFrame * CFrame.new(x, y, z) * CFrame.Angles(0, math.rad(90), 0)
+		log.Parent = stackFolder
+	end
+
+	-- Scrap metal sheets: stack thin gray plates on the right side
+	local scrapCount = math.min(resources.Scrap or 0, 15)
+	for i = 1, scrapCount do
+		local sheet = Instance.new("Part")
+		sheet.Name = "ScrapSheet" .. tostring(i)
+		sheet.Size = Vector3.new(0.8, 0.05, 0.6)
+		sheet.Color = Color3.fromRGB(140, 140, 150)
+		sheet.Material = Enum.Material.Metal
+		sheet.Anchored = true
+		sheet.CanCollide = false
+		-- Stack on the right side, each slightly higher
+		local y = 0.25 + (i - 1) * 0.06
+		sheet.CFrame = topPart.CFrame * CFrame.new(1.0, y, 0) * CFrame.Angles(0, math.rad(i * 15), 0)
+		sheet.Parent = stackFolder
 	end
 end
 
 --[[
-    @summary  Place the existing crafting table beside the campfire.
-    @desc     A manually placed "crafting-table" or "CraftingBench" in
-              Workspace is used exactly where the developer put it and
-              survives run cleanup so it stays visible in Studio.
+    @summary  Place a clean crafting table beside the campfire.
+    @desc     The packaged asset is destroyed on KnitStart to eliminate
+              PackageLink errors.  A simple code-built table replaces it.
 ]]
 local function placeBench()
-	if benchModel and not isManualBench then
+	if benchModel then
 		benchModel:Destroy()
 	end
 	benchModel = nil
 	isManualBench = false
+	stackFolder = nil
 
-	local manual = findManualBench()
 	local campfireCFrame = worldService and worldService:GetCampfireCFrame()
 	if not campfireCFrame then
 		warn("[CraftingService] campfire is missing")
 		return
 	end
 
-	local clone: Model?
-	if manual then
-		isManualBench = true
-		manual.Name = "CraftingBench"
-		clone = manual
-	else
-		local mapsItems = ServerStorage.Assets:FindFirstChild("Assets maps items")
-		local source = mapsItems and mapsItems:FindFirstChild("crafting-table")
-		if not source or not source:IsA("Model") then
-			warn("[CraftingService] crafting-table asset is missing")
-			return
+	local bench = buildCleanBench(campfireCFrame)
+	bench.Parent = runStateService:GetRuntimeFolder()
+	benchModel = bench
+
+	-- Update visual stacks from current resources
+	local firstMember = runStateService:GetMembers()[1]
+	if firstMember and playerDataService then
+		local data = playerDataService:GetData(firstMember)
+		if data and data.Resources then
+			updateResourceStacks(data.Resources)
 		end
-
-		clone = source:Clone()
-		clone.Name = "CraftingBench"
-
-		local pivot = clone:GetPivot()
-		local _, size = clone:GetBoundingBox()
-		clone:PivotTo(campfireCFrame * BENCH_OFFSET * CFrame.new(0, size.Y * 0.5, 0) * pivot.Rotation)
-		clone.Parent = runStateService:GetRuntimeFolder()
-	end
-
-	if not clone then
-		return
-	end
-
-	-- Sanitize BOTH the manual and cloned bench.  The manual
-	-- "crafting-table" in Workspace ships with PackageLink /
-	-- TextureConfiguration content that tries to require unowned asset
-	-- IDs and load an unauthorized sound, spamming the Output window.
-	sanitizeBench(clone, not isManualBench)
-
-	benchModel = clone
-
-	-- Reuse the prompt the model author placed (keeps its original
-	-- attachment offset/position). Fall back to the primary part if none.
-	local prompt = clone:FindFirstChildWhichIsA("ProximityPrompt", true)
-	if not prompt then
-		local anchor = clone.PrimaryPart or clone:FindFirstChildWhichIsA("BasePart", true)
-		if anchor then
-			prompt = Instance.new("ProximityPrompt")
-			prompt.Parent = anchor
-		end
-	end
-
-	if prompt then
-		prompt.Name = "CraftingPrompt"
-		prompt.ActionText = "Craft"
-		prompt.ObjectText = "Crafting Bench"
-		prompt.MaxActivationDistance = BENCH_RANGE
-		prompt.HoldDuration = 0.25
-		prompt.Triggered:Connect(function(player)
-			if runStateService:IsActive() and runStateService:IsMember(player) then
-				CraftingService.Client.OpenCrafting:Fire(player)
-			end
-		end)
 	end
 
 	-- Place the shredder next to the bench (same side of campfire)
@@ -465,31 +512,34 @@ function CraftingService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	grinderService = Knit.GetService("GrinderService")
 
-	-- Immediately sanitize any manually-placed crafting-table in
-	-- Workspace.  The asset ships with nested PackageLink /
+	-- Immediately destroy any manually-placed crafting-table.
+	-- The packaged asset ships with nested PackageLink /
 	-- TextureConfiguration modules that call require() on unowned
 	-- asset IDs and load an unauthorized sound (6160151677).  These
-	-- fire on game load before Knit starts; we can't prevent the
-	-- first burst, but destroying them here stops the repeating
-	-- sound-load errors that continue throughout the session.
-	local manual = findManualBench()
-	if manual then
-		sanitizeBench(manual, false)
-		print("[CraftingService] Sanitized manual crafting-table on KnitStart")
-	end
-	-- Also sweep all of Workspace for any unauthorized sounds that
-	-- may have been created by the package before sanitization.
-	destroyUnauthorizedSounds()
+	-- fire on game load before Knit starts and the package scripts
+	-- keep creating new Sound instances throughout the session.
+	-- Sanitization cannot stop this — the only fix is to destroy the
+	-- entire model and replace it with a clean, code-built table.
+	destroyManualBench()
 
 	runStateService.RunStarted:Connect(resetForRun)
 	runStateService.RunCleaned:Connect(function()
-		if benchModel and not isManualBench then
+		if benchModel then
 			benchModel:Destroy()
 		end
 		benchModel = nil
 		isManualBench = false
+		stackFolder = nil
 		placementTokens = {}
 		craftCooldowns = {}
+	end)
+
+	-- Update visual resource stacks on the bench whenever resources
+	-- change (pickup, grind, craft, drop, etc.)
+	inventoryService.ServerResourcesChanged:Connect(function(player, resources)
+		if runStateService:IsActive() and runStateService:IsMember(player) then
+			updateResourceStacks(resources)
+		end
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)

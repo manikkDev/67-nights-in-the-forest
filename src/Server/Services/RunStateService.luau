@@ -60,7 +60,10 @@ RunStateService.RunCleaned = Signal.new()
 
 -- | Configuration | --
 local RUNTIME_FOLDER_NAME = "Runtime"
-local RUN_SCOPED_PROFILE_KEYS = { "Resources", "Base", "Rescue", "Stats", "Campfire", "Inventory" }
+-- "Resources" and "Inventory" are NOT run-scoped — the player's bag
+-- contents persist across runs and rejoins, matching the reference
+-- game where collected items stay in your inventory.
+local RUN_SCOPED_PROFILE_KEYS = { "Base", "Rescue", "Stats", "Campfire" }
 
 -- | State Management | --
 local playerDataService: any = nil
@@ -100,6 +103,13 @@ local function freshRunTable(key: string): { [string]: any }
 			OwlFeather = 0,
 			CultistGem = 0,
 			Bandage = 0,
+			Bolt = 0,
+			OldRadio = 0,
+			SheetMetal = 0,
+			Tyre = 0,
+			BrokenFan = 0,
+			BrokenMicrowave = 0,
+			MetalChair = 0,
 		}
 	elseif key == "Base" then
 		return { BedCount = 0, DayMultiplier = 1, UnlockedStructures = {} }

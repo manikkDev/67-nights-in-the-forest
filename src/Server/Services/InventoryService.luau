@@ -47,6 +47,10 @@ local InventoryService = Knit.CreateService({
 	},
 })
 
+-- Server-side signal so other services (e.g. CraftingService) can
+-- react to resource changes without polling.
+InventoryService.ServerResourcesChanged = Knit.CreateSignal()
+
 -- | Configuration | --
 local BASE_CAPACITY = 40
 local BAG_CAPACITY_BONUS = 40
@@ -215,7 +219,9 @@ local function broadcastSnapshot(player: Player)
 	if not data then
 		return
 	end
-	InventoryService.Client.ResourcesChanged:Fire(player, table.clone(data.Resources), InventoryService:GetCapacity(player))
+	local resourcesClone = table.clone(data.Resources)
+	InventoryService.Client.ResourcesChanged:Fire(player, resourcesClone, InventoryService:GetCapacity(player))
+	InventoryService.ServerResourcesChanged:Fire(player, resourcesClone)
 end
 
 --[[
