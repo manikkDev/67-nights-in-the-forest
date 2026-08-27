@@ -444,8 +444,17 @@ local function attachPrompt(model: Model)
 	prompt.HoldDuration = 0.25
 	prompt.Parent = anchor
 	prompt.Triggered:Connect(function(player)
-		if runStateService:IsActive() and runStateService:IsMember(player) then
+		local isActive = runStateService:IsActive()
+		local isMember = runStateService:IsMember(player)
+		print(("[CraftingService] Prompt triggered by %s | isActive=%s | isMember=%s"):format(
+			player.Name, tostring(isActive), tostring(isMember)
+		))
+		if isActive and isMember then
 			CraftingService.Client.OpenCrafting:Fire(player)
+		else
+			warn(("[CraftingService] Cannot open crafting for %s | active=%s member=%s"):format(
+				player.Name, tostring(isActive), tostring(isMember)
+			))
 		end
 	end)
 end
