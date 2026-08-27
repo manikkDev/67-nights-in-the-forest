@@ -530,13 +530,15 @@ local function placeBench()
 		local mapsItems = ServerStorage.Assets:FindFirstChild("Assets maps items")
 		local source = mapsItems and mapsItems:FindFirstChild("crafting-table")
 		if source and source:IsA("Model") then
-			clone = source:Clone()
-			clone.Name = "CraftingBench"
-			sanitizeBench(clone)
-			local _, size = clone:GetBoundingBox()
-			local pivot = clone:GetPivot()
-			clone:PivotTo(campfireCFrame * BENCH_OFFSET * CFrame.new(0, size.Y * 0.5, 0) * pivot.Rotation)
-			clone.Parent = runStateService:GetRuntimeFolder()
+			local sourceModel = source :: Model
+			local benchClone = sourceModel:Clone() :: Model
+			benchClone.Name = "CraftingBench"
+			sanitizeBench(benchClone)
+			local _, size = benchClone:GetBoundingBox()
+			local pivot = benchClone:GetPivot()
+			benchClone:PivotTo(campfireCFrame * BENCH_OFFSET * CFrame.new(0, size.Y * 0.5, 0) * pivot.Rotation)
+			benchClone.Parent = runStateService:GetRuntimeFolder()
+			clone = benchClone
 		else
 			warn("[CraftingService] crafting-table asset is missing")
 			return
