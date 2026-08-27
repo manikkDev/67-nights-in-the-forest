@@ -282,6 +282,10 @@ end
 ]]
 local function openMenu()
 	buildUi()
+	print(("[CraftingController] openMenu called | gui=%s | gui.Enabled=%s"):format(
+		tostring(gui ~= nil),
+		tostring(gui and gui.Enabled)
+	))
 	-- Enable the GUI immediately so the menu is visible even if the
 	-- GetBenchState request fails or is slow. The snapshot refreshes
 	-- the display once it arrives.
@@ -314,7 +318,10 @@ function CraftingController:KnitStart()
 	craftingService = Knit.GetService("CraftingService")
 	local runStateService = Knit.GetService("RunStateService")
 	buildUi()
-	craftingService.OpenCrafting:Connect(openMenu)
+	craftingService.OpenCrafting:Connect(function()
+		print("[CraftingController] OpenCrafting signal received")
+		openMenu()
+	end)
 	craftingService.CraftSucceeded:Connect(function(_recipeId, result)
 		if typeof(result) == "table" and result.outputKind == "Placement" and gui and gui.Enabled then
 			closeMenu()

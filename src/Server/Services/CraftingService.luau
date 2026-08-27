@@ -428,12 +428,16 @@ end
 local function attachPrompt(model: Model)
 	local anchor = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
 	if not anchor then
+		warn("[CraftingService] attachPrompt: no anchor part found in bench model")
 		return
 	end
 
-	local existing = anchor:FindFirstChild("CraftingPrompt")
-	if existing and existing:IsA("ProximityPrompt") then
-		existing:Destroy()
+	-- Remove any existing prompts on ALL parts, not just the anchor,
+	-- in case the package had its own prompt on a different part.
+	for _, desc in ipairs(model:GetDescendants()) do
+		if desc:IsA("ProximityPrompt") and desc.Name == "CraftingPrompt" then
+			desc:Destroy()
+		end
 	end
 
 	local prompt = Instance.new("ProximityPrompt")
@@ -442,7 +446,11 @@ local function attachPrompt(model: Model)
 	prompt.ObjectText = "Crafting Bench"
 	prompt.MaxActivationDistance = BENCH_RANGE
 	prompt.HoldDuration = 0.25
+	prompt.RequiresLineOfSight = false
 	prompt.Parent = anchor
+	print(("[CraftingService] attachPrompt: prompt parented to %s (%s)"):format(
+		anchor.Name, anchor.ClassName
+	))
 	prompt.Triggered:Connect(function(player)
 		local isActive = runStateService:IsActive()
 		local isMember = runStateService:IsMember(player)
