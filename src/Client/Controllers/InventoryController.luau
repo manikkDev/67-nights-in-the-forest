@@ -40,7 +40,7 @@ local BAG_TOOL_NAME = "Carry Bag"
 
 -- Panel dimensions
 local PANEL_WIDTH = 220
-local PANEL_MARGIN = 16
+local PANEL_MARGIN = 32
 local ROW_HEIGHT = 38
 local ROW_GAP = 4
 local PANEL_PADDING = 10
