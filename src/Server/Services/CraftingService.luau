@@ -426,31 +426,69 @@ end
     @param    model  Model
 ]]
 local function attachPrompt(model: Model)
-	local anchor = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
-	if not anchor then
-		warn("[CraftingService] attachPrompt: no anchor part found in bench model")
-		return
-	end
+	-- The package's crafting table already ships with a ProximityPrompt
+	-- (named "Interact") positioned correctly on the bench.  We hook into
+	-- that existing prompt instead of creating our own, so we don't end
+	-- up with two prompts at different positions.
 
-	-- Remove any existing prompts on ALL parts, not just the anchor,
-	-- in case the package had its own prompt on a different part.
+	-- First, remove any prompt we previously added.
 	for _, desc in ipairs(model:GetDescendants()) do
 		if desc:IsA("ProximityPrompt") and desc.Name == "CraftingPrompt" then
 			desc:Destroy()
 		end
 	end
 
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "CraftingPrompt"
-	prompt.ActionText = "Craft"
-	prompt.ObjectText = "Crafting Bench"
-	prompt.MaxActivationDistance = BENCH_RANGE
-	prompt.HoldDuration = 0.25
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = anchor
-	print(("[CraftingService] attachPrompt: prompt parented to %s (%s)"):format(
-		anchor.Name, anchor.ClassName
-	))
+	-- Find the package's original prompt.
+	local prompt: ProximityPrompt? = nil
+	for _, desc in ipairs(model:GetDescendants()) do
+		if desc:IsA("ProximityPrompt") and desc.Name ~= "CraftingPrompt" then
+			prompt = desc
+			break
+		end
+	end
+
+	if not prompt then
+		-- No existing prompt found — fall back to creating one on the
+		-- largest part (closest to the table surface).
+		local bestPart: BasePart? = nil
+		local bestVolume = 0
+		for _, desc in ipairs(model:GetDescendants()) do
+			if desc:IsA("BasePart") then
+				local vol = desc.Size.X * desc.Size.Y * desc.Size.Z
+				if vol > bestVolume then
+					bestVolume = vol
+					bestPart = desc
+				end
+			end
+		end
+		if not bestPart then
+			warn("[CraftingService] attachPrompt: no prompt and no part found in bench model")
+			return
+		end
+		prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "CraftingPrompt"
+		prompt.ActionText = "Craft"
+		prompt.ObjectText = "Crafting Bench"
+		prompt.MaxActivationDistance = BENCH_RANGE
+		prompt.HoldDuration = 0.25
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = bestPart
+		print(("[CraftingService] attachPrompt: no existing prompt, created one on %s"):format(bestPart.Name))
+	else
+		-- Configure the existing prompt for crafting.
+		prompt.ActionText = "Craft"
+		prompt.ObjectText = "Crafting Bench"
+		prompt.HoldDuration = 0.25
+		prompt.RequiresLineOfSight = false
+		-- Increase the activation distance if it's too small.
+		if prompt.MaxActivationDistance < BENCH_RANGE then
+			prompt.MaxActivationDistance = BENCH_RANGE
+		end
+		print(("[CraftingService] attachPrompt: hooked into existing prompt '%s' on %s"):format(
+			prompt.Name, prompt.Parent and prompt.Parent.Name or "unknown"
+		))
+	end
+
 	prompt.Triggered:Connect(function(player)
 		local isActive = runStateService:IsActive()
 		local isMember = runStateService:IsMember(player)
