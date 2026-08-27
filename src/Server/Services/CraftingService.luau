@@ -294,18 +294,19 @@ end
 
 --[[
     @summary  Discover the wood and scrap counter labels on the bench.
-    @desc     The count labels are the TextLabels whose text is a number
-              (usually "0" at startup).  Icon labels contain emojis or
-              images, so we ignore non-numeric text and then sort by the
-              BasePart the label is drawn on to figure out left=wood,
-              right=scrap.
+    @desc     The count label sits in the same panel/Slot as its icon.
+              We find one numeric TextLabel per panel by checking for a
+              sibling icon (ImageLabel/Decal with wood/bolt image, or a
+              non-numeric TextLabel acting as the icon).  Then we sort
+              the panels left-to-right so the left panel = wood and the
+              right panel = scrap.
     @returns  TextLabel? woodCounter, TextLabel? scrapCounter
 ]]
 local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
-	local counters: { TextLabel } = {}
+	local allLabels: { TextLabel } = {}
 	for _, desc in ipairs(model:GetDescendants()) do
 		if desc:IsA("TextLabel") then
-			table.insert(counters, desc)
+			table.insert(allLabels, desc)
 		end
 	end
 
@@ -321,7 +322,6 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 	end
 
 	local function isNumericText(text: string): boolean
-		-- Accepts whole numbers only (the count display, e.g. "0" or "13").
 		return text and text:match("^%-?%d+$") ~= nil
 	end
 
@@ -344,9 +344,49 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 			or lower == "resource2"
 	end
 
-	-- Score a label for wood/scrap.  Numeric text is the strongest signal
-	-- (this is the count), then names/icons in ancestors.
-	local function scoreLabel(label: TextLabel, isTarget: (string) -> boolean): number
+	local function hasWoodIcon(parent: Instance): boolean
+		for _, child in ipairs(parent:GetChildren()) do
+			if child:IsA("ImageLabel") or child:IsA("ImageButton") or child:IsA("Decal") then
+				local id = (child :: any).Image or (child :: any).Texture
+				local name = child.Name:lower()
+				if (id and (id:find("wood") or id:find("log"))) or isWoodName(name) then
+					return true
+				end
+          elseif child:IsA("TextLabel") then
+				-- TextLabel used as an icon: non-numeric text and a wood-ish name.
+				local name = child.Name:lower()
+				local text = child.Text
+				if not isNumericText(text) and (isWoodName(name) or text:find("🪵") or text:find("🌳")) then
+					return true
+				end
+			end
+		end
+		return false
+	end
+
+	local function hasScrapIcon(parent: Instance): boolean
+		for _, child in ipairs(parent:GetChildren()) do
+			if child:IsA("ImageLabel") or child:IsA("ImageButton") or child:IsA("Decal") then
+				local id = (child :: any).Image or (child :: any).Texture
+				local name = child.Name:lower()
+				if (id and (id:find("scrap") or id:find("bolt") or id:find("metal"))) or isScrapName(name) then
+					return true
+				end
+          elseif child:IsA("TextLabel") then
+				-- TextLabel used as an icon: non-numeric text and a scrap-ish name.
+				local name = child.Name:lower()
+				local text = child.Text
+				if not isNumericText(text) and (isScrapName(name) or text:find("🔩")) then
+					return true
+				end
+			end
+		end
+		return false
+	end
+
+	-- Score a TextLabel for wood/scrap based on its own/parent names and
+	-- whether it lives in a panel with a matching icon.
+	local function scoreLabel(label: TextLabel, isTarget: (string) -> boolean, hasIcon: (Instance) -> boolean): number
 		local score = 0
 		local name = label.Name
 		local text = label.Text
@@ -365,6 +405,9 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 			if isTarget(current.Name) then
 				score += math.max(0, 90 - depth * 15)
 			end
+			if hasIcon(current) then
+				score += math.max(0, 80 - depth * 15)
+			end
 			current = current.Parent
 			depth += 1
 		end
@@ -377,9 +420,9 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 	local scrapBest: TextLabel? = nil
 	local scrapScore = -1
 
-	for _, label in ipairs(counters) do
-		local wScore = scoreLabel(label, isWoodName)
-		local sScore = scoreLabel(label, isScrapName)
+	for _, label in ipairs(allLabels) do
+		local wScore = scoreLabel(label, isWoodName, hasWoodIcon)
+		local sScore = scoreLabel(label, isScrapName, hasScrapIcon)
 
 		if wScore > woodScore and label ~= scrapBest then
 			woodBest = label
@@ -391,19 +434,61 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 		end
 	end
 
-	-- If the score is low or either counter is missing, fall back to the
-	-- two leftmost/rightmost numeric TextLabels on the table.
+	-- Panel-based fallback: for each parent that contains a numeric
+	-- TextLabel and an icon sibling, the numeric label is the count.
 	if not woodBest or not scrapBest or woodScore < 550 or scrapScore < 550 then
-		local candidates: { TextLabel } = {}
-		for _, label in ipairs(counters) do
-			if isNumericText(label.Text) and getHostPart(label) then
-				table.insert(candidates, label)
+		-- Group labels by their immediate parent.
+		local labelsByParent: { [Instance]: { TextLabel } } = {}
+		for _, label in ipairs(allLabels) do
+			if isNumericText(label.Text) then
+				local parent = label.Parent
+				if parent then
+					labelsByParent[parent] = labelsByParent[parent] or {}
+					table.insert(labelsByParent[parent], label)
+				end
 			end
 		end
 
-		if #candidates >= 2 then
+		local woodCandidates: { TextLabel } = {}
+		local scrapCandidates: { TextLabel } = {}
+
+		for parent, labels in pairs(labelsByParent) do
+			-- Pick the rightmost numeric label in this parent as the count
+			-- (the icon is usually on the left and the count on the right).
+			table.sort(labels, function(a, b)
+				return a.Position.X.Offset + a.Position.X.Scale * 1000 < b.Position.X.Offset + b.Position.X.Scale * 1000
+			end)
+
+			local countLabel = labels[#labels]
+			if hasWoodIcon(parent) then
+				table.insert(woodCandidates, countLabel)
+			elseif hasScrapIcon(parent) then
+				table.insert(scrapCandidates, countLabel)
+			else
+				-- Unknown panel type, keep for position-based fallback.
+				if not woodBest then
+					table.insert(woodCandidates, countLabel)
+				else
+					table.insert(scrapCandidates, countLabel)
+				end
+			end
+		end
+
+		-- If we still have more than one candidate, use the panel's
+		-- BasePart X position to decide which side of the table it is on.
+		local function pickSide(candidates: { TextLabel }, best: TextLabel?): TextLabel?
+			if best then
+				return best
+			end
+			if #candidates == 0 then
+				return nil
+			end
+			if #candidates == 1 then
+				return candidates[1]
+			end
+
 			local pivot = model:GetPivot()
-			local function leftToRight(a: TextLabel, b: TextLabel): boolean
+			table.sort(candidates, function(a, b)
 				local partA = getHostPart(a)
 				local partB = getHostPart(b)
 				if partA and partB then
@@ -412,16 +497,35 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 					return localA.X < localB.X
 				end
 				return a.Name < b.Name
-			end
+			end)
+			return candidates[1]
+		end
 
-			table.sort(candidates, leftToRight)
+		woodBest = pickSide(woodCandidates, woodBest)
+		scrapBest = pickSide(scrapCandidates, scrapBest)
+	end
 
-			if not woodBest or woodScore < 550 then
-				woodBest = candidates[1]
+	-- Final position-based fallback: any two numeric labels, left = wood.
+	if not woodBest or not scrapBest then
+		local numeric: { TextLabel } = {}
+		for _, label in ipairs(allLabels) do
+			if isNumericText(label.Text) and getHostPart(label) then
+				table.insert(numeric, label)
 			end
-			if not scrapBest or scrapScore < 550 then
-				scrapBest = candidates[2]
-			end
+		end
+
+		if #numeric >= 2 then
+			local pivot = model:GetPivot()
+			table.sort(numeric, function(a, b)
+				local partA = getHostPart(a)
+				local partB = getHostPart(b)
+				if partA and partB then
+					return pivot:PointToObjectSpace(partA.Position).X < pivot:PointToObjectSpace(partB.Position).X
+				end
+				return a.Name < b.Name
+			end)
+			woodBest = woodBest or numeric[1]
+			scrapBest = scrapBest or numeric[#numeric]
 		end
 	end
 
@@ -439,7 +543,7 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 		))
 	else
 		warn("[CraftingService] Could not find wood/scrap counter labels on the crafting table")
-		for _, label in ipairs(counters) do
+		for _, label in ipairs(allLabels) do
 			local host = getHostPart(label)
 			warn(("  - TextLabel: %s | Text: %s | Parent: %s | HostPart: %s"):format(
 				label:GetFullName(),
