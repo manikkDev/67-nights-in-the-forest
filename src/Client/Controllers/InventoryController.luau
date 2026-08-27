@@ -55,6 +55,10 @@ local ACTION_BUTTON_WIDTH = 36
 local ACTION_GAP = 5
 local CAPACITY_HEIGHT = 4
 
+-- Maximum bag panel height before the row list starts scrolling.
+-- Keeps the panel on-screen regardless of how many resource types exist.
+local MAX_PANEL_HEIGHT = 460
+
 -- Tween timings
 local TWEEN_SLIDE = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local TWEEN_BOUNCE = TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
@@ -771,10 +775,14 @@ local function buildBagGui(): ScreenGui
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 	gui.Enabled = false
 
-	-- Compute total height explicitly.
-	local rowsHeight = #ROW_ORDER * ROW_HEIGHT + (#ROW_ORDER - 1) * ROW_GAP
-	local totalHeight = PANEL_PADDING + HEADER_HEIGHT + PANEL_GAP + rowsHeight
+	-- Compute row list heights and clamp the overall panel so it never
+	-- grows off the top of the screen.  The row list becomes scrollable
+	-- once it exceeds the visible area.
+	local rowsTotalHeight = #ROW_ORDER * ROW_HEIGHT + (#ROW_ORDER - 1) * ROW_GAP
+	local baseHeight = PANEL_PADDING + HEADER_HEIGHT + PANEL_GAP
 		+ PANEL_GAP + CAPACITY_CONTAINER_HEIGHT + PANEL_GAP + DROP_ALL_HEIGHT + PANEL_PADDING
+	local totalHeight = math.min(MAX_PANEL_HEIGHT, baseHeight + rowsTotalHeight)
+	local rowsVisibleHeight = totalHeight - baseHeight
 
 	local panel = Instance.new("Frame")
 	panel.Name = "BagPanel"
@@ -864,15 +872,20 @@ local function buildBagGui(): ScreenGui
 
 	y = nextY(y, HEADER_HEIGHT)
 
-	-- Rows container.
-	local rowsContainer = Instance.new("Frame")
+	-- Rows container: a ScrollingFrame so the row list can scroll when
+	-- it exceeds the visible panel height.
+	local rowsContainer = Instance.new("ScrollingFrame")
 	rowsContainer.Name = "RowsContainer"
 	rowsContainer.Position = UDim2.new(0, PANEL_PADDING, 0, y)
-	rowsContainer.Size = UDim2.new(0, contentW, 0, rowsHeight)
+	rowsContainer.Size = UDim2.new(0, contentW, 0, rowsVisibleHeight)
+	rowsContainer.CanvasSize = UDim2.new(0, contentW, 0, rowsTotalHeight)
 	rowsContainer.BackgroundTransparency = 1
 	rowsContainer.BorderSizePixel = 0
+	rowsContainer.ScrollBarThickness = 6
+	rowsContainer.ScrollBarImageColor3 = Color3.fromRGB(180, 180, 190)
+	rowsContainer.ScrollingDirection = Enum.ScrollingDirection.Y
 	rowsContainer.Parent = panel
-	y = nextY(y, rowsHeight)
+	y = nextY(y, rowsVisibleHeight)
 
 	local rowsLayout = Instance.new("UIListLayout")
 	rowsLayout.Padding = UDim.new(0, ROW_GAP)
