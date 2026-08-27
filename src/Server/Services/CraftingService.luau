@@ -465,14 +465,15 @@ local function attachPrompt(model: Model)
 			warn("[CraftingService] attachPrompt: no prompt and no part found in bench model")
 			return
 		end
-		prompt = Instance.new("ProximityPrompt")
-		prompt.Name = "CraftingPrompt"
-		prompt.ActionText = "Craft"
-		prompt.ObjectText = "Crafting Bench"
-		prompt.MaxActivationDistance = BENCH_RANGE
-		prompt.HoldDuration = 0.25
-		prompt.RequiresLineOfSight = false
-		prompt.Parent = bestPart
+		local newPrompt = Instance.new("ProximityPrompt")
+		newPrompt.Name = "CraftingPrompt"
+		newPrompt.ActionText = "Craft"
+		newPrompt.ObjectText = "Crafting Bench"
+		newPrompt.MaxActivationDistance = BENCH_RANGE
+		newPrompt.HoldDuration = 0.25
+		newPrompt.RequiresLineOfSight = false
+		newPrompt.Parent = bestPart
+		prompt = newPrompt
 		print(("[CraftingService] attachPrompt: no existing prompt, created one on %s"):format(bestPart.Name))
 	else
 		-- Configure the existing prompt for crafting.
@@ -489,7 +490,9 @@ local function attachPrompt(model: Model)
 		))
 	end
 
-	prompt.Triggered:Connect(function(player)
+	assert(prompt, "[CraftingService] attachPrompt: prompt is nil after setup")
+	local activePrompt = prompt :: ProximityPrompt
+	activePrompt.Triggered:Connect(function(player)
 		local isActive = runStateService:IsActive()
 		local isMember = runStateService:IsMember(player)
 		print(("[CraftingService] Prompt triggered by %s | isActive=%s | isMember=%s"):format(
