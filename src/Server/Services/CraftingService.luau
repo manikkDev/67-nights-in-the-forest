@@ -294,12 +294,11 @@ end
 
 --[[
     @summary  Discover the wood and scrap counter labels on the bench.
-    @desc     The count label sits in the same panel/Slot as its icon.
-              We find one numeric TextLabel per panel by checking for a
-              sibling icon (ImageLabel/Decal with wood/bolt image, or a
-              non-numeric TextLabel acting as the icon).  Then we sort
-              the panels left-to-right so the left panel = wood and the
-              right panel = scrap.
+    @desc     The crafting table package uses two kinds of TextLabels:
+              - "Part|xxxx" labels hold the icon/emoji text.
+              - "ObjectParts|xxxx" labels hold the numeric count.
+              We target the "ObjectParts|" labels and sort them
+              left-to-right (left = wood, right = scrap).
     @returns  TextLabel? woodCounter, TextLabel? scrapCounter
 ]]
 local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
@@ -325,236 +324,85 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 		return text and text:match("^%-?%d+$") ~= nil
 	end
 
-	local function isWoodName(name: string): boolean
-		local lower = name:lower()
-		return lower:find("wood") ~= nil
-			or lower:find("log") ~= nil
-			or lower:find("tree") ~= nil
-			or lower == "slot1"
-			or lower == "resource1"
+	-- The user confirmed that count labels have "ObjectParts" in their
+	-- name and icon labels have "Part|" (but not "ObjectParts").
+	local function isCountLabel(name: string): boolean
+		return name:find("ObjectParts") ~= nil
 	end
 
-	local function isScrapName(name: string): boolean
-		local lower = name:lower()
-		return lower:find("scrap") ~= nil
-			or lower:find("bolt") ~= nil
-			or lower:find("metal") ~= nil
-			or lower:find("sheet") ~= nil
-			or lower == "slot2"
-			or lower == "resource2"
+	local function isIconLabel(name: string): boolean
+		return name:find("Part|") ~= nil and name:find("ObjectParts") == nil
 	end
 
-	local function hasWoodIcon(parent: Instance): boolean
-		for _, child in ipairs(parent:GetChildren()) do
-			if child:IsA("ImageLabel") or child:IsA("ImageButton") or child:IsA("Decal") then
-				local id = (child :: any).Image or (child :: any).Texture
-				local name = child.Name:lower()
-				if (id and (id:find("wood") or id:find("log"))) or isWoodName(name) then
-					return true
-				end
-          elseif child:IsA("TextLabel") then
-				-- TextLabel used as an icon: non-numeric text and a wood-ish name.
-				local name = child.Name:lower()
-				local text = child.Text
-				if not isNumericText(text) and (isWoodName(name) or text:find("🪵") or text:find("🌳")) then
-					return true
-				end
-			end
-		end
-		return false
-	end
-
-	local function hasScrapIcon(parent: Instance): boolean
-		for _, child in ipairs(parent:GetChildren()) do
-			if child:IsA("ImageLabel") or child:IsA("ImageButton") or child:IsA("Decal") then
-				local id = (child :: any).Image or (child :: any).Texture
-				local name = child.Name:lower()
-				if (id and (id:find("scrap") or id:find("bolt") or id:find("metal"))) or isScrapName(name) then
-					return true
-				end
-          elseif child:IsA("TextLabel") then
-				-- TextLabel used as an icon: non-numeric text and a scrap-ish name.
-				local name = child.Name:lower()
-				local text = child.Text
-				if not isNumericText(text) and (isScrapName(name) or text:find("🔩")) then
-					return true
-				end
-			end
-		end
-		return false
-	end
-
-	-- Score a TextLabel for wood/scrap based on its own/parent names and
-	-- whether it lives in a panel with a matching icon.
-	local function scoreLabel(label: TextLabel, isTarget: (string) -> boolean, hasIcon: (Instance) -> boolean): number
-		local score = 0
-		local name = label.Name
-		local text = label.Text
-
-		if isNumericText(text) then
-			score = 500
-		end
-
-		if isTarget(name) then
-			score += 100
-		end
-
-		local current: Instance? = label.Parent
-		local depth = 0
-		while current and depth < 4 do
-			if isTarget(current.Name) then
-				score += math.max(0, 90 - depth * 15)
-			end
-			if hasIcon(current) then
-				score += math.max(0, 80 - depth * 15)
-			end
-			current = current.Parent
-			depth += 1
-		end
-
-		return score
-	end
-
-	local woodBest: TextLabel? = nil
-	local woodScore = -1
-	local scrapBest: TextLabel? = nil
-	local scrapScore = -1
-
+	-- Phase 1: collect all TextLabels whose name contains "ObjectParts".
+	local countLabels: { TextLabel } = {}
 	for _, label in ipairs(allLabels) do
-		local wScore = scoreLabel(label, isWoodName, hasWoodIcon)
-		local sScore = scoreLabel(label, isScrapName, hasScrapIcon)
-
-		if wScore > woodScore and label ~= scrapBest then
-			woodBest = label
-			woodScore = wScore
-		end
-		if sScore > scrapScore and label ~= woodBest then
-			scrapBest = label
-			scrapScore = sScore
+		if isCountLabel(label.Name) then
+			table.insert(countLabels, label)
 		end
 	end
 
-	-- Panel-based fallback: for each parent that contains a numeric
-	-- TextLabel and an icon sibling, the numeric label is the count.
-	if not woodBest or not scrapBest or woodScore < 550 or scrapScore < 550 then
-		-- Group labels by their immediate parent.
-		local labelsByParent: { [Instance]: { TextLabel } } = {}
-		for _, label in ipairs(allLabels) do
-			if isNumericText(label.Text) then
-				local parent = label.Parent
-				if parent then
-					labelsByParent[parent] = labelsByParent[parent] or {}
-					table.insert(labelsByParent[parent], label)
-				end
+	-- Phase 2: if we found 2+ count labels, sort left-to-right by host
+	-- BasePart position in model space.  Left = wood, right = scrap.
+	if #countLabels >= 2 then
+		local pivot = model:GetPivot()
+		table.sort(countLabels, function(a, b)
+			local partA = getHostPart(a)
+			local partB = getHostPart(b)
+			if partA and partB then
+				return pivot:PointToObjectSpace(partA.Position).X < pivot:PointToObjectSpace(partB.Position).X
 			end
-		end
+			return a.Name < b.Name
+		end)
 
-		local woodCandidates: { TextLabel } = {}
-		local scrapCandidates: { TextLabel } = {}
-
-		for parent, labels in pairs(labelsByParent) do
-			-- Pick the rightmost numeric label in this parent as the count
-			-- (the icon is usually on the left and the count on the right).
-			table.sort(labels, function(a, b)
-				return a.Position.X.Offset + a.Position.X.Scale * 1000 < b.Position.X.Offset + b.Position.X.Scale * 1000
-			end)
-
-			local countLabel = labels[#labels]
-			if hasWoodIcon(parent) then
-				table.insert(woodCandidates, countLabel)
-			elseif hasScrapIcon(parent) then
-				table.insert(scrapCandidates, countLabel)
-			else
-				-- Unknown panel type, keep for position-based fallback.
-				if not woodBest then
-					table.insert(woodCandidates, countLabel)
-				else
-					table.insert(scrapCandidates, countLabel)
-				end
-			end
-		end
-
-		-- If we still have more than one candidate, use the panel's
-		-- BasePart X position to decide which side of the table it is on.
-		local function pickSide(candidates: { TextLabel }, best: TextLabel?): TextLabel?
-			if best then
-				return best
-			end
-			if #candidates == 0 then
-				return nil
-			end
-			if #candidates == 1 then
-				return candidates[1]
-			end
-
-			local pivot = model:GetPivot()
-			table.sort(candidates, function(a, b)
-				local partA = getHostPart(a)
-				local partB = getHostPart(b)
-				if partA and partB then
-					local localA = pivot:PointToObjectSpace(partA.Position)
-					local localB = pivot:PointToObjectSpace(partB.Position)
-					return localA.X < localB.X
-				end
-				return a.Name < b.Name
-			end)
-			return candidates[1]
-		end
-
-		woodBest = pickSide(woodCandidates, woodBest)
-		scrapBest = pickSide(scrapCandidates, scrapBest)
-	end
-
-	-- Final position-based fallback: any two numeric labels, left = wood.
-	if not woodBest or not scrapBest then
-		local numeric: { TextLabel } = {}
-		for _, label in ipairs(allLabels) do
-			if isNumericText(label.Text) and getHostPart(label) then
-				table.insert(numeric, label)
-			end
-		end
-
-		if #numeric >= 2 then
-			local pivot = model:GetPivot()
-			table.sort(numeric, function(a, b)
-				local partA = getHostPart(a)
-				local partB = getHostPart(b)
-				if partA and partB then
-					return pivot:PointToObjectSpace(partA.Position).X < pivot:PointToObjectSpace(partB.Position).X
-				end
-				return a.Name < b.Name
-			end)
-			woodBest = woodBest or numeric[1]
-			scrapBest = scrapBest or numeric[#numeric]
-		end
-	end
-
-	-- Debug log.
-	if woodBest and scrapBest then
-		local woodPart = woodBest:FindFirstAncestorOfClass("BasePart")
-		local scrapPart = scrapBest:FindFirstAncestorOfClass("BasePart")
-		print(("[CraftingService] Table counters: Wood=%s (%s) text=%s, Scrap=%s (%s) text=%s"):format(
-			woodBest.Name,
-			woodPart and woodPart.Name or "no part",
-			woodBest.Text,
-			scrapBest.Name,
-			scrapPart and scrapPart.Name or "no part",
-			scrapBest.Text
+		local wood = countLabels[1]
+		local scrap = countLabels[2]
+		print(("[CraftingService] Table counters (ObjectParts): Wood=%s text=%s, Scrap=%s text=%s"):format(
+			wood.Name, wood.Text, scrap.Name, scrap.Text
 		))
-	else
-		warn("[CraftingService] Could not find wood/scrap counter labels on the crafting table")
-		for _, label in ipairs(allLabels) do
-			local host = getHostPart(label)
-			warn(("  - TextLabel: %s | Text: %s | Parent: %s | HostPart: %s"):format(
-				label:GetFullName(),
-				label.Text,
-				label.Parent and label.Parent.Name or "nil",
-				host and host.Name or "none"
-			))
-		end
+		return wood, scrap
 	end
 
-	return woodBest, scrapBest
+	-- Phase 3 fallback: exactly 1 ObjectParts label found.  Use it for
+	-- scrap and look for any other numeric non-icon label for wood.
+	if #countLabels == 1 then
+		local scrap = countLabels[1]
+		local wood: TextLabel? = nil
+
+		for _, label in ipairs(allLabels) do
+			if label ~= scrap and not isIconLabel(label.Name) and isNumericText(label.Text) then
+				wood = label
+				break
+			end
+		end
+
+		if wood then
+			print(("[CraftingService] Table counters (fallback): Wood=%s text=%s, Scrap=%s text=%s"):format(
+				wood.Name, wood.Text, scrap.Name, scrap.Text
+			))
+			return wood, scrap
+		end
+
+		print(("[CraftingService] Table counters (partial): Scrap=%s text=%s, no wood counter found"):format(
+			scrap.Name, scrap.Text
+		))
+		return nil, scrap
+	end
+
+	-- Phase 4 fallback: no ObjectParts labels found.  Log everything.
+	warn("[CraftingService] Could not find ObjectParts counter labels on the crafting table")
+	warn("[CraftingService] All TextLabels in bench model:")
+	for _, label in ipairs(allLabels) do
+		local host = getHostPart(label)
+		warn(("  - TextLabel: %s | Text: %q | Parent: %s | HostPart: %s"):format(
+			label:GetFullName(),
+			label.Text,
+			label.Parent and label.Parent.Name or "nil",
+			host and host.Name or "none"
+		))
+	end
+
+	return nil, nil
 end
 
 --[[
