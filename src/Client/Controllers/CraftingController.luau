@@ -92,7 +92,7 @@ local function refreshDisplay()
 	end
 	if resourcesLabel then
 		resourcesLabel.Text = string.format(
-			"Wood %d   Scrap %d   Cultist Gems %d",
+			"Wood: %d    Scrap: %d    Cultist Gems: %d",
 			currentState.resources.Wood or 0,
 			currentState.resources.Scrap or 0,
 			currentState.resources.CultistGem or 0
@@ -106,20 +106,49 @@ local function refreshDisplay()
 		local affordable = canAfford(recipe)
 		button.Active = not requestPending and not capReached and not tierLocked and affordable
 		button.AutoButtonColor = button.Active
-		-- Match carry bag row colors: dimmed when unavailable, warm when active.
-		button.BackgroundColor3 = if tierLocked
-			then Color3.fromRGB(45, 45, 52)
-			elseif capReached
-			then Color3.fromRGB(50, 60, 50)
-			elseif affordable
-			then Color3.fromRGB(55, 55, 65)
-			else Color3.fromRGB(70, 50, 50)
-		button.BackgroundTransparency = if affordable and not tierLocked and not capReached then 0.3 else 0.5
-		local statusText = if tierLocked
-			then "  [Tier " .. tostring(recipe.Tier) .. "]"
-			elseif capReached then "  [Built]"
-			else ""
-		button.Text = recipe.DisplayName .. "  —  " .. formatCost(recipe.Cost) .. statusText
+
+		-- Solid card colors — fully opaque, clearly readable.
+		if tierLocked then
+			button.BackgroundColor3 = Color3.fromRGB(40, 40, 48)
+		elseif capReached then
+			button.BackgroundColor3 = Color3.fromRGB(35, 50, 35)
+		elseif affordable then
+			button.BackgroundColor3 = Color3.fromRGB(50, 70, 50)
+		else
+			button.BackgroundColor3 = Color3.fromRGB(60, 40, 40)
+		end
+
+		-- Update the status label on the card.
+		local statusLabel = button:FindFirstChild("RecipeStatus") :: TextLabel?
+		if statusLabel then
+			if tierLocked then
+				statusLabel.Text = "Tier " .. tostring(recipe.Tier)
+				statusLabel.TextColor3 = Color3.fromRGB(200, 160, 80)
+			elseif capReached then
+				statusLabel.Text = "Built"
+				statusLabel.TextColor3 = Color3.fromRGB(120, 200, 120)
+			elseif not affordable then
+				statusLabel.Text = "Need resources"
+				statusLabel.TextColor3 = Color3.fromRGB(220, 120, 120)
+			else
+				statusLabel.Text = ""
+			end
+		end
+
+		-- Dim the name/cost text when unavailable.
+		local nameLabel = button:FindFirstChild("RecipeName") :: TextLabel?
+		local costLabel = button:FindFirstChild("RecipeCost") :: TextLabel?
+		local available = not tierLocked and not capReached and affordable
+		if nameLabel then
+			nameLabel.TextColor3 = if available
+				then Color3.fromRGB(240, 240, 245)
+				else Color3.fromRGB(140, 140, 150)
+		end
+		if costLabel then
+			costLabel.TextColor3 = if available
+				then Color3.fromRGB(170, 170, 185)
+				else Color3.fromRGB(110, 110, 120)
+		end
 	end
 end
 
@@ -165,10 +194,11 @@ end
 
 --[[
     @summary  Build the crafting interface once for the local player.
-    @desc     Styled to match the carry bag panel: dark panel with
-              gradient, rounded corners, UIStroke border, GothamBlack
-              header with hairline separator, and consistent row
-              styling with UICorner.
+    @desc     Professional solid-panel layout matching the carry bag
+              design language: opaque dark panel, rounded corners,
+              UIStroke border, clear header with hairline, resource
+              summary bar, and fully opaque recipe cards with distinct
+              name / cost / status sections.
 ]]
 local function buildUi()
 	if gui and gui.Parent then
@@ -181,11 +211,13 @@ local function buildUi()
 	_listFrame = nil
 	table.clear(buttons)
 
-	-- Layout constants (matching the carry bag design language).
-	local PANEL_PADDING = 12
-	local PANEL_GAP = 8
-	local HEADER_HEIGHT = 22
-	local RESOURCES_HEIGHT = 20
+	-- Layout constants.
+	local PANEL_PADDING = 14
+	local PANEL_GAP = 10
+	local HEADER_HEIGHT = 28
+	local RESOURCES_HEIGHT = 28
+	local ROW_HEIGHT = 64
+	local ROW_GAP = 8
 	local SCROLL_BAR_THICKNESS = 6
 
 	local screenGui = Instance.new("ScreenGui")
@@ -196,172 +228,229 @@ local function buildUi()
 	screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	gui = screenGui
 
-	-- Main panel: centered, dark with gradient (same as carry bag).
+	-- Main panel: centered, solid dark background.
 	local panelFrame = Instance.new("Frame")
 	panelFrame.Name = "Panel"
 	panelFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 	panelFrame.Position = UDim2.fromScale(0.5, 0.5)
 	panelFrame.Size = UDim2.new(0.82, 0, 0.82, 0)
-	panelFrame.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
-	panelFrame.BackgroundTransparency = 0.15
+	panelFrame.BackgroundColor3 = Color3.fromRGB(38, 38, 46)
+	panelFrame.BackgroundTransparency = 0
 	panelFrame.BorderSizePixel = 0
-	panelFrame.ClipsDescendants = false
+	panelFrame.ClipsDescendants = true
 	panelFrame.Parent = screenGui
 	_panel = panelFrame
 
 	local sizeConstraint = Instance.new("UISizeConstraint")
-	sizeConstraint.MaxSize = Vector2.new(720, 620)
-	sizeConstraint.MinSize = Vector2.new(300, 360)
+	sizeConstraint.MaxSize = Vector2.new(680, 580)
+	sizeConstraint.MinSize = Vector2.new(320, 380)
 	sizeConstraint.Parent = panelFrame
 
-	-- Gradient (same as carry bag).
+	-- Subtle gradient for depth (very low transparency so it stays opaque).
 	local panelGradient = Instance.new("UIGradient")
 	panelGradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(220, 220, 230)),
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(45, 45, 54)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(32, 32, 40)),
 	})
 	panelGradient.Rotation = 90
-	panelGradient.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.15),
-		NumberSequenceKeypoint.new(1, 0.35),
-	})
 	panelGradient.Parent = panelFrame
 
-	-- Rounded corners (same as carry bag).
+	-- Rounded corners.
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 16)
+	corner.CornerRadius = UDim.new(0, 14)
 	corner.Parent = panelFrame
 
-	-- UIStroke border (same as carry bag).
+	-- UIStroke border.
 	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(170, 170, 190)
-	stroke.Thickness = 1.5
-	stroke.Transparency = 0.3
+	stroke.Color = Color3.fromRGB(120, 120, 140)
+	stroke.Thickness = 2
+	stroke.Transparency = 0.2
 	stroke.Parent = panelFrame
 
-	local contentW = UDim2.new(1, -2 * PANEL_PADDING, 0, 0)
 	local y = PANEL_PADDING
 
-	-- Header (matching carry bag header style).
+	-- Header row: title on the left, close button on the right.
 	local title = Instance.new("TextLabel")
 	title.Name = "Header"
 	title.Position = UDim2.new(0, PANEL_PADDING, 0, y)
-	title.Size = UDim2.new(1, -2 * PANEL_PADDING, 0, HEADER_HEIGHT)
+	title.Size = UDim2.new(1, -PANEL_PADDING - 50, 0, HEADER_HEIGHT)
 	title.BackgroundTransparency = 1
 	title.Font = Enum.Font.GothamBlack
-	title.TextColor3 = Color3.fromRGB(245, 245, 245)
-	title.TextSize = 15
+	title.TextColor3 = Color3.fromRGB(240, 240, 245)
+	title.TextSize = 18
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.TextYAlignment = Enum.TextYAlignment.Center
 	title.Parent = panelFrame
 	titleLabel = title
 
-	-- Hairline separator (same as carry bag).
+	-- Close button: solid, clearly visible.
+	local close = Instance.new("TextButton")
+	close.Name = "Close"
+	close.AnchorPoint = Vector2.new(1, 0)
+	close.Position = UDim2.new(1, -PANEL_PADDING, 0, y)
+	close.Size = UDim2.fromOffset(40, HEADER_HEIGHT)
+	close.BackgroundColor3 = Color3.fromRGB(180, 55, 55)
+	close.BackgroundTransparency = 0
+	close.BorderSizePixel = 0
+	close.AutoButtonColor = true
+	close.Font = Enum.Font.GothamBold
+	close.Text = "X"
+	close.TextColor3 = Color3.fromRGB(255, 255, 255)
+	close.TextSize = 16
+	close.Parent = panelFrame
+	local closeCorner = Instance.new("UICorner")
+	closeCorner.CornerRadius = UDim.new(0, 8)
+	closeCorner.Parent = close
+	close.Activated:Connect(closeMenu)
+
+	-- Hairline separator.
 	local hairline = Instance.new("Frame")
 	hairline.Name = "HeaderHairline"
-	hairline.Position = UDim2.new(0, PANEL_PADDING, 0, y + HEADER_HEIGHT - 2)
+	hairline.Position = UDim2.new(0, PANEL_PADDING, 0, y + HEADER_HEIGHT)
 	hairline.Size = UDim2.new(1, -2 * PANEL_PADDING, 0, 1)
-	hairline.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-	hairline.BackgroundTransparency = 0.9
+	hairline.BackgroundColor3 = Color3.fromRGB(80, 80, 95)
+	hairline.BackgroundTransparency = 0
 	hairline.BorderSizePixel = 0
 	hairline.Parent = panelFrame
 
 	y = y + HEADER_HEIGHT + PANEL_GAP
 
-	-- Close button (matching carry bag's rounded style).
-	local close = Instance.new("TextButton")
-	close.Name = "Close"
-	close.AnchorPoint = Vector2.new(1, 0)
-	close.Position = UDim2.new(1, -PANEL_PADDING, 0, PANEL_PADDING)
-	close.Size = UDim2.fromOffset(36, HEADER_HEIGHT)
-	close.BackgroundColor3 = Color3.fromRGB(160, 60, 60)
-	close.BackgroundTransparency = 0.12
-	close.BorderSizePixel = 0
-	close.AutoButtonColor = false
-	close.Font = Enum.Font.GothamBlack
-	close.Text = "X"
-	close.TextColor3 = Color3.fromRGB(255, 255, 255)
-	close.TextSize = 14
-	close.Parent = panelFrame
-	local closeCorner = Instance.new("UICorner")
-	closeCorner.CornerRadius = UDim.new(1, 0)
-	closeCorner.Parent = close
-	local closeStroke = Instance.new("UIStroke")
-	closeStroke.Color = Color3.fromRGB(190, 75, 75)
-	closeStroke.Thickness = 1
-	closeStroke.Transparency = 0.4
-	closeStroke.Parent = close
-	close.Activated:Connect(closeMenu)
+	-- Resources summary bar: solid background, clearly readable.
+	local resourcesContainer = Instance.new("Frame")
+	resourcesContainer.Name = "ResourcesBar"
+	resourcesContainer.Position = UDim2.new(0, PANEL_PADDING, 0, y)
+	resourcesContainer.Size = UDim2.new(1, -2 * PANEL_PADDING, 0, RESOURCES_HEIGHT)
+	resourcesContainer.BackgroundColor3 = Color3.fromRGB(28, 28, 35)
+	resourcesContainer.BackgroundTransparency = 0
+	resourcesContainer.BorderSizePixel = 0
+	resourcesContainer.Parent = panelFrame
 
-	-- Resources summary line.
+	local resCorner = Instance.new("UICorner")
+	resCorner.CornerRadius = UDim.new(0, 8)
+	resCorner.Parent = resourcesContainer
+
+	local resPadding = Instance.new("UIPadding")
+	resPadding.PaddingLeft = UDim.new(0, 10)
+	resPadding.PaddingRight = UDim.new(0, 10)
+	resPadding.Parent = resourcesContainer
+
 	local resources = Instance.new("TextLabel")
-	resources.Name = "Resources"
-	resources.Position = UDim2.new(0, PANEL_PADDING, 0, y)
-	resources.Size = UDim2.new(1, -2 * PANEL_PADDING, 0, RESOURCES_HEIGHT)
+	resources.Name = "ResourcesText"
+	resources.Size = UDim2.fromScale(1, 1)
 	resources.BackgroundTransparency = 1
 	resources.Font = Enum.Font.GothamBold
-	resources.TextColor3 = Color3.fromRGB(200, 200, 210)
-	resources.TextSize = 13
+	resources.TextColor3 = Color3.fromRGB(200, 200, 215)
+	resources.TextSize = 14
 	resources.TextXAlignment = Enum.TextXAlignment.Left
 	resources.TextYAlignment = Enum.TextYAlignment.Center
-	resources.Parent = panelFrame
+	resources.Parent = resourcesContainer
 	resourcesLabel = resources
 
 	y = y + RESOURCES_HEIGHT + PANEL_GAP
 
-	-- Recipe list (scrollable, same scrollbar style as carry bag).
+	-- Recipe list: scrollable, solid background.
 	local recipeList = Instance.new("ScrollingFrame")
 	recipeList.Name = "Recipes"
 	recipeList.Position = UDim2.new(0, PANEL_PADDING, 0, y)
 	recipeList.Size = UDim2.new(1, -2 * PANEL_PADDING, 1, -y - PANEL_PADDING)
-	recipeList.BackgroundTransparency = 1
+	recipeList.BackgroundColor3 = Color3.fromRGB(30, 30, 37)
+	recipeList.BackgroundTransparency = 0
 	recipeList.BorderSizePixel = 0
 	recipeList.ScrollBarThickness = SCROLL_BAR_THICKNESS
-	recipeList.ScrollBarImageColor3 = Color3.fromRGB(180, 180, 190)
+	recipeList.ScrollBarImageColor3 = Color3.fromRGB(160, 160, 180)
 	recipeList.ScrollingDirection = Enum.ScrollingDirection.Y
 	recipeList.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	recipeList.CanvasSize = UDim2.new()
 	recipeList.Parent = panelFrame
 	_listFrame = recipeList
 
+	local listCorner = Instance.new("UICorner")
+	listCorner.CornerRadius = UDim.new(0, 8)
+	listCorner.Parent = recipeList
+
+	local listPadding = Instance.new("UIPadding")
+	listPadding.PaddingLeft = UDim.new(0, 6)
+	listPadding.PaddingRight = UDim.new(0, 6)
+	listPadding.PaddingTop = UDim.new(0, 6)
+	listPadding.PaddingBottom = UDim.new(0, 6)
+	listPadding.Parent = recipeList
+
 	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 6)
+	layout.Padding = UDim.new(0, ROW_GAP)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = recipeList
 
 	for order, recipe in ipairs(orderedRecipes()) do
-		local button = Instance.new("TextButton")
-		button.Name = recipe.Id
-		button.LayoutOrder = order
-		button.Size = UDim2.new(1, -8, 0, 56)
-		button.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
-		button.BackgroundTransparency = 0.3
-		button.BorderSizePixel = 0
-		button.AutoButtonColor = false
-		button.Font = Enum.Font.GothamBold
-		button.TextColor3 = Color3.fromRGB(225, 225, 235)
-		button.TextSize = 14
-		button.TextWrapped = true
-		button.TextXAlignment = Enum.TextXAlignment.Left
-		button.TextYAlignment = Enum.TextYAlignment.Center
-		button.Selectable = true
-		button.Parent = recipeList
+		-- Each recipe is a solid card with name + cost sections.
+		local card = Instance.new("TextButton")
+		card.Name = recipe.Id
+		card.LayoutOrder = order
+		card.Size = UDim2.new(1, 0, 0, ROW_HEIGHT)
+		card.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+		card.BackgroundTransparency = 0
+		card.BorderSizePixel = 0
+		card.AutoButtonColor = true
+		card.Text = ""
+		card.Selectable = true
+		card.Parent = recipeList
 
-		local buttonCorner = Instance.new("UICorner")
-		buttonCorner.CornerRadius = UDim.new(0, 8)
-		buttonCorner.Parent = button
+		local cardCorner = Instance.new("UICorner")
+		cardCorner.CornerRadius = UDim.new(0, 10)
+		cardCorner.Parent = card
 
-		local buttonPadding = Instance.new("UIPadding")
-		buttonPadding.PaddingLeft = UDim.new(0, 10)
-		buttonPadding.PaddingRight = UDim.new(0, 10)
-		buttonPadding.PaddingTop = UDim.new(0, 5)
-		buttonPadding.PaddingBottom = UDim.new(0, 5)
-		buttonPadding.Parent = button
+		local cardStroke = Instance.new("UIStroke")
+		cardStroke.Color = Color3.fromRGB(90, 90, 110)
+		cardStroke.Thickness = 1
+		cardStroke.Transparency = 0.4
+		cardStroke.Parent = card
 
-		button.Activated:Connect(function()
+		-- Recipe name (top line, bold).
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Name = "RecipeName"
+		nameLabel.Position = UDim2.new(0, 12, 0, 6)
+		nameLabel.Size = UDim2.new(1, -24, 0, 22)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Font = Enum.Font.GothamBold
+		nameLabel.TextColor3 = Color3.fromRGB(240, 240, 245)
+		nameLabel.TextSize = 15
+		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+		nameLabel.TextYAlignment = Enum.TextYAlignment.Center
+		nameLabel.Text = recipe.DisplayName
+		nameLabel.Parent = card
+
+		-- Cost line (below name, smaller, muted).
+		local costLabel = Instance.new("TextLabel")
+		costLabel.Name = "RecipeCost"
+		costLabel.Position = UDim2.new(0, 12, 0, 30)
+		costLabel.Size = UDim2.new(1, -24, 0, 18)
+		costLabel.BackgroundTransparency = 1
+		costLabel.Font = Enum.Font.Gotham
+		costLabel.TextColor3 = Color3.fromRGB(170, 170, 185)
+		costLabel.TextSize = 13
+		costLabel.TextXAlignment = Enum.TextXAlignment.Left
+		costLabel.TextYAlignment = Enum.TextYAlignment.Center
+		costLabel.Text = "Cost: " .. formatCost(recipe.Cost)
+		costLabel.Parent = card
+
+		-- Status label (right side, for tier/cap info).
+		local statusLabel = Instance.new("TextLabel")
+		statusLabel.Name = "RecipeStatus"
+		statusLabel.AnchorPoint = Vector2.new(1, 0.5)
+		statusLabel.Position = UDim2.new(1, -12, 0.5, 0)
+		statusLabel.Size = UDim2.new(0, 100, 0, 20)
+		statusLabel.BackgroundTransparency = 1
+		statusLabel.Font = Enum.Font.GothamBold
+		statusLabel.TextColor3 = Color3.fromRGB(200, 160, 80)
+		statusLabel.TextSize = 12
+		statusLabel.TextXAlignment = Enum.TextXAlignment.Right
+		statusLabel.TextYAlignment = Enum.TextYAlignment.Center
+		statusLabel.Text = ""
+		statusLabel.Parent = card
+
+		card.Activated:Connect(function()
 			requestCraft(recipe.Id)
 		end)
-		buttons[recipe.Id] = button
+		buttons[recipe.Id] = card
 	end
 end
 
