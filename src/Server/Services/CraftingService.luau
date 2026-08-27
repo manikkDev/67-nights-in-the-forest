@@ -509,7 +509,8 @@ local function placeBench()
 	end
 	benchModel = nil
 	isManualBench = false
-	clearStacks()
+	woodCounter = nil
+	scrapCounter = nil
 
 	local campfireCFrame = worldService and worldService:GetCampfireCFrame()
 	if not campfireCFrame then
@@ -542,26 +543,25 @@ local function placeBench()
 		end
 	end
 
-	if not clone then
-		return
-	end
+	assert(clone, "[CraftingService] bench clone is nil")
+	local bench = clone :: Model
 
-	if not clone.PrimaryPart then
-		local primary = clone:FindFirstChildWhichIsA("BasePart", true)
+	if not bench.PrimaryPart then
+		local primary = bench:FindFirstChildWhichIsA("BasePart", true)
 		if primary then
-			clone.PrimaryPart = primary
+			bench.PrimaryPart = primary
 		end
 	end
 
-	benchModel = clone
-	woodCounter, scrapCounter = findTableCounters(benchModel)
+	benchModel = bench
+	woodCounter, scrapCounter = findTableCounters(bench)
 
 	-- Make sure the user can see it in Studio when not playtesting.
 	if isManualBench then
-		benchModel:SetAttribute("DevinManualBench", true)
+		bench:SetAttribute("DevinManualBench", true)
 	end
 
-	attachPrompt(benchModel)
+	attachPrompt(bench)
 
 	-- Initial counter values
 	local members = runStateService:GetMembers()
