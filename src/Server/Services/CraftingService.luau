@@ -57,6 +57,11 @@ local unlocks: { [string]: boolean } = {}
 local placementTokens: { [Player]: { [string]: { structureId: string, runId: string } } } = {}
 local craftCooldowns: { [Player]: number } = {}
 
+-- Cached references to the two resource counter labels on the
+-- crafting table (wood count and scrap/bolt count).
+local woodCounter: TextLabel? = nil
+local scrapCounter: TextLabel? = nil
+
 -- // FUNCTIONS // --
 
 -- | Private | --
@@ -287,204 +292,181 @@ local function cleanManualBench(): Model?
 	return clone
 end
 
--- | Configuration | --
-local WOOD_SLOT_NAMES = { "WoodSlot", "Wood", "LogSlot", "Log", "Slot1", "Resource1" }
-local SCRAP_SLOT_NAMES = { "ScrapSlot", "Scrap", "BoltSlot", "Bolt", "Slot2", "Resource2" }
-
 --[[
-    @summary  Locate the wood/scrap slot anchors on the bench model.
-    @desc     Looks for named parts, SurfaceGui parents with wood/scrap
-              images, and Decals.  Falls back to bounding-box left/right
-              positions if none found.
-    @returns  BasePart? woodSlot, BasePart? scrapSlot, BasePart? surface
+    @summary  Discover the wood and scrap counter labels on the bench.
+    @desc     The crafting table has two TextLabels showing the current
+              wood and scrap counts.  We find them by name and by their
+              sibling icon (ImageLabel/Decal with wood or bolt imagery).
+    @returns  TextLabel? woodCounter, TextLabel? scrapCounter
 ]]
-local function findStackAnchors(model: Model): (BasePart?, BasePart?, BasePart?)
-	local woodSlot: BasePart? = nil
-	local scrapSlot: BasePart? = nil
-
-	local function partForName(name: string): BasePart?
-		local part = model:FindFirstChild(name)
-		if part and part:IsA("BasePart") then
-			return part
-		end
-		for _, desc in ipairs(model:GetDescendants()) do
-			if desc.Name == name and desc:IsA("BasePart") then
-				return desc
-			end
-		end
-		return nil
-	end
-
-	-- 1. Direct part names
-	for _, name in ipairs(WOOD_SLOT_NAMES) do
-		woodSlot = woodSlot or partForName(name)
-	end
-	for _, name in ipairs(SCRAP_SLOT_NAMES) do
-		scrapSlot = scrapSlot or partForName(name)
-	end
-
-	-- 2. SurfaceGui/Decal parents: icon textures on the table surface
-	local function hasWoodIcon(instance: Instance): boolean
-		if instance:IsA("ImageLabel") or instance:IsA("ImageButton") or instance:IsA("Decal") then
-			local id = instance.Image or instance.Texture
-			local name = instance.Name:lower()
-			if id and (name:find("wood") or name:find("log") or id:find("wood") or id:find("log")) then
-				return true
-			end
-		end
-		return false
-	end
-
-	local function hasScrapIcon(instance: Instance): boolean
-		if instance:IsA("ImageLabel") or instance:IsA("ImageButton") or instance:IsA("Decal") then
-			local id = instance.Image or instance.Texture
-			local name = instance.Name:lower()
-			if id and (name:find("scrap") or name:find("bolt") or id:find("scrap") or id:find("bolt")) then
-				return true
-			end
-		end
-		return false
-	end
-
+local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
+	local counters: { TextLabel } = {}
 	for _, desc in ipairs(model:GetDescendants()) do
-		if not woodSlot and hasWoodIcon(desc) and desc.Parent and desc.Parent:IsA("BasePart") then
-			woodSlot = desc.Parent :: BasePart
-		end
-		if not scrapSlot and hasScrapIcon(desc) and desc.Parent and desc.Parent:IsA("BasePart") then
-			scrapSlot = desc.Parent :: BasePart
+		if desc:IsA("TextLabel") then
+			table.insert(counters, desc)
 		end
 	end
 
-	-- Surface for fallback is the primary part or largest top part
-	local surface = model.PrimaryPart
-	if not surface then
-		local bestVolume = 0
-		for _, desc in ipairs(model:GetDescendants()) do
-			if desc:IsA("BasePart") then
-				local volume = desc.Size.X * desc.Size.Y * desc.Size.Z
-				if volume > bestVolume then
-					bestVolume = volume
-					surface = desc
+	local function isWoodName(name: string): boolean
+		local lower = name:lower()
+		return lower:find("wood") ~= nil
+			or lower:find("log") ~= nil
+			or lower:find("tree") ~= nil
+			or name == "Slot1"
+			or name == "Resource1"
+	end
+
+	local function isScrapName(name: string): boolean
+		local lower = name:lower()
+		return lower:find("scrap") ~= nil
+			or lower:find("bolt") ~= nil
+			or lower:find("metal") ~= nil
+			or lower:find("sheet") ~= nil
+			or name == "Slot2"
+			or name == "Resource2"
+	end
+
+	local function hasWoodIcon(parent: Instance): boolean
+		for _, child in ipairs(parent:GetChildren()) do
+			if child:IsA("ImageLabel") or child:IsA("ImageButton") or child:IsA("Decal") then
+				local id = (child :: any).Image or (child :: any).Texture
+				local name = child.Name:lower()
+				if (id and (id:find("wood") or id:find("log"))) or isWoodName(name) then
+					return true
 				end
 			end
 		end
+		return false
 	end
 
-	return woodSlot, scrapSlot, surface
+	local function hasScrapIcon(parent: Instance): boolean
+		for _, child in ipairs(parent:GetChildren()) do
+			if child:IsA("ImageLabel") or child:IsA("ImageButton") or child:IsA("Decal") then
+				local id = (child :: any).Image or (child :: any).Texture
+				local name = child.Name:lower()
+				if (id and (id:find("scrap") or id:find("bolt") or id:find("metal"))) or isScrapName(name) then
+					return true
+				end
+			end
+		end
+		return false
+	end
+
+	-- Score each TextLabel: exact name match > sibling icon > text "0" > any
+	local woodBest: TextLabel? = nil
+	local woodScore = 0
+	local scrapBest: TextLabel? = nil
+	local scrapScore = 0
+
+	for _, label in ipairs(counters) do
+		local name = label.Name
+		local parent = label.Parent
+		local text = label.Text
+
+		-- Wood scoring
+		local wScore = 0
+		if isWoodName(name) then
+			wScore = 100
+		elseif parent and isWoodName(parent.Name) then
+			wScore = 90
+		elseif parent and hasWoodIcon(parent) then
+			wScore = 80
+		elseif parent and parent.Parent and isWoodName(parent.Parent.Name) then
+			wScore = 70
+		elseif parent and parent.Parent and hasWoodIcon(parent.Parent) then
+			wScore = 60
+		elseif text == "0" then
+			wScore = 10
+		end
+		if wScore > woodScore and label ~= scrapBest then
+			woodBest = label
+			woodScore = wScore
+		end
+
+		-- Scrap scoring
+		local sScore = 0
+		if isScrapName(name) then
+			sScore = 100
+		elseif parent and isScrapName(parent.Name) then
+			sScore = 90
+		elseif parent and hasScrapIcon(parent) then
+			sScore = 80
+		elseif parent and parent.Parent and isScrapName(parent.Parent.Name) then
+			sScore = 70
+		elseif parent and parent.Parent and hasScrapIcon(parent.Parent) then
+			sScore = 60
+		elseif text == "0" then
+			sScore = 10
+		end
+		if sScore > scrapScore and label ~= woodBest then
+			scrapBest = label
+			scrapScore = sScore
+		end
+	end
+
+	-- Fallback: if no strong match, pick the two leftmost/rightmost
+	-- TextLabels whose parents are SurfaceGuis on the table.  This handles
+	-- packages that use generic names like "TextLabel" for both counters.
+	if not woodBest or not scrapBest then
+		local zeroLabels: { TextLabel } = {}
+		for _, label in ipairs(counters) do
+			if label.Text == "0" then
+				table.insert(zeroLabels, label)
+			end
+		end
+		if #zeroLabels >= 2 then
+			-- Try to get a 3D position for each label by tracing up to a BasePart.
+			local function getPartPosition(label: TextLabel): (Vector3?, BasePart?)
+				local current: Instance? = label
+				while current do
+					if current:IsA("BasePart") then
+						return (current :: BasePart).Position, current :: BasePart
+					end
+					current = current.Parent
+				end
+				return nil, nil
+			end
+
+			local function leftToRight(a: TextLabel, b: TextLabel): boolean
+				local posA = getPartPosition(a)
+				local posB = getPartPosition(b)
+				if posA and posB then
+					return posA.X < posB.X
+				end
+				return a.Name < b.Name
+			end
+
+			table.sort(zeroLabels, leftToRight)
+
+			if not woodBest then
+				woodBest = zeroLabels[1]
+			end
+			if not scrapBest then
+				scrapBest = zeroLabels[2]
+			end
+		end
+	end
+
+	if not woodBest and not scrapBest then
+		warn("[CraftingService] Could not find wood/scrap counter labels on the crafting table")
+	end
+
+	return woodBest, scrapBest
 end
 
 --[[
-    @summary  Update the 3D resource stacks on the crafting bench.
-    @desc     Spawns wood logs on the wood slot and scrap metal sheets on
-              the scrap slot, matching the reference game where resources
-              physically pile up at the table's input slots (shown in the
-              user's screenshot).
+    @summary  Update the wood and scrap counter TextLabels on the table.
     @param    resources  table  -- { Wood = N, Scrap = N, ... }
 ]]
-local stackFolder: Folder? = nil
-local lastWoodStack: { Part } = {}
-local lastScrapStack: { Part } = {}
-
-local function clearStacks()
-	if stackFolder and stackFolder.Parent then
-		stackFolder:Destroy()
-	end
-	stackFolder = nil
-	lastWoodStack = {}
-	lastScrapStack = {}
-end
-
-local function updateResourceStacks(resources: { [string]: number }?)
-	if not benchModel or not benchModel.Parent then
-		return
-	end
+local function updateTableCounters(resources: { [string]: number }?)
 	if not resources then
 		return
 	end
-
-	clearStacks()
-	stackFolder = Instance.new("Folder")
-	stackFolder.Name = "ResourceStacks"
-	stackFolder.Parent = benchModel
-
-	local woodSlot, scrapSlot, surface = findStackAnchors(benchModel)
-	if not surface then
-		return
+	if woodCounter and woodCounter.Parent then
+		woodCounter.Text = tostring(resources.Wood or 0)
 	end
-
-	local cf = surface.CFrame
-	local size = surface.Size
-	local up = cf.UpVector
-
-	local function slotPosition(slot: BasePart?, sideX: number, sideZ: number): (Vector3, Vector3)
-		if slot then
-			-- Use the named slot's top surface
-			local slotUp = slot.CFrame.UpVector
-			local pos = slot.Position + slotUp * (slot.Size.Y * 0.5)
-			return pos, slotUp
-		end
-		-- Fallback: place on the main surface at the requested side
-		local pos = cf.Position
-			+ cf.RightVector * (size.X * 0.25 * sideX)
-			+ cf.LookVector * (size.Z * 0.15 * sideZ)
-			+ up * (size.Y * 0.5)
-		return pos, up
-	end
-
-	local woodPos, woodUp = slotPosition(woodSlot, -1, 0)
-	local scrapPos, scrapUp = slotPosition(scrapSlot, 1, 0)
-
-	-- Wood logs: stack on the wood slot (left side in the screenshot).
-	-- 1 log per wood, capped to keep part count sane.
-	local woodCount = math.min(resources.Wood or 0, 25)
-	for i = 1, woodCount do
-		local log = Instance.new("Part")
-		log.Name = "WoodLog" .. tostring(i)
-		log.Shape = Enum.PartType.Cylinder
-		log.Size = Vector3.new(0.35, 1.1, 0.35)
-		log.Color = Color3.fromRGB(120, 80, 40)
-		log.Material = Enum.Material.Wood
-		log.Anchored = true
-		log.CanCollide = false
-		log.CastShadow = false
-
-		-- Cylinder: length is along Y axis, so we rotate 90 deg around X
-		-- to make it lie horizontal, then again around the surface up vector
-		local layer = math.floor((i - 1) / 3)
-		local col = (i - 1) % 3
-		local row = math.floor((i - 1) / 3)
-		local x = (col - 1) * 0.5
-		local z = (row % 2) * 0.25
-		local y = 0.2 + (layer * 0.28)
-		local baseCFrame = CFrame.new(woodPos + woodUp * y)
-		log.CFrame = baseCFrame * CFrame.new(x, 0, z) * CFrame.Angles(math.rad(90), 0, math.random(-15, 15))
-		log.Parent = stackFolder
-		table.insert(lastWoodStack, log)
-	end
-
-	-- Scrap metal sheets: stack on the scrap slot (right side in the screenshot).
-	-- 1 sheet per scrap, capped to keep part count sane.
-	local scrapCount = math.min(resources.Scrap or 0, 20)
-	for i = 1, scrapCount do
-		local sheet = Instance.new("Part")
-		sheet.Name = "ScrapSheet" .. tostring(i)
-		sheet.Size = Vector3.new(0.9, 0.05, 0.7)
-		sheet.Color = Color3.fromRGB(140, 140, 150)
-		sheet.Material = Enum.Material.Metal
-		sheet.Anchored = true
-		sheet.CanCollide = false
-		sheet.CastShadow = false
-
-		local col = (i - 1) % 2
-		local layer = math.floor((i - 1) / 2)
-		local x = (col - 0.5) * 0.4
-		local z = 0
-		local y = 0.15 + (i * 0.06)
-		local angle = i * 18
-		local baseCFrame = CFrame.new(scrapPos + scrapUp * y)
-		sheet.CFrame = baseCFrame * CFrame.new(x, 0, z) * CFrame.Angles(0, math.rad(angle), 0)
-		sheet.Parent = stackFolder
-		table.insert(lastScrapStack, sheet)
+	if scrapCounter and scrapCounter.Parent then
+		scrapCounter.Text = tostring(resources.Scrap or 0)
 	end
 end
 
@@ -572,6 +554,7 @@ local function placeBench()
 	end
 
 	benchModel = clone
+	woodCounter, scrapCounter = findTableCounters(benchModel)
 
 	-- Make sure the user can see it in Studio when not playtesting.
 	if isManualBench then
@@ -580,12 +563,12 @@ local function placeBench()
 
 	attachPrompt(benchModel)
 
-	-- Initial resource stacks
+	-- Initial counter values
 	local members = runStateService:GetMembers()
 	if #members > 0 and playerDataService then
 		local data = playerDataService:GetData(members[1])
 		if data and data.Resources then
-			updateResourceStacks(data.Resources)
+			updateTableCounters(data.Resources)
 		end
 	end
 
@@ -760,16 +743,17 @@ function CraftingService:KnitStart()
 		if not isManualBench then
 			benchModel = nil
 		end
-		clearStacks()
+		woodCounter = nil
+		scrapCounter = nil
 		placementTokens = {}
 		craftCooldowns = {}
 	end)
 
-	-- Update visual resource stacks on the bench whenever resources
-	-- change (pickup, grind, craft, drop, etc.)
+	-- Update the table's wood/scrap counters whenever resources change
+	-- (pickup, grind, craft, drop, etc.)
 	inventoryService.ServerResourcesChanged:Connect(function(player, resources)
 		if runStateService:IsActive() and runStateService:IsMember(player) then
-			updateResourceStacks(resources)
+			updateTableCounters(resources)
 		end
 	end)
 
