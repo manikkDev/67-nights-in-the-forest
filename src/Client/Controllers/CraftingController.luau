@@ -106,18 +106,20 @@ local function refreshDisplay()
 		local affordable = canAfford(recipe)
 		button.Active = not requestPending and not capReached and not tierLocked and affordable
 		button.AutoButtonColor = button.Active
+		-- Match carry bag row colors: dimmed when unavailable, warm when active.
 		button.BackgroundColor3 = if tierLocked
-			then Color3.fromRGB(55, 55, 60)
+			then Color3.fromRGB(45, 45, 52)
 			elseif capReached
-			then Color3.fromRGB(65, 75, 65)
+			then Color3.fromRGB(50, 60, 50)
 			elseif affordable
-			then Color3.fromRGB(70, 125, 70)
-			else Color3.fromRGB(100, 70, 65)
+			then Color3.fromRGB(55, 55, 65)
+			else Color3.fromRGB(70, 50, 50)
+		button.BackgroundTransparency = if affordable and not tierLocked and not capReached then 0.3 else 0.5
 		local statusText = if tierLocked
-			then "\nRequires Tier " .. tostring(recipe.Tier)
-			elseif capReached then "\nBuilt"
+			then "  [Tier " .. tostring(recipe.Tier) .. "]"
+			elseif capReached then "  [Built]"
 			else ""
-		button.Text = recipe.DisplayName .. "\n" .. formatCost(recipe.Cost) .. statusText
+		button.Text = recipe.DisplayName .. "  —  " .. formatCost(recipe.Cost) .. statusText
 	end
 end
 
@@ -163,6 +165,10 @@ end
 
 --[[
     @summary  Build the crafting interface once for the local player.
+    @desc     Styled to match the carry bag panel: dark panel with
+              gradient, rounded corners, UIStroke border, GothamBlack
+              header with hairline separator, and consistent row
+              styling with UICorner.
 ]]
 local function buildUi()
 	if gui and gui.Parent then
@@ -175,6 +181,13 @@ local function buildUi()
 	_listFrame = nil
 	table.clear(buttons)
 
+	-- Layout constants (matching the carry bag design language).
+	local PANEL_PADDING = 12
+	local PANEL_GAP = 8
+	local HEADER_HEIGHT = 22
+	local RESOURCES_HEIGHT = 20
+	local SCROLL_BAR_THICKNESS = 6
+
 	local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "CraftingGui"
 	screenGui.ResetOnSpawn = false
@@ -183,75 +196,136 @@ local function buildUi()
 	screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	gui = screenGui
 
+	-- Main panel: centered, dark with gradient (same as carry bag).
 	local panelFrame = Instance.new("Frame")
 	panelFrame.Name = "Panel"
 	panelFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 	panelFrame.Position = UDim2.fromScale(0.5, 0.5)
 	panelFrame.Size = UDim2.new(0.82, 0, 0.82, 0)
-	panelFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 27)
+	panelFrame.BackgroundColor3 = Color3.fromRGB(55, 55, 65)
+	panelFrame.BackgroundTransparency = 0.15
 	panelFrame.BorderSizePixel = 0
+	panelFrame.ClipsDescendants = false
 	panelFrame.Parent = screenGui
 	_panel = panelFrame
+
 	local sizeConstraint = Instance.new("UISizeConstraint")
 	sizeConstraint.MaxSize = Vector2.new(720, 620)
 	sizeConstraint.MinSize = Vector2.new(300, 360)
 	sizeConstraint.Parent = panelFrame
+
+	-- Gradient (same as carry bag).
+	local panelGradient = Instance.new("UIGradient")
+	panelGradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(220, 220, 230)),
+	})
+	panelGradient.Rotation = 90
+	panelGradient.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.15),
+		NumberSequenceKeypoint.new(1, 0.35),
+	})
+	panelGradient.Parent = panelFrame
+
+	-- Rounded corners (same as carry bag).
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 12)
+	corner.CornerRadius = UDim.new(0, 16)
 	corner.Parent = panelFrame
 
+	-- UIStroke border (same as carry bag).
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(170, 170, 190)
+	stroke.Thickness = 1.5
+	stroke.Transparency = 0.3
+	stroke.Parent = panelFrame
+
+	local contentW = UDim2.new(1, -2 * PANEL_PADDING, 0, 0)
+	local y = PANEL_PADDING
+
+	-- Header (matching carry bag header style).
 	local title = Instance.new("TextLabel")
-	title.Name = "Title"
-	title.Position = UDim2.new(0, 18, 0, 12)
-	title.Size = UDim2.new(1, -90, 0, 34)
+	title.Name = "Header"
+	title.Position = UDim2.new(0, PANEL_PADDING, 0, y)
+	title.Size = UDim2.new(1, -2 * PANEL_PADDING, 0, HEADER_HEIGHT)
 	title.BackgroundTransparency = 1
 	title.Font = Enum.Font.GothamBlack
-	title.TextColor3 = Color3.fromRGB(235, 225, 195)
-	title.TextSize = 22
+	title.TextColor3 = Color3.fromRGB(245, 245, 245)
+	title.TextSize = 15
 	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.TextYAlignment = Enum.TextYAlignment.Center
 	title.Parent = panelFrame
 	titleLabel = title
 
+	-- Hairline separator (same as carry bag).
+	local hairline = Instance.new("Frame")
+	hairline.Name = "HeaderHairline"
+	hairline.Position = UDim2.new(0, PANEL_PADDING, 0, y + HEADER_HEIGHT - 2)
+	hairline.Size = UDim2.new(1, -2 * PANEL_PADDING, 0, 1)
+	hairline.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	hairline.BackgroundTransparency = 0.9
+	hairline.BorderSizePixel = 0
+	hairline.Parent = panelFrame
+
+	y = y + HEADER_HEIGHT + PANEL_GAP
+
+	-- Close button (matching carry bag's rounded style).
 	local close = Instance.new("TextButton")
 	close.Name = "Close"
 	close.AnchorPoint = Vector2.new(1, 0)
-	close.Position = UDim2.new(1, -12, 0, 12)
-	close.Size = UDim2.fromOffset(44, 34)
-	close.BackgroundColor3 = Color3.fromRGB(120, 55, 50)
-	close.Font = Enum.Font.GothamBold
+	close.Position = UDim2.new(1, -PANEL_PADDING, 0, PANEL_PADDING)
+	close.Size = UDim2.fromOffset(36, HEADER_HEIGHT)
+	close.BackgroundColor3 = Color3.fromRGB(160, 60, 60)
+	close.BackgroundTransparency = 0.12
+	close.BorderSizePixel = 0
+	close.AutoButtonColor = false
+	close.Font = Enum.Font.GothamBlack
 	close.Text = "X"
-	close.TextColor3 = Color3.new(1, 1, 1)
-	close.TextSize = 18
+	close.TextColor3 = Color3.fromRGB(255, 255, 255)
+	close.TextSize = 14
 	close.Parent = panelFrame
 	local closeCorner = Instance.new("UICorner")
-	closeCorner.CornerRadius = UDim.new(0, 8)
+	closeCorner.CornerRadius = UDim.new(1, 0)
 	closeCorner.Parent = close
+	local closeStroke = Instance.new("UIStroke")
+	closeStroke.Color = Color3.fromRGB(190, 75, 75)
+	closeStroke.Thickness = 1
+	closeStroke.Transparency = 0.4
+	closeStroke.Parent = close
 	close.Activated:Connect(closeMenu)
 
+	-- Resources summary line.
 	local resources = Instance.new("TextLabel")
-	resources.Position = UDim2.new(0, 18, 0, 51)
-	resources.Size = UDim2.new(1, -36, 0, 26)
+	resources.Name = "Resources"
+	resources.Position = UDim2.new(0, PANEL_PADDING, 0, y)
+	resources.Size = UDim2.new(1, -2 * PANEL_PADDING, 0, RESOURCES_HEIGHT)
 	resources.BackgroundTransparency = 1
-	resources.Font = Enum.Font.Gotham
-	resources.TextColor3 = Color3.fromRGB(185, 185, 190)
-	resources.TextSize = 14
+	resources.Font = Enum.Font.GothamBold
+	resources.TextColor3 = Color3.fromRGB(200, 200, 210)
+	resources.TextSize = 13
 	resources.TextXAlignment = Enum.TextXAlignment.Left
+	resources.TextYAlignment = Enum.TextYAlignment.Center
 	resources.Parent = panelFrame
 	resourcesLabel = resources
 
+	y = y + RESOURCES_HEIGHT + PANEL_GAP
+
+	-- Recipe list (scrollable, same scrollbar style as carry bag).
 	local recipeList = Instance.new("ScrollingFrame")
 	recipeList.Name = "Recipes"
-	recipeList.Position = UDim2.new(0, 16, 0, 84)
-	recipeList.Size = UDim2.new(1, -32, 1, -100)
+	recipeList.Position = UDim2.new(0, PANEL_PADDING, 0, y)
+	recipeList.Size = UDim2.new(1, -2 * PANEL_PADDING, 1, -y - PANEL_PADDING)
 	recipeList.BackgroundTransparency = 1
 	recipeList.BorderSizePixel = 0
-	recipeList.ScrollBarThickness = 6
+	recipeList.ScrollBarThickness = SCROLL_BAR_THICKNESS
+	recipeList.ScrollBarImageColor3 = Color3.fromRGB(180, 180, 190)
+	recipeList.ScrollingDirection = Enum.ScrollingDirection.Y
 	recipeList.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	recipeList.CanvasSize = UDim2.new()
 	recipeList.Parent = panelFrame
 	_listFrame = recipeList
+
 	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 7)
+	layout.Padding = UDim.new(0, 6)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Parent = recipeList
 
@@ -259,17 +333,31 @@ local function buildUi()
 		local button = Instance.new("TextButton")
 		button.Name = recipe.Id
 		button.LayoutOrder = order
-		button.Size = UDim2.new(1, -8, 0, 64)
-		button.BackgroundColor3 = Color3.fromRGB(70, 125, 70)
+		button.Size = UDim2.new(1, -8, 0, 56)
+		button.BackgroundColor3 = Color3.fromRGB(35, 35, 42)
+		button.BackgroundTransparency = 0.3
+		button.BorderSizePixel = 0
+		button.AutoButtonColor = false
 		button.Font = Enum.Font.GothamBold
-		button.TextColor3 = Color3.fromRGB(245, 245, 240)
-		button.TextSize = 15
+		button.TextColor3 = Color3.fromRGB(225, 225, 235)
+		button.TextSize = 14
 		button.TextWrapped = true
+		button.TextXAlignment = Enum.TextXAlignment.Left
+		button.TextYAlignment = Enum.TextYAlignment.Center
 		button.Selectable = true
 		button.Parent = recipeList
+
 		local buttonCorner = Instance.new("UICorner")
 		buttonCorner.CornerRadius = UDim.new(0, 8)
 		buttonCorner.Parent = button
+
+		local buttonPadding = Instance.new("UIPadding")
+		buttonPadding.PaddingLeft = UDim.new(0, 10)
+		buttonPadding.PaddingRight = UDim.new(0, 10)
+		buttonPadding.PaddingTop = UDim.new(0, 5)
+		buttonPadding.PaddingBottom = UDim.new(0, 5)
+		buttonPadding.Parent = button
+
 		button.Activated:Connect(function()
 			requestCraft(recipe.Id)
 		end)
