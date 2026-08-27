@@ -452,20 +452,23 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 
 	-- Debug: always log what we found so we can diagnose mismatches.
 	if woodBest and scrapBest then
+		local woodPart = woodBest:FindFirstAncestorOfClass("BasePart")
+		local scrapPart = scrapBest:FindFirstAncestorOfClass("BasePart")
 		print(("[CraftingService] Table counters: Wood=%s (%s), Scrap=%s (%s)"):format(
 			woodBest.Name,
-			woodBest:FindFirstAncestorOfClass("BasePart") and woodBest:FindFirstAncestorOfClass("BasePart").Name or "no part",
+			woodPart and woodPart.Name or "no part",
 			scrapBest.Name,
-			scrapBest:FindFirstAncestorOfClass("BasePart") and scrapBest:FindFirstAncestorOfClass("BasePart").Name or "no part"
+			scrapPart and scrapPart.Name or "no part"
 		))
 	else
 		warn("[CraftingService] Could not find wood/scrap counter labels on the crafting table")
 		for _, label in ipairs(counters) do
+			local host = getHostPart(label)
 			warn(("  - TextLabel: %s | Text: %s | Parent: %s | HostPart: %s"):format(
 				label:GetFullName(),
 				label.Text,
 				label.Parent and label.Parent.Name or "nil",
-				getHostPart(label) and getHostPart(label).Name or "none"
+				host and host.Name or "none"
 			))
 		end
 	end
