@@ -53,8 +53,8 @@ local InventoryService = Knit.CreateService({
 InventoryService.ServerResourcesChanged = Signal.new()
 
 -- | Configuration | --
-local BASE_CAPACITY = 40
-local BAG_CAPACITY_BONUS = 40
+local BASE_CAPACITY = 999999 -- TEMP: infinite capacity for testing, revert to 40 when done
+local BAG_CAPACITY_BONUS = 0 -- TEMP: folded into base, revert to 40 when done
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local CARRY_BAG_NAME = "carry-bag"
 local CARRY_BAG_TOOL_NAME = "Carry Bag"
@@ -1508,8 +1508,17 @@ function InventoryService:KnitStart()
 			giveCarryBag(player)
 			giveFlashlight(player)
 			if RunConfig.IsTestEnabled("GrantResources") then
-				self:AddResource(player, "Wood", 50)
-				self:AddResource(player, "Scrap", 30)
+				-- TEMP: grant huge amounts of every resource for testing
+				self:AddResource(player, "Wood", 9999)
+				self:AddResource(player, "Scrap", 9999)
+				self:AddResource(player, "Coal", 9999)
+				self:AddResource(player, "Berries", 9999)
+				self:AddResource(player, "Mushrooms", 9999)
+				self:AddResource(player, "RawMeat", 9999)
+				self:AddResource(player, "CookedMeat", 9999)
+				self:AddResource(player, "RabbitMeat", 9999)
+				self:AddResource(player, "OwlFeather", 9999)
+				self:AddResource(player, "CultistGem", 9999)
 			end
 			broadcastSnapshot(player)
 		end)
