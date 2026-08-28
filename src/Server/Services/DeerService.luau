@@ -745,7 +745,7 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 				end
 			end
 
-			broadcastToAll(DeerService.Client.StalkerStunned, stalker.rootPart.Position, stalker.key, duration)
+			broadcastToAll(DeerService.Client.StalkerStunned, stalker.rootPart.Position, stalker.key, duration, player.UserId)
 			return true
 		end
 	end

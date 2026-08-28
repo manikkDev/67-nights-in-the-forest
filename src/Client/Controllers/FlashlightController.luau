@@ -526,20 +526,22 @@ local function buildStunFeedback()
 	stunMarker = marker
 end
 
-local function playStunFeedback(position: Vector3)
+local function playStunFeedback(position: Vector3, showConfirmation: boolean)
 	if not stunFlash or not stunMarker then
 		return
 	end
-	stunFlash.BackgroundTransparency = 0.82
-	stunMarker.TextTransparency = 0
-	stunMarker.TextStrokeTransparency = 0.25
-	stunMarker.Size = UDim2.fromOffset(36, 36)
-	TweenService:Create(stunFlash, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
-	TweenService:Create(stunMarker, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-		Size = UDim2.fromOffset(58, 58),
-		TextTransparency = 1,
-		TextStrokeTransparency = 1,
-	}):Play()
+	if showConfirmation then
+		stunFlash.BackgroundTransparency = 0.82
+		stunMarker.TextTransparency = 0
+		stunMarker.TextStrokeTransparency = 0.25
+		stunMarker.Size = UDim2.fromOffset(36, 36)
+		TweenService:Create(stunFlash, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
+		TweenService:Create(stunMarker, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			Size = UDim2.fromOffset(58, 58),
+			TextTransparency = 1,
+			TextStrokeTransparency = 1,
+		}):Play()
+	end
 	local anchor = Instance.new("Part")
 	anchor.Name = "DeerStunBurst"
 	anchor.Anchored = true
@@ -599,9 +601,9 @@ function FlashlightController:KnitStart()
 	buildStunFeedback()
 
 	local deerService = Knit.GetService("DeerService")
-	deerService.StalkerStunned:Connect(function(position: Vector3, stalkerKey: string)
+	deerService.StalkerStunned:Connect(function(position: Vector3, stalkerKey: string, _duration: number, sourceUserId: number)
 		if stalkerKey == "Deer" or stalkerKey == "RamMonster" then
-			playStunFeedback(position)
+			playStunFeedback(position, sourceUserId == player.UserId)
 		end
 	end)
 	RunService.RenderStepped:Connect(updateAim)
