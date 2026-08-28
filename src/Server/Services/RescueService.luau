@@ -1021,6 +1021,23 @@ function RescueService:GetRescuedCount(): number
 end
 
 --[[
+    @summary  Return read-only cave positions for the map board.
+    @returns  { { id: string, displayName: string, position: Vector3, state: string } }
+]]
+function RescueService:GetCavePositions()
+	local result = {}
+	for rescueId, record in pairs(caveRecords) do
+		table.insert(result, {
+			id = rescueId,
+			displayName = record.definition.DisplayName,
+			position = record.center,
+			state = record.state,
+		})
+	end
+	return result
+end
+
+--[[
     @summary  Give a matching cleared-cave key to a nearby player.
     @param    player   Player
     @param    caveId   string

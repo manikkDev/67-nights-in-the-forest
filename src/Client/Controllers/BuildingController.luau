@@ -135,7 +135,7 @@ local function buildStatusUi()
 	hint.TextColor3 = Color3.fromRGB(200, 200, 210)
 	hint.TextSize = 14
 	hint.TextWrapped = true
-	hint.Text = "Rotate: R / Q / Scroll Wheel  •  Place: Click / Enter  •  Cancel: Esc"
+	hint.Text = "Rotate: R / Q  •  Place: Click / Enter  •  Cancel: X"
 	hint.Parent = screenGui
 	hintLabel = hint
 	local hintConstraint = Instance.new("UISizeConstraint")
@@ -435,7 +435,7 @@ local function startPlacement(tokenId: string, structureId: string)
 	ContextActionService:BindAction(ACTION_ROTATE_CW, onPlacementAction, true, Enum.KeyCode.R, Enum.KeyCode.ButtonR1)
 	ContextActionService:BindAction(ACTION_ROTATE_CCW, onPlacementAction, true, Enum.KeyCode.Q, Enum.KeyCode.ButtonL1)
 	ContextActionService:BindAction(ACTION_PLACE, onPlacementAction, true, Enum.KeyCode.Return, Enum.KeyCode.ButtonA)
-	ContextActionService:BindAction(ACTION_CANCEL, onPlacementAction, true, Enum.KeyCode.Escape, Enum.KeyCode.ButtonB)
+	ContextActionService:BindAction(ACTION_CANCEL, onPlacementAction, true, Enum.KeyCode.X, Enum.KeyCode.ButtonB)
 	ContextActionService:SetTitle(ACTION_ROTATE_CW, "Rotate →")
 	ContextActionService:SetTitle(ACTION_ROTATE_CCW, "Rotate ←")
 	ContextActionService:SetTitle(ACTION_PLACE, "Place")
@@ -448,7 +448,7 @@ local function startPlacement(tokenId: string, structureId: string)
 	if statusGui then
 		statusGui.Enabled = true
 	end
-	setStatus(definition.DisplayName .. "  •  Facing: " .. formatYaw() .. "  •  Rotate: R / Q / Scroll", false)
+	setStatus(definition.DisplayName .. "  •  Facing: " .. formatYaw() .. "  •  Rotate: R / Q", false)
 end
 
 -- // INITIALIZATION // --
@@ -475,20 +475,6 @@ function BuildingController:KnitStart()
 		end
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			requestPlacement()
-		end
-	end), "Disconnect")
-
-	-- Mouse scroll wheel to rotate
-	janitor:Add(UserInputService.InputChanged:Connect(function(input, gameProcessed)
-		if gameProcessed or not activeToken then
-			return
-		end
-		if input.UserInputType == Enum.UserInputType.MouseWheel then
-			if input.Position.Z > 0 then
-				yaw += ROTATION_STEP
-			else
-				yaw -= ROTATION_STEP
-			end
 		end
 	end), "Disconnect")
 end

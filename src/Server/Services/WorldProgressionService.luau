@@ -273,6 +273,36 @@ function WorldProgressionService:GetAccessRadius(): number
 	return accessRadius
 end
 
+--[[
+    @summary  Return read-only building positions for the map board.
+              Scans the base map for known building models.
+    @returns  { { name: string, position: Vector3 } }
+]]
+function WorldProgressionService:GetBuildingPositions()
+	local result = {}
+	local baseMap = worldService and worldService:GetBaseMap()
+	if not baseMap then
+		return result
+	end
+	local buildingNames = {
+		["cabin"] = true,
+		["modern-house"] = true,
+		["Hunters Lodge"] = true,
+		["Treehouse"] = true,
+		["Tower"] = true,
+		["Crashed Plane"] = true,
+	}
+	for _, desc in ipairs(baseMap:GetDescendants()) do
+		if desc:IsA("Model") and buildingNames[desc.Name] then
+			table.insert(result, {
+				name = desc.Name,
+				position = desc:GetPivot().Position,
+			})
+		end
+	end
+	return result
+end
+
 function WorldProgressionService:IsPositionAccessible(position: Vector3, margin: number?): boolean
 	local campfireCFrame = worldService and worldService:GetCampfireCFrame()
 	if not campfireCFrame then

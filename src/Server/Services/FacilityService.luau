@@ -465,6 +465,23 @@ local function spawnFacilities()
 	print(("[FacilityService] Total facilities spawned: %d, junk models: %d"):format(totalSpawned, #junkModels))
 end
 
+--[[
+    @summary  Return read-only facility positions for the map board.
+    @returns  { { type: string, position: Vector3 } }
+]]
+function FacilityService:GetFacilityPositions()
+	local result = {}
+	for _, facility in ipairs(facilities) do
+		if facility.model and facility.model.Parent then
+			table.insert(result, {
+				type = facility.type,
+				position = facility.model:GetPivot().Position,
+			})
+		end
+	end
+	return result
+end
+
 -- // INITIALIZATION // --
 
 function FacilityService:KnitStart()
