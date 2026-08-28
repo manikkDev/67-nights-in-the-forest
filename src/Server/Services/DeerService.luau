@@ -28,6 +28,8 @@ local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local PathfindingService = game:GetService("PathfindingService")
+local Workspace = game:GetService("Workspace")
 local _Debris = game:GetService("Debris")
 
 -- | Modules | --
@@ -54,12 +56,26 @@ local CONTACT_COOLDOWN = 2.5
 local ATTACK_LOCKOUT = 1.6 -- time the Deer pauses to play attack animation
 local PURSUIT_ACCEL_PER_SEC = 0.35
 local PURSUIT_MAX_BONUS_SPEED = 14
-local BASE_STUN_DURATION = 4
-local STUN_DECAY_PER_USE = 0.6
+local BASE_STUN_DURATION = 3
+local STUN_DECAY_PER_USE = 0.5
 local MIN_STUN_DURATION = 1
-local STUN_RESISTANCE_RECOVERY_TIME = 45
-local MAX_CONTINUOUS_STUN = 8 -- max total seconds the deer can stay stunned from continuous beam refresh
+local STUN_RESISTANCE_RECOVERY_TIME = 30
+local MAX_CONTINUOUS_STUN = 5 -- max total seconds the deer can stay stunned from continuous beam refresh
+local STUN_COOLDOWN = 3 -- seconds after a stun expires before the deer can be re-stunned
 local RETREAT_HOLD_TIME = 3
+-- Pathfinding configuration
+local PATH_RECOMPUTE_INTERVAL = 0.4 -- recompute path every 0.4s for responsive chasing
+local PATH_AGENT_RADIUS = 3
+local PATH_AGENT_HEIGHT = 6
+local WAYPOINT_REACHED_DIST = 4 -- distance to consider a waypoint reached
+local STUCK_CHECK_INTERVAL = 0.3 -- check if stuck every 0.3s
+local STUCK_DIST_THRESHOLD = 1.5 -- if moved less than 1.5 studs in 0.3s, consider stuck
+local STUCK_MAX_COUNT = 2 -- force recompute after this many stuck checks
+local LOS_CHECK_INTERVAL = 0.3 -- check line-of-sight every 0.3s
+local LOS_RAY_OFFSET = 2 -- raycast from 2 studs above root part
+local DIRECT_CHASE_DIST = 60 -- if player within this dist and visible, run straight at them
+local OBSTACLE_AVOID_DIST = 12 -- how far to steer around an obstacle when stuck
+local PATH_COMPUTING_TIMEOUT = 1.5 -- max time to wait for a path computation before giving up
 local GAIT_AMPLITUDE = math.rad(35)
 local GAIT_ARM_AMPLITUDE = math.rad(22)
 local IDLE_LERP_SPEED = 6
@@ -330,6 +346,17 @@ local function enterDormant(stalker)
 		stalker.rootPart.Anchored = true
 	end
 	stopAllTracks(stalker)
+	-- Reset pathfinding state
+	stalker.waypoints = nil
+	stalker.waypointIndex = 1
+	stalker.lastPathRecompute = 0
+	stalker.lastStuckPosition = nil
+	stalker.stuckCounter = 0
+	stalker.pathComputing = false
+	stalker.lastLOSCheck = 0
+	stalker.hasLineOfSight = false
+	stalker.avoidanceDir = nil
+	stalker.avoidanceUntil = 0
 end
 
 --[[
@@ -391,9 +418,22 @@ local function spawnStalker(key: string)
 		stunStartTime = 0, -- when the current continuous stun began
 		stunImmune = false, -- true when deer has been stunned too long and needs to recover
 		postStunLockout = 0, -- time until which the deer pauses after stun ends
+		stunCooldownUntil = 0, -- time until which the deer can't be re-stunned after a stun ends
 		retreatUntil = 0,
 		nextDecisionTime = 0,
 		pursuitStartTime = nil,
+		-- Pathfinding state
+		waypoints = nil,
+		waypointIndex = 1,
+		lastPathRecompute = 0,
+		lastStuckCheck = 0,
+		lastStuckPosition = nil,
+		stuckCounter = 0,
+		pathComputing = false, -- true while a path computation is in progress
+		lastLOSCheck = 0,
+		hasLineOfSight = false, -- true if the deer can see the target directly
+		avoidanceDir = nil, -- temporary steering direction when avoiding obstacles
+		avoidanceUntil = 0, -- time until which to follow the avoidance direction
 	}
 
 	buildAnimationTracks(stalker)
@@ -481,16 +521,21 @@ local function updateStalkerState(stalker)
 				if endTrack then
 					endTrack:Play(0.1)
 				end
-			end
-			-- Set a brief lockout so the deer pauses after stun ends
-			-- before resuming movement (lets StunnedEnd animation play)
-			if stalker.postStunLockout == 0 then
-				stalker.postStunLockout = now + 0.5
+				-- Set the lockout ONCE when stun first expires
+				stalker.postStunLockout = now + 0.3
 			end
 			-- Transition after the lockout
-			if now >= stalker.postStunLockout then
+			if stalker.postStunLockout > 0 and now >= stalker.postStunLockout then
+				-- Stop all stun animations before transitioning
+				stopAllTracks(stalker)
+				-- Un-anchor the root part
+				if stalker.rootPart.Anchored then
+					stalker.rootPart.Anchored = false
+				end
 				stalker.state = if stalker.target then "Pursuing" else "Patrol"
 				stalker.postStunLockout = 0
+				-- Set cooldown so the deer can't be immediately re-stunned
+				stalker.stunCooldownUntil = now + STUN_COOLDOWN
 				-- Clear stun immunity flag after recovery
 				if stalker.stunImmune and now - stalker.stunUntil >= STUN_RESISTANCE_RECOVERY_TIME * 0.5 then
 					stalker.stunImmune = false
@@ -597,13 +642,275 @@ local function updateStalkerState(stalker)
 end
 
 --[[
+    @summary  Check if the deer has a direct line of sight to the target.
+              Uses raycasting to detect obstacles between the deer and target.
+    @param    stalker   table
+    @param    targetPos Vector3
+    @returns  boolean
+]]
+local function checkLineOfSight(stalker, targetPos: Vector3): boolean
+	local rootPos = stalker.rootPart.Position
+	local startPos = rootPos + Vector3.new(0, LOS_RAY_OFFSET, 0)
+	local endPos = targetPos + Vector3.new(0, LOS_RAY_OFFSET, 0)
+	local direction = endPos - startPos
+	local distance = direction.Magnitude
+	if distance < 0.1 then
+		return true
+	end
+
+	-- Raycast params: ignore the deer's own model
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	rayParams.FilterDescendantsInstances = { stalker.model }
+
+	local result = Workspace:Raycast(startPos, direction, rayParams)
+	if not result then
+		return true -- no obstacle, clear line of sight
+	end
+
+	-- If the hit obstacle is closer than the target, no line of sight
+	local hitDist = (result.Position - startPos).Magnitude
+	return hitDist >= distance - 2
+end
+
+--[[
+    @summary  Compute a pathfinding route to a destination asynchronously.
+              Uses task.spawn so it doesn't block the Heartbeat thread.
+    @param    stalker      table
+    @param    destination  Vector3
+]]
+local function recomputePath(stalker, destination: Vector3)
+	if stalker.pathComputing then
+		return -- already computing a path
+	end
+	stalker.pathComputing = true
+	stalker.lastPathRecompute = os.clock()
+
+	local startPos = stalker.rootPart.Position
+	local targetPos = destination
+
+	task.spawn(function()
+		local path = PathfindingService:CreatePath({
+			AgentRadius = PATH_AGENT_RADIUS,
+			AgentHeight = PATH_AGENT_HEIGHT,
+			AgentCanJump = false,
+		})
+
+		local ok = pcall(function()
+			path:ComputeAsync(startPos, targetPos)
+		end)
+
+		stalker.pathComputing = false
+
+		if ok and path.Status == Enum.PathStatus.Success then
+			local waypoints = path:GetWaypoints()
+			-- Only update if we're still chasing the same general area
+			-- (the target may have moved, but the path is still useful)
+			stalker.waypoints = waypoints
+			stalker.waypointIndex = 1
+			stalker.stuckCounter = 0
+		else
+			-- Pathfinding failed — clear waypoints so we fall back to obstacle avoidance
+			stalker.waypoints = nil
+			stalker.waypointIndex = 1
+		end
+	end)
+end
+
+--[[
+    @summary  Detect if the deer is stuck (not moving despite trying to).
+    @param    stalker  table
+    @param    rootPos  Vector3
+    @returns  boolean  -- true if stuck
+]]
+local function detectStuck(stalker, rootPos: Vector3): boolean
+	local now = os.clock()
+	if not stalker.lastStuckPosition then
+		stalker.lastStuckCheck = now
+		stalker.lastStuckPosition = rootPos
+		return false
+	end
+
+	if now - stalker.lastStuckCheck < STUCK_CHECK_INTERVAL then
+		return false
+	end
+
+	local movedDist = (Vector3.new(rootPos.X, 0, rootPos.Z) - Vector3.new(stalker.lastStuckPosition.X, 0, stalker.lastStuckPosition.Z)).Magnitude
+	stalker.lastStuckCheck = now
+	stalker.lastStuckPosition = rootPos
+
+	if movedDist < STUCK_DIST_THRESHOLD then
+		stalker.stuckCounter += 1
+		if stalker.stuckCounter >= STUCK_MAX_COUNT then
+			return true
+		end
+	else
+		stalker.stuckCounter = 0
+	end
+	return false
+end
+
+--[[
+    @summary  Pick a perpendicular avoidance direction when the deer is stuck.
+              Raycasts to find an open direction to steer around the obstacle.
+    @param    stalker      table
+    @param    destination  Vector3
+]]
+local function startAvoidance(stalker, destination: Vector3)
+	local now = os.clock()
+	local rootPos = stalker.rootPart.Position
+	local toTarget = (destination - rootPos)
+	toTarget = Vector3.new(toTarget.X, 0, toTarget.Z)
+	if toTarget.Magnitude < 0.1 then
+		return
+	end
+	toTarget = toTarget.Unit
+
+	-- Try perpendicular directions (left and right of the direct path)
+	local leftDir = Vector3.new(-toTarget.Z, 0, toTarget.X)
+	local rightDir = Vector3.new(toTarget.Z, 0, -toTarget.X)
+
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	rayParams.FilterDescendantsInstances = { stalker.model }
+
+	-- Check which side has more open space
+	local leftResult = Workspace:Raycast(rootPos + Vector3.new(0, 1, 0), leftDir * OBSTACLE_AVOID_DIST, rayParams)
+	local rightResult = Workspace:Raycast(rootPos + Vector3.new(0, 1, 0), rightDir * OBSTACLE_AVOID_DIST, rayParams)
+
+	local leftClear = not leftResult
+	local rightClear = not rightResult
+
+	if leftClear and rightClear then
+		-- Both clear — pick one randomly to avoid getting stuck in a loop
+		stalker.avoidanceDir = if math.random() > 0.5 then leftDir else rightDir
+	elseif leftClear then
+		stalker.avoidanceDir = leftDir
+	elseif rightClear then
+		stalker.avoidanceDir = rightDir
+	else
+		-- Both blocked — try the direction with more space (longer raycast hit)
+		local leftDist = if leftResult then (leftResult.Position - rootPos).Magnitude else 0
+		local rightDist = if rightResult then (rightResult.Position - rootPos).Magnitude else 0
+		stalker.avoidanceDir = if leftDist > rightDist then leftDir else rightDir
+	end
+
+	stalker.avoidanceUntil = now + 1.0 -- avoid for 1 second
+	stalker.stuckCounter = 0
+	stalker.waypoints = nil -- clear stale path
+	stalker.lastPathRecompute = 0 -- force path recompute after avoidance
+end
+
+--[[
+    @summary  Move the stalker toward a destination using an advanced
+              navigation system:
+              1. Check line-of-sight — if clear, run straight at target
+              2. If blocked, use pathfinding to navigate around obstacles
+              3. If stuck, use obstacle avoidance steering
+              4. Fall back to direct movement if all else fails
+    @param    stalker      table
+    @param    destination  Vector3
+]]
+local function moveTowards(stalker, destination: Vector3)
+	local now = os.clock()
+	local rootPos = stalker.rootPart.Position
+	local flatRootPos = Vector3.new(rootPos.X, 0, rootPos.Z)
+	local flatDest = Vector3.new(destination.X, 0, destination.Z)
+	local distToTarget = (flatRootPos - flatDest).Magnitude
+
+	-- Check line of sight periodically
+	if now - stalker.lastLOSCheck >= LOS_CHECK_INTERVAL then
+		stalker.lastLOSCheck = now
+		stalker.hasLineOfSight = checkLineOfSight(stalker, destination)
+	end
+
+	-- If we have line of sight and the target is close enough, run straight at it
+	if stalker.hasLineOfSight and distToTarget < DIRECT_CHASE_DIST then
+		stalker.waypoints = nil -- no need for pathfinding
+		stalker.avoidanceDir = nil
+		stalker.humanoid:MoveTo(destination)
+		return
+	end
+
+	-- If currently in avoidance mode, steer around the obstacle
+	if stalker.avoidanceDir and now < stalker.avoidanceUntil then
+		local avoidPos = rootPos + stalker.avoidanceDir * 20
+		stalker.humanoid:MoveTo(avoidPos)
+		return
+	end
+	stalker.avoidanceDir = nil
+
+	-- Stuck detection
+	if detectStuck(stalker, rootPos) then
+		-- Force a path recompute and start avoidance
+		startAvoidance(stalker, destination)
+		return
+	end
+
+	-- Recompute path periodically or if no path exists
+	if not stalker.waypoints and not stalker.pathComputing and (now - stalker.lastPathRecompute) >= PATH_RECOMPUTE_INTERVAL then
+		recomputePath(stalker, destination)
+	end
+
+	-- Follow waypoints if available
+	if stalker.waypoints and stalker.waypoints[stalker.waypointIndex] then
+		local waypoint = stalker.waypoints[stalker.waypointIndex]
+		local flatDist = (flatRootPos - Vector3.new(waypoint.Position.X, 0, waypoint.Position.Z)).Magnitude
+		if flatDist < WAYPOINT_REACHED_DIST then
+			stalker.waypointIndex += 1
+		end
+		local nextWaypoint = stalker.waypoints[stalker.waypointIndex]
+		if nextWaypoint then
+			-- Move to the waypoint position but keep Y at the deer's current level
+			-- to prevent the deer from trying to move to elevated waypoint positions
+			local movePos = Vector3.new(nextWaypoint.Position.X, rootPos.Y, nextWaypoint.Position.Z)
+			stalker.humanoid:MoveTo(movePos)
+		else
+			-- Ran out of waypoints — head directly to destination
+			stalker.humanoid:MoveTo(destination)
+			stalker.waypoints = nil
+		end
+	else
+		-- No path available and not computing — use direct movement
+		-- but check if there's an obstacle directly ahead
+		if not stalker.pathComputing then
+			local toTarget = (flatDest - flatRootPos)
+			if toTarget.Magnitude > 0.1 then
+				toTarget = toTarget.Unit
+				local rayParams = RaycastParams.new()
+				rayParams.FilterType = Enum.RaycastFilterType.Exclude
+				rayParams.FilterDescendantsInstances = { stalker.model }
+				local result = Workspace:Raycast(rootPos + Vector3.new(0, 1, 0), toTarget * 8, rayParams)
+				if result then
+					-- Obstacle ahead — start avoidance
+					startAvoidance(stalker, destination)
+					return
+				end
+			end
+			stalker.humanoid:MoveTo(destination)
+		end
+	end
+end
+
+--[[
     @summary  Execute movement/contact-damage behavior for a stalker's
               current state.
     @param    stalker  table
 ]]
 local function runStalkerBehavior(stalker)
-	-- Post-stun lockout: keep the deer paused briefly after stun ends
-	if stalker.postStunLockout > 0 and os.clock() < stalker.postStunLockout then
+	-- If the deer is in post-stun lockout, keep it frozen.
+	-- Do NOT clear postStunLockout here — updateStalkerState owns the transition.
+	if stalker.postStunLockout > 0 then
+		if os.clock() < stalker.postStunLockout then
+			stalker.humanoid.WalkSpeed = 0
+			stalker.humanoid:MoveTo(stalker.rootPart.Position)
+			if not stalker.rootPart.Anchored then
+				stalker.rootPart.Anchored = true
+			end
+			return
+		end
+		-- Lockout expired but state hasn't transitioned yet — keep frozen
+		-- until updateStalkerState changes the state
 		stalker.humanoid.WalkSpeed = 0
 		stalker.humanoid:MoveTo(stalker.rootPart.Position)
 		return
@@ -614,6 +921,11 @@ local function runStalkerBehavior(stalker)
 		if stalker.state == "Stunned" then
 			-- Explicitly cancel any pending MoveTo from the previous Pursuing frame
 			stalker.humanoid:MoveTo(stalker.rootPart.Position)
+			-- Anchor the root part to prevent physics from dragging the deer
+			-- while it's stunned (players walking into it can push it around)
+			if not stalker.rootPart.Anchored then
+				stalker.rootPart.Anchored = true
+			end
 			local startTrack = stalker.tracks["StunnedStart"]
 			local loopTrack = stalker.tracks["StunnedLoop"]
 			-- Stop Attack track if it's still playing from a recent contact
@@ -631,6 +943,11 @@ local function runStalkerBehavior(stalker)
 		return
 	end
 
+	-- Un-anchor the root part if it was anchored during stun
+	if stalker.rootPart.Anchored then
+		stalker.rootPart.Anchored = false
+	end
+
 	if stalker.state == "Retreating" then
 		stalker.humanoid.WalkSpeed = stalker.def.BaseSpeed
 		playTrack(stalker, "Run")
@@ -640,7 +957,8 @@ local function runStalkerBehavior(stalker)
 			awayDir = Vector3.new(1, 0, 0)
 		end
 		awayDir = Vector3.new(awayDir.X, 0, awayDir.Z).Unit
-		stalker.humanoid:MoveTo(stalker.rootPart.Position + awayDir * 40)
+		-- Use pathfinding for retreat too so the deer doesn't get stuck fleeing
+		moveTowards(stalker, stalker.rootPart.Position + awayDir * 60)
 		return
 	end
 
@@ -668,7 +986,8 @@ local function runStalkerBehavior(stalker)
 		local speed = computePursuitSpeed(stalker)
 		stalker.humanoid.WalkSpeed = speed
 		playTrack(stalker, if speed > stalker.def.BaseSpeed * 1.4 then "Run" else "Walk")
-		stalker.humanoid:MoveTo(rootPart.Position)
+		-- Use pathfinding to navigate around obstacles instead of direct MoveTo
+		moveTowards(stalker, rootPart.Position)
 
 		local dist = (stalker.rootPart.Position - rootPart.Position).Magnitude
 		if dist <= CONTACT_RANGE and (now - stalker.lastContactTime) >= CONTACT_COOLDOWN then
@@ -749,6 +1068,12 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 
 			local now = os.clock()
 
+			-- If the deer is in stun cooldown (recently recovered from a stun),
+			-- don't allow re-stunning until the cooldown passes
+			if now < stalker.stunCooldownUntil then
+				return false
+			end
+
 			-- If the deer is stun-immune (was stunned too long), don't re-stun
 			-- until the immunity period passes
 			if stalker.stunImmune then
@@ -761,9 +1086,14 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 				end
 			end
 
-			-- If already stunned, refresh the stun timer BUT cap the total
-			-- continuous stun time so the deer eventually breaks free.
+			-- If already stunned, refresh the stun timer BUT only if the stun
+			-- hasn't already expired. Once the stun timer has expired, let the
+			-- deer recover — don't refresh even if the beam is still on.
 			if stalker.state == "Stunned" then
+				-- If stun has already expired, don't refresh — let recovery happen
+				if now >= stalker.stunUntil then
+					return false
+				end
 				local continuousStunTime = now - stalker.stunStartTime
 				if continuousStunTime >= MAX_CONTINUOUS_STUN then
 					-- Deer has been stunned too long — break free and become immune
@@ -810,6 +1140,15 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 			stalker.stunStartTime = now
 			stalker.humanoid.WalkSpeed = 0
 			stalker.stunEndPlayed = false
+			-- Reset pathfinding state so stale waypoints don't interfere after recovery
+			stalker.waypoints = nil
+			stalker.waypointIndex = 1
+			stalker.lastPathRecompute = 0
+			stalker.lastStuckPosition = nil
+			stalker.stuckCounter = 0
+			stalker.pathComputing = false
+			stalker.avoidanceDir = nil
+			stalker.avoidanceUntil = 0
 			-- Stop all tracks immediately so Attack/Run don't override StunnedStart
 			stopAllTracks(stalker)
 			-- Play StunnedStart directly
