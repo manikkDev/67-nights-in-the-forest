@@ -102,9 +102,6 @@ end
     @summary  Create the physical map board near the campfire.
 ]]
 local function createMapBoard()
-	if mapBoard then
-		mapBoard:Destroy()
-	end
 	mapBoard = nil
 
 	local campfireCFrame = worldService and worldService:GetCampfireCFrame()
@@ -112,53 +109,86 @@ local function createMapBoard()
 		return
 	end
 
-	local boardModel = Instance.new("Model")
-	boardModel.Name = "MapBoard"
+	-- Use a persistent Workspace folder so the board survives runs and
+	-- remains visible/editable in Studio.
+	local boardsFolder = workspace:FindFirstChild("Boards")
+	if not boardsFolder then
+		boardsFolder = Instance.new("Folder")
+		boardsFolder.Name = "Boards"
+		boardsFolder.Parent = workspace
+	end
 
-	local boardCFrame = campfireCFrame * CFrame.new(BOARD_OFFSET, 7, 0) * CFrame.Angles(0, math.rad(-90), 0)
+	-- Reuse an existing board model if the user placed one in Studio.
+	local boardModel = boardsFolder:FindFirstChild("MapBoard") :: Model?
+	local boardCFrame
+	if boardModel then
+		local existingBoard = boardModel:FindFirstChild("BoardPanel") :: BasePart?
+		if existingBoard then
+			boardCFrame = existingBoard.CFrame
+		end
+	end
 
-	-- Backing board
-	local board = Instance.new("Part")
-	board.Name = "BoardPanel"
-	board.Size = Vector3.new(14, 9, 0.6)
-	board.Anchored = true
-	board.Material = Enum.Material.WoodPlanks
-	board.Color = Color3.fromRGB(95, 65, 38)
-	board.CFrame = boardCFrame
-	board.Parent = boardModel
-	boardModel.PrimaryPart = board
+	-- If no existing board, create one at the default campfire-relative position.
+	if not boardModel then
+		boardModel = Instance.new("Model")
+		boardModel.Name = "MapBoard"
+		boardCFrame = campfireCFrame * CFrame.new(BOARD_OFFSET, 7, 0) * CFrame.Angles(0, math.rad(-90), 0)
 
-	-- Left post
-	local leftPost = Instance.new("Part")
-	leftPost.Name = "LeftPost"
-	leftPost.Size = Vector3.new(0.8, 16, 0.8)
-	leftPost.Anchored = true
-	leftPost.Material = Enum.Material.WoodPlanks
-	leftPost.Color = Color3.fromRGB(75, 50, 28)
-	leftPost.CFrame = boardCFrame * CFrame.new(-7, -3.5, 0)
-	leftPost.Parent = boardModel
+		-- Backing board
+		local board = Instance.new("Part")
+		board.Name = "BoardPanel"
+		board.Size = Vector3.new(14, 9, 0.6)
+		board.Anchored = true
+		board.Material = Enum.Material.WoodPlanks
+		board.Color = Color3.fromRGB(95, 65, 38)
+		board.CFrame = boardCFrame
+		board.Parent = boardModel
+		boardModel.PrimaryPart = board
 
-	-- Right post
-	local rightPost = Instance.new("Part")
-	rightPost.Name = "RightPost"
-	rightPost.Size = Vector3.new(0.8, 16, 0.8)
-	rightPost.Anchored = true
-	rightPost.Material = Enum.Material.WoodPlanks
-	rightPost.Color = Color3.fromRGB(75, 50, 28)
-	rightPost.CFrame = boardCFrame * CFrame.new(7, -3.5, 0)
-	rightPost.Parent = boardModel
+		-- Left post
+		local leftPost = Instance.new("Part")
+		leftPost.Name = "LeftPost"
+		leftPost.Size = Vector3.new(0.8, 16, 0.8)
+		leftPost.Anchored = true
+		leftPost.Material = Enum.Material.WoodPlanks
+		leftPost.Color = Color3.fromRGB(75, 50, 28)
+		leftPost.CFrame = boardCFrame * CFrame.new(-7, -3.5, 0)
+		leftPost.Parent = boardModel
 
-	-- Top crossbar
-	local topBar = Instance.new("Part")
-	topBar.Name = "TopBar"
-	topBar.Size = Vector3.new(15, 1, 0.9)
-	topBar.Anchored = true
-	topBar.Material = Enum.Material.WoodPlanks
-	topBar.Color = Color3.fromRGB(75, 50, 28)
-	topBar.CFrame = boardCFrame * CFrame.new(0, 5.2, 0)
-	topBar.Parent = boardModel
+		-- Right post
+		local rightPost = Instance.new("Part")
+		rightPost.Name = "RightPost"
+		rightPost.Size = Vector3.new(0.8, 16, 0.8)
+		rightPost.Anchored = true
+		rightPost.Material = Enum.Material.WoodPlanks
+		rightPost.Color = Color3.fromRGB(75, 50, 28)
+		rightPost.CFrame = boardCFrame * CFrame.new(7, -3.5, 0)
+		rightPost.Parent = boardModel
 
-	boardModel.Parent = runStateService:GetRuntimeFolder()
+		-- Top crossbar
+		local topBar = Instance.new("Part")
+		topBar.Name = "TopBar"
+		topBar.Size = Vector3.new(15, 1, 0.9)
+		topBar.Anchored = true
+		topBar.Material = Enum.Material.WoodPlanks
+		topBar.Color = Color3.fromRGB(75, 50, 28)
+		topBar.CFrame = boardCFrame * CFrame.new(0, 5.2, 0)
+		topBar.Parent = boardModel
+
+		boardModel.Parent = boardsFolder
+	else
+		-- Clear any dynamic children from a previous run (SurfaceGui, prompts, etc.)
+		for _, child in ipairs(boardModel:GetChildren()) do
+			if child.Name == "BoardGui" or child:IsA("ProximityPrompt") then
+				child:Destroy()
+			end
+		end
+	end
+
+	local board = boardModel:FindFirstChild("BoardPanel") :: BasePart?
+	if not board then
+		return
+	end
 	mapBoard = board
 
 	-- SurfaceGui on the board front face
@@ -259,9 +289,8 @@ function MapService:KnitStart()
 	end)
 
 	runStateService.RunCleaned:Connect(function()
-		if mapBoard then
-			mapBoard:Destroy()
-		end
+		-- Don't destroy the board model — it lives in Workspace.Boards
+		-- so the user can reposition it in Studio. Just nil references.
 		mapBoard = nil
 		mapData = {}
 	end)
