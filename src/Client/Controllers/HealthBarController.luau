@@ -45,7 +45,8 @@ local DAMAGE_NUMBER_RISE = 3
 local DAMAGE_NUMBER_MAX_OFFSET = 1.5
 
 -- | State Management | --
-local activeBars: { [Model]: { gui: BillboardGui, fill: Frame, bg: Frame, lastHit: number } } = {}
+local activeBars: { [Model]: { gui: BillboardGui, fill: Frame, bg: Frame, lastHit: number, isRaidCultist: boolean } } = {}
+local raidMode = false
 
 -- // FUNCTIONS // --
 
@@ -75,11 +76,11 @@ end
     @param    model  Model
     @returns  BillboardGui, Frame
 ]]
-local function createHealthBar(model: Model): (BillboardGui, Frame, Frame)
+local function createHealthBar(model: Model, isRaidCultist: boolean?): (BillboardGui, Frame, Frame)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "NpcHealthBar"
 	gui.Adornee = model
-	gui.Size = UDim2.fromScale(BAR_WIDTH / 3, BAR_HEIGHT)
+	gui.Size = UDim2.fromScale(BAR_WIDTH / 3, if isRaidCultist then BAR_HEIGHT + 0.5 else BAR_HEIGHT)
 	gui.StudsOffsetWorldSpace = BAR_OFFSET
 	gui.AlwaysOnTop = true
 	gui.LightInfluence = 0
@@ -105,18 +106,31 @@ local function createHealthBar(model: Model): (BillboardGui, Frame, Frame)
 	bgStroke.Thickness = 1.5
 	bgStroke.Parent = bg
 
-	-- Padding container
-	local pad = Instance.new("UIPadding")
-	pad.PaddingLeft = UDim.new(0.06, 0)
-	pad.PaddingRight = UDim.new(0.06, 0)
-	pad.PaddingTop = UDim.new(0.1, 0)
-	pad.PaddingBottom = UDim.new(0.1, 0)
-	pad.Parent = bg
+	-- Name label (only for raid cultists)
+	if isRaidCultist then
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Name = "NameLabel"
+		nameLabel.Size = UDim2.new(1, 0, 0.4, 0)
+		nameLabel.Position = UDim2.new(0, 0, 0, 0)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Font = Enum.Font.GothamBold
+		nameLabel.TextSize = 14
+		nameLabel.TextColor3 = Color3.fromRGB(220, 60, 60)
+		nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		nameLabel.TextStrokeTransparency = 0.3
+		nameLabel.Text = "Cultist"
+		nameLabel.Parent = bg
+	end
 
-	-- Fill bar
+	-- Fill bar (occupies bottom portion if name label exists)
 	local fill = Instance.new("Frame")
 	fill.Name = "Fill"
-	fill.Size = UDim2.fromScale(1, 1)
+	if isRaidCultist then
+		fill.Size = UDim2.fromScale(1, 0.55)
+		fill.Position = UDim2.new(0, 0, 0.45, 0)
+	else
+		fill.Size = UDim2.fromScale(1, 1)
+	end
 	fill.BackgroundColor3 = Color3.fromRGB(0, 255, 60)
 	fill.BorderSizePixel = 0
 	fill.Parent = bg
@@ -124,6 +138,14 @@ local function createHealthBar(model: Model): (BillboardGui, Frame, Frame)
 	local fillCorner = Instance.new("UICorner")
 	fillCorner.CornerRadius = UDim.new(0.25, 0)
 	fillCorner.Parent = fill
+
+	-- Padding container
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0.06, 0)
+	pad.PaddingRight = UDim.new(0.06, 0)
+	pad.PaddingTop = UDim.new(0.06, 0)
+	pad.PaddingBottom = UDim.new(0.06, 0)
+	pad.Parent = fill
 
 	gui.Parent = model
 
@@ -197,20 +219,24 @@ end
     @param    healthRatio  number  (0–1)
     @param    damage       number
     @param    position     Vector3
+    @param    speciesKey   string?  -- NPC species key (e.g. "Cultist")
 ]]
-local function onNpcHealthChanged(model: Model, healthRatio: number, damage: number, position: Vector3)
+local function onNpcHealthChanged(model: Model, healthRatio: number, damage: number, position: Vector3, speciesKey: string?)
 	if not model or not model.Parent then
 		return
 	end
 
+	local isRaidCultist = raidMode and speciesKey ~= nil and string.find(speciesKey, "Cultist") ~= nil
+
 	local entry = activeBars[model]
 	if not entry then
-		local gui, fill, bg = createHealthBar(model)
+		local gui, fill, bg = createHealthBar(model, isRaidCultist)
 		entry = {
 			gui = gui,
 			fill = fill,
 			bg = bg,
 			lastHit = os.clock(),
+			isRaidCultist = isRaidCultist,
 		}
 		activeBars[model] = entry
 
@@ -224,7 +250,13 @@ local function onNpcHealthChanged(model: Model, healthRatio: number, damage: num
 	entry.lastHit = os.clock()
 
 	-- Tween fill width and colour
-	local targetSize = UDim2.fromScale(math.clamp(healthRatio, 0, 1), 1)
+	local ratio = math.clamp(healthRatio, 0, 1)
+	local targetSize
+	if entry.isRaidCultist then
+		targetSize = UDim2.fromScale(ratio, 0.55)
+	else
+		targetSize = UDim2.fromScale(ratio, 1)
+	end
 	local targetColor = healthColor(healthRatio)
 
 	TweenService:Create(entry.fill, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -267,6 +299,9 @@ local function startHideLoop()
 		for model, entry in pairs(activeBars) do
 			if not model.Parent then
 				removeHealthBar(model)
+			elseif entry.isRaidCultist and raidMode then
+				-- Don't auto-hide raid cultist bars while raid is active
+				continue
 			elseif (now - entry.lastHit) > BAR_HIDE_DELAY then
 				removeHealthBar(model)
 			end
@@ -278,14 +313,39 @@ end
 
 function HealthBarController:KnitStart()
 	local animalAIService = Knit.GetService("AnimalAIService")
+	local cultistRaidService = Knit.GetService("CultistRaidService")
 
-	animalAIService.NpcHealthChanged:Connect(function(model: Model, healthRatio: number, damage: number, position: Vector3)
-		onNpcHealthChanged(model, healthRatio, damage, position)
+	animalAIService.NpcHealthChanged:Connect(function(model: Model, healthRatio: number, damage: number, position: Vector3, speciesKey: string?)
+		onNpcHealthChanged(model, healthRatio, damage, position, speciesKey)
 	end)
 
 	animalAIService.NpcDied:Connect(function(model: Model, _position: Vector3, _key: string)
 		if model then
 			removeHealthBar(model)
+		end
+	end)
+
+	-- Raid mode: keep cultist health bars always visible
+	cultistRaidService.RaidStarted:Connect(function(_dayNumber: number, _count: number)
+		raidMode = true
+	end)
+
+	cultistRaidService.RaidCleared:Connect(function(_dayNumber: number)
+		raidMode = false
+		-- Let existing auto-hide logic clean up remaining cultist bars
+		for model, entry in pairs(activeBars) do
+			if entry.isRaidCultist then
+				entry.lastHit = os.clock() - BAR_HIDE_DELAY
+			end
+		end
+	end)
+
+	cultistRaidService.RaidFailed:Connect(function(_dayNumber: number, _survivors: number)
+		raidMode = false
+		for model, entry in pairs(activeBars) do
+			if entry.isRaidCultist then
+				entry.lastHit = os.clock() - BAR_HIDE_DELAY
+			end
 		end
 	end)
 

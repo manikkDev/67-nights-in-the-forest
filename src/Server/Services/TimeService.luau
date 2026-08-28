@@ -131,6 +131,22 @@ function TimeService:IsRunning(): boolean
 end
 
 --[[
+    @summary  Return the configured duration of the current phase.
+    @returns  number
+]]
+function TimeService:GetPhaseDuration(): number
+	return RunConfig.GetPhaseDuration(currentPhase)
+end
+
+--[[
+    @summary  Return how many seconds have elapsed in the current phase.
+    @returns  number
+]]
+function TimeService:GetPhaseElapsed(): number
+	return phaseTimer
+end
+
+--[[
     @summary  Pause the clock without resetting run progress.
 ]]
 function TimeService:Pause()

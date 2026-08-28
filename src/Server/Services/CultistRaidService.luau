@@ -66,6 +66,10 @@ local raidActive = false
 local raidCultists: { Model } = {}
 local raidDayNumber = 0
 local cleanupScheduled = false
+local raidTotalCount = 0
+local raidTotalMaxHealth = 0
+local lastStatusUpdate = 0
+local preNightWarningFired = false
 
 -- // FUNCTIONS // --
 
@@ -146,6 +150,26 @@ local function countSurvivors(): number
 end
 
 --[[
+    @summary  Compute the total remaining health of all living raid cultists.
+    @returns  number, number  (current health, max health)
+]]
+local function computeTotalHealth(): (number, number)
+	local current = 0
+	local maximum = 0
+	for _, model in ipairs(raidCultists) do
+		if not model.Parent then
+			continue
+		end
+		local humanoid = model:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.Health > 0 then
+			current += humanoid.Health
+			maximum += humanoid.MaxHealth
+		end
+	end
+	return current, maximum
+end
+
+--[[
     @summary  Begin a raid: fire the started signal and spawn the wave.
     @param    dayNumber  number
 ]]
@@ -153,14 +177,19 @@ local function startRaid(dayNumber: number)
 	raidActive = true
 	raidDayNumber = dayNumber
 	cleanupScheduled = false
+	preNightWarningFired = false
 	local count = computeRaidSize(dayNumber)
 	spawnRaidWave(count)
+	raidTotalCount = #raidCultists
+	-- Compute total max health for the tracker bar.
+	local _, maxHp = computeTotalHealth()
+	raidTotalMaxHealth = maxHp
 	-- Suppress the Deer stalker during cultist raids so only cultists
 	-- are present as hostile NPCs.
 	if deerService then
 		deerService:SuppressDeer(true)
 	end
-	broadcastToAll(CultistRaidService.Client.RaidStarted, dayNumber, count)
+	broadcastToAll(CultistRaidService.Client.RaidStarted, dayNumber, #raidCultists)
 end
 
 --[[
@@ -168,6 +197,7 @@ end
               period after dawn has elapsed.
 ]]
 local function cleanupRemainingRaiders()
+	local survivors = countSurvivors()
 	for _, model in ipairs(raidCultists) do
 		if model.Parent then
 			model:Destroy()
@@ -178,6 +208,10 @@ local function cleanupRemainingRaiders()
 	-- Re-enable the Deer stalker now that the raid is over.
 	if deerService then
 		deerService:SuppressDeer(false)
+	end
+	-- If cultists survived to dawn, fire the failed signal.
+	if survivors > 0 then
+		broadcastToAll(CultistRaidService.Client.RaidFailed, raidDayNumber, survivors)
 	end
 end
 
@@ -198,7 +232,8 @@ local function onHeartbeat(dt: number)
 	if phase ~= lastPhase then
 		lastPhase = phase
 		if phase == "Day" and isRaidDay(dayNumber) then
-			broadcastToAll(CultistRaidService.Client.RaidWarning, dayNumber)
+			preNightWarningFired = false
+			broadcastToAll(CultistRaidService.Client.RaidWarning, dayNumber, "dayBefore")
 		elseif phase == "Night" and isRaidDay(dayNumber) and not raidActive then
 			startRaid(dayNumber)
 		elseif phase == "Day" and raidActive then
@@ -210,6 +245,16 @@ local function onHeartbeat(dt: number)
 					end
 				end)
 			end
+		end
+	end
+
+	-- Fire pre-night warning a few seconds before night starts.
+	if phase == "Day" and isRaidDay(dayNumber) and not preNightWarningFired then
+		local dayDuration = timeService:GetPhaseDuration()
+		local elapsed = timeService:GetPhaseElapsed()
+		if elapsed >= (dayDuration - 5) then
+			preNightWarningFired = true
+			broadcastToAll(CultistRaidService.Client.RaidWarning, dayNumber, "preNight")
 		end
 	end
 
@@ -226,6 +271,15 @@ local function onHeartbeat(dt: number)
 		end
 		broadcastToAll(CultistRaidService.Client.RaidCleared, raidDayNumber)
 		return
+	end
+
+	-- Periodically broadcast raid status for the tracker HUD.
+	local now = os.clock()
+	if now - lastStatusUpdate >= 0.5 then
+		lastStatusUpdate = now
+		local currentHp, maxHp = computeTotalHealth()
+		local ratio = if raidTotalMaxHealth > 0 then currentHp / raidTotalMaxHealth else 0
+		broadcastToAll(CultistRaidService.Client.RaidStatusUpdate, survivors, raidTotalCount, ratio)
 	end
 
 	if phase == "Day" and campfireService then
