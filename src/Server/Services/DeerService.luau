@@ -714,15 +714,13 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 	for _, stalker in pairs(stalkers) do
 		if stalker.model == model then
 			if not stalker.def.UsesFlashlightStun then
-				print("[DeerService] Stun rejected: does not use flashlight stun", stalker.key)
 				return false
 			end
 			if stalker.state == "Stunned" then
-				-- Already stunned — don't re-stun, but don't log spam
+				-- Already stunned — don't re-stun
 				return false
 			end
 			if stalker.state == "Dormant" then
-				print("[DeerService] Stun rejected: stalker is dormant", stalker.key)
 				return false
 			end
 
@@ -748,13 +746,11 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 			local startTrack = stalker.tracks["StunnedStart"]
 			if startTrack then
 				startTrack:Play(0.1)
-				print("[DeerService] Playing StunnedStart animation for", stalker.key)
 			else
 				-- Fallback: if no StunnedStart track, play StunnedLoop directly
 				local loopTrack = stalker.tracks["StunnedLoop"]
 				if loopTrack then
 					loopTrack:Play(0.1)
-					print("[DeerService] No StunnedStart — playing StunnedLoop for", stalker.key)
 				else
 					warn("[DeerService] No stunned animations found for", stalker.key)
 				end
@@ -767,7 +763,6 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 			return true
 		end
 	end
-	print("[DeerService] ApplyFlashlightStun: model not found in stalkers registry")
 	return false
 end
 

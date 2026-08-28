@@ -218,7 +218,6 @@ end
 ]]
 local function reportBeamState(isActive: boolean)
 	beamOn = isActive
-	print("[FlashlightController] reportBeamState:", isActive)
 	if flashlightService then
 		local ok, err = pcall(function()
 			flashlightService:SetBeamActive(isActive)
@@ -255,10 +254,8 @@ end
     @param    tool  Tool
 ]]
 local function toggleBeam(tool: Tool)
-	print("[FlashlightController] toggleBeam called")
 	local handle = tool:FindFirstChild("Handle")
 	if not handle then
-		warn("[FlashlightController] No Handle on flashlight tool")
 		return
 	end
 	local spotLight = handle:FindFirstChildOfClass("SpotLight")
@@ -268,11 +265,8 @@ local function toggleBeam(tool: Tool)
 	if spotLight then
 		newState = not spotLight.Enabled
 	end
-	print("[FlashlightController] toggleBeam newState:", newState)
 
 	if newState and batteryPercent <= 0 then
-		-- Cannot turn on with empty battery
-		print("[FlashlightController] Battery empty, cannot turn on")
 		return
 	end
 
@@ -293,11 +287,9 @@ end
     @param    tool  Tool
 ]]
 local function wireTool(tool: Tool)
-	print("[FlashlightController] wireTool: wiring flashlight tool")
 	toolJanitor:Cleanup()
 	toolJanitor:Add(tool.Activated:Connect(function()
 		if not gameStateController or not gameStateController:IsInGame() then
-			print("[FlashlightController] Tool activated but not in game")
 			return
 		end
 		toggleBeam(tool)
@@ -314,7 +306,6 @@ end
     @param    player  Player
 ]]
 local function watchForFlashlight(player: Player)
-	print("[FlashlightController] watchForFlashlight started for", player.Name)
 	local function onToolSetChanged()
 		refreshPanelVisibility()
 	end
@@ -325,7 +316,6 @@ local function watchForFlashlight(player: Player)
 
 		local tool = character:FindFirstChild(FLASHLIGHT_TOOL_NAME)
 		if tool and tool:IsA("Tool") then
-			print("[FlashlightController] Found equipped flashlight on character")
 			wireTool(tool)
 			-- Sync visual state with server
 			local handle = tool:FindFirstChild("Handle")
@@ -338,7 +328,6 @@ local function watchForFlashlight(player: Player)
 
 		charJanitor:Add(character.ChildAdded:Connect(function(child)
 			if child:IsA("Tool") and child.Name == FLASHLIGHT_TOOL_NAME then
-				print("[FlashlightController] Flashlight tool added to character (equipped)")
 				wireTool(child)
 				onToolSetChanged()
 			end
