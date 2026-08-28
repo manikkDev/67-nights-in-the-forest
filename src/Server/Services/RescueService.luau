@@ -284,31 +284,53 @@ local function clearCaveObstacles(cframe: CFrame, footprint: Vector3)
 	local baseMap = worldService:GetBaseMap()
 	local runtimeFolder = runStateService:GetRuntimeFolder()
 	local exclusions = {}
-	if baseMap then
-		local ground = worldService:GetGroundPart()
-		if ground then
-			table.insert(exclusions, ground)
-		end
+	-- Exclude ground, runtime folder (caves/tents are inside it), and base map ground
+	local ground = worldService:GetGroundPart()
+	if ground then
+		table.insert(exclusions, ground)
 	end
-	table.insert(exclusions, runtimeFolder)
-	local overlaps = WorldPlacement.GetFootprintOverlaps(cframe, footprint, exclusions)
+	-- Also exclude the Caves and RescueTents folders so we don't destroy other caves
+	if cavesFolder then
+		table.insert(exclusions, cavesFolder)
+	end
+	if tentsFolder then
+		table.insert(exclusions, tentsFolder)
+	end
+	-- Exclude the poster board model
+	if posterBoard and posterBoard.Parent then
+		table.insert(exclusions, posterBoard.Parent)
+	end
+
+	-- Use a slightly larger footprint for clearing to ensure surrounding objects are removed
+	local clearFootprint = Vector3.new(footprint.X + 6, footprint.Y, footprint.Z + 6)
+	local overlaps = WorldPlacement.GetFootprintOverlaps(cframe, clearFootprint, exclusions)
 	for _, part in ipairs(overlaps) do
-		-- Walk up to the top-level model ancestor inside Base-map.
-		local ancestor = part
-		local topModel = nil
+		-- Walk up to find the top-level model to remove
+		local toRemove = part
+		local ancestor = part.Parent
 		while ancestor and ancestor.Parent do
-			if ancestor.Parent == baseMap then
-				topModel = ancestor
-				break
+			if ancestor:IsA("Model") or ancestor:IsA("Folder") then
+				-- Stop if we reach workspace-level or a protected container
+				if ancestor.Parent == workspace or ancestor.Parent == baseMap then
+					toRemove = ancestor
+					break
+				end
 			end
 			ancestor = ancestor.Parent
 		end
-		local toRemove = topModel or part
-		-- Never remove the ground or campfire/bonfire.
-		if toRemove:IsA("BasePart") and toRemove.Name == "Земля" then
+		-- Never remove the ground or campfire/bonfire
+		if toRemove:IsA("BasePart") and (toRemove.Name == "Земля" or toRemove.Name == "Ground") then
 			continue
 		end
 		if toRemove.Name == "Bonfire" or toRemove.Name == "Campfire" then
+			continue
+		end
+		-- Never remove caves or tents
+		if toRemove == cavesFolder or toRemove == tentsFolder then
+			continue
+		end
+		-- Skip if it's a cave model
+		if toRemove:IsA("Model") and toRemove:GetAttribute("CaveId") then
 			continue
 		end
 		toRemove:Destroy()
@@ -365,13 +387,15 @@ local function buildCaves()
 			continue
 		end
 		local center = caveCFrame.Position
+		-- Always clear obstacles (even if overlapCount is 0, the expanded
+		-- clearing footprint may catch nearby objects)
 		if overlapCount and overlapCount > 0 then
 			print(("[RescueService] Clearing %d obstacles for %s cave"):format(overlapCount, rescueId))
-			clearCaveObstacles(
-				caveCFrame * CFrame.new(0, WorldProgressionConfig.Placement.CaveFootprint.Y * 0.5, 0),
-				WorldProgressionConfig.Placement.CaveFootprint
-			)
 		end
+		clearCaveObstacles(
+			caveCFrame * CFrame.new(0, WorldProgressionConfig.Placement.CaveFootprint.Y * 0.5, 0),
+			WorldProgressionConfig.Placement.CaveFootprint
+		)
 		WorldPlacement.Reserve(center, WorldProgressionConfig.Placement.CaveSpacing, "Cave_" .. rescueId)
 		local cave, gate = createCaveModel(definition, center)
 		cave.Parent = cavesFolder
