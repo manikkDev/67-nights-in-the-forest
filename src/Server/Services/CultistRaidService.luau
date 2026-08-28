@@ -42,7 +42,7 @@ local CultistRaidService = Knit.CreateService({
 })
 
 -- | Configuration | --
-local RAID_INTERVAL_DAYS = 4
+local RAID_INTERVAL_DAYS = 1 -- TEMP: raid every night for testing, revert to 4 when done
 local BASE_RAID_SIZE = 3
 local RAID_SIZE_GROWTH_PER_INTERVAL = 1
 local MAX_RAID_SIZE = 8

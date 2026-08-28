@@ -20,7 +20,7 @@ local StudioTest = {
 	SkipLobby = true, -- TEMP: skip lobby for testing, revert to false when done
 	GrantResources = false,
 	InfiniteWood = false,
-	FastClock = false,
+	FastClock = true, -- TEMP: 15s day/night for testing, revert to false when done
 	ForceNight = false,
 	VerboseFlashlight = false,
 	VerboseStalkers = false,
@@ -40,7 +40,7 @@ local Config = {
 	BaseMultiplier = 1,
 	MaxMultiplier = 9,
 
-	RaidCycleInterval = 4,
+	RaidCycleInterval = 1, -- TEMP: raid every night for testing, revert to 4 when done
 
 	DownedDuration = 45,
 	ReviveHoldDuration = 5,
