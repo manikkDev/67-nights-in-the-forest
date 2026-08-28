@@ -108,6 +108,8 @@ local renderConnection: RBXScriptConnection? = nil
 local currentPlayerPos: Vector3? = nil
 
 local staticMarkers: { Frame } = {}
+local markerGroups: { [string]: { Frame } } = {}
+local highlightedGroup: string? = nil
 
 -- // FUNCTIONS // --
 
@@ -189,7 +191,7 @@ local function getDistanceText(worldPos: Vector3): string
 	return formatDistance(dist)
 end
 
-local function createMarker(parent: Instance, worldPos: Vector3, color: Color3, size: number, shape: string, name: string, subText: string, description: string, markerId: number)
+local function createMarker(parent: Instance, worldPos: Vector3, color: Color3, size: number, shape: string, name: string, subText: string, description: string, markerId: number, group: string?)
 	local marker = Instance.new("Frame")
 	marker.Name = "Marker" .. tostring(markerId)
 	marker.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -211,16 +213,27 @@ local function createMarker(parent: Instance, worldPos: Vector3, color: Color3, 
 	stroke.Transparency = 0.15
 	stroke.Parent = marker
 
+	if group then
+		marker:SetAttribute("Group", group)
+		markerGroups[group] = markerGroups[group] or {}
+		table.insert(markerGroups[group], marker)
+		marker:SetAttribute("BaseSize", size)
+	end
+
 	marker.MouseEnter:Connect(function()
 		local distText = getDistanceText(worldPos)
 		local fullSub = if distText ~= "" then subText .. " • " .. distText else subText
 		setHoveredInfo(name, fullSub, distText)
 		showTooltip(marker.Position, name, description)
-		TweenService:Create(marker, TweenInfo.new(0.12), { Size = UDim2.fromOffset(size + 4, size + 4) }):Play()
+		if not highlightedGroup then
+			TweenService:Create(marker, TweenInfo.new(0.12), { Size = UDim2.fromOffset(size + 4, size + 4) }):Play()
+		end
 	end)
 	marker.MouseLeave:Connect(function()
 		hideTooltip()
-		TweenService:Create(marker, TweenInfo.new(0.12), { Size = UDim2.fromOffset(size, size) }):Play()
+		if not highlightedGroup then
+			TweenService:Create(marker, TweenInfo.new(0.12), { Size = UDim2.fromOffset(size, size) }):Play()
+		end
 	end)
 
 	return marker
@@ -342,13 +355,23 @@ local function buildMarkers()
 	end
 	table.clear(staticMarkers)
 
+	-- Reset group tracking
+	for group in pairs(markerGroups) do
+		markerGroups[group] = nil
+	end
+	for _, child in ipairs(minimapFrame:GetChildren()) do
+		if child.Name ~= "PlayerMarker" and child.Name ~= "PlayerArrow" and child.Name ~= "Tooltip" then
+			child:Destroy()
+		end
+	end
+
 	local markerId = 0
 
 	-- Campfire
 	if mapData.campfirePosition then
 		markerId += 1
 		createMarker(minimapFrame, mapData.campfirePosition, COLOR.Campfire, MARKER_SIZE_CAMPFIRE, "circle",
-			"Campfire", "Center of the safe zone", "Your main base and respawn point", markerId)
+			"Campfire", "Center of the safe zone", "Your main base and respawn point", markerId, "campfire")
 	end
 
 	-- Caves
@@ -362,32 +385,37 @@ local function buildMarkers()
 			else "Rescue the missing child here"
 		markerId += 1
 		createMarker(minimapFrame, cave.position, color, MARKER_SIZE_CAVE, "circle",
-			cave.displayName, stateText, desc, markerId)
+			cave.displayName, stateText, desc, markerId, if isLocked then "caveLocked" else "cave")
 	end
 
 	-- Facilities
 	for _, facility in ipairs(mapData.facilities or {}) do
 		local color = COLOR.Playground
 		local desc = "Loot source for scrap and junk"
+		local group = "playground"
 		if facility.type == "Restroom" then
 			color = COLOR.Restroom
 			desc = "Common loot and resources"
+			group = "restroom"
 		elseif facility.type == "Clinic" then
 			color = COLOR.Clinic
 			desc = "Healing items and medical supplies"
+			group = "clinic"
 		end
 		markerId += 1
 		createMarker(minimapFrame, facility.position, color, MARKER_SIZE_FACILITY, "square",
-			facility.type, "Facility", desc, markerId)
+			facility.type, "Facility", desc, markerId, group)
 	end
 
 	-- Buildings
 	for _, building in ipairs(mapData.buildings or {}) do
 		local color = COLOR.Building
 		local desc = "Shelter and loot location"
+		local group = "building"
 		if building.name == "Crashed Plane" then
 			color = COLOR.CrashedPlane
 			desc = "Wreckage with scavengable supplies"
+			group = "crashedPlane"
 		elseif building.name == "Hunters Lodge" then
 			desc = "Hunting cabin with supplies"
 		elseif building.name == "Treehouse" then
@@ -397,7 +425,7 @@ local function buildMarkers()
 		end
 		markerId += 1
 		createMarker(minimapFrame, building.position, color, MARKER_SIZE_BUILDING, "square",
-			building.name, "Building", desc, markerId)
+			building.name, "Building", desc, markerId, group)
 	end
 
 	buildRadiusCircles()
@@ -409,22 +437,82 @@ type LegendEntryDef = {
 	symbol: string,
 	title: string,
 	desc: string,
+	group: string?, -- matches marker group names
 }
 
+local function setMarkerGroupHighlight(group: string?, highlight: boolean)
+	if highlightedGroup == group and highlight then
+		return
+	end
+	if not highlight then
+		highlightedGroup = nil
+	else
+		highlightedGroup = group
+	end
+
+	for g, markers in pairs(markerGroups) do
+		local shouldDim = highlight and g ~= group
+		local shouldGlow = highlight and g == group
+		for _, marker in ipairs(markers) do
+			local baseSize = marker:GetAttribute("BaseSize") or 12
+			if shouldDim then
+				TweenService:Create(marker, TweenInfo.new(0.18), {
+					Size = UDim2.fromOffset(baseSize, baseSize),
+					BackgroundTransparency = 0.7,
+				}):Play()
+			elseif shouldGlow then
+				TweenService:Create(marker, TweenInfo.new(0.18), {
+					Size = UDim2.fromOffset(baseSize + 6, baseSize + 6),
+					BackgroundTransparency = 0,
+				}):Play()
+			else
+				TweenService:Create(marker, TweenInfo.new(0.18), {
+					Size = UDim2.fromOffset(baseSize, baseSize),
+					BackgroundTransparency = 0,
+				}):Play()
+			end
+		end
+	end
+end
+
 local function createLegendEntry(parent: Instance, order: number, entry: LegendEntryDef, count: number?)
-	local row = Instance.new("Frame")
+	local row = Instance.new("TextButton")
 	row.Name = "Entry" .. tostring(order)
 	row.LayoutOrder = order
 	row.Size = UDim2.new(1, 0, 0, 46)
 	row.BackgroundTransparency = 1
+	row.Text = ""
+	row.AutoButtonColor = false
 	row.Parent = parent
 
-	-- Hover background
 	row.MouseEnter:Connect(function()
-		TweenService:Create(row, TweenInfo.new(0.1), { BackgroundColor3 = Color3.fromRGB(55, 52, 60), BackgroundTransparency = 0.4 }):Play()
+		if row:GetAttribute("Active") ~= true then
+			TweenService:Create(row, TweenInfo.new(0.1), { BackgroundColor3 = Color3.fromRGB(55, 52, 60), BackgroundTransparency = 0.4 }):Play()
+		end
 	end)
 	row.MouseLeave:Connect(function()
-		TweenService:Create(row, TweenInfo.new(0.1), { BackgroundTransparency = 1 }):Play()
+		if row:GetAttribute("Active") ~= true then
+			TweenService:Create(row, TweenInfo.new(0.1), { BackgroundTransparency = 1 }):Play()
+		end
+	end)
+
+	local isActive = false
+	row.MouseButton1Click:Connect(function()
+		isActive = not isActive
+		row:SetAttribute("Active", isActive)
+		if isActive then
+			for _, child in ipairs(parent:GetChildren()) do
+				if child:IsA("TextButton") and child ~= row then
+					child:SetAttribute("Active", false)
+					TweenService:Create(child, TweenInfo.new(0.1), { BackgroundTransparency = 1 }):Play()
+				end
+			end
+			setMarkerGroupHighlight(entry.group, true)
+			TweenService:Create(row, TweenInfo.new(0.1), { BackgroundColor3 = Color3.fromRGB(70, 65, 78), BackgroundTransparency = 0.25 }):Play()
+		else
+			setMarkerGroupHighlight(entry.group, false)
+			TweenService:Create(row, TweenInfo.new(0.1), { BackgroundTransparency = 1 }):Play()
+		end
 	end)
 
 	local icon = Instance.new("Frame")
@@ -443,7 +531,6 @@ local function createLegendEntry(parent: Instance, order: number, entry: LegendE
 	iconStroke.Transparency = 0.2
 	iconStroke.Parent = icon
 
-	-- Optional symbol overlay (e.g. "!" for locked, "P" for player)
 	if entry.symbol == "player" then
 		local sym = Instance.new("TextLabel")
 		sym.Size = UDim2.fromScale(1, 1)
@@ -551,38 +638,47 @@ local function buildSidebar(parent: Frame, counts: { [string]: number })
 	createLegendEntry(content, nextOrder(), {
 		color = COLOR.Campfire, symbol = "circle", title = "Campfire",
 		desc = "Your safe zone and respawn point",
+		group = "campfire",
 	}, nil)
 	createLegendEntry(content, nextOrder(), {
 		color = COLOR.Cave, symbol = "circle", title = "Cave (Available)",
 		desc = "Rescue the missing child here",
+		group = "cave",
 	}, counts.caveAvailable)
 	createLegendEntry(content, nextOrder(), {
 		color = COLOR.CaveLocked, symbol = "circle", title = "Cave (Locked)",
 		desc = "Requires higher campfire level",
+		group = "caveLocked",
 	}, counts.caveLocked)
 	createLegendEntry(content, nextOrder(), {
 		color = COLOR.Building, symbol = "square", title = "Building",
 		desc = "Shelters with loot and resources",
+		group = "building",
 	}, counts.building)
 	createLegendEntry(content, nextOrder(), {
 		color = COLOR.CrashedPlane, symbol = "square", title = "Crashed Plane",
 		desc = "Wreckage with scavengable supplies",
+		group = "crashedPlane",
 	}, counts.crashedPlane)
 	createLegendEntry(content, nextOrder(), {
 		color = COLOR.Playground, symbol = "square", title = "Playground",
 		desc = "Common junk and scrap loot",
+		group = "playground",
 	}, counts.playground)
 	createLegendEntry(content, nextOrder(), {
 		color = COLOR.Restroom, symbol = "square", title = "Restroom",
 		desc = "Common loot and resources",
+		group = "restroom",
 	}, counts.restroom)
 	createLegendEntry(content, nextOrder(), {
 		color = COLOR.Clinic, symbol = "square", title = "Clinic",
 		desc = "Healing items and medical supplies",
+		group = "clinic",
 	}, counts.clinic)
 	createLegendEntry(content, nextOrder(), {
 		color = COLOR.Player, symbol = "player", title = "You",
 		desc = "Your current position and facing",
+		group = nil,
 	}, nil)
 
 	-- Spacer
@@ -965,7 +1061,6 @@ local function updatePlayerMarker()
 	end
 	local character = Players.LocalPlayer.Character
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-	local camera = workspace.CurrentCamera
 	if not rootPart or not rootPart:IsA("BasePart") then
 		return
 	end
@@ -973,19 +1068,19 @@ local function updatePlayerMarker()
 	local mapPos = worldToMap(rootPart.Position)
 	playerMarker.Position = mapPos
 
-	if camera then
-		local look = camera.CFrame.LookVector
-		local flatLook = Vector3.new(look.X, 0, look.Z)
-		if flatLook.Magnitude > 0 then
-			local angleRad = math.atan2(flatLook.X, -flatLook.Z)
-			local angleDeg = math.deg(angleRad)
-			playerArrow.Rotation = angleDeg
-			-- Position the arrow just ahead of the player marker in the look direction
-			local offset = 16
-			local dx = math.sin(angleRad) * offset
-			local dy = -math.cos(angleRad) * offset
-			playerArrow.Position = UDim2.new(mapPos.X.Scale, mapPos.X.Offset + dx, mapPos.Y.Scale, mapPos.Y.Offset + dy)
-		end
+	-- Use the character's actual facing direction (where they are heading), not the camera
+	local look = rootPart.CFrame.LookVector
+	local flatLook = Vector3.new(look.X, 0, look.Z)
+	if flatLook.Magnitude > 0 then
+		flatLook = flatLook.Unit
+		local angleRad = math.atan2(flatLook.X, -flatLook.Z)
+		local angleDeg = math.deg(angleRad)
+		playerArrow.Rotation = angleDeg
+		-- Position the arrow ahead of the player marker in the heading direction
+		local offset = 14
+		local dx = math.sin(angleRad) * offset
+		local dy = -math.cos(angleRad) * offset
+		playerArrow.Position = UDim2.new(mapPos.X.Scale, mapPos.X.Offset + dx, mapPos.Y.Scale, mapPos.Y.Offset + dy)
 	end
 end
 
