@@ -673,7 +673,7 @@ local function buildDropModel(resourceName: string): Model
 		end
 	end
 
-	local isJunk = JunkItemConfig[resourceName] ~= nil
+	local _isJunk = JunkItemConfig[resourceName] ~= nil
 
 	for _, descendant in ipairs(model:GetDescendants()) do
 		if descendant:IsA("BasePart") then
@@ -942,13 +942,8 @@ local function tryDropOne(player: Player): boolean
 	Debris:AddItem(model, DROP_LIFETIME)
 
 	updatePlayerData(player, function(playerData)
-		if RunConfig.IsTestEnabled("GrantResources") then
-			table.remove(playerData.Inventory.PickupOrder, 1)
-			table.insert(playerData.Inventory.PickupOrder, resourceName)
-		else
-			playerData.Resources[resourceName] -= 1
-			table.remove(playerData.Inventory.PickupOrder, 1)
-		end
+		playerData.Resources[resourceName] -= 1
+		table.remove(playerData.Inventory.PickupOrder, 1)
 	end)
 
 	broadcastSnapshot(player)

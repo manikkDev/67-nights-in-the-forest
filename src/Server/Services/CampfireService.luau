@@ -119,7 +119,7 @@ local SAFE_ZONE_LINE_TRANSPARENCY = 0
 local SAFE_ZONE_LINE_OFF_TRANSPARENCY = 1
 local SAFE_ZONE_BROADCAST_THRESHOLD = 0.5
 local LOG_SCAN_INTERVAL = 0.2
-local LOG_SCAN_RADIUS = 8
+local LOG_SCAN_RADIUS = 14
 
 -- | State Management | --
 local worldService: any = nil
@@ -774,7 +774,23 @@ local function setupCampfire()
 		end
 	end
 
-	-- Drop-only interaction: no Add Wood / Cook Meat proximity prompts.
+	-- Add Wood ProximityPrompt so players can press E to feed wood from inventory
+	local existingPrompt = campfirePart:FindFirstChildWhichIsA("ProximityPrompt")
+	if not existingPrompt then
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.Name = "FeedCampfirePrompt"
+		prompt.ActionText = "Add Wood"
+		prompt.ObjectText = "Campfire"
+		prompt.KeyboardKeyCode = Enum.KeyCode.E
+		prompt.GamepadKeyCode = Enum.KeyCode.ButtonY
+		prompt.HoldDuration = 0
+		prompt.MaxActivationDistance = FEED_RANGE
+		prompt.RequiresLineOfSight = false
+		prompt.Parent = campfirePart
+		prompt.Triggered:Connect(function(player)
+			CampfireService:_FeedCampfire(player, 1)
+		end)
+	end
 
 	-- Remove any old safe zone visuals (disc or previous dots) before creating fresh dots
 	local oldFolder = map and map:FindFirstChild("SafeZoneDots")

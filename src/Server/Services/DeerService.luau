@@ -58,6 +58,7 @@ local BASE_STUN_DURATION = 4
 local STUN_DECAY_PER_USE = 0.6
 local MIN_STUN_DURATION = 1
 local STUN_RESISTANCE_RECOVERY_TIME = 45
+local MAX_CONTINUOUS_STUN = 8 -- max total seconds the deer can stay stunned from continuous beam refresh
 local RETREAT_HOLD_TIME = 3
 local GAIT_AMPLITUDE = math.rad(35)
 local GAIT_ARM_AMPLITUDE = math.rad(22)
@@ -91,6 +92,7 @@ local timeService: any = nil
 local campfireService: any = nil
 local spawnService: any = nil
 local playerLifeService: any = nil
+local worldProgressionService: any = nil
 local stalkers: { [string]: any } = {}
 local deerSuppressed = false
 local activeStalkerKey: string? = nil  -- which stalker is active tonight ("Deer" or "RamMonster")
@@ -386,6 +388,9 @@ local function spawnStalker(key: string)
 		lastStunTime = 0,
 		stunUntil = 0,
 		stunEndPlayed = false,
+		stunStartTime = 0, -- when the current continuous stun began
+		stunImmune = false, -- true when deer has been stunned too long and needs to recover
+		postStunLockout = 0, -- time until which the deer pauses after stun ends
 		retreatUntil = 0,
 		nextDecisionTime = 0,
 		pursuitStartTime = nil,
@@ -477,12 +482,21 @@ local function updateStalkerState(stalker)
 					endTrack:Play(0.1)
 				end
 			end
-			-- Wait a brief moment for StunnedEnd to start before transitioning state
-			task.delay(0.3, function()
-				if stalker.state == "Stunned" and os.clock() >= stalker.stunUntil then
-					stalker.state = if stalker.target then "Pursuing" else "Patrol"
+			-- Set a brief lockout so the deer pauses after stun ends
+			-- before resuming movement (lets StunnedEnd animation play)
+			if stalker.postStunLockout == 0 then
+				stalker.postStunLockout = now + 0.5
+			end
+			-- Transition after the lockout
+			if now >= stalker.postStunLockout then
+				stalker.state = if stalker.target then "Pursuing" else "Patrol"
+				stalker.postStunLockout = 0
+				-- Clear stun immunity flag after recovery
+				if stalker.stunImmune and now - stalker.stunUntil >= STUN_RESISTANCE_RECOVERY_TIME * 0.5 then
+					stalker.stunImmune = false
+					stalker.consecutiveStuns = 0
 				end
-			end)
+			end
 		end
 		return
 	end
@@ -541,7 +555,13 @@ local function updateStalkerState(stalker)
 		stalker.state = "Patrol"
 		local campfirePosition = (worldService and worldService:GetCampfireCFrame() or CFrame.new()).Position
 		local angle = math.random() * math.pi * 2
-		local entryOffset = Vector3.new(math.cos(angle) * 90, 0, math.sin(angle) * 90)
+		-- Spawn far from campfire but within the current accessible map area
+		-- Use 60-90% of the access radius so it's far but not outside the boundary
+		local accessRadius = if worldProgressionService then worldProgressionService:GetAccessRadius() else 350
+		local minSpawn = math.max(80, accessRadius * 0.6)
+		local maxSpawn = math.max(minSpawn + 50, accessRadius * 0.9)
+		local spawnDistance = minSpawn + math.random() * (maxSpawn - minSpawn)
+		local entryOffset = Vector3.new(math.cos(angle) * spawnDistance, 0, math.sin(angle) * spawnDistance)
 		local spawnPos = campfirePosition + entryOffset
 		local groundY = worldService and worldService:GetGroundY()
 		spawnPos = Vector3.new(spawnPos.X, (groundY or spawnPos.Y) + 5, spawnPos.Z)
@@ -582,6 +602,13 @@ end
     @param    stalker  table
 ]]
 local function runStalkerBehavior(stalker)
+	-- Post-stun lockout: keep the deer paused briefly after stun ends
+	if stalker.postStunLockout > 0 and os.clock() < stalker.postStunLockout then
+		stalker.humanoid.WalkSpeed = 0
+		stalker.humanoid:MoveTo(stalker.rootPart.Position)
+		return
+	end
+
 	if stalker.state == "Dormant" or stalker.state == "Stunned" then
 		stalker.humanoid.WalkSpeed = 0
 		if stalker.state == "Stunned" then
@@ -722,24 +749,51 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 
 			local now = os.clock()
 
-			-- If already stunned, just refresh/extend the stun timer so
-			-- the stalker stays stunned as long as the beam stays on.
-			-- Don't increment consecutiveStuns or replay StunnedStart.
+			-- If the deer is stun-immune (was stunned too long), don't re-stun
+			-- until the immunity period passes
+			if stalker.stunImmune then
+				if now - stalker.stunUntil >= STUN_RESISTANCE_RECOVERY_TIME * 0.5 then
+					-- Immunity expired, allow stunning again
+					stalker.stunImmune = false
+					stalker.consecutiveStuns = 0
+				else
+					return false
+				end
+			end
+
+			-- If already stunned, refresh the stun timer BUT cap the total
+			-- continuous stun time so the deer eventually breaks free.
 			if stalker.state == "Stunned" then
+				local continuousStunTime = now - stalker.stunStartTime
+				if continuousStunTime >= MAX_CONTINUOUS_STUN then
+					-- Deer has been stunned too long — break free and become immune
+					stalker.stunImmune = true
+					stalker.stunUntil = now -- expire immediately
+					stalker.stunEndPlayed = false
+					return false
+				end
+				-- Refresh stun but don't extend beyond the max continuous cap
 				local refreshDuration = math.max(
 					BASE_STUN_DURATION - (stalker.consecutiveStuns - 1) * STUN_DECAY_PER_USE,
 					MIN_STUN_DURATION
 				)
-				stalker.stunUntil = now + refreshDuration
+				local maxRemaining = MAX_CONTINUOUS_STUN - continuousStunTime
+				stalker.stunUntil = now + math.min(refreshDuration, maxRemaining)
 				stalker.stunEndPlayed = false
-				-- Ensure StunnedLoop is playing (in case StunnedStart just ended)
+				-- Ensure StunnedLoop is playing
 				local loopTrack = stalker.tracks["StunnedLoop"]
 				if loopTrack and not loopTrack.IsPlaying then
-					loopTrack:Play(0.1)
+					local startTrack = stalker.tracks["StunnedStart"]
+					if startTrack and startTrack.IsPlaying then
+						-- Let StunnedStart finish naturally
+					else
+						loopTrack:Play(0.1)
+					end
 				end
 				return true
 			end
 
+			-- New stun application
 			if (now - stalker.lastStunTime) >= STUN_RESISTANCE_RECOVERY_TIME then
 				stalker.consecutiveStuns = 0
 			end
@@ -753,16 +807,16 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 
 			stalker.state = "Stunned"
 			stalker.stunUntil = now + duration
+			stalker.stunStartTime = now
 			stalker.humanoid.WalkSpeed = 0
 			stalker.stunEndPlayed = false
 			-- Stop all tracks immediately so Attack/Run don't override StunnedStart
 			stopAllTracks(stalker)
-			-- Play StunnedStart directly (not via playTrack which would call stopAllTracks again)
+			-- Play StunnedStart directly
 			local startTrack = stalker.tracks["StunnedStart"]
 			if startTrack then
 				startTrack:Play(0.1)
 			else
-				-- Fallback: if no StunnedStart track, play StunnedLoop directly
 				local loopTrack = stalker.tracks["StunnedLoop"]
 				if loopTrack then
 					loopTrack:Play(0.1)
@@ -810,6 +864,7 @@ function DeerService:KnitStart()
 	campfireService = Knit.GetService("CampfireService")
 	spawnService = Knit.GetService("SpawnService")
 	playerLifeService = Knit.GetService("PlayerLifeService")
+	worldProgressionService = Knit.GetService("WorldProgressionService")
 
 	task.delay(3, function()
 		spawnStalker("Deer")

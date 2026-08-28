@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
+local WorldPlacement = require(script.Parent.Parent.WorldPlacement)
 
 local WorldProgressionService = Knit.CreateService({
 	Name = "WorldProgressionService",
@@ -40,11 +41,15 @@ end
 local function relocateBuildings()
 	local baseMap = worldService:GetBaseMap()
 	local campfireCFrame = worldService:GetCampfireCFrame()
-	if not baseMap or not campfireCFrame then
+	local groundPart = worldService:GetGroundPart()
+	if not baseMap or not campfireCFrame or not groundPart then
 		return
 	end
 	local center = campfireCFrame.Position
-	local maxRadius = accessRadius - 25
+	local bounds = worldService:GetGroundBounds()
+	if not bounds then
+		return
+	end
 	local buildingNames = {
 		["cabin"] = true,
 		["modern-house"] = true,
@@ -53,25 +58,120 @@ local function relocateBuildings()
 		["Tower"] = true,
 		["Crashed Plane"] = true,
 	}
-	local moved = 0
+	-- Collect ALL buildings from the base map
+	local buildings = {}
 	for _, desc in ipairs(baseMap:GetDescendants()) do
 		if desc:IsA("Model") and buildingNames[desc.Name] then
-			local pivot = desc:GetPivot()
-			local flatDist = (Vector3.new(pivot.Position.X, 0, pivot.Position.Z) - Vector3.new(center.X, 0, center.Z)).Magnitude
-			if flatDist > maxRadius then
-				local direction = if flatDist > 0
-					then Vector3.new(pivot.Position.X - center.X, 0, pivot.Position.Z - center.Z).Unit
-					else Vector3.xAxis
-				local newFlat = center + direction * (maxRadius - 10)
-				local newY = pivot.Position.Y
-				desc:PivotTo(CFrame.new(newFlat.X, newY, newFlat.Z) * pivot.Rotation)
-				moved += 1
+			table.insert(buildings, desc)
+		end
+	end
+	if #buildings == 0 then
+		return
+	end
+	-- Distribute buildings across the map:
+	-- No buildings near campfire. 2 buildings in level 1 area but far from campfire.
+	-- Rest spread from level 2 to map edge.
+	local level1Radius = WorldProgressionConfig.GetAccessRadius(1)
+	local maxRadius = WorldProgressionConfig.MapRadius - 40
+	local seedBase = WorldPlacement.Hash("BuildingDistribution")
+	local moved = 0
+	for index, building in ipairs(buildings) do
+		local ringMin, ringMax
+		if index <= 2 then
+			-- First 2 buildings: far edge of level 1 area (not near campfire)
+			ringMin = level1Radius - 60
+			ringMax = level1Radius - 20
+		else
+			-- Remaining buildings: spread evenly from level 2 radius to map edge
+			local remaining = #buildings - 2
+			local remainingIndex = index - 2
+			local level2Radius = WorldProgressionConfig.GetAccessRadius(2)
+			local span = maxRadius - level2Radius
+			local fraction = (remainingIndex - 1) / math.max(1, remaining - 1)
+			ringMin = level2Radius + fraction * span - 40
+			ringMax = level2Radius + fraction * span + 40
+			ringMin = math.max(level2Radius, ringMin)
+			ringMax = math.min(maxRadius, ringMax)
+			if ringMax <= ringMin then
+				ringMin = level2Radius
+				ringMax = maxRadius
+			end
+		end
+		local extents = building:GetExtentsSize()
+		local footprint = Vector3.new(extents.X + 15, extents.Y + 6, extents.Z + 15)
+		local clearanceRadius = math.max(extents.X, extents.Z) * 0.5 + 12
+		-- Ensure all parts are anchored so they don't fall after placement
+		for _, desc in ipairs(building:GetDescendants()) do
+			if desc:IsA("BasePart") then
+				desc.Anchored = true
+			end
+		end
+		local placement = WorldPlacement.FindPosition({
+			center = center,
+			groundPart = groundPart,
+			bounds = bounds,
+			minDistance = ringMin,
+			maxDistance = ringMax,
+			footprint = footprint,
+			clearanceRadius = clearanceRadius,
+			seed = seedBase + index * 7,
+			exclusions = { groundPart },
+			maxRetries = 200,
+			maxSlope = 8,
+			faceCenter = true,
+		})
+		if placement then
+			-- First, move the building to the target position with yaw-only orientation
+			-- at a temporary Y, then find the actual lowest part to get an accurate bottom offset.
+			local yaw = select(2, placement:ToEulerAnglesYXZ())
+			building:PivotTo(CFrame.new(placement.Position.X, placement.Position.Y + 500, placement.Position.Z) * CFrame.Angles(0, yaw, 0))
+			-- Find the actual lowest part by iterating through all parts
+			-- This is more reliable than GetBoundingBox for models with unusual pivots
+			local pivotY = building:GetPivot().Position.Y
+			local lowestY = math.huge
+			for _, desc in ipairs(building:GetDescendants()) do
+				if desc:IsA("BasePart") then
+					if desc.Position.Y < lowestY then
+						lowestY = desc.Position.Y
+					end
+				end
+			end
+			local bottomOffset = if lowestY ~= math.huge then pivotY - lowestY else 0
+			if bottomOffset < 0 then
+				bottomOffset = 0
+			end
+			-- Now place at the correct Y so the bottom sits on the ground
+			local placeY = placement.Position.Y + bottomOffset
+			building:PivotTo(CFrame.new(placement.Position.X, placeY, placement.Position.Z) * CFrame.Angles(0, yaw, 0))
+			WorldPlacement.Reserve(Vector3.new(placement.Position.X, 0, placement.Position.Z), clearanceRadius, "Building_" .. building.Name)
+			moved += 1
+		else
+			-- Fallback: keep original position but fix ground alignment with yaw-only
+			local pivot = building:GetPivot()
+			local yaw = select(2, pivot:ToEulerAnglesYXZ())
+			local groundCFrame = WorldPlacement.GetGroundCFrame(groundPart, pivot.Position, 0)
+			if groundCFrame then
+				-- Move to temp position with yaw-only, then find lowest part
+				building:PivotTo(CFrame.new(groundCFrame.Position.X, groundCFrame.Position.Y + 500, groundCFrame.Position.Z) * CFrame.Angles(0, yaw, 0))
+				local pivotY = building:GetPivot().Position.Y
+				local lowestY = math.huge
+				for _, desc in ipairs(building:GetDescendants()) do
+					if desc:IsA("BasePart") then
+						if desc.Position.Y < lowestY then
+							lowestY = desc.Position.Y
+						end
+					end
+				end
+				local bottomOffset = if lowestY ~= math.huge then pivotY - lowestY else 0
+				if bottomOffset < 0 then
+					bottomOffset = 0
+				end
+				local placeY = groundCFrame.Position.Y + bottomOffset
+				building:PivotTo(CFrame.new(groundCFrame.Position.X, placeY, groundCFrame.Position.Z) * CFrame.Angles(0, yaw, 0))
 			end
 		end
 	end
-	if moved > 0 then
-		print(("[WorldProgressionService] Relocated %d buildings inside the boundary"):format(moved))
-	end
+	print(("[WorldProgressionService] Redistributed %d/%d buildings across the map"):format(moved, #buildings))
 end
 
 local function ensureBoundary()
@@ -198,6 +298,8 @@ function WorldProgressionService:KnitStart()
 
 	runStateService.RunStarted:Connect(function()
 		accessRadius = WorldProgressionConfig.GetAccessRadius(campfireService:GetLevel())
+		-- Relocate buildings FIRST so their reservations are in place
+		-- before facilities and caves are placed
 		relocateBuildings()
 		boundaryFolder = nil
 		table.clear(boundaryParts)

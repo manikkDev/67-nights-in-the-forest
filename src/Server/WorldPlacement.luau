@@ -61,6 +61,7 @@ function WorldPlacement.GetGroundCFrame(groundPart: BasePart, position: Vector3,
 	local groundPosition = if result
 		then result.Position
 		else Vector3.new(position.X, groundPart.Position.Y + groundPart.Size.Y * 0.5, position.Z)
+	-- Always use a flat CFrame (only Y-axis rotation) so structures are never tilted
 	return CFrame.new(groundPosition) * CFrame.Angles(0, yaw or 0, 0), Vector3.yAxis
 end
 
@@ -210,7 +211,9 @@ function WorldPlacement.FindPosition(options: {
 			bestExclusions = exclusions
 		end
 	end
-	if options.allowFallback and bestCFrame then
+	-- Only allow fallback if explicitly requested AND the best position has
+	-- zero overlaps. Never return a position that overlaps existing objects.
+	if options.allowFallback and bestCFrame and bestOverlapCount == 0 then
 		return bestCFrame, bestOverlapCount, bestExclusions
 	end
 	return nil

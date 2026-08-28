@@ -1,12 +1,14 @@
 local Config = {
-	MapRadius = 1600,
-	AccessRadiusByLevel = { 250, 400, 560, 750, 1000, 1300 },
-	SafeZoneRadiusByLevel = { 50, 70, 95, 125, 160, 205 },
+	MapRadius = 1000,
+	-- Levels 1-2 small, level 3+ much bigger jumps to map edge
+	AccessRadiusByLevel = { 200, 350, 600, 780, 900, 1000 },
+	SafeZoneRadiusByLevel = { 30, 45, 60, 80, 100, 130 },
+	-- Caves far from campfire, progressively harder to find by rescue order
 	CaveRings = {
-		Dino = { Min = 150, Max = 210 },
-		Kraken = { Min = 270, Max = 350 },
-		Squid = { Min = 430, Max = 520 },
-		Koala = { Min = 600, Max = 700 },
+		Dino = { Min = 400, Max = 500 },
+		Kraken = { Min = 550, Max = 650 },
+		Squid = { Min = 700, Max = 800 },
+		Koala = { Min = 850, Max = 950 },
 	},
 	Boundary = {
 		Height = 220,
@@ -17,10 +19,10 @@ local Config = {
 		CheckInterval = 0.15,
 	},
 	Placement = {
-		MaxRetries = 200,
-		CaveFootprint = Vector3.new(40, 14, 38),
-		CaveSpacing = 80,
-		MaxSlope = 12,
+		MaxRetries = 250,
+		CaveFootprint = Vector3.new(42, 14, 40),
+		CaveSpacing = 90,
+		MaxSlope = 10,
 	},
 }
 

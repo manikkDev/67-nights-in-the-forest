@@ -183,6 +183,7 @@ local function createCaveModel(definition, center: Vector3): (Model, Part)
 	prompt.ActionText = "Unlock"
 	prompt.ObjectText = definition.KeyName .. " Gate"
 	prompt.MaxActivationDistance = PICKUP_RANGE
+	prompt.RequiresLineOfSight = false
 	prompt.Enabled = false
 	prompt.Parent = gate
 	prompt.Triggered:Connect(function(player)
@@ -254,7 +255,11 @@ local function createChild(definition, caveCFrame: CFrame): Model?
 	styleChildVariant(child, definition)
 	child.Parent = cavesFolder
 	child:PivotTo(caveCFrame * CFrame.new(0, 3, -7))
+	-- Search recursively for HumanoidRootPart (may not be a direct child)
 	local rootPart = child:FindFirstChild("HumanoidRootPart")
+	if not rootPart then
+		rootPart = child:FindFirstChildWhichIsA("BasePart", true)
+	end
 	if rootPart and rootPart:IsA("BasePart") then
 		rootPart.Anchored = true
 		local prompt = Instance.new("ProximityPrompt")
@@ -262,11 +267,14 @@ local function createChild(definition, caveCFrame: CFrame): Model?
 		prompt.ActionText = "Carry Child"
 		prompt.ObjectText = definition.DisplayName
 		prompt.MaxActivationDistance = PICKUP_RANGE
+		prompt.RequiresLineOfSight = false
 		prompt.Enabled = false
 		prompt.Parent = rootPart
 		prompt.Triggered:Connect(function(player)
 			RescueService:TryCarryChild(player, definition.Id)
 		end)
+	else
+		warn("[RescueService] Could not find root part for child", definition.DisplayName)
 	end
 	return child
 end
@@ -284,53 +292,52 @@ local function clearCaveObstacles(cframe: CFrame, footprint: Vector3)
 	local baseMap = worldService:GetBaseMap()
 	local runtimeFolder = runStateService:GetRuntimeFolder()
 	local exclusions = {}
-	-- Exclude ground, runtime folder (caves/tents are inside it), and base map ground
+	-- Only exclude the ground part and other caves/tents
 	local ground = worldService:GetGroundPart()
 	if ground then
 		table.insert(exclusions, ground)
 	end
-	-- Also exclude the Caves and RescueTents folders so we don't destroy other caves
 	if cavesFolder then
 		table.insert(exclusions, cavesFolder)
 	end
 	if tentsFolder then
 		table.insert(exclusions, tentsFolder)
 	end
-	-- Exclude the poster board model
-	if posterBoard and posterBoard.Parent then
-		table.insert(exclusions, posterBoard.Parent)
-	end
 
-	-- Use a slightly larger footprint for clearing to ensure surrounding objects are removed
-	local clearFootprint = Vector3.new(footprint.X + 6, footprint.Y, footprint.Z + 6)
+	-- Use a larger footprint for clearing (extra 10 studs on each side)
+	local clearFootprint = Vector3.new(footprint.X + 10, footprint.Y + 4, footprint.Z + 10)
 	local overlaps = WorldPlacement.GetFootprintOverlaps(cframe, clearFootprint, exclusions)
 	for _, part in ipairs(overlaps) do
-		-- Walk up to find the top-level model to remove
+		-- Walk up to find the top-level model/folder to remove
 		local toRemove = part
 		local ancestor = part.Parent
 		while ancestor and ancestor.Parent do
 			if ancestor:IsA("Model") or ancestor:IsA("Folder") then
-				-- Stop if we reach workspace-level or a protected container
-				if ancestor.Parent == workspace or ancestor.Parent == baseMap then
+				if ancestor.Parent == workspace or ancestor.Parent == baseMap or ancestor == runtimeFolder then
 					toRemove = ancestor
 					break
 				end
 			end
 			ancestor = ancestor.Parent
 		end
-		-- Never remove the ground or campfire/bonfire
+		-- Never remove the ground
 		if toRemove:IsA("BasePart") and (toRemove.Name == "Земля" or toRemove.Name == "Ground") then
 			continue
 		end
+		-- Never remove the campfire/bonfire
 		if toRemove.Name == "Bonfire" or toRemove.Name == "Campfire" then
 			continue
 		end
-		-- Never remove caves or tents
-		if toRemove == cavesFolder or toRemove == tentsFolder then
+		-- Never remove caves, tents, or the runtime folder itself
+		if toRemove == cavesFolder or toRemove == tentsFolder or toRemove == runtimeFolder then
 			continue
 		end
-		-- Skip if it's a cave model
+		-- Skip if it's another cave model
 		if toRemove:IsA("Model") and toRemove:GetAttribute("CaveId") then
+			continue
+		end
+		-- Skip the poster board model
+		if toRemove:IsA("Model") and toRemove.Name == "MissingChildrenBoard" then
 			continue
 		end
 		toRemove:Destroy()
@@ -380,7 +387,6 @@ local function buildCaves()
 			maxRetries = WorldProgressionConfig.Placement.MaxRetries,
 			maxSlope = WorldProgressionConfig.Placement.MaxSlope,
 			faceCenter = true,
-			allowFallback = true,
 		})
 		if not caveCFrame then
 			warn("[RescueService] No cave position found for", rescueId)
@@ -400,6 +406,11 @@ local function buildCaves()
 		local cave, gate = createCaveModel(definition, center)
 		cave.Parent = cavesFolder
 		cave:PivotTo(caveCFrame * CFrame.new(0, 0.5, 0))
+		-- Clear obstacles again AFTER placing the cave (the cave itself is now in cavesFolder, which is excluded)
+		clearCaveObstacles(
+			caveCFrame * CFrame.new(0, WorldProgressionConfig.Placement.CaveFootprint.Y * 0.5, 0),
+			WorldProgressionConfig.Placement.CaveFootprint
+		)
 		local child = createChild(definition, caveCFrame)
 		caveRecords[rescueId] = {
 			definition = definition,
@@ -478,11 +489,12 @@ local function spawnKey(record)
 	part.Parent = key
 	key.PrimaryPart = part
 	key.Parent = cavesFolder
-	key:PivotTo(CFrame.new(record.center + Vector3.new(0, 2, 8)))
+	key:PivotTo(CFrame.new(record.center + Vector3.new(0, 2, 20)))
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.ActionText = "Take Key"
 	prompt.ObjectText = record.definition.KeyName
 	prompt.MaxActivationDistance = PICKUP_RANGE
+	prompt.RequiresLineOfSight = false
 	prompt.Parent = part
 	prompt.Triggered:Connect(function(player)
 		RescueService:TryPickupKey(player, record.definition.Id)
@@ -1083,13 +1095,23 @@ function RescueService:TryCarryChild(player: Player, caveId: string): boolean
 	end
 	local character = player.Character
 	local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
+	-- Search recursively for the child's root part
 	local childRoot = record.child:FindFirstChild("HumanoidRootPart")
+	if not childRoot then
+		childRoot = record.child:FindFirstChildWhichIsA("BasePart", true)
+	end
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if not playerRoot or not childRoot or not playerRoot:IsA("BasePart") or not childRoot:IsA("BasePart") or not humanoid then
 		return false
 	end
-	if character:FindFirstChildOfClass("Tool") or (playerRoot.Position - childRoot.Position).Magnitude > PICKUP_RANGE then
+	if (playerRoot.Position - childRoot.Position).Magnitude > PICKUP_RANGE then
 		return false
+	end
+
+	-- Unequip any held tool so the child can be carried
+	local heldTool = character:FindFirstChildOfClass("Tool")
+	if heldTool then
+		heldTool.Parent = player:FindFirstChild("Backpack") or character
 	end
 
 	childRoot.Anchored = false
@@ -1268,13 +1290,16 @@ function RescueService:KnitStart()
 	playerLifeService = Knit.GetService("PlayerLifeService")
 
 	runStateService.RunStarted:Connect(function()
-		buildCaves()
-		createPosterBoard()
-		unlockForLevel(campfireService:GetLevel())
-		updatePosterStates()
-		if not heartbeatConnection then
-			heartbeatConnection = RunService.Heartbeat:Connect(onHeartbeat)
-		end
+		-- Wait one frame so buildings and facilities are placed and reserved first
+		task.defer(function()
+			buildCaves()
+			createPosterBoard()
+			unlockForLevel(campfireService:GetLevel())
+			updatePosterStates()
+			if not heartbeatConnection then
+				heartbeatConnection = RunService.Heartbeat:Connect(onHeartbeat)
+			end
+		end)
 	end)
 	campfireService.LevelChangedServer:Connect(function(level)
 		unlockForLevel(level)

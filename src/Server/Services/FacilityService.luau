@@ -24,6 +24,7 @@
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
+local Workspace = game:GetService("Workspace")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -40,17 +41,17 @@ local FacilityService = Knit.CreateService({
 })
 
 -- | Configuration | --
-local CAMP_RADIUS = 110
-local MIN_FACILITY_DISTANCE = 80
-local MAX_FACILITY_DISTANCE = 600
+local CAMP_RADIUS = 80
+local MIN_FACILITY_DISTANCE = 60
+local MAX_FACILITY_DISTANCE = 950
 local RESPAWN_TIME = 90
 local JUNK_LIFETIME = 600
 local GROUND_RAY_HEIGHT = 500
 
 local FACILITY_COUNTS = {
-	Playground = { min = 6, max = 8 },
-	Restroom = { min = 3, max = 5 },
-	Clinic = { min = 2, max = 3 },
+	Playground = { min = 4, max = 6 },
+	Restroom = { min = 2, max = 3 },
+	Clinic = { min = 1, max = 2 },
 }
 
 -- Loot tables per facility type (sourced from the 99 Nights wiki)
@@ -64,7 +65,7 @@ local FACILITY_LOOT = {
 	Clinic = { "Bolt", "SheetMetal", "Tyre", "OldRadio", "BrokenFan", "BrokenMicrowave", "MetalChair" },
 }
 
-local JUNK_PER_FACILITY = { min = 5, max = 10 }
+local JUNK_PER_FACILITY = { min = 1, max = 3 }
 
 -- | State Management | --
 local runStateService: any = nil
@@ -95,20 +96,21 @@ local function randomFacilityPosition(model: Model, unlockLevel: number, seed: n
 	local previousRadius = if unlockLevel > 1 then WorldProgressionConfig.GetAccessRadius(unlockLevel - 1) else MIN_FACILITY_DISTANCE
 	local currentRadius = WorldProgressionConfig.GetAccessRadius(unlockLevel)
 	local extents = model:GetExtentsSize()
-	local footprint = Vector3.new(math.max(extents.X + 18, 28), math.max(extents.Y + 4, 12), math.max(extents.Z + 18, 28))
+	local footprint = Vector3.new(math.max(extents.X + 12, 24), math.max(extents.Y + 4, 12), math.max(extents.Z + 12, 24))
+	local clearanceRadius = math.max(footprint.X, footprint.Z) * 0.6
 	return WorldPlacement.FindPosition({
 		center = campfirePosition,
 		groundPart = groundPart,
 		bounds = groundBounds,
-		minDistance = previousRadius + 25,
-		maxDistance = currentRadius - 45,
+		minDistance = previousRadius + 15,
+		maxDistance = currentRadius - 25,
 		footprint = footprint,
-		clearanceRadius = math.max(footprint.X, footprint.Z) * 0.6,
+		clearanceRadius = clearanceRadius,
 		seed = seed,
 		exclusions = { groundPart },
-		maxRetries = 64,
-		maxSlope = 12,
-	})
+		maxRetries = 150,
+		maxSlope = 10,
+	}), clearanceRadius
 end
 
 --[[
@@ -335,10 +337,26 @@ local function spawnJunkItem(facilityModel: Model, junkId: string)
 	local spawnX = pivot.X + offsetX
 	local spawnZ = pivot.Z + offsetZ
 
+	-- Raycast to find the actual ground height at this position
+	-- instead of using a flat groundY which causes floating on uneven terrain
+	local groundPart = worldService:GetGroundPart()
+	local actualGroundY = groundY
+	if groundPart then
+		local rayOrigin = Vector3.new(spawnX, groundY + 100, spawnZ)
+		local rayDirection = Vector3.new(0, -200, 0)
+		local raycastParams = RaycastParams.new()
+		raycastParams.FilterType = Enum.RaycastFilterType.Include
+		raycastParams.FilterDescendantsInstances = { groundPart }
+		local result = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
+		if result then
+			actualGroundY = result.Position.Y
+		end
+	end
+
 	-- Get the distance from the model's pivot to its lowest part
 	local bottomOffset = inventoryService:GetModelBottomOffset(model)
 	-- Place pivot so the lowest part sits 0.5 studs above the ground
-	local spawnY = groundY + bottomOffset + 0.5
+	local spawnY = actualGroundY + bottomOffset + 0.5
 
 	-- Do NOT apply random rotation — keep the model's authored orientation
 	-- so it appears upright as designed.  Only apply a small random Y rotation.
@@ -427,17 +445,17 @@ local function spawnFacilities()
 				continue
 			end
 			local unlockLevel = ((index + typeIndex - 2) % #WorldProgressionConfig.AccessRadiusByLevel) + 1
-			local placement = randomFacilityPosition(model, unlockLevel, seedBase + WorldPlacement.Hash(facilityType) + index)
+			local placement, clearanceRadius = randomFacilityPosition(model, unlockLevel, seedBase + WorldPlacement.Hash(facilityType) + index)
 			if not placement then
 				warn(("[FacilityService] No collision-free position found for %s"):format(facilityType))
 				model:Destroy()
 				continue
 			end
+			-- Reserve the space BEFORE placing so subsequent facilities don't overlap
+			WorldPlacement.Reserve(placement.Position, clearanceRadius, "Facility_" .. facilityType)
 			model:SetAttribute("UnlockLevel", unlockLevel)
 			model:PivotTo(placement)
 			model.Parent = folder
-			local extents = model:GetExtentsSize()
-			WorldPlacement.Reserve(placement.Position, math.max(extents.X, extents.Z) * 0.6 + 10, "Facility_" .. facilityType)
 			local facility = { model = model, type = facilityType }
 			table.insert(facilities, facility)
 			populateFacility(facility)
@@ -454,7 +472,10 @@ function FacilityService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	inventoryService = Knit.GetService("InventoryService")
 
-	runStateService.RunStarted:Connect(spawnFacilities)
+	runStateService.RunStarted:Connect(function()
+		-- Wait one frame so buildings are relocated and reserved first
+		task.defer(spawnFacilities)
+	end)
 	runStateService.RunCleaned:Connect(function()
 		facilities = {}
 		junkModels = {}

@@ -36,6 +36,7 @@ local TweenService = game:GetService("TweenService")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local NpcConfig = require(ReplicatedStorage.Shared.NpcConfig)
+local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 
 -- | Objects | --
@@ -53,12 +54,14 @@ AnimalAIService.NpcDiedServer = Signal.new()
 -- | Configuration | --
 local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
 local DECISION_INTERVAL = 0.25
-local MIN_SPAWN_DIST = 25
-local MAX_SPAWN_DIST = 90
-local BUNNY_MIN_SPAWN_DIST = 70
-local BUNNY_MAX_SPAWN_DIST = 150
-local BEAR_MIN_SPAWN_DIST = 120
-local BEAR_MAX_SPAWN_DIST = 220
+local MIN_SPAWN_DIST = 20
+local MAX_SPAWN_DIST = 60
+-- Bunnies spawn far from campfire, scattered across all levels
+local BUNNY_MIN_SPAWN_DIST = 100
+local BUNNY_MAX_SPAWN_DIST = 200
+-- Bears spawn at level 3+ distance (far out)
+local BEAR_MIN_SPAWN_DIST = 250
+local BEAR_MAX_SPAWN_DIST = 400
 local GAIT_AMPLITUDE = math.rad(35)
 local GAIT_ARM_AMPLITUDE = math.rad(22)
 local IDLE_LERP_SPEED = 6
@@ -72,8 +75,9 @@ local HIT_FLASH_DURATION = 0.12
 local WOLF_BASE_COUNT = 3
 local WOLF_DAY_SCALING = 3
 local ALPHA_START_DAY = 3
+-- Wolves spawn at level 2+ distance
 local WOLF_MIN_SPAWN_DIST = 150
-local WOLF_MAX_SPAWN_DIST = 300
+local WOLF_MAX_SPAWN_DIST = 250
 local PERSISTENT_TARGET_COUNTS = { Bunny = 8, Bear = 2, WolfModel = 3 }
 local RESPAWN_CHECK_INTERVAL = 10
 
@@ -118,7 +122,7 @@ local function collectSpawnArea()
 	treePivots = {}
 	groundBounds = worldService:GetGroundBounds()
 	for _, descendant in ipairs(baseMap:GetDescendants()) do
-		if descendant:IsA("Model") and (descendant.Name == "Tree" or descendant.Name == "bigtree") then
+		if descendant:IsA("Model") and (descendant.Name == "Tree" or descendant.Name == "bigtree" or descendant.Name == "GiantTree") then
 			table.insert(treePivots, descendant:GetPivot())
 		end
 	end
@@ -972,6 +976,13 @@ spawnPersistentPopulation = function()
 	end
 	persistentSpawned = true
 
+	-- Determine current campfire level from access radius
+	local currentLevel = 1
+	if worldProgressionService then
+		currentLevel = WorldProgressionConfig.GetUnlockLevelForDistance(worldProgressionService:GetAccessRadius())
+	end
+
+	-- Bunnies: spawn at all levels, far from campfire, scattered
 	for _ = 1, PERSISTENT_TARGET_COUNTS.Bunny do
 		local position = pickSpawnPosition(BUNNY_MIN_SPAWN_DIST, BUNNY_MAX_SPAWN_DIST)
 		if position then
@@ -979,17 +990,23 @@ spawnPersistentPopulation = function()
 		end
 	end
 
-	for _ = 1, PERSISTENT_TARGET_COUNTS.Bear do
-		local bearPosition = pickSpawnPosition(BEAR_MIN_SPAWN_DIST, BEAR_MAX_SPAWN_DIST)
-		if bearPosition then
-			AnimalAIService:SpawnNpc("Bear", groundedCFrame(bearPosition))
+	-- Wolves: only spawn at level 2+
+	if currentLevel >= 2 then
+		for _ = 1, PERSISTENT_TARGET_COUNTS.WolfModel do
+			local wolfPosition = pickSpawnPosition(WOLF_MIN_SPAWN_DIST, WOLF_MAX_SPAWN_DIST)
+			if wolfPosition then
+				AnimalAIService:SpawnNpc("WolfModel", groundedCFrame(wolfPosition))
+			end
 		end
 	end
 
-	for _ = 1, PERSISTENT_TARGET_COUNTS.WolfModel do
-		local wolfPosition = pickSpawnPosition(WOLF_MIN_SPAWN_DIST, WOLF_MAX_SPAWN_DIST)
-		if wolfPosition then
-			AnimalAIService:SpawnNpc("WolfModel", groundedCFrame(wolfPosition))
+	-- Bears: only spawn at level 3+
+	if currentLevel >= 3 then
+		for _ = 1, PERSISTENT_TARGET_COUNTS.Bear do
+			local bearPosition = pickSpawnPosition(BEAR_MIN_SPAWN_DIST, BEAR_MAX_SPAWN_DIST)
+			if bearPosition then
+				AnimalAIService:SpawnNpc("Bear", groundedCFrame(bearPosition))
+			end
 		end
 	end
 end
@@ -1006,7 +1023,20 @@ local function checkPersistentRespawn(dt: number)
 	end
 	respawnCheckTimer = 0
 
+	-- Determine current campfire level
+	local currentLevel = 1
+	if worldProgressionService then
+		currentLevel = WorldProgressionConfig.GetUnlockLevelForDistance(worldProgressionService:GetAccessRadius())
+	end
+
 	for speciesKey, targetCount in pairs(PERSISTENT_TARGET_COUNTS) do
+		-- Skip wolves if level < 2, skip bears if level < 3
+		if speciesKey == "WolfModel" and currentLevel < 2 then
+			continue
+		end
+		if speciesKey == "Bear" and currentLevel < 3 then
+			continue
+		end
 		local current = speciesCounts[speciesKey] or 0
 		if current < targetCount then
 			local position
@@ -1064,11 +1094,43 @@ function AnimalAIService:KnitStart()
 	playerLifeService = Knit.GetService("PlayerLifeService")
 	runStateService = Knit.GetService("RunStateService")
 	worldProgressionService = Knit.GetService("WorldProgressionService")
+	local campfireService = Knit.GetService("CampfireService")
 
 	collectSpawnArea()
 	runStateService.RunCleaned:Connect(function()
 		AnimalAIService:CleanupAll()
 	end)
+
+	-- When campfire levels up, spawn newly-unlocked animals
+	if campfireService and campfireService.LevelChangedServer then
+		campfireService.LevelChangedServer:Connect(function(level: number)
+			if not persistentSpawned then
+				return
+			end
+			-- Level 2: spawn wolves
+			if level >= 2 then
+				local currentWolves = speciesCounts["WolfModel"] or 0
+				local needed = PERSISTENT_TARGET_COUNTS.WolfModel - currentWolves
+				for _ = 1, math.max(0, needed) do
+					local pos = pickSpawnPosition(WOLF_MIN_SPAWN_DIST, WOLF_MAX_SPAWN_DIST)
+					if pos then
+						AnimalAIService:SpawnNpc("WolfModel", groundedCFrame(pos))
+					end
+				end
+			end
+			-- Level 3: spawn bears
+			if level >= 3 then
+				local currentBears = speciesCounts["Bear"] or 0
+				local needed = PERSISTENT_TARGET_COUNTS.Bear - currentBears
+				for _ = 1, math.max(0, needed) do
+					local pos = pickSpawnPosition(BEAR_MIN_SPAWN_DIST, BEAR_MAX_SPAWN_DIST)
+					if pos then
+						AnimalAIService:SpawnNpc("Bear", groundedCFrame(pos))
+					end
+				end
+			end
+		end)
+	end
 
 	RunService.Heartbeat:Connect(onHeartbeat)
 

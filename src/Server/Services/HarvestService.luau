@@ -44,6 +44,7 @@ local HarvestService = Knit.CreateService({
 
 -- | Configuration | --
 local TREE_HEALTH = 6
+local GIANT_TREE_HEALTH = 12
 local CHOP_COOLDOWN = 0.5
 local CHOP_RANGE = 12
 local FELL_TWEEN_DURATION = 1.2
@@ -55,10 +56,12 @@ local SMALL_WOOD_DROP_MIN = 3
 local SMALL_WOOD_DROP_MAX = 5
 local BIG_WOOD_DROP_MIN = 5
 local BIG_WOOD_DROP_MAX = 8
+local GIANT_WOOD_DROP_MIN = 10
+local GIANT_WOOD_DROP_MAX = 15
 local PICKUP_RANGE = 12
 local LOG_LIFETIME = 300
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
-local TREE_MODEL_NAMES = { "Tree", "bigtree" }
+local TREE_MODEL_NAMES = { "Tree", "bigtree", "GiantTree" }
 local AXE_TOOL_NAME = "Axe"
 
 -- | State Management | --
@@ -190,17 +193,26 @@ end
               a pickup ProximityPrompt on each.
     @param    position    Vector3  -- ground position of the felled tree
     @param    baseMap     Model    -- the cloned base-map to parent logs into
-    @param    isBigTree   boolean  -- true for bigtree models
+    @param    treeName    string   -- name of the tree model ("Tree", "bigtree", "GiantTree")
 ]]
-local function spawnWoodDrops(position: Vector3, baseMap: Model, isBigTree: boolean)
+local function spawnWoodDrops(position: Vector3, baseMap: Model, treeName: string)
 	local source = ITEMS_PATH:FindFirstChild("Log")
 	if not source then
 		warn("[HarvestService] Log model not found in Assets Items")
 		return
 	end
 
-	local dropMin = if isBigTree then BIG_WOOD_DROP_MIN else SMALL_WOOD_DROP_MIN
-	local dropMax = if isBigTree then BIG_WOOD_DROP_MAX else SMALL_WOOD_DROP_MAX
+	local dropMin, dropMax
+	if treeName == "GiantTree" then
+		dropMin = GIANT_WOOD_DROP_MIN
+		dropMax = GIANT_WOOD_DROP_MAX
+	elseif treeName == "bigtree" then
+		dropMin = BIG_WOOD_DROP_MIN
+		dropMax = BIG_WOOD_DROP_MAX
+	else
+		dropMin = SMALL_WOOD_DROP_MIN
+		dropMax = SMALL_WOOD_DROP_MAX
+	end
 	local count = math.random(dropMin, dropMax)
 	for _ = 1, count do
 		local log = source:Clone()
@@ -287,7 +299,7 @@ local function fellTree(treeModel: Model, baseMap: Model)
 
 	tween.Completed:Connect(function()
 		fallAngle:Destroy()
-		spawnWoodDrops(startPivot.Position, baseMap, treeModel.Name == "bigtree")
+		spawnWoodDrops(startPivot.Position, baseMap, treeModel.Name)
 
 		-- Lie on the ground for a moment, then fade out smoothly
 		task.delay(FELL_LIE_DURATION, function()
@@ -329,7 +341,7 @@ local function fellTree(treeModel: Model, baseMap: Model)
 					treeModel:PivotTo(startPivot)
 					treeModel.Parent = baseMap
 					registry.felled = false
-					registry.health = TREE_HEALTH
+					registry.health = if treeModel.Name == "GiantTree" then GIANT_TREE_HEALTH else TREE_HEALTH
 				end)
 			end)
 
@@ -355,8 +367,11 @@ local function registerTree(treeModel: Model)
 	-- part, which can be a tiny root far from the trunk center.
 	local pivot = treeModel:GetPivot()
 
+	-- GiantTrees have more health than regular trees
+	local health = if treeModel.Name == "GiantTree" then GIANT_TREE_HEALTH else TREE_HEALTH
+
 	treeRegistry[treeModel] = {
-		health = TREE_HEALTH,
+		health = health,
 		part = { Position = pivot.Position },
 		pivot = pivot,
 		felled = false,
@@ -391,6 +406,33 @@ local function registerAllTrees()
 		end
 	end
 
+end
+
+--[[
+    @summary  Re-scan the Base-map for trees and register any new ones.
+    @desc    Called after TreeScatterService or GiantTreeService add
+              new trees to the Base-map at runtime.
+]]
+function HarvestService:RegisterNewTrees()
+	if not worldService then
+		return
+	end
+	local baseMap = worldService:GetBaseMap()
+	if not baseMap then
+		return
+	end
+	local newCount = 0
+	for _, descendant in ipairs(baseMap:GetDescendants()) do
+		if descendant:IsA("Model") and table.find(TREE_MODEL_NAMES, descendant.Name) then
+			if not treeRegistry[descendant] then
+				registerTree(descendant)
+				newCount += 1
+			end
+		end
+	end
+	if newCount > 0 then
+		print(("[HarvestService] Registered %d new trees"):format(newCount))
+	end
 end
 
 --[[

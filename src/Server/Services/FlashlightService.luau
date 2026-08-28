@@ -190,16 +190,24 @@ local function isBeamAlignedWithStalker(player: Player, stalker: Model): boolean
 	local distance = toStalker.Magnitude
 	local charge = math.clamp((battery[player] or 100) / 100, 0, 1)
 	local range = BEAM_MIN_RANGE + (BEAM_MAX_RANGE - BEAM_MIN_RANGE) * charge
-	if distance > range or distance <= 0 then
+	-- Use a small minimum distance instead of 0 so very close targets still work
+	if distance > range or distance < 0.1 then
 		return false
+	end
+	-- When the deer is very close (within 5 studs), skip the angle check
+	-- — the beam is essentially on top of the deer, so it should always stun
+	if distance <= 5 then
+		return true
 	end
 	local aim = aimDirections[player]
 	if not aim or os.clock() - (aimTimestamps[player] or 0) > AIM_TIMEOUT then
 		aim = handle.CFrame.LookVector
 	end
 	local fullAngle = BEAM_MIN_ANGLE + (BEAM_MAX_ANGLE - BEAM_MIN_ANGLE) * charge
+	-- Widen the angle when the deer is close (within 15 studs) for more reliable stuns
+	local angleBonus = if distance < 15 then math.rad(20) else 0
 	local angle = math.acos(math.clamp(aim.Unit:Dot(toStalker.Unit), -1, 1))
-	if angle > math.rad(fullAngle * 0.5) then
+	if angle > math.rad(fullAngle * 0.5) + angleBonus then
 		return false
 	end
 
