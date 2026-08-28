@@ -613,6 +613,32 @@ end
 ]]
 local function updateState(record)
 	local config = record.config
+
+	-- Raid cultists always chase the nearest player regardless of distance.
+	if record.isRaidCultist then
+		local position = record.rootPart.Position
+		-- Use a very large range so we always find the nearest player.
+		local nearestPlayer, distance = findNearestPlayer(position, 99999)
+		if nearestPlayer and distance then
+			-- Validate current target is still alive.
+			if record.target then
+				local character = (record.target :: Player).Character
+				local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+				if not rootPart or not spawnService or not spawnService:IsPlayerSpawned(record.target) or
+					(playerLifeService and not playerLifeService:IsAlive(record.target)) then
+					record.target = nearestPlayer
+				end
+			else
+				record.target = nearestPlayer
+			end
+			record.state = if distance <= config.AttackRange then "Attack" else "Chase"
+		else
+			-- No players found at all; patrol toward campfire area.
+			record.state = "Patrol"
+		end
+		return
+	end
+
 	if config.AggroRange <= 0 then
 		record.state = "Idle"
 		record.target = nil
@@ -797,7 +823,7 @@ end
     @param    cframe      CFrame          -- spawn CFrame
     @returns  Model?
 ]]
-function AnimalAIService:SpawnNpc(speciesKey: string, cframe: CFrame): Model?
+function AnimalAIService:SpawnNpc(speciesKey: string, cframe: CFrame, options: { isRaidCultist: boolean? }?): Model?
 	local config = NpcConfig[speciesKey]
 	if not config then
 		warn("[AnimalAIService] Unknown species key", speciesKey)
@@ -826,6 +852,8 @@ function AnimalAIService:SpawnNpc(speciesKey: string, cframe: CFrame): Model?
 	humanoid.Health = humanoid.MaxHealth
 	humanoid.WalkSpeed = config.WalkSpeed
 
+	local isRaidCultist = options and options.isRaidCultist or false
+
 	local record = {
 		model = model,
 		humanoid = humanoid,
@@ -838,7 +866,27 @@ function AnimalAIService:SpawnNpc(speciesKey: string, cframe: CFrame): Model?
 		spawnPosition = cframe.Position,
 		gaitPhase = 0,
 		isDead = false,
+		isRaidCultist = isRaidCultist,
 	}
+
+	-- Sanitize any unauthorized animation assets and scripts from the model.
+	if isRaidCultist then
+		local doomed: { Instance } = {}
+		for _, desc in ipairs(model:GetDescendants()) do
+			if desc:IsA("Animation") and desc.AnimationId ~= "" then
+				local id = desc.AnimationId
+				local numericId = tonumber(string.match(id, "%d+"))
+				if numericId and numericId > 999999999 then
+					table.insert(doomed, desc)
+				end
+			elseif desc:IsA("BaseScript") or desc:IsA("ModuleScript") then
+				table.insert(doomed, desc)
+			end
+		end
+		for _, inst in ipairs(doomed) do
+			inst:Destroy()
+		end
+	end
 
 	buildAnimationTracks(record)
 	activeNpcs[model] = record

@@ -124,7 +124,7 @@ local function spawnRaidWave(count: number)
 		local groundedPosition = if result then result.Position + Vector3.new(0, 3, 0) else position + Vector3.new(0, 5, 0)
 
 		local speciesKey = CULTIST_MODEL_KEYS[((i - 1) % #CULTIST_MODEL_KEYS) + 1]
-		local model = animalAIService:SpawnNpc(speciesKey, CFrame.new(groundedPosition))
+		local model = animalAIService:SpawnNpc(speciesKey, CFrame.new(groundedPosition), { isRaidCultist = true })
 		if model then
 			table.insert(raidCultists, model)
 		end
@@ -170,26 +170,40 @@ local function computeTotalHealth(): (number, number)
 end
 
 --[[
-    @summary  Begin a raid: fire the started signal and spawn the wave.
+    @summary  Begin a raid: fire the started signal (triggers cutscene on
+              clients), then spawn the wave after the cutscene fades.
     @param    dayNumber  number
 ]]
 local function startRaid(dayNumber: number)
-	raidActive = true
 	raidDayNumber = dayNumber
 	cleanupScheduled = false
 	preNightWarningFired = false
 	local count = computeRaidSize(dayNumber)
-	spawnRaidWave(count)
-	raidTotalCount = #raidCultists
-	-- Compute total max health for the tracker bar.
-	local _, maxHp = computeTotalHealth()
-	raidTotalMaxHealth = maxHp
+
 	-- Suppress the Deer stalker during cultist raids so only cultists
 	-- are present as hostile NPCs.
 	if deerService then
 		deerService:SuppressDeer(true)
 	end
-	broadcastToAll(CultistRaidService.Client.RaidStarted, dayNumber, #raidCultists)
+
+	-- Fire RaidStarted immediately so clients play the cinematic cutscene.
+	-- Cultists spawn after the cutscene finishes (~5 seconds).
+	broadcastToAll(CultistRaidService.Client.RaidStarted, dayNumber, count)
+
+	task.delay(5, function()
+		if not timeService or not timeService:IsRunning() then
+			return
+		end
+		-- Abort if the run ended during the delay.
+		if timeService:GetCurrentPhase() ~= "Night" then
+			return
+		end
+		raidActive = true
+		spawnRaidWave(count)
+		raidTotalCount = #raidCultists
+		local _, maxHp = computeTotalHealth()
+		raidTotalMaxHealth = maxHp
+	end)
 end
 
 --[[

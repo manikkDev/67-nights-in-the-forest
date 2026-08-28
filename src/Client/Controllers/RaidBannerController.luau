@@ -136,7 +136,7 @@ local function ensureGui()
 	card.Name = "Card"
 	card.AnchorPoint = Vector2.new(0.5, 0.5)
 	card.Position = UDim2.new(0.5, 0, 0.5, 0)
-	card.Size = UDim2.new(0, 560, 0, 180)
+	card.Size = UDim2.new(0, 620, 0, 220)
 	card.BackgroundColor3 = PARCHMENT_COLOR
 	card.BackgroundTransparency = 1
 	card.Parent = co
@@ -151,20 +151,30 @@ local function ensureGui()
 	cardStroke.Thickness = 2
 	cardStroke.Parent = card
 
+	-- Use UIListLayout for proper vertical centering of text elements
+	local cardLayout = Instance.new("UIListLayout")
+	cardLayout.FillDirection = Enum.FillDirection.Vertical
+	cardLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	cardLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+	cardLayout.Padding = UDim.new(0, 16)
+	cardLayout.Parent = card
+
 	local cardPad = Instance.new("UIPadding")
-	cardPad.PaddingTop = UDim.new(0, 28)
-	cardPad.PaddingBottom = UDim.new(0, 28)
-	cardPad.PaddingLeft = UDim.new(0, 32)
-	cardPad.PaddingRight = UDim.new(0, 32)
+	cardPad.PaddingTop = UDim.new(0, 24)
+	cardPad.PaddingBottom = UDim.new(0, 24)
+	cardPad.PaddingLeft = UDim.new(0, 36)
+	cardPad.PaddingRight = UDim.new(0, 36)
 	cardPad.Parent = card
 
 	local cutTitle = Instance.new("TextLabel")
 	cutTitle.Name = "Title"
-	cutTitle.Size = UDim2.new(1, 0, 0, 50)
-	cutTitle.Position = UDim2.new(0, 0, 0, 0)
+	cutTitle.Size = UDim2.new(1, 0, 0, 56)
+	cutTitle.AutomaticSize = Enum.AutomaticSize.Y
 	cutTitle.BackgroundTransparency = 1
 	cutTitle.Font = Enum.Font.GothamBlack
-	cutTitle.TextSize = 26
+	cutTitle.TextSize = 22
+	cutTitle.TextWrapped = true
+	cutTitle.TextScaled = false
 	cutTitle.TextColor3 = Color3.fromRGB(230, 220, 210)
 	cutTitle.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 	cutTitle.TextStrokeTransparency = 0.4
@@ -174,8 +184,7 @@ local function ensureGui()
 
 	local cutSub = Instance.new("TextLabel")
 	cutSub.Name = "Subtitle"
-	cutSub.Size = UDim2.new(1, 0, 0, 28)
-	cutSub.Position = UDim2.new(0, 0, 0, 58)
+	cutSub.Size = UDim2.new(1, 0, 0, 24)
 	cutSub.BackgroundTransparency = 1
 	cutSub.Font = Enum.Font.GothamBold
 	cutSub.TextSize = 16
