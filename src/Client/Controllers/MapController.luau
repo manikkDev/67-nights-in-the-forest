@@ -86,6 +86,7 @@ local COLOR = {
 -- | State Management | --
 local mapService: any = nil
 local gui: ScreenGui? = nil
+local mapIconGui: ScreenGui? = nil
 local minimapFrame: Frame? = nil
 local compassFrame: Frame? = nil
 local playerMarker: Frame? = nil
@@ -100,6 +101,12 @@ local accessBarFill: Frame? = nil
 local tooltipFrame: Frame? = nil
 local tooltipTitle: TextLabel? = nil
 local tooltipDesc: TextLabel? = nil
+local panelScale: UIScale? = nil
+local bgFrame: Frame? = nil
+local boardMinimapFrame: Frame? = nil
+local boardPlayerMarker: Frame? = nil
+local boardPlayerArrow: ImageLabel? = nil
+local boardMarkerItems: { Frame } = {}
 local mapOpen = false
 local mapData: { [string]: any } = nil
 local campfireWorldPos: Vector3? = nil
@@ -843,6 +850,7 @@ local function buildGui()
 	bg.BackgroundTransparency = 0.55
 	bg.BorderSizePixel = 0
 	bg.Parent = screenGui
+	bgFrame = bg
 
 	local panel = Instance.new("Frame")
 	panel.Name = "Panel"
@@ -859,6 +867,12 @@ local function buildGui()
 	panelStroke.Color = COLOR.PanelStroke
 	panelStroke.Thickness = 3
 	panelStroke.Parent = panel
+
+	-- Scale for smooth open/close animation
+	local scale = Instance.new("UIScale")
+	scale.Scale = 0.85
+	scale.Parent = panel
+	panelScale = scale
 
 	-- Title bar
 	local titleBar = Instance.new("Frame")
@@ -898,8 +912,7 @@ local function buildGui()
 	closeCorner.CornerRadius = UDim.new(1, 0)
 	closeCorner.Parent = closeBtn
 	closeBtn.MouseButton1Click:Connect(function()
-		screenGui.Enabled = false
-		mapOpen = false
+		closeMap()
 	end)
 
 	-- Left column
@@ -981,18 +994,110 @@ local function buildGui()
 
 	-- Click outside to close
 	bg.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		if input.UserInputType == Enum.UserInputType.MouseButton1 and mapOpen then
 			local mousePos = UserInputService:GetMouseLocation()
 			local panelPos = panel.AbsolutePosition
 			local panelSize = panel.AbsoluteSize
 			if mousePos.X < panelPos.X or mousePos.X > panelPos.X + panelSize.X
 				or mousePos.Y < panelPos.Y or mousePos.Y > panelPos.Y + panelSize.Y
 			then
-				screenGui.Enabled = false
-				mapOpen = false
+				closeMap()
 			end
 		end
 	end)
+
+	-- Map icon (persistent quick-access button)
+	buildMapIcon()
+end
+
+-- Map quick-access icon that stays on screen when the full map is closed
+local function buildMapIcon()
+	if mapIconGui then
+		return
+	end
+
+	local iconGui = Instance.new("ScreenGui")
+	iconGui.Name = "MapIconGui"
+	iconGui.ResetOnSpawn = false
+	iconGui.IgnoreGuiInset = true
+	iconGui.Enabled = true
+	iconGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	mapIconGui = iconGui
+
+	local iconBtn = Instance.new("TextButton")
+	iconBtn.Name = "MapIcon"
+	iconBtn.AnchorPoint = Vector2.new(1, 0)
+	iconBtn.Position = UDim2.new(1, -20, 0, 120) -- top-right, below the close button area
+	iconBtn.Size = UDim2.fromOffset(48, 48)
+	iconBtn.BackgroundColor3 = Color3.fromRGB(60, 48, 38)
+	iconBtn.BackgroundTransparency = 0.15
+	iconBtn.Text = ""
+	iconBtn.AutoButtonColor = false
+	iconBtn.ZIndex = 5
+	iconBtn.Parent = iconGui
+	local iconCorner = Instance.new("UICorner")
+	iconCorner.CornerRadius = UDim.new(1, 0)
+	iconCorner.Parent = iconBtn
+	local iconStroke = Instance.new("UIStroke")
+	iconStroke.Color = Color3.fromRGB(140, 115, 80)
+	iconStroke.Thickness = 2
+	iconStroke.Parent = iconBtn
+
+	local iconLabel = Instance.new("TextLabel")
+	iconLabel.Size = UDim2.fromScale(1, 1)
+	iconLabel.BackgroundTransparency = 1
+	iconLabel.Font = Enum.Font.PermanentMarker
+	iconLabel.Text = "M"
+	iconLabel.TextColor3 = Color3.fromRGB(230, 215, 180)
+	iconLabel.TextSize = 22
+	iconLabel.TextYAlignment = Enum.TextYAlignment.Center
+	iconLabel.Parent = iconBtn
+
+	local miniCompass = Instance.new("TextLabel")
+	miniCompass.Position = UDim2.new(0.5, -6, 0, 4)
+	miniCompass.Size = UDim2.fromOffset(12, 10)
+	miniCompass.BackgroundTransparency = 1
+	miniCompass.Font = Enum.Font.GothamBold
+	miniCompass.Text = "N"
+	miniCompass.TextColor3 = Color3.fromRGB(200, 180, 140)
+	miniCompass.TextSize = 9
+	miniCompass.TextXAlignment = Enum.TextXAlignment.Center
+	miniCompass.Parent = iconBtn
+
+	iconBtn.MouseEnter:Connect(function()
+		TweenService:Create(iconBtn, TweenInfo.new(0.12), { BackgroundColor3 = Color3.fromRGB(80, 65, 50), Size = UDim2.fromOffset(52, 52) }):Play()
+	end)
+	iconBtn.MouseLeave:Connect(function()
+		TweenService:Create(iconBtn, TweenInfo.new(0.12), { BackgroundColor3 = Color3.fromRGB(60, 48, 38), Size = UDim2.fromOffset(48, 48) }):Play()
+	end)
+	iconBtn.MouseButton1Click:Connect(function()
+		if mapService then
+			mapService:GetMapData():andThen(function(data)
+				if typeof(data) == "table" then
+					openMap(data)
+				end
+			end)
+		end
+	end)
+
+	mapIconButton = iconBtn
+
+	-- Animate in
+	iconBtn.Size = UDim2.fromOffset(0, 0)
+	TweenService:Create(iconBtn, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Size = UDim2.fromOffset(48, 48) }):Play()
+end
+
+local function setMapIconVisible(visible: boolean)
+	if not mapIconGui then
+		buildMapIcon()
+	end
+	if mapIconGui then
+		mapIconGui.Enabled = visible
+	end
+	if mapIconButton and visible then
+		mapIconButton.Size = UDim2.fromOffset(0, 0)
+		TweenService:Create(mapIconButton, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Size = UDim2.fromOffset(48, 48) }):Play()
+	end
 end
 
 local function computeSidebarCounts(): { [string]: number }
@@ -1055,8 +1160,230 @@ local function updateAccessibleAreaInfo()
 	end
 end
 
-local function updatePlayerMarker()
-	if not mapOpen or not playerMarker or not playerArrow or not campfireWorldPos then
+local function boardWorldToMap(worldPos: Vector3, boardSize: number): UDim2
+	if not campfireWorldPos then
+		return UDim2.fromScale(0.5, 0.5)
+	end
+	local dx = worldPos.X - campfireWorldPos.X
+	local dz = worldPos.Z - campfireWorldPos.Z
+	local scale = boardSize / (2 * mapRadius)
+	local px = dx * scale
+	local py = -dz * scale
+	local half = boardSize * 0.5
+	px = math.clamp(px, -half + 6, half - 6)
+	py = math.clamp(py, -half + 6, half - 6)
+	return UDim2.new(0.5, px, 0.5, py)
+end
+
+local function buildBoardMinimap(data: { [string]: any })
+	if not data then
+		return
+	end
+	local mapBoard = workspace:FindFirstChild("Boards") and workspace.Boards:FindFirstChild("MapBoard")
+	if not mapBoard then
+		return
+	end
+	local boardPanel = mapBoard:FindFirstChild("BoardPanel") :: BasePart?
+	if not boardPanel then
+		return
+	end
+	local boardGui = boardPanel:FindFirstChild("BoardGui") :: SurfaceGui?
+	if not boardGui then
+		return
+	end
+
+	-- Hide the locked subtitle if present
+	local subtitle = boardGui:FindFirstChild("Subtitle") :: TextLabel?
+	if subtitle then
+		subtitle.Visible = false
+	end
+
+	-- Build or clear the live minimap container
+	local liveMap = boardGui:FindFirstChild("LiveMap")
+	if not liveMap then
+		liveMap = Instance.new("Frame")
+		liveMap.Name = "LiveMap"
+		liveMap.AnchorPoint = Vector2.new(0.5, 0)
+		liveMap.Position = UDim2.new(0.5, 0, 0, 70)
+		liveMap.Size = UDim2.fromOffset(380, 380)
+		liveMap.BackgroundColor3 = COLOR.MinimapBg
+		liveMap.BorderSizePixel = 0
+		liveMap.ClipsDescendants = true
+		liveMap.Parent = boardGui
+		local liveCorner = Instance.new("UICorner")
+		liveCorner.CornerRadius = UDim.new(1, 0)
+		liveCorner.Parent = liveMap
+		local liveStroke = Instance.new("UIStroke")
+		liveStroke.Color = COLOR.MinimapStroke
+		liveStroke.Thickness = 4
+		liveStroke.Parent = liveMap
+	end
+	liveMap = liveMap :: Frame
+	boardMinimapFrame = liveMap
+	for _, child in ipairs(liveMap:GetChildren()) do
+		child:Destroy()
+	end
+
+table.clear(boardMarkerItems)
+
+	local boardSize = 360
+	local innerMinimap = Instance.new("Frame")
+	innerMinimap.Name = "InnerMinimap"
+	innerMinimap.AnchorPoint = Vector2.new(0.5, 0.5)
+	innerMinimap.Position = UDim2.fromScale(0.5, 0.5)
+	innerMinimap.Size = UDim2.fromOffset(boardSize, boardSize)
+	innerMinimap.BackgroundTransparency = 1
+	innerMinimap.BorderSizePixel = 0
+	innerMinimap.ClipsDescendants = true
+	innerMinimap.Parent = liveMap
+	local innerCorner = Instance.new("UICorner")
+	innerCorner.CornerRadius = UDim.new(1, 0)
+	innerCorner.Parent = innerMinimap
+
+	local accessRadius = data.accessRadius or 200
+	local scale = boardSize / (2 * mapRadius)
+	local accessPx = accessRadius * scale * 2
+	if accessPx > 0 then
+		local accessCircle = Instance.new("Frame")
+		accessCircle.Name = "AccessRadius"
+		accessCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+		accessCircle.Position = UDim2.fromScale(0.5, 0.5)
+		accessCircle.Size = UDim2.fromOffset(accessPx, accessPx)
+		accessCircle.BackgroundTransparency = 1
+		accessCircle.BorderSizePixel = 0
+		accessCircle.ZIndex = 3
+		accessCircle.Parent = innerMinimap
+		local accCorner = Instance.new("UICorner")
+		accCorner.CornerRadius = UDim.new(1, 0)
+		accCorner.Parent = accessCircle
+		local accStroke = Instance.new("UIStroke")
+		accStroke.Color = COLOR.AccessRadius
+		accStroke.Thickness = 2
+		accStroke.Transparency = 0.35
+		accStroke.Parent = accessCircle
+		table.insert(boardMarkerItems, accessCircle)
+	end
+
+	local boundaryPx = boardSize - 4
+	local boundaryCircle = Instance.new("Frame")
+	boundaryCircle.Name = "MapBoundary"
+	boundaryCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+	boundaryCircle.Position = UDim2.fromScale(0.5, 0.5)
+	boundaryCircle.Size = UDim2.fromOffset(boundaryPx, boundaryPx)
+	boundaryCircle.BackgroundTransparency = 1
+	boundaryCircle.BorderSizePixel = 0
+	boundaryCircle.ZIndex = 3
+	boundaryCircle.Parent = innerMinimap
+	local bndCorner = Instance.new("UICorner")
+	bndCorner.CornerRadius = UDim.new(1, 0)
+	bndCorner.Parent = boundaryCircle
+	local bndStroke = Instance.new("UIStroke")
+	bndStroke.Color = COLOR.MapBoundary
+	bndStroke.Thickness = 2
+	bndStroke.Transparency = 0.55
+	bndStroke.Parent = boundaryCircle
+	table.insert(boardMarkerItems, boundaryCircle)
+
+	local function addBoardMarker(worldPos: Vector3, color: Color3, size: number, shape: string)
+		local marker = Instance.new("Frame")
+		marker.AnchorPoint = Vector2.new(0.5, 0.5)
+		marker.Position = boardWorldToMap(worldPos, boardSize)
+		marker.Size = UDim2.fromOffset(size, size)
+		marker.BackgroundColor3 = color
+		marker.BackgroundTransparency = 0
+		marker.BorderSizePixel = 0
+		marker.ZIndex = 8
+		marker.Parent = innerMinimap
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = if shape == "square" then UDim.new(0, 2) else UDim.new(1, 0)
+		corner.Parent = marker
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = Color3.fromRGB(255, 255, 255)
+		stroke.Thickness = 1.5
+		stroke.Transparency = 0.2
+		stroke.Parent = marker
+		table.insert(boardMarkerItems, marker)
+		return marker
+	end
+
+	if data.campfirePosition then
+		addBoardMarker(data.campfirePosition, COLOR.Campfire, 16, "circle")
+	end
+
+	for _, cave in ipairs(data.caves or {}) do
+		local color = if cave.state == "Locked" then COLOR.CaveLocked else COLOR.Cave
+		addBoardMarker(cave.position, color, 14, "circle")
+	end
+
+	for _, facility in ipairs(data.facilities or {}) do
+		local color = COLOR.Playground
+		if facility.type == "Restroom" then
+			color = COLOR.Restroom
+		elseif facility.type == "Clinic" then
+			color = COLOR.Clinic
+		end
+		addBoardMarker(facility.position, color, 10, "square")
+	end
+
+	for _, building in ipairs(data.buildings or {}) do
+		local color = COLOR.Building
+		if building.name == "Crashed Plane" then
+			color = COLOR.CrashedPlane
+		end
+		addBoardMarker(building.position, color, 12, "square")
+	end
+
+	-- Player marker on board
+	local pMarker = Instance.new("Frame")
+	pMarker.Name = "BoardPlayerMarker"
+	pMarker.AnchorPoint = Vector2.new(0.5, 0.5)
+	pMarker.Position = UDim2.fromScale(0.5, 0.5)
+	pMarker.Size = UDim2.fromOffset(10, 10)
+	pMarker.BackgroundColor3 = COLOR.Player
+	pMarker.BorderSizePixel = 0
+	pMarker.ZIndex = 15
+	pMarker.Parent = innerMinimap
+	local pMarkerCorner = Instance.new("UICorner")
+	pMarkerCorner.CornerRadius = UDim.new(1, 0)
+	pMarkerCorner.Parent = pMarker
+	local pMarkerStroke = Instance.new("UIStroke")
+	pMarkerStroke.Color = Color3.fromRGB(0, 0, 0)
+	pMarkerStroke.Thickness = 1.5
+	pMarkerStroke.Parent = pMarker
+	boardPlayerMarker = pMarker
+
+	local arrow = Instance.new("ImageLabel")
+	arrow.Name = "BoardPlayerArrow"
+	arrow.AnchorPoint = Vector2.new(0.5, 0.5)
+	arrow.Position = UDim2.new(0.5, 0, 0.5, -10)
+	arrow.Size = UDim2.fromOffset(10, 14)
+	arrow.BackgroundTransparency = 1
+	arrow.Image = "rbxasset://textures/triangle.png"
+	arrow.ImageColor3 = COLOR.Player
+	arrow.Rotation = 0
+	arrow.ZIndex = 14
+	arrow.Parent = innerMinimap
+	boardPlayerArrow = arrow
+
+	-- Small compass labels on the board
+	local labels = { { n = "N", x = 0.5, y = 0.02 }, { n = "E", x = 0.96, y = 0.5 }, { n = "S", x = 0.5, y = 0.94 }, { n = "W", x = 0.02, y = 0.5 } }
+	for _, l in ipairs(labels) do
+		local label = Instance.new("TextLabel")
+		label.AnchorPoint = Vector2.new(0.5, 0.5)
+		label.Position = UDim2.new(l.x, 0, l.y, 0)
+		label.Size = UDim2.fromOffset(20, 20)
+		label.BackgroundTransparency = 1
+		label.Font = Enum.Font.GothamBold
+		label.Text = l.n
+		label.TextColor3 = COLOR.CompassText
+		label.TextSize = 14
+		label.ZIndex = 2
+		label.Parent = innerMinimap
+	end
+end
+
+local function updateBoardPlayerMarker()
+	if not boardMinimapFrame or not boardPlayerMarker or not boardPlayerArrow or not campfireWorldPos then
 		return
 	end
 	local character = Players.LocalPlayer.Character
@@ -1064,29 +1391,80 @@ local function updatePlayerMarker()
 	if not rootPart or not rootPart:IsA("BasePart") then
 		return
 	end
-	currentPlayerPos = rootPart.Position
-	local mapPos = worldToMap(rootPart.Position)
-	playerMarker.Position = mapPos
+	local boardSize = 360
+	local mapPos = boardWorldToMap(rootPart.Position, boardSize)
+	boardPlayerMarker.Position = mapPos
 
-	-- Use the character's actual facing direction (where they are heading), not the camera
-	local look = rootPart.CFrame.LookVector
-	local flatLook = Vector3.new(look.X, 0, look.Z)
-	if flatLook.Magnitude > 0 then
-		flatLook = flatLook.Unit
-		local angleRad = math.atan2(flatLook.X, -flatLook.Z)
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local heading: Vector3?
+	if humanoid then
+		local move = humanoid.MoveDirection
+		if move and move.Magnitude > 0.05 then
+			heading = Vector3.new(move.X, 0, move.Z).Unit
+		end
+	end
+	if not heading then
+		local look = rootPart.CFrame.LookVector
+		if look.Magnitude > 0 then
+			heading = Vector3.new(look.X, 0, look.Z).Unit
+		end
+	end
+
+	if heading then
+		local angleRad = math.atan2(heading.X, -heading.Z)
 		local angleDeg = math.deg(angleRad)
-		playerArrow.Rotation = angleDeg
-		-- Position the arrow ahead of the player marker in the heading direction
-		local offset = 14
+		boardPlayerArrow.Rotation = angleDeg
+		local offset = 12
 		local dx = math.sin(angleRad) * offset
 		local dy = -math.cos(angleRad) * offset
-		playerArrow.Position = UDim2.new(mapPos.X.Scale, mapPos.X.Offset + dx, mapPos.Y.Scale, mapPos.Y.Offset + dy)
+		boardPlayerArrow.Position = UDim2.new(mapPos.X.Scale, mapPos.X.Offset + dx, mapPos.Y.Scale, mapPos.Y.Offset + dy)
 	end
+end
+
+local function updatePlayerMarker()
+	if mapOpen and playerMarker and playerArrow and campfireWorldPos then
+		local character = Players.LocalPlayer.Character
+		local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if rootPart and rootPart:IsA("BasePart") then
+			currentPlayerPos = rootPart.Position
+			local mapPos = worldToMap(rootPart.Position)
+			playerMarker.Position = mapPos
+
+			local heading: Vector3?
+			if humanoid then
+				local move = humanoid.MoveDirection
+				if move and move.Magnitude > 0.05 then
+					heading = Vector3.new(move.X, 0, move.Z).Unit
+				end
+			end
+			if not heading then
+				local look = rootPart.CFrame.LookVector
+				if look.Magnitude > 0 then
+					heading = Vector3.new(look.X, 0, look.Z).Unit
+				end
+			end
+
+			if heading then
+				local angleRad = math.atan2(heading.X, -heading.Z)
+				local angleDeg = math.deg(angleRad)
+				playerArrow.Rotation = angleDeg
+				local offset = 14
+				local dx = math.sin(angleRad) * offset
+				local dy = -math.cos(angleRad) * offset
+				playerArrow.Position = UDim2.new(mapPos.X.Scale, mapPos.X.Offset + dx, mapPos.Y.Scale, mapPos.Y.Offset + dy)
+			end
+		end
+	end
+
+	-- Always update the board minimap if it exists
+	updateBoardPlayerMarker()
 end
 
 local function openMap(data: { [string]: any })
 	buildGui()
-	if not gui then
+	buildMapIcon()
+	if not gui or not bgFrame or not panelScale then
 		return
 	end
 	mapData = data
@@ -1099,28 +1477,58 @@ local function openMap(data: { [string]: any })
 	updateAccessibleAreaInfo()
 	hideTooltip()
 
+	-- Build the live minimap on the physical map board
+	buildBoardMinimap(data)
+
+	-- Hide the map icon while the full map is open
+	if mapIconGui then
+		mapIconGui.Enabled = false
+	end
+
+	-- Smooth open animation
 	gui.Enabled = true
 	mapOpen = true
+	panelScale.Scale = 0.85
+	bgFrame.BackgroundTransparency = 1
+	TweenService:Create(panelScale, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	TweenService:Create(bgFrame, TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { BackgroundTransparency = 0.55 }):Play()
 
-	if renderConnection then
-		renderConnection:Disconnect()
+	-- Keep the render connection active so the board minimap stays live even when the full map is closed
+	if not renderConnection then
+		renderConnection = RunService.RenderStepped:Connect(updatePlayerMarker)
 	end
-	renderConnection = RunService.RenderStepped:Connect(updatePlayerMarker)
 end
 
 local function closeMap()
-	if gui then
-		gui.Enabled = false
+	if not gui or not bgFrame or not panelScale then
+		if gui then
+			gui.Enabled = false
+		end
+		mapOpen = false
+		return
 	end
+
+	-- Smooth close animation
+	local closeTween = TweenService:Create(panelScale, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Scale = 0.85 })
+	local fadeTween = TweenService:Create(bgFrame, TweenInfo.new(0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { BackgroundTransparency = 1 })
+	closeTween:Play()
+	fadeTween:Play()
+
 	mapOpen = false
-	if renderConnection then
-		renderConnection:Disconnect()
-		renderConnection = nil
-	end
+	-- Do NOT disconnect renderConnection here; the board minimap should stay live
+
+	closeTween.Completed:Connect(function()
+		if not mapOpen then
+			gui.Enabled = false
+			-- Show the map icon again
+			setMapIconVisible(true)
+		end
+	end)
 end
 
 local function showLockedMessage()
 	buildGui()
+	buildMapIcon()
 	if not gui then
 		return
 	end
@@ -1157,10 +1565,14 @@ local function showLockedMessage()
 	msgStroke.Thickness = 2
 	msgStroke.Parent = msg
 
+	if mapIconGui then
+		mapIconGui.Enabled = false
+	end
 	gui.Enabled = true
+	mapOpen = true
 	task.delay(2.5, function()
-		if gui and gui.Enabled then
-			gui.Enabled = false
+		if gui and gui.Enabled and mapOpen then
+			closeMap()
 		end
 		msg:Destroy()
 	end)
@@ -1173,9 +1585,21 @@ function MapController:KnitStart()
 	local runStateService = Knit.GetService("RunStateService")
 
 	buildGui()
+	buildMapIcon()
 	if gui then
 		gui.Enabled = false
 	end
+	setMapIconVisible(false)
+
+	-- Try to build the live board minimap if map data is already available
+	mapService:GetMapData():andThen(function(data)
+		if typeof(data) == "table" then
+			buildBoardMinimap(data)
+			if not renderConnection then
+				renderConnection = RunService.RenderStepped:Connect(updatePlayerMarker)
+			end
+		end
+	end)
 
 	mapService.MapOpened:Connect(function(payload)
 		if typeof(payload) ~= "table" then
@@ -1202,12 +1626,36 @@ function MapController:KnitStart()
 		end
 		if input.KeyCode == Enum.KeyCode.Escape and mapOpen then
 			closeMap()
+		elseif input.KeyCode == Enum.KeyCode.M then
+			if mapOpen then
+				closeMap()
+			elseif mapService then
+				mapService:GetMapData():andThen(function(data)
+					if typeof(data) == "table" then
+						openMap(data)
+					end
+				end)
+			end
 		end
 	end)
 
 	runStateService.RunPhaseChanged:Connect(function(payload)
 		if typeof(payload) == "table" and payload.phase == "Lobby" then
 			closeMap()
+			if renderConnection then
+				renderConnection:Disconnect()
+				renderConnection = nil
+			end
+			if boardMinimapFrame then
+				boardMinimapFrame:Destroy()
+				boardMinimapFrame = nil
+				boardPlayerMarker = nil
+				boardPlayerArrow = nil
+				table.clear(boardMarkerItems)
+			end
+			if mapIconGui then
+				mapIconGui.Enabled = false
+			end
 		end
 	end)
 end
