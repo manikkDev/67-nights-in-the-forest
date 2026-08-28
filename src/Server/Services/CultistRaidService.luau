@@ -16,9 +16,11 @@
     campfire's fuel drains faster in proportion to the number left.
 
     @exports
-    - Knit Signal: RaidWarning(dayNumber)
+    - Knit Signal: RaidWarning(dayNumber, phase)  -- phase: "dayBefore" | "preNight"
     - Knit Signal: RaidStarted(dayNumber, cultistCount)
     - Knit Signal: RaidCleared(dayNumber)
+    - Knit Signal: RaidFailed(dayNumber, survivors)
+    - Knit Signal: RaidStatusUpdate(remaining, total, healthRatio)
 ]]
 
 -- // VARIABLES // --
@@ -38,6 +40,8 @@ local CultistRaidService = Knit.CreateService({
 		RaidWarning = Knit.CreateSignal(),
 		RaidStarted = Knit.CreateSignal(),
 		RaidCleared = Knit.CreateSignal(),
+		RaidFailed = Knit.CreateSignal(),
+		RaidStatusUpdate = Knit.CreateSignal(),
 	},
 })
 
