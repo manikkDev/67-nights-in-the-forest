@@ -34,7 +34,7 @@ local Config = {
 	DayStartClock = 6,
 	DayEndClock = 18,
 
-	StartingHealth = 100,
+	StartingHealth = 1000, -- TEMP: 1000 HP for testing, revert to 100 when done
 	StartingHunger = 100,
 
 	BaseMultiplier = 1,
