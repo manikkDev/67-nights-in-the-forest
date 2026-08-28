@@ -535,9 +535,8 @@ end
 ]]
 local function setupViewportPortrait(viewport: ViewportFrame, model: Model)
 	viewport:ClearAllChildren()
-	local worldModel = Instance.new("WorldModel")
-	worldModel.Parent = viewport
-	model.Parent = worldModel
+	-- Parent model directly to ViewportFrame (more reliable than WorldModel for static portraits)
+	model.Parent = viewport
 
 	-- Reset model to origin
 	model:PivotTo(CFrame.new(0, 0, 0))
@@ -549,9 +548,9 @@ local function setupViewportPortrait(viewport: ViewportFrame, model: Model)
 		radius = 3
 	end
 	-- Position camera in front of the model, looking at its center
-	local distance = radius * 2.5
+	local distance = radius * 2.8
 	local camera = Instance.new("Camera")
-	camera.CFrame = CFrame.new(Vector3.new(0, size.Y * 0.35, distance), Vector3.new(0, 0, 0))
+	camera.CFrame = CFrame.new(Vector3.new(0, size.Y * 0.3, distance), Vector3.new(0, 0, 0))
 	camera.Parent = viewport
 	viewport.CurrentCamera = camera
 	viewport.BackgroundTransparency = 1
@@ -620,14 +619,14 @@ local function createPosterSlot(parent: Instance, index: number, rescueId: strin
 	local overlayCorner = Instance.new("UICorner")
 	overlayCorner.CornerRadius = UDim.new(0, 4)
 	overlayCorner.Parent = blackOverlay
-	-- Scribble effect: a "?" label on the black overlay
+	-- Scribble effect: a lock icon on the black overlay
 	local questionLabel = Instance.new("TextLabel")
 	questionLabel.Size = UDim2.fromScale(1, 1)
 	questionLabel.BackgroundTransparency = 1
 	questionLabel.Font = Enum.Font.GothamBlack
-	questionLabel.Text = "?"
-	questionLabel.TextColor3 = Color3.fromRGB(60, 60, 60)
-	questionLabel.TextSize = 80
+	questionLabel.Text = "🔒"
+	questionLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+	questionLabel.TextSize = 60
 	questionLabel.Parent = blackOverlay
 
 	-- Name label at bottom
@@ -692,7 +691,7 @@ local function createPosterBoard()
 	local boardModel = Instance.new("Model")
 	boardModel.Name = "MissingChildrenBoard"
 
-	local boardCFrame = campfireCFrame * CFrame.new(-14, 7, 0) * CFrame.Angles(0, math.rad(90), 0)
+	local boardCFrame = campfireCFrame * CFrame.new(28, 7, 0) * CFrame.Angles(0, math.rad(90), 0)
 
 	-- Backing board
 	local board = Instance.new("Part")
@@ -799,6 +798,15 @@ local function createPosterBoard()
 	for index, rescueId in ipairs(CAVE_ORDER) do
 		local slot = createPosterSlot(posterRow, index, rescueId)
 		posterSlots[rescueId] = slot
+		-- Immediately create and show the portrait model
+		local model = createPortraitModel(rescueId)
+		if model then
+			slot.model = model
+			setupViewportPortrait(slot.viewport, model)
+			slot.blackOverlay.Visible = false
+		else
+			warn("[RescueService] Failed to create portrait for", rescueId)
+		end
 	end
 
 	-- ProximityPrompt
@@ -827,20 +835,15 @@ local function updatePosterStates()
 			continue
 		end
 		local state = record.state
-		-- Show portrait model when the cave is at least Available
 		if state ~= "Locked" then
 			anyAvailable = true
-			-- Clone the portrait model if not already done
-			if not slot.model then
-				local model = createPortraitModel(rescueId)
-				if model then
-					slot.model = model
-					setupViewportPortrait(slot.viewport, model)
-				end
-			end
-			slot.blackOverlay.Visible = false
-		else
+		end
+		-- Show a semi-transparent lock overlay when locked, but keep portrait visible
+		if state == "Locked" then
+			slot.blackOverlay.BackgroundTransparency = 0.4
 			slot.blackOverlay.Visible = true
+		else
+			slot.blackOverlay.Visible = false
 		end
 		-- Show FOUND stamp when rescued
 		if state == "Rescued" then
