@@ -83,7 +83,7 @@ end
 ]]
 function Config.GetPhaseDuration(phase: string): number
 	if Config.IsTestEnabled("FastClock") then
-		return if phase == "Day" then 15 else Config.NightDuration
+		return if phase == "Day" then Config.DayDuration else Config.NightDuration
 	end
 	return if phase == "Day" then Config.DayDuration else Config.NightDuration
 end
