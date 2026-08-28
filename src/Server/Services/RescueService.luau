@@ -90,20 +90,39 @@ local function broadcast(signal, payload)
 end
 
 --[[
-    @summary  Return ground beneath a desired cave or tent position.
+    @summary  Return ground-level position for a desired cave or tent.
+    @desc     Uses the ground baseplate's top-surface Y from WorldService
+              instead of raycasting, which could hit trees or houses and
+              place the cave on top of them.
     @param    position  Vector3
     @returns  Vector3
 ]]
 local function groundPosition(position: Vector3): Vector3
+	local gy = worldService and worldService:GetGroundY()
+	if gy then
+		return Vector3.new(position.X, gy, position.Z)
+	end
+	-- Fallback: raycast against only the ground baseplate, not trees/houses.
 	local baseMap = worldService and worldService:GetBaseMap()
 	if not baseMap then
 		return position
 	end
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = { baseMap }
-	local result = workspace:Raycast(position + Vector3.new(0, 120, 0), Vector3.new(0, -240, 0), params)
-	return if result then result.Position else position
+	-- Find the ground part specifically to raycast against.
+	local groundPart: BasePart? = nil
+	for _, desc in ipairs(baseMap:GetDescendants()) do
+		if desc:IsA("BasePart") and desc.Name == "Земля" then
+			groundPart = desc
+			break
+		end
+	end
+	if groundPart then
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Include
+		params.FilterDescendantsInstances = { groundPart }
+		local result = workspace:Raycast(position + Vector3.new(0, 120, 0), Vector3.new(0, -240, 0), params)
+		return if result then result.Position else Vector3.new(position.X, groundPart.Position.Y + groundPart.Size.Y / 2, position.Z)
+	end
+	return position
 end
 
 --[[

@@ -86,21 +86,35 @@ local function randomFacilityPosition(): Vector3?
 	if not groundBounds or not campfirePosition then
 		return nil
 	end
+	-- Use the known ground Y from WorldService to avoid raycasting into
+	-- trees or houses.
+	local gy = worldService:GetGroundY()
 	for _ = 1, 30 do
 		local x = math.random() * (groundBounds.maxX - groundBounds.minX) + groundBounds.minX
 		local z = math.random() * (groundBounds.maxZ - groundBounds.minZ) + groundBounds.minZ
-		local candidate = Vector3.new(x, 0, z)
 		local distFromCamp = (Vector3.new(x, 0, z) - Vector3.new(campfirePosition.X, 0, campfirePosition.Z)).Magnitude
 		if distFromCamp >= MIN_FACILITY_DISTANCE and distFromCamp <= MAX_FACILITY_DISTANCE then
-			-- Raycast to find ground height
+			if gy then
+				return Vector3.new(x, gy, z)
+			end
+			-- Fallback: raycast against only the ground baseplate.
 			local baseMap = worldService:GetBaseMap()
 			if baseMap then
-				local params = RaycastParams.new()
-				params.FilterType = Enum.RaycastFilterType.Include
-				params.FilterDescendantsInstances = { baseMap }
-				local result = workspace:Raycast(Vector3.new(x, GROUND_RAY_HEIGHT, z), Vector3.new(0, -GROUND_RAY_HEIGHT * 2, 0), params)
-				if result then
-					return result.Position
+				local groundPart: BasePart? = nil
+				for _, desc in ipairs(baseMap:GetDescendants()) do
+					if desc:IsA("BasePart") and desc.Name == "Земля" then
+						groundPart = desc
+						break
+					end
+				end
+				if groundPart then
+					local params = RaycastParams.new()
+					params.FilterType = Enum.RaycastFilterType.Include
+					params.FilterDescendantsInstances = { groundPart }
+					local result = workspace:Raycast(Vector3.new(x, GROUND_RAY_HEIGHT, z), Vector3.new(0, -GROUND_RAY_HEIGHT * 2, 0), params)
+					if result then
+						return result.Position
+					end
 				end
 			end
 		end

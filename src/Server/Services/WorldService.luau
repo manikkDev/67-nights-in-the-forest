@@ -47,6 +47,7 @@ local baseMap: Model? = nil
 local campfire: Part? = nil
 local bonfire: Model? = nil
 local forestReady: boolean = false
+local groundY: number? = nil
 
 -- // FUNCTIONS // --
 
@@ -97,6 +98,31 @@ end
 function WorldService:GetCampfireCFrame(): CFrame?
 	if not campfire then return nil end
 	return campfire.CFrame
+end
+
+--[[
+    @summary  Return the top-surface Y of the ground baseplate.
+    @desc     Finds the large ground part (named "Земля") in the base
+              map and returns its top surface Y coordinate.  This is
+              used by RescueService and FacilityService to place
+              structures at ground level without raycasting into trees
+              or buildings.
+    @returns  number?
+]]
+function WorldService:GetGroundY(): number?
+	if groundY then
+		return groundY
+	end
+	if not baseMap then
+		return nil
+	end
+	for _, desc in ipairs(baseMap:GetDescendants()) do
+		if desc:IsA("BasePart") and desc.Name == "Земля" then
+			groundY = desc.Position.Y + desc.Size.Y / 2
+			return groundY
+		end
+	end
+	return nil
 end
 
 --[[
