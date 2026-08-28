@@ -1,3 +1,19 @@
+--[[
+    @file    WorldBoundaryController.luau
+    @author  manik
+    @date    2025
+
+    @summary
+    Client-side fog boundary visuals and proximity warning.
+
+    @description
+    Renders a realistic, moving fog wall at the current access radius
+    using dense ParticleEmitters layered on dark semi-opaque panels.
+    The fog drifts, swirls, and reacts to lighting so it feels alive.
+    A warning HUD + ColorCorrection effect appear when the player
+    approaches the boundary.
+]]
+
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,13 +33,15 @@ local progressionService: any = nil
 local campfirePosition: Vector3? = nil
 local accessRadius = WorldProgressionConfig.GetAccessRadius(1)
 local visualFolder: Folder? = nil
-local segments: { Part } = {}
+local fogPanels: { Part } = {}
+local fogEmitters: { ParticleEmitter } = {}
 local warningGui: ScreenGui? = nil
 local warningFrame: Frame? = nil
 local warningLabel: TextLabel? = nil
 local proximityEffect: ColorCorrectionEffect? = nil
 local updateTimer = 0
 local warningVisible = false
+local windPhase = 0
 
 local function segmentCount(): number
 	return if UserInputService.TouchEnabled
@@ -31,6 +49,10 @@ local function segmentCount(): number
 		else WorldProgressionConfig.Boundary.DesktopSegments
 end
 
+--[[
+    @summary  Create the local fog visual folder, dark panels, and
+              particle emitters that form the fog wall.
+]]
 local function ensureVisuals()
 	if visualFolder and visualFolder.Parent then
 		return
@@ -41,69 +63,132 @@ local function ensureVisuals()
 	visualFolder = folder
 
 	local count = segmentCount()
+	local isMobile = UserInputService.TouchEnabled
+
 	for index = 1, count do
-		local part = Instance.new("Part")
-		part.Name = "FogSegment" .. index
-		part.Anchored = true
-		part.CanCollide = false
-		part.CanTouch = false
-		part.CanQuery = false
-		part.CastShadow = false
-		part.Material = Enum.Material.ForceField
-		part.Color = Color3.fromRGB(65, 70, 76)
-		part.Transparency = 0.38
-		part.Parent = folder
-		if index % (if UserInputService.TouchEnabled then 4 else 3) == 0 then
-			local fog = Instance.new("ParticleEmitter")
-			fog.Name = "BoundaryMist"
-			fog.Rate = if UserInputService.TouchEnabled then 2 else 4
-			fog.Lifetime = NumberRange.new(3, 5)
-			fog.Speed = NumberRange.new(0.4, 1.1)
-			fog.SpreadAngle = Vector2.new(180, 30)
-			fog.RotSpeed = NumberRange.new(-8, 8)
-			fog.Rotation = NumberRange.new(0, 360)
-			fog.Size = NumberSequence.new({
-				NumberSequenceKeypoint.new(0, 10),
-				NumberSequenceKeypoint.new(0.5, 18),
-				NumberSequenceKeypoint.new(1, 24),
+		-- Dark semi-opaque panel that blocks vision through the fog wall.
+		local panel = Instance.new("Part")
+		panel.Name = "FogPanel" .. index
+		panel.Anchored = true
+		panel.CanCollide = false
+		panel.CanTouch = false
+		panel.CanQuery = false
+		panel.CastShadow = false
+		panel.Material = Enum.Material.SmoothPlastic
+		panel.Color = Color3.fromRGB(22, 24, 28)
+		panel.Transparency = 0.45
+		panel.Parent = folder
+		table.insert(fogPanels, panel)
+
+		-- Dense fog particle emitter on every panel.
+		local fog = Instance.new("ParticleEmitter")
+		fog.Name = "BoundaryFog"
+		fog.Rate = if isMobile then 10 else 18
+		fog.Lifetime = NumberRange.new(4, 7)
+		fog.Speed = NumberRange.new(0.8, 2.2)
+		fog.SpreadAngle = Vector2.new(45, 25)
+		fog.RotSpeed = NumberRange.new(-12, 12)
+		fog.Rotation = NumberRange.new(0, 360)
+		fog.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 14),
+			NumberSequenceKeypoint.new(0.3, 26),
+			NumberSequenceKeypoint.new(0.7, 38),
+			NumberSequenceKeypoint.new(1, 50),
+		})
+		fog.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.15, 0.35),
+			NumberSequenceKeypoint.new(0.5, 0.25),
+			NumberSequenceKeypoint.new(0.85, 0.45),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		fog.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(85, 90, 100)),
+			ColorSequenceKeypoint.new(0.5, Color3.fromRGB(55, 60, 70)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 34, 42)),
+		})
+		fog.LightInfluence = 0.6
+		fog.Acceleration = Vector3.new(0, 0.5, 0)
+		fog.Parent = panel
+		table.insert(fogEmitters, fog)
+
+		-- Secondary wispy mist layer for depth on every 3rd panel.
+		if index % 3 == 0 and not isMobile then
+			local mist = Instance.new("ParticleEmitter")
+			mist.Name = "BoundaryMist"
+			mist.Rate = 6
+			mist.Lifetime = NumberRange.new(6, 10)
+			mist.Speed = NumberRange.new(0.3, 0.9)
+			mist.SpreadAngle = Vector2.new(180, 40)
+			mist.RotSpeed = NumberRange.new(-5, 5)
+			mist.Rotation = NumberRange.new(0, 360)
+			mist.Size = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 30),
+				NumberSequenceKeypoint.new(0.5, 55),
+				NumberSequenceKeypoint.new(1, 70),
 			})
-			fog.Transparency = NumberSequence.new({
+			mist.Transparency = NumberSequence.new({
 				NumberSequenceKeypoint.new(0, 1),
-				NumberSequenceKeypoint.new(0.2, 0.55),
-				NumberSequenceKeypoint.new(0.8, 0.7),
+				NumberSequenceKeypoint.new(0.2, 0.6),
+				NumberSequenceKeypoint.new(0.8, 0.75),
 				NumberSequenceKeypoint.new(1, 1),
 			})
-			fog.Color = ColorSequence.new(Color3.fromRGB(105, 110, 118), Color3.fromRGB(45, 50, 58))
-			fog.LightInfluence = 0.85
-			fog.Parent = part
+			mist.Color = ColorSequence.new(
+				Color3.fromRGB(120, 125, 135),
+				Color3.fromRGB(60, 65, 75)
+			)
+			mist.LightInfluence = 0.75
+			mist.Acceleration = Vector3.new(0, 0.3, 0)
+			mist.Parent = panel
 		end
-		table.insert(segments, part)
 	end
 end
 
+--[[
+    @summary  Position and size all fog panels/emitters around the
+              campfire at the current access radius.
+    @param    radius   number
+    @param    animated boolean -- tween to new positions
+]]
 local function updateVisualRadius(radius: number, animated: boolean)
 	if not campfirePosition then
 		return
 	end
 	ensureVisuals()
-	local count = #segments
+	local count = #fogPanels
 	local height = WorldProgressionConfig.Boundary.Height
-	local length = 2 * math.pi * radius / count + 10
-	for index, part in ipairs(segments) do
+	local length = 2 * math.pi * radius / count + 14
+	for index, part in ipairs(fogPanels) do
 		local angle = (index - 1) * 2 * math.pi / count
 		local radial = Vector3.new(math.cos(angle), 0, math.sin(angle))
 		local position = campfirePosition + radial * radius
-		position = Vector3.new(position.X, campfirePosition.Y + height * 0.5 - 8, position.Z)
+		position = Vector3.new(position.X, campfirePosition.Y + height * 0.5 - 10, position.Z)
 		local cframe = CFrame.lookAt(position, position - radial)
 		local properties = {
 			CFrame = cframe,
-			Size = Vector3.new(length, height, 8),
+			Size = Vector3.new(length, height, 10),
 		}
 		if animated then
 			TweenService:Create(part, TweenInfo.new(2.2, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), properties):Play()
 		else
 			part.CFrame = cframe
 			part.Size = properties.Size
+		end
+	end
+end
+
+--[[
+    @summary  Animate fog drift direction over time so the wall
+              feels alive rather than static.
+    @param    dt number
+]]
+local function animateFog(dt: number)
+	windPhase += dt * 0.3
+	local driftX = math.cos(windPhase) * 1.5
+	local driftZ = math.sin(windPhase * 0.7) * 1.0
+	for _, emitter in ipairs(fogEmitters) do
+		if emitter and emitter.Parent then
+			emitter.Acceleration = Vector3.new(driftX, 0.5, driftZ)
 		end
 	end
 end
@@ -211,7 +296,7 @@ local function updateProximity(dt: number)
 		return
 	end
 	local delta = Vector3.new(root.Position.X - campfirePosition.X, 0, root.Position.Z - campfirePosition.Z)
-	setWarning(delta.Magnitude >= accessRadius - 65)
+	setWarning(delta.Magnitude >= accessRadius - 50)
 end
 
 function WorldBoundaryController:KnitStart()
@@ -233,7 +318,10 @@ function WorldBoundaryController:KnitStart()
 		accessRadius = radius
 		updateVisualRadius(radius, true)
 	end)
-	RunService.Heartbeat:Connect(updateProximity)
+	RunService.Heartbeat:Connect(function(dt)
+		animateFog(dt)
+		updateProximity(dt)
+	end)
 end
 
 return WorldBoundaryController

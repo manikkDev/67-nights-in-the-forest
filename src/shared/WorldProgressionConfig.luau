@@ -1,19 +1,19 @@
 local Config = {
 	MapRadius = 1600,
-	AccessRadiusByLevel = { 350, 550, 800, 1080, 1350, 1600 },
-	SafeZoneRadiusByLevel = { 55, 75, 100, 130, 165, 205 },
+	AccessRadiusByLevel = { 250, 400, 560, 750, 1000, 1300 },
+	SafeZoneRadiusByLevel = { 50, 70, 95, 125, 160, 205 },
 	CaveRings = {
-		Dino = { Min = 390, Max = 500 },
-		Kraken = { Min = 620, Max = 750 },
-		Squid = { Min = 870, Max = 1020 },
-		Koala = { Min = 1140, Max = 1280 },
+		Dino = { Min = 150, Max = 210 },
+		Kraken = { Min = 270, Max = 350 },
+		Squid = { Min = 430, Max = 520 },
+		Koala = { Min = 600, Max = 700 },
 	},
 	Boundary = {
-		Height = 150,
-		ServerSegments = 48,
+		Height = 220,
+		ServerSegments = 64,
 		DesktopSegments = 48,
 		MobileSegments = 28,
-		PushbackMargin = 10,
+		PushbackMargin = 8,
 		CheckInterval = 0.15,
 	},
 	Placement = {

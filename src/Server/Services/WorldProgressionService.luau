@@ -28,6 +28,52 @@ local function broadcastExpansion(level: number)
 	end
 end
 
+--[[
+    @summary  Move base-map buildings that sit outside the starting
+              access radius inward so they are reachable.
+    @desc    Scans the pre-placed Base-map for known structure models
+              (cabins, houses, towers, lodges, treehouses, plane) and
+              repositions any whose flat distance from the campfire
+              exceeds the current radius minus a margin.  The building
+              is pulled radially inward to just inside the boundary.
+]]
+local function relocateBuildings()
+	local baseMap = worldService:GetBaseMap()
+	local campfireCFrame = worldService:GetCampfireCFrame()
+	if not baseMap or not campfireCFrame then
+		return
+	end
+	local center = campfireCFrame.Position
+	local maxRadius = accessRadius - 25
+	local buildingNames = {
+		["cabin"] = true,
+		["modern-house"] = true,
+		["Hunters Lodge"] = true,
+		["Treehouse"] = true,
+		["Tower"] = true,
+		["Crashed Plane"] = true,
+	}
+	local moved = 0
+	for _, desc in ipairs(baseMap:GetDescendants()) do
+		if desc:IsA("Model") and buildingNames[desc.Name] then
+			local pivot = desc:GetPivot()
+			local flatDist = (Vector3.new(pivot.Position.X, 0, pivot.Position.Z) - Vector3.new(center.X, 0, center.Z)).Magnitude
+			if flatDist > maxRadius then
+				local direction = if flatDist > 0
+					then Vector3.new(pivot.Position.X - center.X, 0, pivot.Position.Z - center.Z).Unit
+					else Vector3.xAxis
+				local newFlat = center + direction * (maxRadius - 10)
+				local newY = pivot.Position.Y
+				desc:PivotTo(CFrame.new(newFlat.X, newY, newFlat.Z) * pivot.Rotation)
+				moved += 1
+			end
+		end
+	end
+	if moved > 0 then
+		print(("[WorldProgressionService] Relocated %d buildings inside the boundary"):format(moved))
+	end
+end
+
 local function ensureBoundary()
 	if boundaryFolder and boundaryFolder.Parent then
 		return
@@ -45,8 +91,12 @@ local function ensureBoundary()
 		part.CanCollide = true
 		part.CanTouch = false
 		part.CanQuery = false
-		part.Transparency = 1
+		-- Opaque dark wall so players cannot see anything beyond the boundary.
+		part.Transparency = 0
+		part.Material = Enum.Material.SmoothPlastic
+		part.Color = Color3.fromRGB(18, 20, 24)
 		part.CastShadow = false
+		part.Reflectance = 0
 		part.Parent = folder
 		table.insert(boundaryParts, part)
 	end
@@ -60,14 +110,14 @@ local function updateBoundary()
 		return
 	end
 	local count = #boundaryParts
-	local segmentLength = 2 * math.pi * accessRadius / count + 8
+	local segmentLength = 2 * math.pi * accessRadius / count + 12
 	local height = WorldProgressionConfig.Boundary.Height
 	for index, part in ipairs(boundaryParts) do
 		local angle = (index - 1) * 2 * math.pi / count
 		local radial = Vector3.new(math.cos(angle), 0, math.sin(angle))
 		local position = campfireCFrame.Position + radial * accessRadius
 		position = Vector3.new(position.X, groundY + height * 0.5, position.Z)
-		part.Size = Vector3.new(segmentLength, height, 6)
+		part.Size = Vector3.new(segmentLength, height, 14)
 		part.CFrame = CFrame.lookAt(position, position - radial)
 	end
 end
@@ -148,6 +198,7 @@ function WorldProgressionService:KnitStart()
 
 	runStateService.RunStarted:Connect(function()
 		accessRadius = WorldProgressionConfig.GetAccessRadius(campfireService:GetLevel())
+		relocateBuildings()
 		boundaryFolder = nil
 		table.clear(boundaryParts)
 		updateBoundary()
