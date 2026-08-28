@@ -498,16 +498,26 @@ end
 local function createPortraitModel(rescueId: string): Model?
 	local definition = RescueConfig[rescueId]
 	if not definition then
+		warn("[RescueService] createPortraitModel: no definition for", rescueId)
 		return nil
 	end
 	local npcAssets = ServerStorage.Assets:FindFirstChild("Assets Npcs")
-	local source = npcAssets and npcAssets:FindFirstChild(definition.RigTemplate)
-	if not source or not source:IsA("Model") then
+	if not npcAssets then
+		warn("[RescueService] createPortraitModel: 'Assets Npcs' folder not found in ServerStorage.Assets")
+		return nil
+	end
+	local source = npcAssets:FindFirstChild(definition.RigTemplate)
+	if not source then
+		warn("[RescueService] createPortraitModel: rig template not found:", definition.RigTemplate)
+		return nil
+	end
+	if not source:IsA("Model") then
+		warn("[RescueService] createPortraitModel: rig template is not a Model:", definition.RigTemplate, source.ClassName)
 		return nil
 	end
 	local model = source:Clone()
 	model.Name = "Portrait_" .. rescueId
-	-- Remove scripts
+	-- Remove scripts so the portrait doesn't run AI
 	for _, desc in ipairs(model:GetDescendants()) do
 		if desc:IsA("BaseScript") or desc:IsA("ModuleScript") then
 			desc:Destroy()
@@ -528,14 +538,20 @@ local function setupViewportPortrait(viewport: ViewportFrame, model: Model)
 	local worldModel = Instance.new("WorldModel")
 	worldModel.Parent = viewport
 	model.Parent = worldModel
-	-- Position the model to face forward
-	local rootPart = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart", true)
-	if rootPart then
-		model:PivotTo(CFrame.new(0, -2, -8) * CFrame.Angles(0, math.rad(180), 0))
+
+	-- Reset model to origin
+	model:PivotTo(CFrame.new(0, 0, 0))
+
+	-- Compute bounding box to frame the camera properly
+	local size = model:GetExtentsSize()
+	local radius = math.max(size.X, size.Y, size.Z) / 2
+	if radius <= 0 then
+		radius = 3
 	end
-	-- Create a camera for the viewport
+	-- Position camera in front of the model, looking at its center
+	local distance = radius * 2.5
 	local camera = Instance.new("Camera")
-	camera.CFrame = CFrame.new(Vector3.new(0, 0, 0), Vector3.new(0, -2, -8))
+	camera.CFrame = CFrame.new(Vector3.new(0, size.Y * 0.35, distance), Vector3.new(0, 0, 0))
 	camera.Parent = viewport
 	viewport.CurrentCamera = camera
 	viewport.BackgroundTransparency = 1
@@ -676,7 +692,7 @@ local function createPosterBoard()
 	local boardModel = Instance.new("Model")
 	boardModel.Name = "MissingChildrenBoard"
 
-	local boardCFrame = campfireCFrame * CFrame.new(-14, 5, 0) * CFrame.Angles(0, math.rad(90), 0)
+	local boardCFrame = campfireCFrame * CFrame.new(-14, 7, 0) * CFrame.Angles(0, math.rad(90), 0)
 
 	-- Backing board
 	local board = Instance.new("Part")
@@ -689,24 +705,24 @@ local function createPosterBoard()
 	board.Parent = boardModel
 	boardModel.PrimaryPart = board
 
-	-- Left post
+	-- Left post (taller)
 	local leftPost = Instance.new("Part")
 	leftPost.Name = "LeftPost"
-	leftPost.Size = Vector3.new(0.8, 11, 0.8)
+	leftPost.Size = Vector3.new(0.8, 16, 0.8)
 	leftPost.Anchored = true
 	leftPost.Material = Enum.Material.WoodPlanks
 	leftPost.Color = Color3.fromRGB(75, 50, 28)
-	leftPost.CFrame = boardCFrame * CFrame.new(-9, -1, 0)
+	leftPost.CFrame = boardCFrame * CFrame.new(-9, -3.5, 0)
 	leftPost.Parent = boardModel
 
-	-- Right post
+	-- Right post (taller)
 	local rightPost = Instance.new("Part")
 	rightPost.Name = "RightPost"
-	rightPost.Size = Vector3.new(0.8, 11, 0.8)
+	rightPost.Size = Vector3.new(0.8, 16, 0.8)
 	rightPost.Anchored = true
 	rightPost.Material = Enum.Material.WoodPlanks
 	rightPost.Color = Color3.fromRGB(75, 50, 28)
-	rightPost.CFrame = boardCFrame * CFrame.new(9, -1, 0)
+	rightPost.CFrame = boardCFrame * CFrame.new(9, -3.5, 0)
 	rightPost.Parent = boardModel
 
 	-- Top crossbar
@@ -731,7 +747,7 @@ local function createPosterBoard()
 	exclaim.CanCollide = false
 	exclaim.Material = Enum.Material.SmoothPlastic
 	exclaim.Color = Color3.fromRGB(220, 50, 40)
-	exclaim.CFrame = boardCFrame * CFrame.new(0, 6.2, 0.4)
+	exclaim.CFrame = boardCFrame * CFrame.new(0, 6.5, 0.4)
 	exclaim.Parent = boardModel
 	exclamationPart = exclaim
 	local exclaimGui = Instance.new("BillboardGui")
