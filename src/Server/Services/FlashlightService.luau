@@ -42,13 +42,13 @@ local FlashlightService = Knit.CreateService({
 
 -- | Configuration | --
 local FLASHLIGHT_TOOL_NAME = "Flashlight"
-local BEAM_MIN_RANGE = 60
-local BEAM_MAX_RANGE = 100
-local BEAM_MIN_ANGLE = 65
-local BEAM_MAX_ANGLE = 85
-local AIM_TIMEOUT = 0.5
+local BEAM_MIN_RANGE = 80
+local BEAM_MAX_RANGE = 140
+local BEAM_MIN_ANGLE = 80
+local BEAM_MAX_ANGLE = 110
+local AIM_TIMEOUT = 1.0
 local AIM_UPDATE_MIN_INTERVAL = 0.05
-local CHECK_INTERVAL = 0.15
+local CHECK_INTERVAL = 0.1
 local BATTERY_DRAIN_PER_SECOND = 5 -- 20 seconds of full use
 local BATTERY_RECHARGE_PER_SECOND = 1.5 -- slow passive recharge
 local STALKER_MODEL_NAMES = { "Deer", "Ram Monster", "Owl" }
@@ -176,6 +176,9 @@ local function isBeamAlignedWithStalker(player: Player, stalker: Model): boolean
 	local tool = character and character:FindFirstChild(FLASHLIGHT_TOOL_NAME)
 	local handle = tool and tool:FindFirstChild("Handle")
 	if not handle or not handle:IsA("BasePart") then
+		if RunConfig.IsTestEnabled("VerboseFlashlight") then
+			print("[FlashlightService] No flashlight handle found for", player.Name)
+		end
 		return false
 	end
 	local stalkerPart = stalker.PrimaryPart
@@ -183,6 +186,9 @@ local function isBeamAlignedWithStalker(player: Player, stalker: Model): boolean
 		or stalker:FindFirstChild("HumanoidRootPart")
 		or stalker:FindFirstChildWhichIsA("BasePart", true)
 	if not stalkerPart or not stalkerPart:IsA("BasePart") then
+		if RunConfig.IsTestEnabled("VerboseFlashlight") then
+			print("[FlashlightService] Stalker has no root part:", stalker.Name)
+		end
 		return false
 	end
 
@@ -191,6 +197,9 @@ local function isBeamAlignedWithStalker(player: Player, stalker: Model): boolean
 	local charge = math.clamp((battery[player] or 100) / 100, 0, 1)
 	local range = BEAM_MIN_RANGE + (BEAM_MAX_RANGE - BEAM_MIN_RANGE) * charge
 	if distance > range or distance <= 0 then
+		if RunConfig.IsTestEnabled("VerboseFlashlight") then
+			print(string.format("[FlashlightService] %s out of range: %.1f > %.1f", stalker.Name, distance, range))
+		end
 		return false
 	end
 	local aim = aimDirections[player]
@@ -200,18 +209,19 @@ local function isBeamAlignedWithStalker(player: Player, stalker: Model): boolean
 	local fullAngle = BEAM_MIN_ANGLE + (BEAM_MAX_ANGLE - BEAM_MIN_ANGLE) * charge
 	local angle = math.acos(math.clamp(aim.Unit:Dot(toStalker.Unit), -1, 1))
 	if angle > math.rad(fullAngle * 0.5) then
+		if RunConfig.IsTestEnabled("VerboseFlashlight") then
+			print(string.format("[FlashlightService] %s angle too steep: %.1f > %.1f", stalker.Name, math.deg(angle), fullAngle * 0.5))
+		end
 		return false
 	end
 
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = { character, stalker }
-	local obstruction = workspace:Raycast(handle.Position, toStalker, params)
-	if obstruction then
-		return false
-	end
+	-- NOTE: No raycast obstruction check.  The flashlight beam is a cone
+	-- of light, not a laser — it passes through trees and foliage just
+	-- like in the reference game.  Removing this check fixes the issue
+	-- where the stun never triggered in dense forest.
+
 	if RunConfig.IsTestEnabled("VerboseFlashlight") then
-		print(string.format("[FlashlightService] beam aligned with %s at %.1f studs", stalker.Name, distance))
+		print(string.format("[FlashlightService] BEAM ALIGNED with %s at %.1f studs, angle %.1f deg", stalker.Name, distance, math.deg(angle)))
 	end
 	return true
 end
@@ -233,7 +243,18 @@ local function checkAllBeams()
 		end
 	end
 	if #stalkerModels == 0 then
+		if RunConfig.IsTestEnabled("VerboseFlashlight") then
+			print("[FlashlightService] No stalker models found in CombatTarget tag")
+		end
 		return
+	end
+
+	if RunConfig.IsTestEnabled("VerboseFlashlight") then
+		print(string.format("[FlashlightService] Found %d stalker models, %d beam-active players", #stalkerModels, (function()
+			local c = 0
+			for _ in pairs(beamActive) do c += 1 end
+			return c
+		end)()))
 	end
 
 	for player, isActive in pairs(beamActive) do
@@ -259,6 +280,9 @@ local function checkAllBeams()
 		end
 		if not player.Parent or not isFlashlightBeamOn(player) then
 			continue
+		end
+		if RunConfig.IsTestEnabled("VerboseFlashlight") then
+			print("[FlashlightService] Player", player.Name, "has beam on but no remote state — checking directly")
 		end
 		for _, stalkerModel in ipairs(stalkerModels) do
 			if isBeamAlignedWithStalker(player, stalkerModel) then

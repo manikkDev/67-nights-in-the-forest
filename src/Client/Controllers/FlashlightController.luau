@@ -583,6 +583,8 @@ local function updateAim(dt: number)
 		return
 	end
 	aimUpdateTimer = 0
+	-- Use the camera look vector as the primary aim direction.
+	-- This matches where the player is looking on screen.
 	local camera = workspace.CurrentCamera
 	if camera then
 		flashlightService.UpdateAim(camera.CFrame.LookVector)

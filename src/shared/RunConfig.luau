@@ -22,7 +22,7 @@ local StudioTest = {
 	InfiniteWood = false,
 	FastClock = true, -- TEMP: 15s day/night for testing, revert to false when done
 	ForceNight = false,
-	VerboseFlashlight = false,
+	VerboseFlashlight = true,
 	VerboseStalkers = false,
 }
 

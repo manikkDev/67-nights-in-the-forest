@@ -585,6 +585,8 @@ local function runStalkerBehavior(stalker)
 	if stalker.state == "Dormant" or stalker.state == "Stunned" then
 		stalker.humanoid.WalkSpeed = 0
 		if stalker.state == "Stunned" then
+			-- Explicitly cancel any pending MoveTo from the previous Pursuing frame
+			stalker.humanoid:MoveTo(stalker.rootPart.Position)
 			local startTrack = stalker.tracks["StunnedStart"]
 			local loopTrack = stalker.tracks["StunnedLoop"]
 			-- Stop Attack track if it's still playing from a recent contact
@@ -711,7 +713,16 @@ end
 function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 	for _, stalker in pairs(stalkers) do
 		if stalker.model == model then
-			if not stalker.def.UsesFlashlightStun or stalker.state == "Stunned" or stalker.state == "Dormant" then
+			if not stalker.def.UsesFlashlightStun then
+				print("[DeerService] Stun rejected: does not use flashlight stun", stalker.key)
+				return false
+			end
+			if stalker.state == "Stunned" then
+				-- Already stunned — don't re-stun, but don't log spam
+				return false
+			end
+			if stalker.state == "Dormant" then
+				print("[DeerService] Stun rejected: stalker is dormant", stalker.key)
 				return false
 			end
 
@@ -737,18 +748,26 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 			local startTrack = stalker.tracks["StunnedStart"]
 			if startTrack then
 				startTrack:Play(0.1)
+				print("[DeerService] Playing StunnedStart animation for", stalker.key)
 			else
 				-- Fallback: if no StunnedStart track, play StunnedLoop directly
 				local loopTrack = stalker.tracks["StunnedLoop"]
 				if loopTrack then
 					loopTrack:Play(0.1)
+					print("[DeerService] No StunnedStart — playing StunnedLoop for", stalker.key)
+				else
+					warn("[DeerService] No stunned animations found for", stalker.key)
 				end
 			end
+
+			print(string.format("[DeerService] STUNNED %s for %.1fs by %s (consecutive: %d)",
+				stalker.key, duration, player.Name, stalker.consecutiveStuns))
 
 			broadcastToAll(DeerService.Client.StalkerStunned, stalker.rootPart.Position, stalker.key, duration, player.UserId)
 			return true
 		end
 	end
+	print("[DeerService] ApplyFlashlightStun: model not found in stalkers registry")
 	return false
 end
 
