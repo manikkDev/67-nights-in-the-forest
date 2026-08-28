@@ -56,6 +56,7 @@ local timeService: any = nil
 local worldService: any = nil
 local animalAIService: any = nil
 local campfireService: any = nil
+local deerService: any = nil
 local lastPhase: string = "Day"
 local raidActive = false
 local raidCultists: { Model } = {}
@@ -150,6 +151,11 @@ local function startRaid(dayNumber: number)
 	cleanupScheduled = false
 	local count = computeRaidSize(dayNumber)
 	spawnRaidWave(count)
+	-- Suppress the Deer stalker during cultist raids so only cultists
+	-- are present as hostile NPCs.
+	if deerService then
+		deerService:SuppressDeer(true)
+	end
 	broadcastToAll(CultistRaidService.Client.RaidStarted, dayNumber, count)
 end
 
@@ -165,6 +171,10 @@ local function cleanupRemainingRaiders()
 	end
 	raidCultists = {}
 	raidActive = false
+	-- Re-enable the Deer stalker now that the raid is over.
+	if deerService then
+		deerService:SuppressDeer(false)
+	end
 end
 
 --[[
@@ -206,6 +216,10 @@ local function onHeartbeat(dt: number)
 	local survivors = countSurvivors()
 	if survivors == 0 then
 		raidActive = false
+		-- Re-enable the Deer stalker now that the raid is cleared.
+		if deerService then
+			deerService:SuppressDeer(false)
+		end
 		broadcastToAll(CultistRaidService.Client.RaidCleared, raidDayNumber)
 		return
 	end
@@ -222,6 +236,7 @@ function CultistRaidService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	animalAIService = Knit.GetService("AnimalAIService")
 	campfireService = Knit.GetService("CampfireService")
+	deerService = Knit.GetService("DeerService")
 
 	RunService.Heartbeat:Connect(onHeartbeat)
 
