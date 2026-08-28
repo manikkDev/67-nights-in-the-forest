@@ -7,9 +7,17 @@
     Cross-platform local placement preview and building controls.
 
     @description
-    The client renders only a footprint ghost and requests placement.
-    BuildingService recomputes ground, snap, zone, overlap, range, cap,
-    token ownership, and the final authoritative CFrame.
+    The client renders an exact semi-transparent clone of the structure
+    template as a placement preview, with a directional arrow indicator
+    and a footprint wireframe box. BuildingService recomputes ground,
+    snap, zone, overlap, range, cap, token ownership, and the final
+    authoritative CFrame.
+
+    Rotation controls:
+      - R : rotate clockwise
+      - Q : rotate counter-clockwise
+      - Mouse scroll wheel : rotate clockwise / counter-clockwise
+      - Gamepad ButtonR1 / ButtonL1 : rotate clockwise / counter-clockwise
 ]]
 
 -- // VARIABLES // --
@@ -34,26 +42,38 @@ local janitor = Janitor.new()
 local placementJanitor = Janitor.new()
 
 -- | Configuration | --
-local ACTION_ROTATE = "RotateStructure"
+local ACTION_ROTATE_CW = "RotateStructureCW"
+local ACTION_ROTATE_CCW = "RotateStructureCCW"
 local ACTION_PLACE = "PlaceStructure"
 local ACTION_CANCEL = "CancelStructure"
 local ROTATION_STEP = math.rad(15)
 local RAY_DISTANCE = 500
 local VALID_COLOR = Color3.fromRGB(85, 210, 105)
 local INVALID_COLOR = Color3.fromRGB(225, 70, 65)
+local ARROW_COLOR = Color3.fromRGB(255, 220, 60)
+local ARROW_LENGTH = 6
+local ARROW_THICKNESS = 0.8
+local GHOST_TRANSPARENCY = 0.5
+local Y_SMOOTH_LERP = 0.25 -- smoothing factor for Y position
+local Y_LIFT = 0.2 -- small lift to prevent ground clipping
 
 -- | State Management | --
 local craftingService: any = nil
 local buildingService: any = nil
 local activeToken: string? = nil
 local activeStructureId: string? = nil
-local ghost: Part? = nil
+local ghostModel: Model? = nil -- the actual template clone for visual preview
+local ghostBox: Part? = nil -- wireframe footprint box
+local ghostArrow: Part? = nil -- directional arrow
+local ghostArrowTip: Part? = nil -- arrow tip ball
 local currentCFrame: CFrame? = nil
 local currentValid = false
 local yaw = 0
 local requestPending = false
 local statusGui: ScreenGui? = nil
 local statusLabel: TextLabel? = nil
+local hintLabel: TextLabel? = nil
+local smoothedY = nil -- for Y position smoothing
 
 -- // FUNCTIONS // --
 
@@ -84,6 +104,7 @@ local function buildStatusUi()
 	screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	statusGui = screenGui
 
+	-- Main status label (bottom center)
 	local label = Instance.new("TextLabel")
 	label.AnchorPoint = Vector2.new(0.5, 1)
 	label.Position = UDim2.new(0.5, 0, 1, -100)
@@ -102,6 +123,27 @@ local function buildStatusUi()
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 10)
 	corner.Parent = label
+
+	-- Persistent hint label (above the status, shows controls)
+	local hint = Instance.new("TextLabel")
+	hint.AnchorPoint = Vector2.new(0.5, 1)
+	hint.Position = UDim2.new(0.5, 0, 1, -165)
+	hint.Size = UDim2.new(0.8, 0, 0, 32)
+	hint.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
+	hint.BackgroundTransparency = 0.4
+	hint.Font = Enum.Font.Gotham
+	hint.TextColor3 = Color3.fromRGB(200, 200, 210)
+	hint.TextSize = 14
+	hint.TextWrapped = true
+	hint.Text = "Rotate: R / Q / Scroll Wheel  •  Place: Click / Enter  •  Cancel: Esc"
+	hint.Parent = screenGui
+	hintLabel = hint
+	local hintConstraint = Instance.new("UISizeConstraint")
+	hintConstraint.MaxSize = Vector2.new(580, 32)
+	hintConstraint.Parent = hint
+	local hintCorner = Instance.new("UICorner")
+	hintCorner.CornerRadius = UDim.new(0, 8)
+	hintCorner.Parent = hint
 end
 
 --[[
@@ -118,16 +160,54 @@ local function viewportRay(): Ray
 end
 
 --[[
+    @summary  Format the current yaw as a human-readable angle string.
+    @returns  string
+]]
+local function formatYaw(): string
+	local deg = math.deg(yaw) % 360
+	return string.format("%.0f°", deg)
+end
+
+--[[
+    @summary  Apply transparency and color to all parts in the ghost model.
+    @param    model   Model
+    @param    color   Color3
+]]
+local function tintGhostModel(model: Model, color: Color3)
+	for _, descendant in ipairs(model:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			descendant.Transparency = GHOST_TRANSPARENCY
+			descendant.Color = color
+			descendant.Material = Enum.Material.ForceField
+		end
+	end
+end
+
+--[[
     @summary  Update the local placement ghost from the current view ray.
 ]]
 local function updateGhost()
-	if not ghost or not activeStructureId then
+	if not activeStructureId or not ghostBox then
 		return
 	end
+	local definition = StructureConfig[activeStructureId]
+	if not definition then
+		return
+	end
+
 	local ray = viewportRay()
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	local exclusions = { ghost }
+	local exclusions = { ghostBox }
+	if ghostModel then
+		table.insert(exclusions, ghostModel)
+	end
+	if ghostArrow then
+		table.insert(exclusions, ghostArrow)
+	end
+	if ghostArrowTip then
+		table.insert(exclusions, ghostArrowTip)
+	end
 	if Players.LocalPlayer.Character then
 		table.insert(exclusions, Players.LocalPlayer.Character)
 	end
@@ -135,21 +215,71 @@ local function updateGhost()
 	local result = workspace:Raycast(ray.Origin, ray.Direction * RAY_DISTANCE, params)
 	if not result then
 		currentValid = false
-		ghost.Color = INVALID_COLOR
-		setStatus("No valid ground  •  Rotate: R / shoulder  •  Cancel: Esc / B", false)
+		ghostBox.Color = INVALID_COLOR
+		if ghostModel then
+			tintGhostModel(ghostModel, INVALID_COLOR)
+		end
+		if ghostArrow then
+			ghostArrow.Color = INVALID_COLOR
+		end
+		if ghostArrowTip then
+			ghostArrowTip.Color = INVALID_COLOR
+		end
+		setStatus("No valid ground  •  Facing: " .. formatYaw(), false)
 		return
 	end
 
-	local definition = StructureConfig[activeStructureId]
-	local y = result.Position.Y + definition.Footprint.Y * 0.5
-	local placedCFrame = CFrame.new(result.Position.X, y, result.Position.Z) * CFrame.Angles(0, yaw, 0)
+	-- Compute the target Y position: ground + half footprint height + small lift
+	local targetY = result.Position.Y + definition.Footprint.Y * 0.5 + Y_LIFT
+
+	-- Smooth the Y position to prevent jitter from uneven terrain
+	if smoothedY == nil then
+		smoothedY = targetY
+	else
+		smoothedY = smoothedY + (targetY - smoothedY) * Y_SMOOTH_LERP
+	end
+
+	local placedCFrame = CFrame.new(result.Position.X, smoothedY, result.Position.Z) * CFrame.Angles(0, yaw, 0)
 	currentCFrame = placedCFrame
-	ghost.CFrame = placedCFrame
+
+	-- Update the footprint wireframe box
+	ghostBox.CFrame = placedCFrame
+
+	-- Update the actual model preview
+	if ghostModel then
+		ghostModel:PivotTo(placedCFrame)
+	end
+
+	-- Position the arrow indicator in front of the ghost (pointing in the -Z direction)
+	if ghostArrow then
+		local arrowOffset = Vector3.new(0, 0, -(definition.Footprint.Z * 0.5 + ARROW_LENGTH * 0.5))
+		ghostArrow.CFrame = placedCFrame * CFrame.new(arrowOffset)
+	end
+
+	-- Position the arrow tip (ball) at the very front
+	if ghostArrowTip then
+		local tipOffset = Vector3.new(0, 0, -(definition.Footprint.Z * 0.5 + ARROW_LENGTH))
+		ghostArrowTip.CFrame = placedCFrame * CFrame.new(tipOffset)
+	end
+
+	-- Validate placement
 	local rootPart = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 	currentValid = rootPart ~= nil and (rootPart.Position - result.Position).Magnitude <= 35
-	ghost.Color = if currentValid then VALID_COLOR else INVALID_COLOR
+
+	local ghostColor = if currentValid then VALID_COLOR else INVALID_COLOR
+	ghostBox.Color = ghostColor
+	if ghostModel then
+		tintGhostModel(ghostModel, ghostColor)
+	end
+	if ghostArrow then
+		ghostArrow.Color = if currentValid then ARROW_COLOR else INVALID_COLOR
+	end
+	if ghostArrowTip then
+		ghostArrowTip.Color = if currentValid then ARROW_COLOR else INVALID_COLOR
+	end
+
 	local statusText = if currentValid then "  •  Place: click / A" else "  •  Move closer to place"
-	setStatus(definition.DisplayName .. statusText, currentValid)
+	setStatus(definition.DisplayName .. "  •  Facing: " .. formatYaw() .. statusText, currentValid)
 end
 
 --[[
@@ -157,15 +287,20 @@ end
 ]]
 local function stopPlacement()
 	placementJanitor:Cleanup()
-	ContextActionService:UnbindAction(ACTION_ROTATE)
+	ContextActionService:UnbindAction(ACTION_ROTATE_CW)
+	ContextActionService:UnbindAction(ACTION_ROTATE_CCW)
 	ContextActionService:UnbindAction(ACTION_PLACE)
 	ContextActionService:UnbindAction(ACTION_CANCEL)
 	activeToken = nil
 	activeStructureId = nil
-	ghost = nil
+	ghostModel = nil
+	ghostBox = nil
+	ghostArrow = nil
+	ghostArrowTip = nil
 	currentCFrame = nil
 	currentValid = false
 	requestPending = false
+	smoothedY = nil
 	if statusGui then
 		statusGui.Enabled = false
 	end
@@ -204,8 +339,10 @@ local function onPlacementAction(actionName: string, inputState: Enum.UserInputS
 	if inputState ~= Enum.UserInputState.Begin then
 		return Enum.ContextActionResult.Sink
 	end
-	if actionName == ACTION_ROTATE then
+	if actionName == ACTION_ROTATE_CW then
 		yaw += ROTATION_STEP
+	elseif actionName == ACTION_ROTATE_CCW then
+		yaw -= ROTATION_STEP
 	elseif actionName == ACTION_PLACE then
 		requestPlacement()
 	elseif actionName == ACTION_CANCEL then
@@ -229,36 +366,89 @@ local function startPlacement(tokenId: string, structureId: string)
 	activeToken = tokenId
 	activeStructureId = structureId
 	yaw = 0
+	smoothedY = nil
 
-	local ghostPart = Instance.new("Part")
-	ghostPart.Name = "PlacementGhost"
-	ghostPart.Size = definition.Footprint
-	ghostPart.Anchored = true
-	ghostPart.CanCollide = false
-	ghostPart.CanQuery = false
-	ghostPart.CanTouch = false
-	ghostPart.Material = Enum.Material.ForceField
-	ghostPart.Transparency = 0.55
-	ghostPart.Color = INVALID_COLOR
-	ghostPart.Parent = workspace
-	ghost = ghostPart
-	placementJanitor:Add(ghostPart)
+	-- Create the footprint wireframe box (shows the placement bounds)
+	local box = Instance.new("Part")
+	box.Name = "PlacementGhostBox"
+	box.Size = definition.Footprint
+	box.Anchored = true
+	box.CanCollide = false
+	box.CanQuery = false
+	box.CanTouch = false
+	box.Material = Enum.Material.ForceField
+	box.Transparency = 0.7
+	box.Color = INVALID_COLOR
+	box.Parent = workspace
+	ghostBox = box
+	placementJanitor:Add(box)
+
+	-- Request the actual template model from the server for visual preview
+	buildingService:GetPreviewModel(structureId):andThen(function(model)
+		if not activeToken or typeof(model) ~= "Instance" or not model:IsA("Model") then
+			return
+		end
+		-- The server parents it to the player; move it to workspace
+		model.Parent = workspace
+		ghostModel = model
+		placementJanitor:Add(model)
+		-- Apply initial tint
+		tintGhostModel(model, INVALID_COLOR)
+	end):catch(function()
+		-- If the server call fails, we still have the wireframe box
+	end)
+
+	-- Create the directional arrow indicator
+	local arrow = Instance.new("Part")
+	arrow.Name = "PlacementArrow"
+	arrow.Size = Vector3.new(ARROW_THICKNESS, ARROW_THICKNESS, ARROW_LENGTH)
+	arrow.Anchored = true
+	arrow.CanCollide = false
+	arrow.CanQuery = false
+	arrow.CanTouch = false
+	arrow.Material = Enum.Material.Neon
+	arrow.Transparency = 0.2
+	arrow.Color = ARROW_COLOR
+	arrow.Parent = workspace
+	ghostArrow = arrow
+	placementJanitor:Add(arrow)
+
+	-- Create the arrow tip (ball)
+	local arrowTip = Instance.new("Part")
+	arrowTip.Name = "PlacementArrowTip"
+	arrowTip.Shape = Enum.PartType.Ball
+	arrowTip.Size = Vector3.new(ARROW_THICKNESS * 2.5, ARROW_THICKNESS * 2.5, ARROW_THICKNESS * 2.5)
+	arrowTip.Anchored = true
+	arrowTip.CanCollide = false
+	arrowTip.CanQuery = false
+	arrowTip.CanTouch = false
+	arrowTip.Material = Enum.Material.Neon
+	arrowTip.Transparency = 0.2
+	arrowTip.Color = ARROW_COLOR
+	arrowTip.Parent = workspace
+	ghostArrowTip = arrowTip
+	placementJanitor:Add(arrowTip)
+
 	placementJanitor:Add(RunService.RenderStepped:Connect(updateGhost), "Disconnect")
 
-	ContextActionService:BindAction(ACTION_ROTATE, onPlacementAction, true, Enum.KeyCode.R, Enum.KeyCode.Q, Enum.KeyCode.ButtonR1)
+	-- Bind rotation actions — CW and CCW separately
+	ContextActionService:BindAction(ACTION_ROTATE_CW, onPlacementAction, true, Enum.KeyCode.R, Enum.KeyCode.ButtonR1)
+	ContextActionService:BindAction(ACTION_ROTATE_CCW, onPlacementAction, true, Enum.KeyCode.Q, Enum.KeyCode.ButtonL1)
 	ContextActionService:BindAction(ACTION_PLACE, onPlacementAction, true, Enum.KeyCode.Return, Enum.KeyCode.ButtonA)
 	ContextActionService:BindAction(ACTION_CANCEL, onPlacementAction, true, Enum.KeyCode.Escape, Enum.KeyCode.ButtonB)
-	ContextActionService:SetTitle(ACTION_ROTATE, "Rotate")
+	ContextActionService:SetTitle(ACTION_ROTATE_CW, "Rotate →")
+	ContextActionService:SetTitle(ACTION_ROTATE_CCW, "Rotate ←")
 	ContextActionService:SetTitle(ACTION_PLACE, "Place")
 	ContextActionService:SetTitle(ACTION_CANCEL, "Cancel")
-	ContextActionService:SetPosition(ACTION_ROTATE, UDim2.new(1, -180, 1, -170))
+	ContextActionService:SetPosition(ACTION_ROTATE_CW, UDim2.new(1, -260, 1, -170))
+	ContextActionService:SetPosition(ACTION_ROTATE_CCW, UDim2.new(1, -180, 1, -170))
 	ContextActionService:SetPosition(ACTION_PLACE, UDim2.new(1, -95, 1, -170))
 	ContextActionService:SetPosition(ACTION_CANCEL, UDim2.new(1, -95, 1, -95))
 
 	if statusGui then
 		statusGui.Enabled = true
 	end
-	setStatus(definition.DisplayName .. "  •  Select valid ground", false)
+	setStatus(definition.DisplayName .. "  •  Facing: " .. formatYaw() .. "  •  Rotate: R / Q / Scroll", false)
 end
 
 -- // INITIALIZATION // --
@@ -278,12 +468,27 @@ function BuildingController:KnitStart()
 		end
 	end), "Disconnect")
 
+	-- Mouse click to place
 	janitor:Add(UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		if gameProcessed or not activeToken then
 			return
 		end
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			requestPlacement()
+		end
+	end), "Disconnect")
+
+	-- Mouse scroll wheel to rotate
+	janitor:Add(UserInputService.InputChanged:Connect(function(input, gameProcessed)
+		if gameProcessed or not activeToken then
+			return
+		end
+		if input.UserInputType == Enum.UserInputType.MouseWheel then
+			if input.Position.Z > 0 then
+				yaw += ROTATION_STEP
+			else
+				yaw -= ROTATION_STEP
+			end
 		end
 	end), "Disconnect")
 end

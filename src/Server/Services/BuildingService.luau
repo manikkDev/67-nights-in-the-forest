@@ -247,7 +247,10 @@ local function authoritativeCFrame(requested: CFrame, definition): CFrame?
 		return nil
 	end
 
-	local y = result.Position.Y + definition.Footprint.Y * 0.5
+	-- Use the footprint Y to position the model center above ground.
+	-- The footprint Y represents the model height, so center = groundY + height/2.
+	-- Add a small lift (0.2) to prevent the bottom from clipping into uneven ground.
+	local y = result.Position.Y + definition.Footprint.Y * 0.5 + 0.2
 	return CFrame.new(snappedX, y, snappedZ) * CFrame.Angles(0, snappedYaw, 0)
 end
 
@@ -430,6 +433,43 @@ function BuildingService:DamageStructure(model: Model, amount: number): boolean
 	broadcast(BuildingService.Client.StructureDestroyed, { structureId = structureId, position = model:GetPivot().Position })
 	model:Destroy()
 	return true
+end
+
+--[[
+    @summary  Provide a client-side preview clone of a structure template
+              so the player can see the exact shape during placement.
+    @param    player       Player  -- injected by Knit
+    @param    structureId  string
+    @returns  Model?
+]]
+function BuildingService.Client:GetPreviewModel(player: Player, structureId: string): Model?
+	if typeof(structureId) ~= "string" then
+		return nil
+	end
+	local definition = StructureConfig[structureId]
+	if not definition then
+		return nil
+	end
+	local model = cloneTemplate(definition)
+	if not model then
+		return nil
+	end
+	styleBed(model, definition.Id)
+	-- Strip all scripts and make all parts non-collidable, semi-transparent
+	for _, descendant in ipairs(model:GetDescendants()) do
+		if descendant:IsA("BaseScript") or descendant:IsA("ModuleScript") then
+			descendant:Destroy()
+		elseif descendant:IsA("BasePart") then
+			descendant.Anchored = true
+			descendant.CanCollide = false
+			descendant.CanQuery = false
+			descendant.CanTouch = false
+			descendant.Transparency = 0.5
+		end
+	end
+	-- Parent to the player so it's accessible on the client
+	model.Parent = player
+	return model
 end
 
 --[[
