@@ -12,7 +12,7 @@
 ]]
 
 return {
-	STORE_NAME = "67Nights_v1",
+	STORE_NAME = "67Nights_v2",
 	MAX_PLAYERS = 8,
 	ITEMS_PATH = "Assets Items",
 	MATCH_WAIT_SECONDS = 3599,

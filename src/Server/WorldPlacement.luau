@@ -65,18 +65,67 @@ function WorldPlacement.GetGroundCFrame(groundPart: BasePart, position: Vector3,
 end
 
 function WorldPlacement.IsFootprintFree(cframe: CFrame, footprint: Vector3, exclusions: { Instance }?): boolean
+	return WorldPlacement.CountFootprintOverlaps(cframe, footprint, exclusions) == 0
+end
+
+--[[
+    @summary  Count how many solid parts overlap the footprint box.
+    @desc     Used both for the strict free-check and for ranking
+              candidate positions when no perfectly clear spot exists.
+              Filters out invisible parts, expanded ground tiles, and
+              very small debris (< 3 studs in every dimension) so that
+              tiny branches or pebbles do not block cave placement.
+    @param    cframe      CFrame  -- centre of the box
+    @param    footprint   Vector3 -- box dimensions
+    @param    exclusions  { Instance }? -- instances to ignore
+    @returns  number
+]]
+function WorldPlacement.CountFootprintOverlaps(cframe: CFrame, footprint: Vector3, exclusions: { Instance }?): number
 	local overlap = OverlapParams.new()
 	overlap.FilterType = Enum.RaycastFilterType.Exclude
 	overlap.FilterDescendantsInstances = exclusions or {}
-	overlap.MaxParts = 40
+	overlap.MaxParts = 200
+	local count = 0
 	for _, part in ipairs(Workspace:GetPartBoundsInBox(cframe, footprint, overlap)) do
-		local parent = part.Parent
-		local isExpandedGround = parent and parent.Name == "ExpandedGround" and part:GetAttribute("ExpansionGenerated") == true
-		if part:IsA("BasePart") and part.Transparency < 0.98 and not isExpandedGround then
-			return false
+		if part:IsA("BasePart") and part.Transparency < 0.98 then
+			local parent = part.Parent
+			local isExpandedGround = parent and parent.Name == "ExpandedGround" and part:GetAttribute("ExpansionGenerated") == true
+			if not isExpandedGround then
+				local size = part.Size
+				if size.X >= 3 or size.Y >= 3 or size.Z >= 3 then
+					count += 1
+				end
+			end
 		end
 	end
-	return true
+	return count
+end
+
+--[[
+    @summary  Return all solid parts overlapping the footprint box.
+    @desc     Used by callers to clear (remove) obstacles at a
+              best-effort placement position.
+    @param    cframe      CFrame
+    @param    footprint   Vector3
+    @param    exclusions  { Instance }?
+    @returns  { BasePart }
+]]
+function WorldPlacement.GetFootprintOverlaps(cframe: CFrame, footprint: Vector3, exclusions: { Instance }?): { BasePart }
+	local overlap = OverlapParams.new()
+	overlap.FilterType = Enum.RaycastFilterType.Exclude
+	overlap.FilterDescendantsInstances = exclusions or {}
+	overlap.MaxParts = 500
+	local result = {}
+	for _, part in ipairs(Workspace:GetPartBoundsInBox(cframe, footprint, overlap)) do
+		if part:IsA("BasePart") and part.Transparency < 0.98 then
+			local parent = part.Parent
+			local isExpandedGround = parent and parent.Name == "ExpandedGround" and part:GetAttribute("ExpansionGenerated") == true
+			if not isExpandedGround then
+				table.insert(result, part)
+			end
+		end
+	end
+	return result
 end
 
 function WorldPlacement.IsPathAccessible(from: Vector3, to: Vector3): boolean
@@ -106,9 +155,13 @@ function WorldPlacement.FindPosition(options: {
 	maxSlope: number?,
 	requirePathFrom: Vector3?,
 	faceCenter: boolean?,
+	allowFallback: boolean?,
 }): CFrame?
 	local random = Random.new(options.seed)
 	local retries = options.maxRetries or 64
+	local bestCFrame: CFrame? = nil
+	local bestOverlapCount = math.huge
+	local bestExclusions: { Instance }? = nil
 	for attempt = 1, retries do
 		local angle = if attempt <= retries * 0.75
 			then random:NextNumber(0, math.pi * 2)
@@ -139,13 +192,26 @@ function WorldPlacement.FindPosition(options: {
 		local checkCFrame = groundCFrame * CFrame.new(0, options.footprint.Y * 0.5, 0)
 		local exclusions = table.clone(options.exclusions or {})
 		table.insert(exclusions, options.groundPart)
-		if not WorldPlacement.IsFootprintFree(checkCFrame, options.footprint, exclusions) then
-			continue
+		local overlapCount = WorldPlacement.CountFootprintOverlaps(checkCFrame, options.footprint, exclusions)
+		if overlapCount == 0 then
+			if options.requirePathFrom and not WorldPlacement.IsPathAccessible(options.requirePathFrom, groundCFrame.Position) then
+				if overlapCount < bestOverlapCount then
+					bestCFrame = groundCFrame
+					bestOverlapCount = overlapCount
+					bestExclusions = exclusions
+				end
+				continue
+			end
+			return groundCFrame
 		end
-		if options.requirePathFrom and not WorldPlacement.IsPathAccessible(options.requirePathFrom, groundCFrame.Position) then
-			continue
+		if overlapCount < bestOverlapCount then
+			bestCFrame = groundCFrame
+			bestOverlapCount = overlapCount
+			bestExclusions = exclusions
 		end
-		return groundCFrame
+	end
+	if options.allowFallback and bestCFrame then
+		return bestCFrame, bestOverlapCount, bestExclusions
 	end
 	return nil
 end

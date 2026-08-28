@@ -147,38 +147,60 @@ end
     @param    data  table  -- the reconciled profile data
 ]]
 local function migrateProfile(data: { [string]: any })
-	if (data.DataVersion or 1) >= 2 then
-		return
+	-- v1 -> v2: collapse legacy run/stats tables into Records.
+	if (data.DataVersion or 1) < 2 then
+		local legacyStats = data.Stats or {}
+		data.Records = data.Records or {}
+		data.Records.TreesChopped = (data.Records.TreesChopped or 0) + (legacyStats.TreesChopped or 0)
+		data.Records.WolvesKilled = (data.Records.WolvesKilled or 0) + (legacyStats.WolvesKilled or 0)
+		data.Records.TotalPlaytime = (data.Records.TotalPlaytime or 0) + (legacyStats.TotalPlaytime or 0)
+
+		local legacySurvival = data.Survival or {}
+		data.Records.HighestDay = math.max(data.Records.HighestDay or 0, legacySurvival.HighestNightSurvived or 0)
+		data.Records.Deaths = (data.Records.Deaths or 0) + (legacySurvival.DeathCount or 0)
+
+		data.Survival = {
+			Health = RunConfig.StartingHealth,
+			MaxHealth = RunConfig.StartingHealth,
+			Hunger = RunConfig.StartingHunger,
+			MaxHunger = RunConfig.StartingHunger,
+			DeathCount = 0,
+			HighestNightSurvived = 0,
+		}
+
+		data.Resources = nil
+		data.Base = nil
+		data.Rescue = nil
+		data.Stats = nil
+		data.Campfire = nil
+		data.Inventory = nil
+
+		data.DataVersion = 2
 	end
 
-	local legacyStats = data.Stats or {}
-	data.Records = data.Records or {}
-	data.Records.TreesChopped = (data.Records.TreesChopped or 0) + (legacyStats.TreesChopped or 0)
-	data.Records.WolvesKilled = (data.Records.WolvesKilled or 0) + (legacyStats.WolvesKilled or 0)
-	data.Records.TotalPlaytime = (data.Records.TotalPlaytime or 0) + (legacyStats.TotalPlaytime or 0)
-
-	local legacySurvival = data.Survival or {}
-	data.Records.HighestDay = math.max(data.Records.HighestDay or 0, legacySurvival.HighestNightSurvived or 0)
-	data.Records.Deaths = (data.Records.Deaths or 0) + (legacySurvival.DeathCount or 0)
-
-	data.Survival = {
-		Health = RunConfig.StartingHealth,
-		MaxHealth = RunConfig.StartingHealth,
-		Hunger = RunConfig.StartingHunger,
-		MaxHunger = RunConfig.StartingHunger,
-		DeathCount = 0,
-		HighestNightSurvived = 0,
-	}
-
-	data.Resources = nil
-	data.Base = nil
-	data.Rescue = nil
-	data.Stats = nil
-	data.Campfire = nil
-	data.Inventory = nil
-
-	data.DataVersion = 2
-end
+	-- v2 -> v3: trim bloated PickupOrder arrays from earlier 9999-resource
+	-- tests that could push the profile past the DataStore size limit.
+	if (data.DataVersion or 1) < 3 then
+		if typeof(data.Inventory) == "table" and typeof(data.Inventory.PickupOrder) == "table" then
+			local seen = {}
+			local cleaned = {}
+			for _, entry in ipairs(data.Inventory.PickupOrder) do
+				if typeof(entry) == "string" and not seen[entry] then
+					seen[entry] = true
+					table.insert(cleaned, entry)
+				end
+			end
+			data.Inventory.PickupOrder = cleaned
+		end
+		if typeof(data.Resources) == "table" then
+			for key, value in pairs(data.Resources) do
+				if typeof(value) == "number" and value > 9999 then
+					data.Resources[key] = 9999
+				end
+			end
+		end
+		data.DataVersion = 3
+	end
 
 --[[
     @summary  Load a profile for a player with session-locking.

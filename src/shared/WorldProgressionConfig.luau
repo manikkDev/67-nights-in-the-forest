@@ -17,9 +17,9 @@ local Config = {
 		CheckInterval = 0.15,
 	},
 	Placement = {
-		MaxRetries = 80,
-		CaveFootprint = Vector3.new(72, 20, 70),
-		CaveSpacing = 90,
+		MaxRetries = 120,
+		CaveFootprint = Vector3.new(40, 14, 38),
+		CaveSpacing = 70,
 		MaxSlope = 12,
 	},
 }

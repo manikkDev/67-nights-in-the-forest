@@ -268,6 +268,50 @@ local function createChild(definition, caveCFrame: CFrame): Model?
 end
 
 --[[
+    @summary  Remove map geometry (trees, structures) overlapping a cave
+              site so the cave can sit cleanly on the ground.
+    @desc     Only removes parts whose top-level model ancestor is inside
+              the base map.  Never removes the ground, expanded ground,
+              campfire, bonfire, or runtime folder contents.
+    @param    cframe     CFrame   -- cave centre
+    @param    footprint  Vector3  -- clearance box
+]]
+local function clearCaveObstacles(cframe: CFrame, footprint: Vector3)
+	local baseMap = worldService:GetBaseMap()
+	local runtimeFolder = runStateService:GetRuntimeFolder()
+	local exclusions = {}
+	if baseMap then
+		local ground = worldService:GetGroundPart()
+		if ground then
+			table.insert(exclusions, ground)
+		end
+	end
+	table.insert(exclusions, runtimeFolder)
+	local overlaps = WorldPlacement.GetFootprintOverlaps(cframe, footprint, exclusions)
+	for _, part in ipairs(overlaps) do
+		-- Walk up to the top-level model ancestor inside Base-map.
+		local ancestor = part
+		local topModel = nil
+		while ancestor and ancestor.Parent do
+			if ancestor.Parent == baseMap then
+				topModel = ancestor
+				break
+			end
+			ancestor = ancestor.Parent
+		end
+		local toRemove = topModel or part
+		-- Never remove the ground or campfire/bonfire.
+		if toRemove:IsA("BasePart") and toRemove.Name == "Земля" then
+			continue
+		end
+		if toRemove.Name == "Bonfire" or toRemove.Name == "Campfire" then
+			continue
+		end
+		toRemove:Destroy()
+	end
+end
+
+--[[
     @summary  Build all four cave records for a fresh run.
 ]]
 local function buildCaves()
@@ -297,7 +341,7 @@ local function buildCaves()
 	for index, rescueId in ipairs(CAVE_ORDER) do
 		local definition = RescueConfig[rescueId]
 		local ring = WorldProgressionConfig.CaveRings[rescueId]
-		local caveCFrame = WorldPlacement.FindPosition({
+		local caveCFrame, overlapCount = WorldPlacement.FindPosition({
 			center = campfireCFrame.Position,
 			groundPart = groundPart,
 			bounds = bounds,
@@ -310,12 +354,20 @@ local function buildCaves()
 			maxRetries = WorldProgressionConfig.Placement.MaxRetries,
 			maxSlope = WorldProgressionConfig.Placement.MaxSlope,
 			faceCenter = true,
+			allowFallback = true,
 		})
 		if not caveCFrame then
-			warn("[RescueService] No collision-free cave position found for", rescueId)
+			warn("[RescueService] No cave position found for", rescueId)
 			continue
 		end
 		local center = caveCFrame.Position
+		if overlapCount and overlapCount > 0 then
+			print(("[RescueService] Clearing %d obstacles for %s cave"):format(overlapCount, rescueId))
+			clearCaveObstacles(
+				caveCFrame * CFrame.new(0, WorldProgressionConfig.Placement.CaveFootprint.Y * 0.5, 0),
+				WorldProgressionConfig.Placement.CaveFootprint
+			)
+		end
 		WorldPlacement.Reserve(center, WorldProgressionConfig.Placement.CaveSpacing, "Cave_" .. rescueId)
 		local cave, gate = createCaveModel(definition, center)
 		cave.Parent = cavesFolder
