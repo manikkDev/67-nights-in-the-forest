@@ -163,7 +163,7 @@ local function onToolActivated()
 	playSwingAnimation()
 
 	local combatService = Knit.GetService("CombatService")
-	combatService.RequestAttack()
+	combatService:RequestAttack()
 end
 
 --[[

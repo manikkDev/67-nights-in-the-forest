@@ -151,7 +151,7 @@ local function wireSpear(tool: Tool)
 			return
 		end
 		local combatService = Knit.GetService("CombatService")
-		combatService.RequestAttack()
+		combatService:RequestAttack()
 	end), "Disconnect")
 end
 

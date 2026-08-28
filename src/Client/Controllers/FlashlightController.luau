@@ -218,8 +218,14 @@ end
 ]]
 local function reportBeamState(isActive: boolean)
 	beamOn = isActive
+	print("[FlashlightController] reportBeamState:", isActive)
 	if flashlightService then
-		flashlightService.SetBeamActive(isActive)
+		local ok, err = pcall(function()
+			flashlightService:SetBeamActive(isActive)
+		end)
+		if not ok then
+			warn("[FlashlightController] Failed to call SetBeamActive:", err)
+		end
 	end
 	updateBatteryUI()
 end
@@ -249,8 +255,10 @@ end
     @param    tool  Tool
 ]]
 local function toggleBeam(tool: Tool)
+	print("[FlashlightController] toggleBeam called")
 	local handle = tool:FindFirstChild("Handle")
 	if not handle then
+		warn("[FlashlightController] No Handle on flashlight tool")
 		return
 	end
 	local spotLight = handle:FindFirstChildOfClass("SpotLight")
@@ -260,9 +268,11 @@ local function toggleBeam(tool: Tool)
 	if spotLight then
 		newState = not spotLight.Enabled
 	end
+	print("[FlashlightController] toggleBeam newState:", newState)
 
 	if newState and batteryPercent <= 0 then
 		-- Cannot turn on with empty battery
+		print("[FlashlightController] Battery empty, cannot turn on")
 		return
 	end
 
@@ -283,9 +293,11 @@ end
     @param    tool  Tool
 ]]
 local function wireTool(tool: Tool)
+	print("[FlashlightController] wireTool: wiring flashlight tool")
 	toolJanitor:Cleanup()
 	toolJanitor:Add(tool.Activated:Connect(function()
 		if not gameStateController or not gameStateController:IsInGame() then
+			print("[FlashlightController] Tool activated but not in game")
 			return
 		end
 		toggleBeam(tool)
@@ -302,6 +314,7 @@ end
     @param    player  Player
 ]]
 local function watchForFlashlight(player: Player)
+	print("[FlashlightController] watchForFlashlight started for", player.Name)
 	local function onToolSetChanged()
 		refreshPanelVisibility()
 	end
@@ -312,6 +325,7 @@ local function watchForFlashlight(player: Player)
 
 		local tool = character:FindFirstChild(FLASHLIGHT_TOOL_NAME)
 		if tool and tool:IsA("Tool") then
+			print("[FlashlightController] Found equipped flashlight on character")
 			wireTool(tool)
 			-- Sync visual state with server
 			local handle = tool:FindFirstChild("Handle")
@@ -324,6 +338,7 @@ local function watchForFlashlight(player: Player)
 
 		charJanitor:Add(character.ChildAdded:Connect(function(child)
 			if child:IsA("Tool") and child.Name == FLASHLIGHT_TOOL_NAME then
+				print("[FlashlightController] Flashlight tool added to character (equipped)")
 				wireTool(child)
 				onToolSetChanged()
 			end
@@ -587,7 +602,7 @@ local function updateAim(dt: number)
 	-- This matches where the player is looking on screen.
 	local camera = workspace.CurrentCamera
 	if camera then
-		flashlightService.UpdateAim(camera.CFrame.LookVector)
+		flashlightService:UpdateAim(camera.CFrame.LookVector)
 	end
 end
 
@@ -612,7 +627,9 @@ function FlashlightController:KnitStart()
 
 	-- Request initial battery state and listen for updates
 	if flashlightService then
-		local ok, state = pcall(flashlightService.GetBatteryState)
+		local ok, state = pcall(function()
+			return flashlightService:GetBatteryState()
+		end)
 		if ok and state and typeof(state) == "table" then
 			batteryPercent = if typeof(state.percent) == "number" then math.clamp(state.percent, 0, 100) else 100
 			beamOn = if state.isOn == true then true else false
@@ -624,15 +641,21 @@ function FlashlightController:KnitStart()
 		end)
 	end
 
-	local function onGameStarted()
-		watchForFlashlight(player)
-	end
+	-- Always start watching for the flashlight tool immediately.
+	-- The game-state check happens inside tool.Activated, so we don't
+	-- need to gate the whole watcher on it.  This fixes the race where
+	-- SkipLobby starts the game before this controller's KnitStart runs,
+	-- causing GameStarted to fire before we connect to it.
+	watchForFlashlight(player)
 
-	if gameStateController and gameStateController:IsInGame() then
-		onGameStarted()
-	else
-		if gameStateController then
-			gameStateController.GameStarted:Connect(onGameStarted)
+	-- Also connect to GameStarted in case the game starts later (lobby).
+	if gameStateController then
+		if gameStateController:IsInGame() then
+			-- Already in game — watchForFlashlight already called above
+		else
+			gameStateController.GameStarted:Connect(function()
+				watchForFlashlight(player)
+			end)
 		end
 	end
 

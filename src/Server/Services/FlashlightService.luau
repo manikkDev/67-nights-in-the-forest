@@ -230,6 +230,8 @@ end
     @summary  For every player currently holding their beam on, check
               alignment against active stalkers and apply a stun.
 ]]
+local lastBeamCheckLog = 0
+
 local function checkAllBeams()
 	if not deerService and not owlService then
 		return
@@ -243,18 +245,38 @@ local function checkAllBeams()
 		end
 	end
 	if #stalkerModels == 0 then
-		if RunConfig.IsTestEnabled("VerboseFlashlight") then
+		-- Only log this once every 10 seconds to avoid spam
+		local now = os.clock()
+		if RunConfig.IsTestEnabled("VerboseFlashlight") and now - lastBeamCheckLog > 10 then
+			lastBeamCheckLog = now
 			print("[FlashlightService] No stalker models found in CombatTarget tag")
 		end
 		return
 	end
 
-	if RunConfig.IsTestEnabled("VerboseFlashlight") then
-		print(string.format("[FlashlightService] Found %d stalker models, %d beam-active players", #stalkerModels, (function()
-			local c = 0
-			for _ in pairs(beamActive) do c += 1 end
-			return c
-		end)()))
+	-- Count beam-active players
+	local activeCount = 0
+	for _ in pairs(beamActive) do
+		activeCount += 1
+	end
+
+	-- Only log the periodic status once every 5 seconds to avoid spam
+	local now = os.clock()
+	if RunConfig.IsTestEnabled("VerboseFlashlight") and now - lastBeamCheckLog > 5 then
+		lastBeamCheckLog = now
+		-- Check if any player has a flashlight equipped
+		local equippedCount = 0
+		local beamOnCount = 0
+		for _, player in ipairs(Players:GetPlayers()) do
+			if hasFlashlightEquipped(player) then
+				equippedCount += 1
+				if isFlashlightBeamOn(player) then
+					beamOnCount += 1
+				end
+			end
+		end
+		print(string.format("[FlashlightService] %d stalkers, %d beam-active, %d equipped, %d beam-on",
+			#stalkerModels, activeCount, equippedCount, beamOnCount))
 	end
 
 	for player, isActive in pairs(beamActive) do
@@ -282,7 +304,7 @@ local function checkAllBeams()
 			continue
 		end
 		if RunConfig.IsTestEnabled("VerboseFlashlight") then
-			print("[FlashlightService] Player", player.Name, "has beam on but no remote state — checking directly")
+			print("[FlashlightService] Player", player.Name, "has beam on (detected via SpotLight)")
 		end
 		for _, stalkerModel in ipairs(stalkerModels) do
 			if isBeamAlignedWithStalker(player, stalkerModel) then
@@ -306,8 +328,9 @@ function FlashlightService.Client:SetBeamActive(player: Player, isActive: boolea
 	if typeof(isActive) ~= "boolean" then
 		return
 	end
+	print("[FlashlightService] SetBeamActive from", player.Name, "isActive=", isActive)
 	ensureBattery(player)
-	-- Don t allow turning on if the battery is empty
+	-- Don't allow turning on if the battery is empty
 	if isActive and (battery[player] or 0) <= 0 then
 		isActive = false
 	end
