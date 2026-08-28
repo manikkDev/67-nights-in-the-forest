@@ -132,6 +132,7 @@ return {
 		BakedAttackAnimName = "Attack",
 		Loot = {
 			{ Resource = "Wood", Min = 1, Max = 2, Chance = 0.5 },
+			{ Resource = "CultistGem", Min = 1, Max = 1, Chance = 1.0 },
 		},
 	},
 	Cultist2 = {
@@ -150,6 +151,7 @@ return {
 		BakedAttackAnimName = "Attack",
 		Loot = {
 			{ Resource = "Wood", Min = 1, Max = 2, Chance = 0.5 },
+			{ Resource = "CultistGem", Min = 1, Max = 1, Chance = 1.0 },
 		},
 	},
 	RamMonster = {

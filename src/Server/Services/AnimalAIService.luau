@@ -382,9 +382,10 @@ local function grantLoot(record, player: Player)
 	for _, entry in ipairs(record.config.Loot or {}) do
 		if math.random() <= entry.Chance then
 			local amount = math.random(entry.Min, entry.Max)
-			if entry.Resource == "RabbitMeat" then
+			if entry.Resource == "RabbitMeat" or entry.Resource == "CultistGem" then
+				-- Spawn as a physical world drop so the player can pick it up.
 				for _ = 1, amount do
-					local drop = inventoryService:BuildDropModel("RabbitMeat")
+					local drop = inventoryService:BuildDropModel(entry.Resource)
 					if drop then
 						local pos = record.model:GetPivot().Position
 						local offset = Vector3.new((math.random() - 0.5) * 5, 2, (math.random() - 0.5) * 5)

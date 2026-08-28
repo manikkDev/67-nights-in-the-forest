@@ -40,7 +40,7 @@ local Config = {
 	BaseMultiplier = 1,
 	MaxMultiplier = 9,
 
-	RaidCycleInterval = 1, -- TEMP: raid every night for testing, revert to 4 when done
+	RaidCycleInterval = 4,
 
 	DownedDuration = 45,
 	ReviveHoldDuration = 5,
