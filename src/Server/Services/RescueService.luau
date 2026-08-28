@@ -722,21 +722,22 @@ local function createPosterBoard()
 	boardModel.Parent = runStateService:GetRuntimeFolder()
 	posterBoard = board
 
-	-- Exclamation mark icon above the board
+	-- Exclamation mark icon above the board (BillboardGui for reliability)
 	local exclaim = Instance.new("Part")
 	exclaim.Name = "ExclamationIcon"
-	exclaim.Shape = Enum.PartType.Cylinder
-	exclaim.Size = Vector3.new(0.3, 1.5, 1.5)
+	exclaim.Shape = Enum.PartType.Ball
+	exclaim.Size = Vector3.new(1.2, 1.2, 1.2)
 	exclaim.Anchored = true
 	exclaim.CanCollide = false
 	exclaim.Material = Enum.Material.SmoothPlastic
 	exclaim.Color = Color3.fromRGB(220, 50, 40)
-	exclaim.CFrame = boardCFrame * CFrame.new(0, 6.5, 0.5) * CFrame.Angles(0, 0, math.rad(90))
+	exclaim.CFrame = boardCFrame * CFrame.new(0, 6.2, 0.4)
 	exclaim.Parent = boardModel
 	exclamationPart = exclaim
-	local exclaimGui = Instance.new("SurfaceGui")
-	exclaimGui.Face = Enum.NormalId.Top
-	exclaimGui.CanvasSize = Vector2.new(100, 100)
+	local exclaimGui = Instance.new("BillboardGui")
+	exclaimGui.Size = UDim2.fromOffset(80, 80)
+	exclaimGui.StudsOffset = Vector3.new(0, 0, 0)
+	exclaimGui.AlwaysOnTop = true
 	exclaimGui.Parent = exclaim
 	local exclaimLabel = Instance.new("TextLabel")
 	exclaimLabel.Size = UDim2.fromScale(1, 1)
@@ -744,7 +745,7 @@ local function createPosterBoard()
 	exclaimLabel.Font = Enum.Font.GothamBlack
 	exclaimLabel.Text = "!"
 	exclaimLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	exclaimLabel.TextSize = 70
+	exclaimLabel.TextSize = 60
 	exclaimLabel.Parent = exclaimGui
 	-- Initially hidden until a cave is available
 	exclaim.Transparency = 1
@@ -754,20 +755,9 @@ local function createPosterBoard()
 	surfaceGui.Name = "BoardGui"
 	surfaceGui.Face = Enum.NormalId.Front
 	surfaceGui.CanvasSize = Vector2.new(1024, 512)
-	surfaceGui.Lighting = Enum.SurfaceLighting.OptIn
 	surfaceGui.Parent = board
 
-	local canvas = surfaceGui:FindFirstChild("Canvas")
-	if not canvas then
-		canvas = Instance.new("Frame")
-		canvas.Name = "Canvas"
-		canvas.Size = UDim2.fromScale(1, 1)
-		canvas.BackgroundColor3 = Color3.fromRGB(95, 65, 38)
-		canvas.BorderSizePixel = 0
-		canvas.Parent = surfaceGui
-	end
-
-	-- Title label
+	-- Title label (parented directly to SurfaceGui)
 	local titleLabel = Instance.new("TextLabel")
 	titleLabel.Name = "Title"
 	titleLabel.Position = UDim2.fromOffset(0, 8)
@@ -779,15 +769,15 @@ local function createPosterBoard()
 	titleLabel.TextStrokeColor3 = Color3.fromRGB(20, 10, 5)
 	titleLabel.TextStrokeTransparency = 0.2
 	titleLabel.TextSize = 38
-	titleLabel.Parent = canvas
+	titleLabel.Parent = surfaceGui
 
-	-- Poster row container
+	-- Poster row container (parented directly to SurfaceGui)
 	local posterRow = Instance.new("Frame")
 	posterRow.Name = "PosterRow"
 	posterRow.Position = UDim2.fromOffset(0, 68)
 	posterRow.Size = UDim2.new(1, 0, 1, -76)
 	posterRow.BackgroundTransparency = 1
-	posterRow.Parent = canvas
+	posterRow.Parent = surfaceGui
 
 	-- Create 4 poster slots
 	for index, rescueId in ipairs(CAVE_ORDER) do
