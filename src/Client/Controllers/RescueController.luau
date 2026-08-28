@@ -19,6 +19,7 @@ local ContextActionService = game:GetService("ContextActionService")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
+local RescueConfig = require(ReplicatedStorage.Shared.RescueConfig)
 
 -- | Objects | --
 local RescueController = Knit.CreateController({
@@ -43,7 +44,308 @@ local targetName = ""
 local carryingChild: string? = nil
 local bannerHideAt = 0
 
+-- Map UI state
+local mapGui: ScreenGui? = nil
+local mapFrame: Frame? = nil
+local mapCards: { [string]: Frame } = {}
+local mapOpen = false
+local currentMapStates: { [string]: any } = {}
+
+local CAVE_ORDER = { "Dino", "Kraken", "Squid", "Koala" }
+
 -- // FUNCTIONS // --
+
+--[[
+    @summary  Build the "Missing Kid Locations" map UI (hidden by default).
+]]
+local function buildMapUi()
+	if mapGui then
+		return
+	end
+	local screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "MissingKidLocationsGui"
+	screenGui.ResetOnSpawn = false
+	screenGui.IgnoreGuiInset = true
+	screenGui.Enabled = false
+	screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	mapGui = screenGui
+
+	-- Dark background
+	local bg = Instance.new("Frame")
+	bg.Size = UDim2.fromScale(1, 1)
+	bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	bg.BackgroundTransparency = 0.5
+	bg.BorderSizePixel = 0
+	bg.Parent = screenGui
+
+	-- Main board frame
+	local frame = Instance.new("Frame")
+	frame.Name = "BoardFrame"
+	frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	frame.Position = UDim2.fromScale(0.5, 0.5)
+	frame.Size = UDim2.fromOffset(860, 480)
+	frame.BackgroundColor3 = Color3.fromRGB(85, 58, 34)
+	frame.BorderSizePixel = 0
+	frame.Parent = bg
+	mapFrame = frame
+	local frameCorner = Instance.new("UICorner")
+	frameCorner.CornerRadius = UDim.new(0, 12)
+	frameCorner.Parent = frame
+	local frameStroke = Instance.new("UIStroke")
+	frameStroke.Color = Color3.fromRGB(50, 32, 18)
+	frameStroke.Thickness = 4
+	frameStroke.Parent = frame
+
+	-- Title
+	local title = Instance.new("TextLabel")
+	title.Name = "Title"
+	title.Position = UDim2.fromOffset(0, 12)
+	title.Size = UDim2.new(1, 0, 0, 48)
+	title.BackgroundTransparency = 1
+	title.Font = Enum.Font.PermanentMarker
+	title.Text = "MISSING KID LOCATIONS"
+	title.TextColor3 = Color3.fromRGB(240, 230, 200)
+	title.TextStrokeColor3 = Color3.fromRGB(20, 10, 5)
+	title.TextStrokeTransparency = 0.2
+	title.TextSize = 32
+	title.Parent = frame
+
+	-- Close button
+	local closeBtn = Instance.new("TextButton")
+	closeBtn.Name = "CloseButton"
+	closeBtn.AnchorPoint = Vector2.new(1, 0)
+	closeBtn.Position = UDim2.new(1, -8, 0, 8)
+	closeBtn.Size = UDim2.fromOffset(36, 36)
+	closeBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 40)
+	closeBtn.Font = Enum.Font.GothamBold
+	closeBtn.Text = "X"
+	closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	closeBtn.TextSize = 20
+	closeBtn.Parent = frame
+	local closeCorner = Instance.new("UICorner")
+	closeCorner.CornerRadius = UDim.new(1, 0)
+	closeCorner.Parent = closeBtn
+	closeBtn.MouseButton1Click:Connect(function()
+		screenGui.Enabled = false
+		mapOpen = false
+	end)
+
+	-- Cards container
+	local cardsRow = Instance.new("Frame")
+	cardsRow.Name = "CardsRow"
+	cardsRow.Position = UDim2.fromOffset(20, 70)
+	cardsRow.Size = UDim2.new(1, -40, 1, -90)
+	cardsRow.BackgroundTransparency = 1
+	cardsRow.Parent = frame
+
+	-- Use UIListLayout for horizontal layout
+	local layout = Instance.new("UIListLayout")
+	layout.FillDirection = Enum.FillDirection.Horizontal
+	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+	layout.VerticalAlignment = Enum.VerticalAlignment.Top
+	layout.Padding = UDim.new(0, 16)
+	layout.Parent = cardsRow
+
+	-- Create 4 cards
+	mapCards = {}
+	for _, rescueId in ipairs(CAVE_ORDER) do
+		local definition = RescueConfig[rescueId]
+		local displayName = definition and definition.DisplayName or rescueId
+
+		local card = Instance.new("Frame")
+		card.Name = rescueId .. "Card"
+		card.Size = UDim2.fromOffset(180, 360)
+		card.BackgroundColor3 = Color3.fromRGB(232, 224, 198)
+		card.BorderSizePixel = 0
+		card.Parent = cardsRow
+		local cardCorner = Instance.new("UICorner")
+		cardCorner.CornerRadius = UDim.new(0, 6)
+		cardCorner.Parent = card
+		local cardStroke = Instance.new("UIStroke")
+		cardStroke.Color = Color3.fromRGB(80, 60, 40)
+		cardStroke.Thickness = 2
+		cardStroke.Parent = card
+
+		-- MISSING label
+		local missingLabel = Instance.new("TextLabel")
+		missingLabel.Name = "MissingLabel"
+		missingLabel.Position = UDim2.fromOffset(0, 6)
+		missingLabel.Size = UDim2.new(1, 0, 0, 24)
+		missingLabel.BackgroundTransparency = 1
+		missingLabel.Font = Enum.Font.PermanentMarker
+		missingLabel.Text = "MISSING"
+		missingLabel.TextColor3 = Color3.fromRGB(180, 30, 30)
+		missingLabel.TextSize = 18
+		missingLabel.Parent = card
+
+		-- ViewportFrame for portrait
+		local viewport = Instance.new("ViewportFrame")
+		viewport.Name = "Portrait"
+		viewport.Position = UDim2.fromOffset(8, 32)
+		viewport.Size = UDim2.new(1, -16, 0, 220)
+		viewport.BackgroundTransparency = 1
+		viewport.Parent = card
+
+		-- Black overlay
+		local blackOverlay = Instance.new("Frame")
+		blackOverlay.Name = "BlackOverlay"
+		blackOverlay.Position = UDim2.fromOffset(8, 32)
+		blackOverlay.Size = UDim2.new(1, -16, 0, 220)
+		blackOverlay.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+		blackOverlay.Visible = true
+		blackOverlay.Parent = card
+		local overlayQ = Instance.new("TextLabel")
+		overlayQ.Size = UDim2.fromScale(1, 1)
+		overlayQ.BackgroundTransparency = 1
+		overlayQ.Font = Enum.Font.GothamBlack
+		overlayQ.Text = "?"
+		overlayQ.TextColor3 = Color3.fromRGB(60, 60, 60)
+		overlayQ.TextSize = 60
+		overlayQ.Parent = blackOverlay
+
+		-- Name label
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Name = "NameLabel"
+		nameLabel.Position = UDim2.fromOffset(0, 256)
+		nameLabel.Size = UDim2.new(1, 0, 0, 24)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Font = Enum.Font.GothamBold
+		nameLabel.Text = displayName
+		nameLabel.TextColor3 = Color3.fromRGB(40, 30, 20)
+		nameLabel.TextSize = 16
+		nameLabel.Parent = card
+
+		-- Status label
+		local statusLabel = Instance.new("TextLabel")
+		statusLabel.Name = "StatusLabel"
+		statusLabel.Position = UDim2.fromOffset(0, 280)
+		statusLabel.Size = UDim2.new(1, 0, 0, 20)
+		statusLabel.BackgroundTransparency = 1
+		statusLabel.Font = Enum.Font.Gotham
+		statusLabel.Text = "Locked"
+		statusLabel.TextColor3 = Color3.fromRGB(120, 120, 120)
+		statusLabel.TextSize = 13
+		statusLabel.Parent = card
+
+		-- Track button
+		local trackBtn = Instance.new("TextButton")
+		trackBtn.Name = "TrackButton"
+		trackBtn.Position = UDim2.fromOffset(20, 310)
+		trackBtn.Size = UDim2.new(1, -40, 0, 36)
+		trackBtn.BackgroundColor3 = Color3.fromRGB(60, 130, 200)
+		trackBtn.Font = Enum.Font.GothamBold
+		trackBtn.Text = "Track"
+		trackBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		trackBtn.TextSize = 16
+		trackBtn.Visible = false
+		trackBtn.Parent = card
+		local trackCorner = Instance.new("UICorner")
+		trackCorner.CornerRadius = UDim.new(0, 6)
+		trackCorner.Parent = trackBtn
+		trackBtn.MouseButton1Click:Connect(function()
+			if rescueService then
+				rescueService:RequestSetWaypoint(rescueId)
+			end
+			screenGui.Enabled = false
+			mapOpen = false
+		end)
+
+		-- FOUND stamp
+		local foundStamp = Instance.new("TextLabel")
+		foundStamp.Name = "FoundStamp"
+		foundStamp.Position = UDim2.fromOffset(10, 80)
+		foundStamp.Size = UDim2.fromOffset(160, 50)
+		foundStamp.BackgroundTransparency = 1
+		foundStamp.Font = Enum.Font.PermanentMarker
+		foundStamp.Text = "FOUND!"
+		foundStamp.TextColor3 = Color3.fromRGB(30, 160, 50)
+		foundStamp.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		foundStamp.TextStrokeTransparency = 0.3
+		foundStamp.TextSize = 32
+		foundStamp.Rotation = -12
+		foundStamp.Visible = false
+		foundStamp.ZIndex = 10
+		foundStamp.Parent = card
+
+		mapCards[rescueId] = card
+	end
+end
+
+--[[
+    @summary  Update the map UI cards to reflect current rescue states.
+    @param    states  table  -- { [rescueId] = { state, displayName, position } }
+]]
+local function refreshMapUi(states: { [string]: any })
+	for rescueId, card in pairs(mapCards) do
+		local info = states and states[rescueId]
+		if not info then
+			continue
+		end
+		local state = info.state
+		local viewport = card:FindFirstChild("Portrait")
+		local blackOverlay = card:FindFirstChild("BlackOverlay")
+		local statusLabel = card:FindFirstChild("StatusLabel")
+		local trackBtn = card:FindFirstChild("TrackButton")
+		local foundStamp = card:FindFirstChild("FoundStamp")
+
+		if state == "Locked" then
+			if blackOverlay then blackOverlay.Visible = true end
+			if viewport then viewport.Visible = false end
+			if statusLabel then statusLabel.Text = "Locked" statusLabel.TextColor3 = Color3.fromRGB(120, 120, 120) end
+			if trackBtn then trackBtn.Visible = false end
+			if foundStamp then foundStamp.Visible = false end
+		elseif state == "Rescued" then
+			if blackOverlay then blackOverlay.Visible = false end
+			if viewport then viewport.Visible = true end
+			if statusLabel then statusLabel.Text = "Rescued!" statusLabel.TextColor3 = Color3.fromRGB(30, 160, 50) end
+			if trackBtn then trackBtn.Visible = false end
+			if foundStamp then foundStamp.Visible = true end
+		else
+			-- Available, KeyDropped, Unlocked, Carried
+			if blackOverlay then blackOverlay.Visible = false end
+			if viewport then viewport.Visible = true end
+			if statusLabel then
+				if state == "Carried" then
+					statusLabel.Text = "Being carried"
+					statusLabel.TextColor3 = Color3.fromRGB(200, 160, 30)
+				else
+					statusLabel.Text = "Available"
+					statusLabel.TextColor3 = Color3.fromRGB(200, 80, 30)
+				end
+			end
+			if trackBtn then trackBtn.Visible = true end
+			if foundStamp then foundStamp.Visible = false end
+		end
+	end
+end
+
+--[[
+    @summary  Open the map UI with a snapshot of rescue states.
+    @param    snapshot  table
+]]
+local function openMapUi(snapshot: { [string]: any })
+	if not mapGui then
+		buildMapUi()
+	end
+	if not mapGui then
+		return
+	end
+	mapGui.Enabled = true
+	mapOpen = true
+	if snapshot and snapshot.records then
+		refreshMapUi(snapshot.records)
+	end
+end
+
+--[[
+    @summary  Close the map UI.
+]]
+local function closeMapUi()
+	if mapGui then
+		mapGui.Enabled = false
+	end
+	mapOpen = false
+end
 
 --[[
     @summary  Build the rescue HUD once.
@@ -247,6 +549,7 @@ function RescueController:KnitStart()
 	rescueService = Knit.GetService("RescueService")
 	local runStateService = Knit.GetService("RunStateService")
 	buildUi()
+	buildMapUi()
 	if gui then
 		gui.Enabled = false
 	end
@@ -285,6 +588,23 @@ function RescueController:KnitStart()
 		end
 	end), "Disconnect")
 
+	-- Board opened signal: open the map UI
+	janitor:Add(rescueService.BoardOpened:Connect(function(snapshot)
+		if typeof(snapshot) == "table" then
+			openMapUi(snapshot)
+		end
+	end), "Disconnect")
+
+	-- Poster state updated: refresh map UI if open
+	janitor:Add(rescueService.PosterStateUpdated:Connect(function(payload)
+		if typeof(payload) == "table" and payload.states then
+			currentMapStates = payload.states
+			if mapOpen then
+				refreshMapUi(payload.states)
+			end
+		end
+	end), "Disconnect")
+
 	rescueService:GetSnapshot():andThen(function(snapshot)
 		if typeof(snapshot) == "table" then
 			if progressLabel then
@@ -306,6 +626,7 @@ function RescueController:KnitStart()
 			if gui then
 				gui.Enabled = false
 			end
+			closeMapUi()
 			targetPosition = nil
 			setCarrying(nil)
 			if progressLabel then

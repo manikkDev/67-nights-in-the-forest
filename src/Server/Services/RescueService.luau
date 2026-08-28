@@ -36,6 +36,8 @@ local RescueService = Knit.CreateService({
 		WaypointChanged = Knit.CreateSignal(),
 		ChildCarryChanged = Knit.CreateSignal(),
 		CaveUnlocked = Knit.CreateSignal(),
+		BoardOpened = Knit.CreateSignal(),
+		PosterStateUpdated = Knit.CreateSignal(),
 	},
 })
 
@@ -69,6 +71,8 @@ local rescueCheckTimer = 0
 local cavesFolder: Folder? = nil
 local tentsFolder: Folder? = nil
 local posterBoard: Part? = nil
+local posterSlots: { [string]: { frame: Frame, viewport: ViewportFrame, blackOverlay: Frame, foundStamp:TextLabel, nameLabel: TextLabel, model: Model? } } = {}
+local exclamationPart: Part? = nil
 local heartbeatConnection: RBXScriptConnection? = nil
 
 -- // FUNCTIONS // --
@@ -487,33 +491,372 @@ local function onNpcDied(model: Model)
 end
 
 --[[
-    @summary  Create the camp poster board and interaction prompt.
+    @summary  Clone and pose a child model for display in a ViewportFrame.
+    @param    rescueId  string
+    @returns  Model?
+]]
+local function createPortraitModel(rescueId: string): Model?
+	local definition = RescueConfig[rescueId]
+	if not definition then
+		return nil
+	end
+	local npcAssets = ServerStorage.Assets:FindFirstChild("Assets Npcs")
+	local source = npcAssets and npcAssets:FindFirstChild(definition.RigTemplate)
+	if not source or not source:IsA("Model") then
+		return nil
+	end
+	local model = source:Clone()
+	model.Name = "Portrait_" .. rescueId
+	-- Remove scripts
+	for _, desc in ipairs(model:GetDescendants()) do
+		if desc:IsA("BaseScript") or desc:IsA("ModuleScript") then
+			desc:Destroy()
+		end
+	end
+	-- Apply variant styling
+	styleChildVariant(model, definition)
+	return model
+end
+
+--[[
+    @summary  Set up a ViewportFrame to display a child model portrait.
+    @param    viewport  ViewportFrame
+    @param    model     Model
+]]
+local function setupViewportPortrait(viewport: ViewportFrame, model: Model)
+	viewport:ClearAllChildren()
+	local worldModel = Instance.new("WorldModel")
+	worldModel.Parent = viewport
+	model.Parent = worldModel
+	-- Position the model to face forward
+	local rootPart = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart", true)
+	if rootPart then
+		model:PivotTo(CFrame.new(0, -2, -8) * CFrame.Angles(0, math.rad(180), 0))
+	end
+	-- Create a camera for the viewport
+	local camera = Instance.new("Camera")
+	camera.CFrame = CFrame.new(Vector3.new(0, 0, 0), Vector3.new(0, -2, -8))
+	camera.Parent = viewport
+	viewport.CurrentCamera = camera
+	viewport.BackgroundTransparency = 1
+end
+
+--[[
+    @summary  Create one poster slot inside the SurfaceGui.
+    @param    parent    Instance  -- parent Frame (the poster row)
+    @param    index     number    -- 1-based slot index
+    @param    rescueId  string
+    @returns  table  -- slot references
+]]
+local function createPosterSlot(parent: Instance, index: number, rescueId: string)
+	local definition = RescueConfig[rescueId]
+	local displayName = definition and definition.DisplayName or rescueId
+	local slotWidth = 230
+	local slotHeight = 420
+	local gap = 20
+	local startX = 16 + (index - 1) * (slotWidth + gap)
+
+	-- White paper background
+	local paper = Instance.new("Frame")
+	paper.Name = rescueId .. "Poster"
+	paper.Position = UDim2.fromOffset(startX, 0)
+	paper.Size = UDim2.fromOffset(slotWidth, slotHeight)
+	paper.BackgroundColor3 = Color3.fromRGB(232, 224, 198)
+	paper.BorderSizePixel = 0
+	paper.Parent = parent
+	local paperCorner = Instance.new("UICorner")
+	paperCorner.CornerRadius = UDim.new(0, 4)
+	paperCorner.Parent = paper
+	local paperStroke = Instance.new("UIStroke")
+	paperStroke.Color = Color3.fromRGB(80, 60, 40)
+	paperStroke.Thickness = 3
+	paperStroke.Parent = paper
+
+	-- "MISSING" red label at top
+	local missingLabel = Instance.new("TextLabel")
+	missingLabel.Name = "MissingLabel"
+	missingLabel.Position = UDim2.fromOffset(0, 6)
+	missingLabel.Size = UDim2.new(1, 0, 0, 28)
+	missingLabel.BackgroundTransparency = 1
+	missingLabel.Font = Enum.Font.PermanentMarker
+	missingLabel.Text = "MISSING"
+	missingLabel.TextColor3 = Color3.fromRGB(180, 30, 30)
+	missingLabel.TextSize = 22
+	missingLabel.Parent = paper
+
+	-- ViewportFrame for the child portrait
+	local viewport = Instance.new("ViewportFrame")
+	viewport.Name = "Portrait"
+	viewport.Position = UDim2.fromOffset(10, 38)
+	viewport.Size = UDim2.new(1, -20, 1, -80)
+	viewport.BackgroundTransparency = 1
+	viewport.Parent = paper
+
+	-- Black overlay (shown when locked)
+	local blackOverlay = Instance.new("Frame")
+	blackOverlay.Name = "BlackOverlay"
+	blackOverlay.Position = UDim2.fromOffset(10, 38)
+	blackOverlay.Size = UDim2.new(1, -20, 1, -80)
+	blackOverlay.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+	blackOverlay.BackgroundTransparency = 0.05
+	blackOverlay.Visible = true
+	blackOverlay.Parent = paper
+	local overlayCorner = Instance.new("UICorner")
+	overlayCorner.CornerRadius = UDim.new(0, 4)
+	overlayCorner.Parent = blackOverlay
+	-- Scribble effect: a "?" label on the black overlay
+	local questionLabel = Instance.new("TextLabel")
+	questionLabel.Size = UDim2.fromScale(1, 1)
+	questionLabel.BackgroundTransparency = 1
+	questionLabel.Font = Enum.Font.GothamBlack
+	questionLabel.Text = "?"
+	questionLabel.TextColor3 = Color3.fromRGB(60, 60, 60)
+	questionLabel.TextSize = 80
+	questionLabel.Parent = blackOverlay
+
+	-- Name label at bottom
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "NameLabel"
+	nameLabel.Position = UDim2.fromOffset(0, slotHeight - 36)
+	nameLabel.Size = UDim2.new(1, 0, 0, 30)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.Text = displayName
+	nameLabel.TextColor3 = Color3.fromRGB(40, 30, 20)
+	nameLabel.TextSize = 18
+	nameLabel.Parent = paper
+
+	-- FOUND stamp (shown when rescued)
+	local foundStamp = Instance.new("TextLabel")
+	foundStamp.Name = "FoundStamp"
+	foundStamp.Position = UDim2.fromOffset(20, 80)
+	foundStamp.Size = UDim2.fromOffset(190, 60)
+	foundStamp.BackgroundTransparency = 1
+	foundStamp.Font = Enum.Font.PermanentMarker
+	foundStamp.Text = "FOUND!"
+	foundStamp.TextColor3 = Color3.fromRGB(30, 160, 50)
+	foundStamp.TextSize = 42
+	foundStamp.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	foundStamp.TextStrokeTransparency = 0.3
+	foundStamp.Rotation = -15
+	foundStamp.Visible = false
+	foundStamp.ZIndex = 10
+	foundStamp.Parent = paper
+
+	return {
+		frame = paper,
+		viewport = viewport,
+		blackOverlay = blackOverlay,
+		foundStamp = foundStamp,
+		nameLabel = nameLabel,
+		model = nil,
+	}
+end
+
+--[[
+    @summary  Create the 3D camp poster board with SurfaceGui and
+              four poster slots showing child portraits.
 ]]
 local function createPosterBoard()
 	if posterBoard then
 		posterBoard:Destroy()
 	end
+	posterBoard = nil
+	posterSlots = {}
+	if exclamationPart then
+		exclamationPart:Destroy()
+		exclamationPart = nil
+	end
+
 	local campfireCFrame = worldService:GetCampfireCFrame()
 	if not campfireCFrame then
 		return
 	end
+
+	local boardModel = Instance.new("Model")
+	boardModel.Name = "MissingChildrenBoard"
+
+	local boardCFrame = campfireCFrame * CFrame.new(-14, 5, 0) * CFrame.Angles(0, math.rad(90), 0)
+
+	-- Backing board
 	local board = Instance.new("Part")
-	board.Name = "MissingChildrenBoard"
-	board.Size = Vector3.new(10, 7, 0.8)
+	board.Name = "BoardPanel"
+	board.Size = Vector3.new(18, 9, 0.6)
 	board.Anchored = true
 	board.Material = Enum.Material.WoodPlanks
-	board.Color = Color3.fromRGB(100, 67, 42)
-	board.CFrame = campfireCFrame * CFrame.new(-13, 4, 0) * CFrame.Angles(0, math.rad(90), 0)
-	board.Parent = runStateService:GetRuntimeFolder()
+	board.Color = Color3.fromRGB(95, 65, 38)
+	board.CFrame = boardCFrame
+	board.Parent = boardModel
+	boardModel.PrimaryPart = board
+
+	-- Left post
+	local leftPost = Instance.new("Part")
+	leftPost.Name = "LeftPost"
+	leftPost.Size = Vector3.new(0.8, 11, 0.8)
+	leftPost.Anchored = true
+	leftPost.Material = Enum.Material.WoodPlanks
+	leftPost.Color = Color3.fromRGB(75, 50, 28)
+	leftPost.CFrame = boardCFrame * CFrame.new(-9, -1, 0)
+	leftPost.Parent = boardModel
+
+	-- Right post
+	local rightPost = Instance.new("Part")
+	rightPost.Name = "RightPost"
+	rightPost.Size = Vector3.new(0.8, 11, 0.8)
+	rightPost.Anchored = true
+	rightPost.Material = Enum.Material.WoodPlanks
+	rightPost.Color = Color3.fromRGB(75, 50, 28)
+	rightPost.CFrame = boardCFrame * CFrame.new(9, -1, 0)
+	rightPost.Parent = boardModel
+
+	-- Top crossbar
+	local topBar = Instance.new("Part")
+	topBar.Name = "TopBar"
+	topBar.Size = Vector3.new(19, 1, 0.9)
+	topBar.Anchored = true
+	topBar.Material = Enum.Material.WoodPlanks
+	topBar.Color = Color3.fromRGB(75, 50, 28)
+	topBar.CFrame = boardCFrame * CFrame.new(0, 5.2, 0)
+	topBar.Parent = boardModel
+
+	boardModel.Parent = runStateService:GetRuntimeFolder()
 	posterBoard = board
+
+	-- Exclamation mark icon above the board
+	local exclaim = Instance.new("Part")
+	exclaim.Name = "ExclamationIcon"
+	exclaim.Shape = Enum.PartType.Cylinder
+	exclaim.Size = Vector3.new(0.3, 1.5, 1.5)
+	exclaim.Anchored = true
+	exclaim.CanCollide = false
+	exclaim.Material = Enum.Material.SmoothPlastic
+	exclaim.Color = Color3.fromRGB(220, 50, 40)
+	exclaim.CFrame = boardCFrame * CFrame.new(0, 6.5, 0.5) * CFrame.Angles(0, 0, math.rad(90))
+	exclaim.Parent = boardModel
+	exclamationPart = exclaim
+	local exclaimGui = Instance.new("SurfaceGui")
+	exclaimGui.Face = Enum.NormalId.Top
+	exclaimGui.CanvasSize = Vector2.new(100, 100)
+	exclaimGui.Parent = exclaim
+	local exclaimLabel = Instance.new("TextLabel")
+	exclaimLabel.Size = UDim2.fromScale(1, 1)
+	exclaimLabel.BackgroundTransparency = 1
+	exclaimLabel.Font = Enum.Font.GothamBlack
+	exclaimLabel.Text = "!"
+	exclaimLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	exclaimLabel.TextSize = 70
+	exclaimLabel.Parent = exclaimGui
+	-- Initially hidden until a cave is available
+	exclaim.Transparency = 1
+
+	-- SurfaceGui on the board front face
+	local surfaceGui = Instance.new("SurfaceGui")
+	surfaceGui.Name = "BoardGui"
+	surfaceGui.Face = Enum.NormalId.Front
+	surfaceGui.CanvasSize = Vector2.new(1024, 512)
+	surfaceGui.Lighting = Enum.SurfaceLighting.OptIn
+	surfaceGui.Parent = board
+
+	local canvas = surfaceGui:FindFirstChild("Canvas")
+	if not canvas then
+		canvas = Instance.new("Frame")
+		canvas.Name = "Canvas"
+		canvas.Size = UDim2.fromScale(1, 1)
+		canvas.BackgroundColor3 = Color3.fromRGB(95, 65, 38)
+		canvas.BorderSizePixel = 0
+		canvas.Parent = surfaceGui
+	end
+
+	-- Title label
+	local titleLabel = Instance.new("TextLabel")
+	titleLabel.Name = "Title"
+	titleLabel.Position = UDim2.fromOffset(0, 8)
+	titleLabel.Size = UDim2.new(1, 0, 0, 52)
+	titleLabel.BackgroundTransparency = 1
+	titleLabel.Font = Enum.Font.PermanentMarker
+	titleLabel.Text = "MISSING KID LOCATIONS"
+	titleLabel.TextColor3 = Color3.fromRGB(240, 230, 200)
+	titleLabel.TextStrokeColor3 = Color3.fromRGB(20, 10, 5)
+	titleLabel.TextStrokeTransparency = 0.2
+	titleLabel.TextSize = 38
+	titleLabel.Parent = canvas
+
+	-- Poster row container
+	local posterRow = Instance.new("Frame")
+	posterRow.Name = "PosterRow"
+	posterRow.Position = UDim2.fromOffset(0, 68)
+	posterRow.Size = UDim2.new(1, 0, 1, -76)
+	posterRow.BackgroundTransparency = 1
+	posterRow.Parent = canvas
+
+	-- Create 4 poster slots
+	for index, rescueId in ipairs(CAVE_ORDER) do
+		local slot = createPosterSlot(posterRow, index, rescueId)
+		posterSlots[rescueId] = slot
+	end
+
+	-- ProximityPrompt
 	local prompt = Instance.new("ProximityPrompt")
-	prompt.ActionText = "Track Child"
-	prompt.ObjectText = "Missing Children"
+	prompt.ActionText = "View Locations"
+	prompt.ObjectText = "Missing Kid Locations"
 	prompt.MaxActivationDistance = PICKUP_RANGE
 	prompt.Parent = board
 	prompt.Triggered:Connect(function(player)
 		RescueService:SelectBoardTarget(player)
+		-- Also send the board snapshot to open the map UI
+		local snapshot = RescueService.Client:GetSnapshot(player)
+		RescueService.Client.BoardOpened:Fire(player, snapshot)
 	end)
+end
+
+--[[
+    @summary  Update all poster slots to reflect current cave states.
+              Called after any rescue state change.
+]]
+local function updatePosterStates()
+	local anyAvailable = false
+	for rescueId, slot in pairs(posterSlots) do
+		local record = caveRecords[rescueId]
+		if not record then
+			continue
+		end
+		local state = record.state
+		-- Show portrait model when the cave is at least Available
+		if state ~= "Locked" then
+			anyAvailable = true
+			-- Clone the portrait model if not already done
+			if not slot.model then
+				local model = createPortraitModel(rescueId)
+				if model then
+					slot.model = model
+					setupViewportPortrait(slot.viewport, model)
+				end
+			end
+			slot.blackOverlay.Visible = false
+		else
+			slot.blackOverlay.Visible = true
+		end
+		-- Show FOUND stamp when rescued
+		if state == "Rescued" then
+			slot.foundStamp.Visible = true
+		else
+			slot.foundStamp.Visible = false
+		end
+	end
+	-- Show/hide exclamation mark
+	if exclamationPart then
+		exclamationPart.Transparency = if anyAvailable then 0 else 1
+	end
+	-- Broadcast state update to clients for their map UI
+	local states = {}
+	for rescueId, record in pairs(caveRecords) do
+		states[rescueId] = {
+			state = record.state,
+			displayName = record.definition.DisplayName,
+			position = record.center,
+		}
+	end
+	broadcast(RescueService.Client.PosterStateUpdated, { states = states, rescuedCount = rescuedCount })
 end
 
 --[[
@@ -597,6 +940,7 @@ local function completeRescue(player: Player, record)
 		rescueOrder = rescueOrder,
 		multiplier = runStateService:GetMultiplier(),
 	})
+	updatePosterStates()
 end
 
 --[[
@@ -735,6 +1079,7 @@ function RescueService:TryCarryChild(player: Player, caveId: string): boolean
 		prompt.Enabled = false
 	end
 	broadcast(RescueService.Client.ChildCarryChanged, { userId = player.UserId, childId = caveId, carrying = true })
+	updatePosterStates()
 	return true
 end
 
@@ -776,6 +1121,7 @@ function RescueService:DropCarriedChild(player: Player)
 		prompt.Enabled = true
 	end
 	broadcast(RescueService.Client.ChildCarryChanged, { userId = player.UserId, childId = caveId, carrying = false })
+	updatePosterStates()
 end
 
 --[[
@@ -839,6 +1185,29 @@ function RescueService.Client:RequestBoardTarget(player: Player)
 end
 
 --[[
+    @summary  Client request to set a waypoint to a specific child cave.
+    @param    player    Player  -- injected by Knit
+    @param    rescueId  string  -- the child to track
+]]
+function RescueService.Client:RequestSetWaypoint(player: Player, rescueId: string)
+	if typeof(rescueId) ~= "string" then
+		return
+	end
+	local record = caveRecords[rescueId]
+	if not record then
+		return
+	end
+	if record.state == "Locked" or record.state == "Rescued" then
+		return
+	end
+	RescueService.Client.WaypointChanged:Fire(player, {
+		childId = rescueId,
+		displayName = record.definition.DisplayName,
+		position = record.center,
+	})
+end
+
+--[[
     @summary  Return a client-safe rescue snapshot.
     @param    player  Player  -- injected by Knit
     @returns  table
@@ -869,12 +1238,14 @@ function RescueService:KnitStart()
 		buildCaves()
 		createPosterBoard()
 		unlockForLevel(campfireService:GetLevel())
+		updatePosterStates()
 		if not heartbeatConnection then
 			heartbeatConnection = RunService.Heartbeat:Connect(onHeartbeat)
 		end
 	end)
 	campfireService.LevelChangedServer:Connect(function(level)
 		unlockForLevel(level)
+		updatePosterStates()
 	end)
 	animalAIService.NpcDiedServer:Connect(onNpcDied)
 	playerLifeService.PlayerDowned:Connect(function(player)
@@ -892,6 +1263,8 @@ function RescueService:KnitStart()
 		carriedBy = {}
 		keyOwners = {}
 		posterBoard = nil
+		posterSlots = {}
+		exclamationPart = nil
 		cavesFolder = nil
 		tentsFolder = nil
 		if heartbeatConnection then
