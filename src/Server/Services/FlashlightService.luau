@@ -42,15 +42,15 @@ local FlashlightService = Knit.CreateService({
 
 -- | Configuration | --
 local FLASHLIGHT_TOOL_NAME = "Flashlight"
-local BEAM_MIN_RANGE = 45
-local BEAM_MAX_RANGE = 75
-local BEAM_MIN_ANGLE = 70
-local BEAM_MAX_ANGLE = 95
+local BEAM_MIN_RANGE = 80
+local BEAM_MAX_RANGE = 140
+local BEAM_MIN_ANGLE = 80
+local BEAM_MAX_ANGLE = 110
 local AIM_TIMEOUT = 1.0
 local AIM_UPDATE_MIN_INTERVAL = 0.05
 local CHECK_INTERVAL = 0.15
-local BATTERY_DRAIN_PER_SECOND = 5 -- 20 seconds of full use
-local BATTERY_RECHARGE_PER_SECOND = 1.5 -- slow passive recharge
+local BATTERY_DRAIN_PER_SECOND = 2 -- 50 seconds of full use
+local BATTERY_RECHARGE_PER_SECOND = 3 -- faster passive recharge
 local STALKER_MODEL_NAMES = { "Deer", "Ram Monster", "Owl" }
 
 -- | State Management | --

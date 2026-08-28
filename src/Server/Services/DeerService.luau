@@ -716,15 +716,30 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 			if not stalker.def.UsesFlashlightStun then
 				return false
 			end
-			if stalker.state == "Stunned" then
-				-- Already stunned — don't re-stun
-				return false
-			end
 			if stalker.state == "Dormant" then
 				return false
 			end
 
 			local now = os.clock()
+
+			-- If already stunned, just refresh/extend the stun timer so
+			-- the stalker stays stunned as long as the beam stays on.
+			-- Don't increment consecutiveStuns or replay StunnedStart.
+			if stalker.state == "Stunned" then
+				local refreshDuration = math.max(
+					BASE_STUN_DURATION - (stalker.consecutiveStuns - 1) * STUN_DECAY_PER_USE,
+					MIN_STUN_DURATION
+				)
+				stalker.stunUntil = now + refreshDuration
+				stalker.stunEndPlayed = false
+				-- Ensure StunnedLoop is playing (in case StunnedStart just ended)
+				local loopTrack = stalker.tracks["StunnedLoop"]
+				if loopTrack and not loopTrack.IsPlaying then
+					loopTrack:Play(0.1)
+				end
+				return true
+			end
+
 			if (now - stalker.lastStunTime) >= STUN_RESISTANCE_RECOVERY_TIME then
 				stalker.consecutiveStuns = 0
 			end
