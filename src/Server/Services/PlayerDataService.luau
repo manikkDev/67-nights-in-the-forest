@@ -201,6 +201,7 @@ local function migrateProfile(data: { [string]: any })
 		end
 		data.DataVersion = 3
 	end
+end
 
 --[[
     @summary  Load a profile for a player with session-locking.
