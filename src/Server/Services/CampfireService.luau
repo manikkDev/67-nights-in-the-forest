@@ -42,6 +42,7 @@ local Debris = game:GetService("Debris")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages.Signal)
+local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 
 -- | Objects | --
 local createSuccess, CampfireService = pcall(Knit.CreateService, {
@@ -89,14 +90,13 @@ CampfireService.LevelChangedServer = CampfireService.LevelChangedServer or Signa
 local FEED_RANGE = 10
 local FEED_COOLDOWN = 1
 local WOOD_FUEL_VALUE = 25
-local WOOD_LEVEL_VALUE_BASE = 12
-local WOOD_LEVEL_VALUE_DECAY = 2.2
+local WOOD_LEVEL_VALUE_BASE = 10
 
-local MAX_FUEL_BY_LEVEL = { 100, 130, 170, 220, 280, 350 }
-local SAFE_ZONE_RADIUS_BY_LEVEL = { 28, 36, 48, 62, 78, 98 }
+local MAX_FUEL_BY_LEVEL = { 100, 140, 190, 250, 320, 400 }
+local SAFE_ZONE_RADIUS_BY_LEVEL = WorldProgressionConfig.SafeZoneRadiusByLevel
 local FUEL_DRAIN_BASE = 100 / 600
 local FUEL_DRAIN_MULTIPLIER_BY_LEVEL = { 1.0, 0.9, 0.82, 0.75, 0.68, 0.6 }
-local LEVEL_REQUIREMENTS = { 50, 120, 220, 360, 560, 820 }
+local LEVEL_REQUIREMENTS = { 50, 100, 180, 300, 450, 450 }
 
 local FIRE_SIZE_MIN = 0.5
 local FIRE_SIZE_MAX = 12
@@ -259,7 +259,7 @@ end
     @returns  number
 ]]
 local function getWoodLevelValue(): number
-	return WOOD_LEVEL_VALUE_BASE / (WOOD_LEVEL_VALUE_DECAY ^ (level - 1))
+	return WOOD_LEVEL_VALUE_BASE
 end
 
 --[[

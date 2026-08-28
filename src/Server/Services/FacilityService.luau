@@ -27,6 +27,8 @@ local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
+local WorldPlacement = require(script.Parent.Parent.WorldPlacement)
 local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
 
 -- | Objects | --
@@ -82,44 +84,31 @@ local campfirePosition: Vector3? = nil
     @summary  Find a random ground position outside the camp radius.
     @returns  Vector3?
 ]]
-local function randomFacilityPosition(): Vector3?
+local function randomFacilityPosition(model: Model, unlockLevel: number, seed: number): CFrame?
 	if not groundBounds or not campfirePosition then
 		return nil
 	end
-	-- Use the known ground Y from WorldService to avoid raycasting into
-	-- trees or houses.
-	local gy = worldService:GetGroundY()
-	for _ = 1, 30 do
-		local x = math.random() * (groundBounds.maxX - groundBounds.minX) + groundBounds.minX
-		local z = math.random() * (groundBounds.maxZ - groundBounds.minZ) + groundBounds.minZ
-		local distFromCamp = (Vector3.new(x, 0, z) - Vector3.new(campfirePosition.X, 0, campfirePosition.Z)).Magnitude
-		if distFromCamp >= MIN_FACILITY_DISTANCE and distFromCamp <= MAX_FACILITY_DISTANCE then
-			if gy then
-				return Vector3.new(x, gy, z)
-			end
-			-- Fallback: raycast against only the ground baseplate.
-			local baseMap = worldService:GetBaseMap()
-			if baseMap then
-				local groundPart: BasePart? = nil
-				for _, desc in ipairs(baseMap:GetDescendants()) do
-					if desc:IsA("BasePart") and desc.Name == "Земля" then
-						groundPart = desc
-						break
-					end
-				end
-				if groundPart then
-					local params = RaycastParams.new()
-					params.FilterType = Enum.RaycastFilterType.Include
-					params.FilterDescendantsInstances = { groundPart }
-					local result = workspace:Raycast(Vector3.new(x, GROUND_RAY_HEIGHT, z), Vector3.new(0, -GROUND_RAY_HEIGHT * 2, 0), params)
-					if result then
-						return result.Position
-					end
-				end
-			end
-		end
+	local groundPart = worldService:GetGroundPart()
+	if not groundPart then
+		return nil
 	end
-	return nil
+	local previousRadius = if unlockLevel > 1 then WorldProgressionConfig.GetAccessRadius(unlockLevel - 1) else MIN_FACILITY_DISTANCE
+	local currentRadius = WorldProgressionConfig.GetAccessRadius(unlockLevel)
+	local extents = model:GetExtentsSize()
+	local footprint = Vector3.new(math.max(extents.X + 18, 28), math.max(extents.Y + 4, 12), math.max(extents.Z + 18, 28))
+	return WorldPlacement.FindPosition({
+		center = campfirePosition,
+		groundPart = groundPart,
+		bounds = groundBounds,
+		minDistance = previousRadius + 25,
+		maxDistance = currentRadius - 45,
+		footprint = footprint,
+		clearanceRadius = math.max(footprint.X, footprint.Z) * 0.6,
+		seed = seed,
+		exclusions = { groundPart },
+		maxRetries = 64,
+		maxSlope = 12,
+	})
 end
 
 --[[
@@ -408,19 +397,10 @@ local function spawnFacilities()
 		return
 	end
 	print(("[FacilityService] Base map: %s, descendants: %d"):format(baseMap:GetFullName(), #baseMap:GetDescendants()))
-	for _, descendant in ipairs(baseMap:GetDescendants()) do
-		if descendant:IsA("BasePart") and descendant.Name == "\u{417}\u{435}\u{43C}\u{43B}\u{44F}" then
-			local halfSize = descendant.Size / 2
-			groundBounds = {
-				minX = descendant.Position.X - halfSize.X,
-				maxX = descendant.Position.X + halfSize.X,
-				minZ = descendant.Position.Z - halfSize.Z,
-				maxZ = descendant.Position.Z + halfSize.Z,
-			}
-			groundY = descendant.Position.Y + halfSize.Y
-			print(("[FacilityService] Ground bounds: minX=%.1f maxX=%.1f minZ=%.1f maxZ=%.1f topY=%.1f"):format(groundBounds.minX, groundBounds.maxX, groundBounds.minZ, groundBounds.maxZ, groundY))
-			break
-		end
+	groundBounds = worldService:GetGroundBounds()
+	groundY = worldService:GetGroundY() or 0
+	if groundBounds then
+		print(("[FacilityService] Ground bounds: minX=%.1f maxX=%.1f minZ=%.1f maxZ=%.1f topY=%.1f"):format(groundBounds.minX, groundBounds.maxX, groundBounds.minZ, groundBounds.maxZ, groundY))
 	end
 	campfirePosition = worldService:GetCampfireCFrame() and worldService:GetCampfireCFrame().Position or nil
 	if not groundBounds or not campfirePosition then
@@ -434,22 +414,30 @@ local function spawnFacilities()
 	folder.Parent = runStateService:GetRuntimeFolder()
 
 	local totalSpawned = 0
-	for facilityType, counts in pairs(FACILITY_COUNTS) do
+	local seedBase = WorldPlacement.Hash(runStateService:GetRunId())
+	local facilityTypes = { "Playground", "Restroom", "Clinic" }
+	for typeIndex, facilityType in ipairs(facilityTypes) do
+		local counts = FACILITY_COUNTS[facilityType]
 		local count = math.random(counts.min, counts.max)
 		print(("[FacilityService] Spawning %d %s"):format(count, facilityType))
-		for _ = 1, count do
-			local position = randomFacilityPosition()
-			if not position then
-				warn(("[FacilityService] No position found for %s"):format(facilityType))
-				continue
-			end
+		for index = 1, count do
 			local model = buildFacility(facilityType)
 			if not model then
 				warn(("[FacilityService] buildFacility returned nil for %s"):format(facilityType))
 				continue
 			end
-			model:PivotTo(CFrame.new(position) * CFrame.Angles(0, math.random() * math.pi * 2, 0))
+			local unlockLevel = ((index + typeIndex - 2) % #WorldProgressionConfig.AccessRadiusByLevel) + 1
+			local placement = randomFacilityPosition(model, unlockLevel, seedBase + WorldPlacement.Hash(facilityType) + index)
+			if not placement then
+				warn(("[FacilityService] No collision-free position found for %s"):format(facilityType))
+				model:Destroy()
+				continue
+			end
+			model:SetAttribute("UnlockLevel", unlockLevel)
+			model:PivotTo(placement)
 			model.Parent = folder
+			local extents = model:GetExtentsSize()
+			WorldPlacement.Reserve(placement.Position, math.max(extents.X, extents.Z) * 0.6 + 10, "Facility_" .. facilityType)
 			local facility = { model = model, type = facilityType }
 			table.insert(facilities, facility)
 			populateFacility(facility)

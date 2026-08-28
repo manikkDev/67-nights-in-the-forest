@@ -119,9 +119,8 @@ local function spawnRaidWave(count: number)
 	for i = 1, count do
 		local angle = (i / count) * math.pi * 2
 		local position = campfireCFrame.Position + Vector3.new(math.cos(angle) * SPAWN_RADIUS, 0, math.sin(angle) * SPAWN_RADIUS)
-		local origin = position + Vector3.new(0, 200, 0)
-		local result = workspace:Raycast(origin, Vector3.new(0, -400, 0))
-		local groundedPosition = if result then result.Position + Vector3.new(0, 3, 0) else position + Vector3.new(0, 5, 0)
+		local groundY = worldService:GetGroundY()
+		local groundedPosition = Vector3.new(position.X, (groundY or position.Y) + 3, position.Z)
 
 		local speciesKey = CULTIST_MODEL_KEYS[((i - 1) % #CULTIST_MODEL_KEYS) + 1]
 		local model = animalAIService:SpawnNpc(speciesKey, CFrame.new(groundedPosition), { isRaidCultist = true })

@@ -28,6 +28,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Constants = require(ReplicatedStorage.Shared.Constants)
+local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 
 -- | Objects | --
 local WorldService = Knit.CreateService({
@@ -47,6 +48,7 @@ local baseMap: Model? = nil
 local campfire: Part? = nil
 local bonfire: Model? = nil
 local forestReady: boolean = false
+local groundPart: BasePart? = nil
 local groundY: number? = nil
 
 -- // FUNCTIONS // --
@@ -110,19 +112,40 @@ end
     @returns  number?
 ]]
 function WorldService:GetGroundY(): number?
-	if groundY then
-		return groundY
+	local ground = self:GetGroundPart()
+	if ground and not groundY then
+		groundY = ground.Position.Y + ground.Size.Y * 0.5
+	end
+	return groundY
+end
+
+function WorldService:GetGroundPart(): BasePart?
+	if groundPart and groundPart.Parent then
+		return groundPart
 	end
 	if not baseMap then
 		return nil
 	end
-	for _, desc in ipairs(baseMap:GetDescendants()) do
-		if desc:IsA("BasePart") and desc.Name == "Земля" then
-			groundY = desc.Position.Y + desc.Size.Y / 2
-			return groundY
-		end
+	local candidate = baseMap:FindFirstChild("Земля", true)
+	if candidate and candidate:IsA("BasePart") then
+		groundPart = candidate
+		return groundPart
 	end
 	return nil
+end
+
+function WorldService:GetGroundBounds(): { minX: number, maxX: number, minZ: number, maxZ: number }?
+	local ground = self:GetGroundPart()
+	if not ground then
+		return nil
+	end
+	local radius = WorldProgressionConfig.MapRadius
+	return {
+		minX = ground.Position.X - radius,
+		maxX = ground.Position.X + radius,
+		minZ = ground.Position.Z - radius,
+		maxZ = ground.Position.Z + radius,
+	}
 end
 
 --[[
@@ -190,6 +213,35 @@ local function findGroundCFrame(map: Model): CFrame
 
 	-- Fallback: use the map pivot
 	return pivot
+end
+
+local function ensureExpandedGround(map: Model, ground: BasePart)
+	if map:FindFirstChild("ExpandedGround") then
+		return
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "ExpandedGround"
+	folder:SetAttribute("ExpansionGenerated", true)
+	folder.Parent = map
+	local targetSize = WorldProgressionConfig.MapRadius * 2
+	local centerSize = math.min(ground.Size.X, 1536)
+	local sideWidth = (targetSize - centerSize) * 0.5
+	local sideX = centerSize * 0.5 + sideWidth * 0.5
+	local function createTile(name: string, size: Vector3, offset: Vector3)
+		local tile = ground:Clone()
+		tile.Name = name
+		tile.Size = size
+		tile.Position = ground.Position + offset
+		tile:SetAttribute("ExpansionGenerated", true)
+		tile.Parent = folder
+	end
+	createTile("WestNorth", Vector3.new(sideWidth, ground.Size.Y, targetSize * 0.5), Vector3.new(-sideX, 0, -targetSize * 0.25))
+	createTile("WestSouth", Vector3.new(sideWidth, ground.Size.Y, targetSize * 0.5), Vector3.new(-sideX, 0, targetSize * 0.25))
+	createTile("EastNorth", Vector3.new(sideWidth, ground.Size.Y, targetSize * 0.5), Vector3.new(sideX, 0, -targetSize * 0.25))
+	createTile("EastSouth", Vector3.new(sideWidth, ground.Size.Y, targetSize * 0.5), Vector3.new(sideX, 0, targetSize * 0.25))
+	local stripZ = centerSize * 0.5 + sideWidth * 0.5
+	createTile("North", Vector3.new(centerSize, ground.Size.Y, sideWidth), Vector3.new(0, 0, -stripZ))
+	createTile("South", Vector3.new(centerSize, ground.Size.Y, sideWidth), Vector3.new(0, 0, stripZ))
 end
 
 --[[
@@ -385,6 +437,11 @@ function WorldService:KnitStart()
 
 	if baseMap then
 		ensurePrimaryPart(baseMap)
+		local groundPartInstance = baseMap:FindFirstChild("Земля", true)
+		if groundPartInstance and groundPartInstance:IsA("BasePart") then
+			groundPart = groundPartInstance
+			ensureExpandedGround(baseMap, groundPartInstance)
+		end
 		-- Map is pre-populated in edit mode (structures, trees, ground all
 		-- permanently placed). Only create campfire/bonfire at runtime:
 		local ground = findGroundCFrame(baseMap)

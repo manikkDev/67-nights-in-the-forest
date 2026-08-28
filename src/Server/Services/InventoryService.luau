@@ -288,6 +288,9 @@ function InventoryService:ConsumeResource(player: Player, name: string, amount: 
 	if amount <= 0 or not table.find(RESOURCE_NAMES, name) then
 		return false
 	end
+	if RunConfig.IsTestEnabled("GrantResources") then
+		return true
+	end
 
 	local data = getPlayerData(player)
 	if not data or (data.Resources[name] or 0) < amount then
@@ -939,8 +942,13 @@ local function tryDropOne(player: Player): boolean
 	Debris:AddItem(model, DROP_LIFETIME)
 
 	updatePlayerData(player, function(playerData)
-		playerData.Resources[resourceName] -= 1
-		table.remove(playerData.Inventory.PickupOrder, 1)
+		if RunConfig.IsTestEnabled("GrantResources") then
+			table.remove(playerData.Inventory.PickupOrder, 1)
+			table.insert(playerData.Inventory.PickupOrder, resourceName)
+		else
+			playerData.Resources[resourceName] -= 1
+			table.remove(playerData.Inventory.PickupOrder, 1)
+		end
 	end)
 
 	broadcastSnapshot(player)
@@ -1303,20 +1311,22 @@ function InventoryService.Client:RequestDrop(player: Player, resourceName: strin
 	end
 
 	if dropped > 0 then
-		updatePlayerData(player, function(playerData)
-			playerData.Resources[resourceName] -= dropped
-			if typeof(playerData.Inventory) == "table" and typeof(playerData.Inventory.PickupOrder) == "table" then
-				local order = playerData.Inventory.PickupOrder
-				for _ = 1, dropped do
-					for i = #order, 1, -1 do
-						if order[i] == resourceName then
-							table.remove(order, i)
-							break
+		if not RunConfig.IsTestEnabled("GrantResources") then
+			updatePlayerData(player, function(playerData)
+				playerData.Resources[resourceName] -= dropped
+				if typeof(playerData.Inventory) == "table" and typeof(playerData.Inventory.PickupOrder) == "table" then
+					local order = playerData.Inventory.PickupOrder
+					for _ = 1, dropped do
+						for i = #order, 1, -1 do
+							if order[i] == resourceName then
+								table.remove(order, i)
+								break
+							end
 						end
 					end
 				end
-			end
-		end)
+			end)
+		end
 		broadcastSnapshot(player)
 	end
 	return dropped > 0
@@ -1508,17 +1518,12 @@ function InventoryService:KnitStart()
 			giveCarryBag(player)
 			giveFlashlight(player)
 			if RunConfig.IsTestEnabled("GrantResources") then
-				-- TEMP: grant huge amounts of every resource for testing
-				self:AddResource(player, "Wood", 9999)
-				self:AddResource(player, "Scrap", 9999)
-				self:AddResource(player, "Coal", 9999)
-				self:AddResource(player, "Berries", 9999)
-				self:AddResource(player, "Mushrooms", 9999)
-				self:AddResource(player, "RawMeat", 9999)
-				self:AddResource(player, "CookedMeat", 9999)
-				self:AddResource(player, "RabbitMeat", 9999)
-				self:AddResource(player, "OwlFeather", 9999)
-				self:AddResource(player, "CultistGem", 9999)
+				updatePlayerData(player, function(playerData)
+					for _, resourceName in ipairs(RESOURCE_NAMES) do
+						playerData.Resources[resourceName] = 9999
+					end
+					playerData.Inventory.PickupOrder = table.clone(RESOURCE_NAMES)
+				end)
 			end
 			broadcastSnapshot(player)
 		end)

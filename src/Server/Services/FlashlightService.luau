@@ -42,8 +42,12 @@ local FlashlightService = Knit.CreateService({
 
 -- | Configuration | --
 local FLASHLIGHT_TOOL_NAME = "Flashlight"
-local BEAM_RANGE = 35
-local BEAM_HALF_ANGLE = math.rad(30)
+local BEAM_MIN_RANGE = 60
+local BEAM_MAX_RANGE = 100
+local BEAM_MIN_ANGLE = 65
+local BEAM_MAX_ANGLE = 85
+local AIM_TIMEOUT = 0.5
+local AIM_UPDATE_MIN_INTERVAL = 0.05
 local CHECK_INTERVAL = 0.15
 local BATTERY_DRAIN_PER_SECOND = 5 -- 20 seconds of full use
 local BATTERY_RECHARGE_PER_SECOND = 1.5 -- slow passive recharge
@@ -54,6 +58,9 @@ local deerService: any = nil
 local owlService: any = nil
 local beamActive: { [Player]: boolean } = {}
 local battery: { [Player]: number } = {}
+local aimDirections: { [Player]: Vector3 } = {}
+local aimTimestamps: { [Player]: number } = {}
+local aimRemoteTimestamps: { [Player]: number } = {}
 local lastBroadcastState: { [Player]: { percent: number, isOn: boolean } } = {}
 local checkTimer = 0
 
@@ -166,40 +173,47 @@ end
 ]]
 local function isBeamAlignedWithStalker(player: Player, stalker: Model): boolean
 	local character = player.Character
-	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-	if not rootPart or not rootPart:IsA("BasePart") then
+	local tool = character and character:FindFirstChild(FLASHLIGHT_TOOL_NAME)
+	local handle = tool and tool:FindFirstChild("Handle")
+	if not handle or not handle:IsA("BasePart") then
 		return false
 	end
-
 	local stalkerPart = stalker.PrimaryPart
 		or stalker:FindFirstChild("HRP")
 		or stalker:FindFirstChild("HumanoidRootPart")
 		or stalker:FindFirstChildWhichIsA("BasePart", true)
-	if not stalkerPart then
+	if not stalkerPart or not stalkerPart:IsA("BasePart") then
 		return false
 	end
 
-	local toStalker = stalkerPart.Position - rootPart.Position
+	local toStalker = stalkerPart.Position - handle.Position
 	local distance = toStalker.Magnitude
-	if distance > BEAM_RANGE or distance <= 0 then
+	local charge = math.clamp((battery[player] or 100) / 100, 0, 1)
+	local range = BEAM_MIN_RANGE + (BEAM_MAX_RANGE - BEAM_MIN_RANGE) * charge
+	if distance > range or distance <= 0 then
+		return false
+	end
+	local aim = aimDirections[player]
+	if not aim or os.clock() - (aimTimestamps[player] or 0) > AIM_TIMEOUT then
+		aim = handle.CFrame.LookVector
+	end
+	local fullAngle = BEAM_MIN_ANGLE + (BEAM_MAX_ANGLE - BEAM_MIN_ANGLE) * charge
+	local angle = math.acos(math.clamp(aim.Unit:Dot(toStalker.Unit), -1, 1))
+	if angle > math.rad(fullAngle * 0.5) then
 		return false
 	end
 
-	-- Use horizontal-only angle so height differences between player and
-	-- stalker don't cause the beam alignment to fail.
-	local flatToStalker = Vector3.new(toStalker.X, 0, toStalker.Z)
-	local flatLook = Vector3.new(rootPart.CFrame.LookVector.X, 0, rootPart.CFrame.LookVector.Z)
-	if flatLook.Magnitude <= 0 or flatToStalker.Magnitude <= 0 then
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character, stalker }
+	local obstruction = workspace:Raycast(handle.Position, toStalker, params)
+	if obstruction then
 		return false
 	end
-	local angle = math.acos(math.clamp(flatLook.Unit:Dot(flatToStalker.Unit), -1, 1))
-	local aligned = angle <= BEAM_HALF_ANGLE
-
-	if aligned and RunConfig.IsTestEnabled("VerboseFlashlight") then
+	if RunConfig.IsTestEnabled("VerboseFlashlight") then
 		print(string.format("[FlashlightService] beam aligned with %s at %.1f studs", stalker.Name, distance))
 	end
-
-	return aligned
+	return true
 end
 
 --[[
@@ -274,7 +288,27 @@ function FlashlightService.Client:SetBeamActive(player: Player, isActive: boolea
 		isActive = false
 	end
 	beamActive[player] = isActive
+	if not isActive then
+		aimDirections[player] = nil
+		aimTimestamps[player] = nil
+	end
 	broadcastBattery(player)
+end
+
+function FlashlightService.Client:UpdateAim(player: Player, direction: Vector3)
+	if typeof(direction) ~= "Vector3" or not beamActive[player] or not hasFlashlightEquipped(player) then
+		return
+	end
+	if direction.X ~= direction.X or direction.Y ~= direction.Y or direction.Z ~= direction.Z or direction.Magnitude < 0.9 then
+		return
+	end
+	local now = os.clock()
+	if now - (aimRemoteTimestamps[player] or 0) < AIM_UPDATE_MIN_INTERVAL then
+		return
+	end
+	aimRemoteTimestamps[player] = now
+	aimDirections[player] = direction.Unit
+	aimTimestamps[player] = now
 end
 
 --[[
@@ -317,6 +351,9 @@ end
 Players.PlayerRemoving:Connect(function(player)
 	beamActive[player] = nil
 	battery[player] = nil
+	aimDirections[player] = nil
+	aimTimestamps[player] = nil
+	aimRemoteTimestamps[player] = nil
 	lastBroadcastState[player] = nil
 end)
 

@@ -542,16 +542,9 @@ local function updateStalkerState(stalker)
 		local campfirePosition = (worldService and worldService:GetCampfireCFrame() or CFrame.new()).Position
 		local angle = math.random() * math.pi * 2
 		local entryOffset = Vector3.new(math.cos(angle) * 90, 0, math.sin(angle) * 90)
-		-- Raycast down to find ground level so the Deer doesn't spawn underground
 		local spawnPos = campfirePosition + entryOffset
-		local rayOrigin = spawnPos + Vector3.new(0, 200, 0)
-		local rayParams = RaycastParams.new()
-		local rayResult = workspace:Raycast(rayOrigin, Vector3.new(0, -400, 0), rayParams)
-		if rayResult then
-			spawnPos = rayResult.Position + Vector3.new(0, 5, 0)
-		else
-			spawnPos = spawnPos + Vector3.new(0, 10, 0)
-		end
+		local groundY = worldService and worldService:GetGroundY()
+		spawnPos = Vector3.new(spawnPos.X, (groundY or spawnPos.Y) + 5, spawnPos.Z)
 		stalker.model:PivotTo(CFrame.new(spawnPos))
 		-- Un-anchor the root part so the Deer can walk
 		if stalker.rootPart then

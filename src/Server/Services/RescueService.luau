@@ -25,6 +25,8 @@ local RunService = game:GetService("RunService")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local RescueConfig = require(ReplicatedStorage.Shared.RescueConfig)
+local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
+local WorldPlacement = require(script.Parent.Parent.WorldPlacement)
 
 -- | Objects | --
 local RescueService = Knit.CreateService({
@@ -38,12 +40,7 @@ local RescueService = Knit.CreateService({
 })
 
 -- | Configuration | --
-local CAVE_OFFSETS = {
-	Dino = Vector3.new(180, 0, 40),
-	Kraken = Vector3.new(-220, 0, -35),
-	Squid = Vector3.new(55, 0, 270),
-	Koala = Vector3.new(-70, 0, -320),
-}
+local CAVE_ORDER = { "Dino", "Kraken", "Squid", "Koala" }
 local TENT_COLORS = {
 	Color3.fromRGB(185, 55, 50),
 	Color3.fromRGB(55, 115, 195),
@@ -232,7 +229,7 @@ end
     @param    center      Vector3
     @returns  Model?
 ]]
-local function createChild(definition, center: Vector3): Model?
+local function createChild(definition, caveCFrame: CFrame): Model?
 	local npcAssets = ServerStorage.Assets:FindFirstChild("Assets Npcs")
 	local source = npcAssets and npcAssets:FindFirstChild(definition.RigTemplate)
 	if not source or not source:IsA("Model") then
@@ -252,7 +249,7 @@ local function createChild(definition, center: Vector3): Model?
 	end
 	styleChildVariant(child, definition)
 	child.Parent = cavesFolder
-	child:PivotTo(CFrame.new(center + Vector3.new(0, 3, -7)))
+	child:PivotTo(caveCFrame * CFrame.new(0, 3, -7))
 	local rootPart = child:FindFirstChild("HumanoidRootPart")
 	if rootPart and rootPart:IsA("BasePart") then
 		rootPart.Anchored = true
@@ -291,14 +288,39 @@ local function buildCaves()
 	tentsFolder = tents
 
 	local campfireCFrame = worldService:GetCampfireCFrame()
-	if not campfireCFrame then
+	local groundPart = worldService:GetGroundPart()
+	local bounds = worldService:GetGroundBounds()
+	if not campfireCFrame or not groundPart or not bounds then
 		return
 	end
-	for rescueId, definition in pairs(RescueConfig) do
-		local center = groundPosition(campfireCFrame.Position + CAVE_OFFSETS[rescueId])
+	local seedBase = WorldPlacement.Hash(runStateService:GetRunId())
+	for index, rescueId in ipairs(CAVE_ORDER) do
+		local definition = RescueConfig[rescueId]
+		local ring = WorldProgressionConfig.CaveRings[rescueId]
+		local caveCFrame = WorldPlacement.FindPosition({
+			center = campfireCFrame.Position,
+			groundPart = groundPart,
+			bounds = bounds,
+			minDistance = ring.Min,
+			maxDistance = ring.Max,
+			footprint = WorldProgressionConfig.Placement.CaveFootprint,
+			clearanceRadius = WorldProgressionConfig.Placement.CaveSpacing,
+			seed = seedBase + WorldPlacement.Hash(rescueId) + index,
+			exclusions = { groundPart },
+			maxRetries = WorldProgressionConfig.Placement.MaxRetries,
+			maxSlope = WorldProgressionConfig.Placement.MaxSlope,
+			faceCenter = true,
+		})
+		if not caveCFrame then
+			warn("[RescueService] No collision-free cave position found for", rescueId)
+			continue
+		end
+		local center = caveCFrame.Position
+		WorldPlacement.Reserve(center, WorldProgressionConfig.Placement.CaveSpacing, "Cave_" .. rescueId)
 		local cave, gate = createCaveModel(definition, center)
 		cave.Parent = cavesFolder
-		local child = createChild(definition, center)
+		cave:PivotTo(caveCFrame * CFrame.new(0, 0.5, 0))
+		local child = createChild(definition, caveCFrame)
 		caveRecords[rescueId] = {
 			definition = definition,
 			model = cave,

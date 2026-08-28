@@ -40,6 +40,7 @@ local RunService = game:GetService("RunService")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
+local WorldPlacement = require(script.Parent.Parent.WorldPlacement)
 
 -- | Objects | --
 local RunStateService = Knit.CreateService({
@@ -369,6 +370,7 @@ function RunStateService:StartRun(participants: { Player }): string?
 	end
 
 	runId = HttpService:GenerateGUID(false)
+	WorldPlacement.Reset()
 	phase = "Starting"
 	runStartedAt = os.clock()
 	members = {}

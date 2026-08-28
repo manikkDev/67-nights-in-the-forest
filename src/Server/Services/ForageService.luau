@@ -27,6 +27,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Constants = require(ReplicatedStorage.Shared.Constants)
+local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 
 -- | Objects | --
 local ForageService = Knit.CreateService({
@@ -114,18 +115,11 @@ local function collectTreePivots()
 	end
 
 	treePivots = {}
+	groundPart = worldService:GetGroundPart()
+	groundBounds = worldService:GetGroundBounds()
 	for _, descendant in ipairs(baseMap:GetDescendants()) do
 		if descendant:IsA("Model") and table.find(TREE_MODEL_NAMES, descendant.Name) then
 			table.insert(treePivots, descendant:GetPivot())
-		elseif descendant:IsA("BasePart") and descendant.Name == "Земля" then
-			groundPart = descendant
-			local halfSize = descendant.Size / 2
-			groundBounds = {
-				minX = descendant.Position.X - halfSize.X,
-				maxX = descendant.Position.X + halfSize.X,
-				minZ = descendant.Position.Z - halfSize.Z,
-				maxZ = descendant.Position.Z + halfSize.Z,
-			}
 		end
 	end
 
@@ -165,25 +159,33 @@ end
               on the map, using the true ground height.
     @returns  Vector3?
 ]]
-local function randomForagePosition(): Vector3?
+local function randomForagePosition(unlockLevel: number): Vector3?
 	local y = getGroundTopY()
-	if not y then
+	local campfireCFrame = worldService and worldService:GetCampfireCFrame()
+	if not y or not campfireCFrame then
 		return nil
 	end
-
-	if math.random() < MAP_SCATTER_CHANCE then
-		return randomMapPosition()
+	local center = campfireCFrame.Position
+	local minRadius = if unlockLevel > 1 then WorldProgressionConfig.GetAccessRadius(unlockLevel - 1) + 15 else 35
+	local maxRadius = WorldProgressionConfig.GetAccessRadius(unlockLevel) - 20
+	for _ = 1, 40 do
+		local position: Vector3
+		if #treePivots > 0 and math.random() >= MAP_SCATTER_CHANCE then
+			local pivot = treePivots[math.random(1, #treePivots)]
+			local angle = math.random() * math.pi * 2
+			local scatter = MIN_TREE_SCATTER_RADIUS + math.random() * (MAX_TREE_SCATTER_RADIUS - MIN_TREE_SCATTER_RADIUS)
+			position = Vector3.new(pivot.Position.X + math.cos(angle) * scatter, y, pivot.Position.Z + math.sin(angle) * scatter)
+		else
+			local angle = math.random() * math.pi * 2
+			local radius = math.sqrt(math.random() * (maxRadius * maxRadius - minRadius * minRadius) + minRadius * minRadius)
+			position = Vector3.new(center.X + math.cos(angle) * radius, y, center.Z + math.sin(angle) * radius)
+		end
+		local distance = (Vector3.new(position.X, 0, position.Z) - Vector3.new(center.X, 0, center.Z)).Magnitude
+		if distance >= minRadius and distance <= maxRadius then
+			return position
+		end
 	end
-
-	if #treePivots == 0 then
-		return nil
-	end
-	local pivot = treePivots[math.random(1, #treePivots)]
-	local angle = math.random() * math.pi * 2
-	local radius = MIN_TREE_SCATTER_RADIUS + math.random() * (MAX_TREE_SCATTER_RADIUS - MIN_TREE_SCATTER_RADIUS)
-	local x = pivot.Position.X + math.cos(angle) * radius
-	local z = pivot.Position.Z + math.sin(angle) * radius
-	return Vector3.new(x, y, z)
+	return nil
 end
 
 --[[
@@ -246,15 +248,16 @@ end
               schedule its respawn after it's collected.
     @param    resourceName  string  -- "Berries" or "Mushrooms"
 ]]
-local function spawnForagePickup(resourceName: string)
-	local position = randomForagePosition()
+local function spawnForagePickup(resourceName: string, unlockLevel: number?)
+	local level = unlockLevel or math.random(1, #WorldProgressionConfig.AccessRadiusByLevel)
+	local position = randomForagePosition(level)
 	if not worldService then
-		task.delay(2, spawnForagePickup, resourceName)
+		task.delay(2, spawnForagePickup, resourceName, level)
 		return
 	end
 	local baseMap = worldService:GetBaseMap()
 	if not position or not baseMap then
-		task.delay(2, spawnForagePickup, resourceName)
+		task.delay(2, spawnForagePickup, resourceName, level)
 		return
 	end
 
@@ -282,6 +285,7 @@ local function spawnForagePickup(resourceName: string)
 
 	model:PivotTo(cframe)
 	model:SetAttribute("ForageResource", resourceName)
+	model:SetAttribute("UnlockLevel", level)
 
 	model.Parent = baseMap
 	activePickups += 1
@@ -324,10 +328,11 @@ local function tryForagePickup(model: Model, player: Player): boolean
 	end
 
 	local isLiveForage = not model:GetAttribute("Resource")
+	local unlockLevel = model:GetAttribute("UnlockLevel")
 	model:Destroy()
 	if isLiveForage then
 		activePickups -= 1
-		task.delay(RESPAWN_TIME, spawnForagePickup, resourceName)
+		task.delay(RESPAWN_TIME, spawnForagePickup, resourceName, if typeof(unlockLevel) == "number" then unlockLevel else 1)
 	end
 	return true
 end
@@ -342,11 +347,14 @@ local function spawnInitialForage()
 		return
 	end
 
-	for _ = 1, BERRY_TARGET_COUNT do
-		spawnForagePickup("Berries")
+	local levelCount = #WorldProgressionConfig.AccessRadiusByLevel
+	for index = 1, BERRY_TARGET_COUNT do
+		local unlockLevel = if index <= math.ceil(BERRY_TARGET_COUNT * 0.4) then 1 else ((index - 1) % levelCount) + 1
+		spawnForagePickup("Berries", unlockLevel)
 	end
-	for _ = 1, MUSHROOM_TARGET_COUNT do
-		spawnForagePickup("Mushrooms")
+	for index = 1, MUSHROOM_TARGET_COUNT do
+		local unlockLevel = if index <= math.ceil(MUSHROOM_TARGET_COUNT * 0.4) then 1 else ((index - 1) % levelCount) + 1
+		spawnForagePickup("Mushrooms", unlockLevel)
 	end
 
 end

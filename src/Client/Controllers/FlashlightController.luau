@@ -27,7 +27,9 @@
 -- | Services | --
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -64,6 +66,9 @@ local batteryText: TextLabel? = nil
 local statusText: TextLabel? = nil
 local warningLabel: TextLabel? = nil
 local warningThread: thread? = nil
+local stunFlash: Frame? = nil
+local stunMarker: TextLabel? = nil
+local aimUpdateTimer = 0
 local refreshPanelVisibility: () -> ()
 
 -- // FUNCTIONS // --
@@ -488,6 +493,100 @@ refreshPanelVisibility = function()
 	panelFrame.Visible = hasFlashlight
 end
 
+local function buildStunFeedback()
+	local gui = Instance.new("ScreenGui")
+	gui.Name = "FlashlightStunFeedback"
+	gui.ResetOnSpawn = false
+	gui.IgnoreGuiInset = true
+	gui.DisplayOrder = 40
+	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+	local flash = Instance.new("Frame")
+	flash.Size = UDim2.fromScale(1, 1)
+	flash.BackgroundColor3 = Color3.fromRGB(205, 230, 255)
+	flash.BackgroundTransparency = 1
+	flash.BorderSizePixel = 0
+	flash.Parent = gui
+
+	local marker = Instance.new("TextLabel")
+	marker.AnchorPoint = Vector2.new(0.5, 0.5)
+	marker.Position = UDim2.fromScale(0.5, 0.5)
+	marker.Size = UDim2.fromOffset(56, 56)
+	marker.BackgroundTransparency = 1
+	marker.Font = Enum.Font.GothamBlack
+	marker.Text = "+"
+	marker.TextColor3 = Color3.fromRGB(220, 245, 255)
+	marker.TextSize = 34
+	marker.TextStrokeColor3 = Color3.fromRGB(35, 55, 70)
+	marker.TextStrokeTransparency = 1
+	marker.TextTransparency = 1
+	marker.Parent = gui
+
+	stunFlash = flash
+	stunMarker = marker
+end
+
+local function playStunFeedback(position: Vector3)
+	if not stunFlash or not stunMarker then
+		return
+	end
+	stunFlash.BackgroundTransparency = 0.82
+	stunMarker.TextTransparency = 0
+	stunMarker.TextStrokeTransparency = 0.25
+	stunMarker.Size = UDim2.fromOffset(36, 36)
+	TweenService:Create(stunFlash, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 1 }):Play()
+	TweenService:Create(stunMarker, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		Size = UDim2.fromOffset(58, 58),
+		TextTransparency = 1,
+		TextStrokeTransparency = 1,
+	}):Play()
+	local anchor = Instance.new("Part")
+	anchor.Name = "DeerStunBurst"
+	anchor.Anchored = true
+	anchor.CanCollide = false
+	anchor.CanQuery = false
+	anchor.CanTouch = false
+	anchor.Transparency = 1
+	anchor.Position = position
+	anchor.Parent = workspace
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(190, 225, 255)
+	light.Brightness = 5
+	light.Range = 18
+	light.Shadows = false
+	light.Parent = anchor
+	TweenService:Create(light, TweenInfo.new(0.35), { Brightness = 0, Range = 4 }):Play()
+	local tool = getEquippedFlashlight()
+	local handle = tool and tool:FindFirstChild("Handle")
+	local source = handle and handle:FindFirstChildOfClass("Sound")
+	if source then
+		local sound = source:Clone()
+		sound.Name = "DeerStunConfirm"
+		sound.PlaybackSpeed = 0.65
+		sound.Volume = 0.8
+		sound.RollOffMaxDistance = 110
+		sound.Parent = anchor
+		sound:Play()
+	end
+	Debris:AddItem(anchor, 3)
+end
+
+local function updateAim(dt: number)
+	if not beamOn or not flashlightService or not getEquippedFlashlight() then
+		aimUpdateTimer = 0
+		return
+	end
+	aimUpdateTimer += dt
+	if aimUpdateTimer < 0.1 then
+		return
+	end
+	aimUpdateTimer = 0
+	local camera = workspace.CurrentCamera
+	if camera then
+		flashlightService.UpdateAim(camera.CFrame.LookVector)
+	end
+end
+
 -- // INITIALIZATION // --
 
 function FlashlightController:KnitStart()
@@ -497,6 +596,15 @@ function FlashlightController:KnitStart()
 	local player = Players.LocalPlayer
 
 	buildBatteryPanel()
+	buildStunFeedback()
+
+	local deerService = Knit.GetService("DeerService")
+	deerService.StalkerStunned:Connect(function(position: Vector3, stalkerKey: string)
+		if stalkerKey == "Deer" or stalkerKey == "RamMonster" then
+			playStunFeedback(position)
+		end
+	end)
+	RunService.RenderStepped:Connect(updateAim)
 
 	-- Request initial battery state and listen for updates
 	if flashlightService then

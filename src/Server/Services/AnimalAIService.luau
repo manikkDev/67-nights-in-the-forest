@@ -85,6 +85,7 @@ local inventoryService: any = nil
 local playerDataService: any = nil
 local playerLifeService: any = nil
 local runStateService: any = nil
+local worldProgressionService: any = nil
 local activeNpcs: { [Model]: any } = {}
 local speciesCounts: { [string]: number } = {}
 local lastPhase: string = "Day"
@@ -115,17 +116,10 @@ local function collectSpawnArea()
 	end
 
 	treePivots = {}
+	groundBounds = worldService:GetGroundBounds()
 	for _, descendant in ipairs(baseMap:GetDescendants()) do
 		if descendant:IsA("Model") and (descendant.Name == "Tree" or descendant.Name == "bigtree") then
 			table.insert(treePivots, descendant:GetPivot())
-		elseif descendant:IsA("BasePart") and descendant.Name == "Земля" then
-			local halfSize = descendant.Size / 2
-			groundBounds = {
-				minX = descendant.Position.X - halfSize.X,
-				maxX = descendant.Position.X + halfSize.X,
-				minZ = descendant.Position.Z - halfSize.Z,
-				maxZ = descendant.Position.Z + halfSize.Z,
-			}
 		end
 	end
 
@@ -147,7 +141,9 @@ local function pickSpawnPosition(minDist: number?, maxDist: number?): Vector3?
 	local campfirePos = campfireCFrame.Position
 
 	local distMin = minDist or MIN_SPAWN_DIST
-	local distMax = maxDist or MAX_SPAWN_DIST
+	local requestedMax = maxDist or MAX_SPAWN_DIST
+	local accessibleMax = if worldProgressionService then worldProgressionService:GetAccessRadius() - 20 else requestedMax
+	local distMax = math.max(distMin, math.min(requestedMax, accessibleMax))
 
 	for _ = 1, 12 do
 		local angle = math.random() * math.pi * 2
@@ -182,14 +178,8 @@ end
     @returns  CFrame
 ]]
 local function groundedCFrame(position: Vector3): CFrame
-	local origin = position + Vector3.new(0, 200, 0)
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local result = workspace:Raycast(origin, Vector3.new(0, -400, 0), params)
-	if result then
-		return CFrame.new(result.Position + Vector3.new(0, 3, 0))
-	end
-	return CFrame.new(position + Vector3.new(0, 5, 0))
+	local y = worldService and worldService:GetGroundY()
+	return CFrame.new(position.X, (y or position.Y) + 3, position.Z)
 end
 
 --[[
@@ -1073,6 +1063,7 @@ function AnimalAIService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 	playerLifeService = Knit.GetService("PlayerLifeService")
 	runStateService = Knit.GetService("RunStateService")
+	worldProgressionService = Knit.GetService("WorldProgressionService")
 
 	collectSpawnArea()
 	runStateService.RunCleaned:Connect(function()

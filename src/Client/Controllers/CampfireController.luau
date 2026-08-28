@@ -23,6 +23,7 @@ local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 
 -- | Objects | --
 local CampfireController = Knit.CreateController({
@@ -690,7 +691,11 @@ local function showLevelUp(newLevel: number, previousLevel: number, radius: numb
 	levelUpShowingLevel = newLevel
 
 	levelUpTitle.Text = "CAMPFIRE LEVEL " .. tostring(newLevel) .. "!"
-	levelUpSubtitle.Text = "Safe zone expanded to " .. tostring(math.round(radius or 0)) .. " studs"
+	levelUpSubtitle.Text = string.format(
+		"Safe zone: %d studs  •  Fog cleared: %d studs",
+		math.round(radius or 0),
+		math.round(WorldProgressionConfig.GetAccessRadius(newLevel))
+	)
 
 	-- Start fully transparent and slide up while fading in.
 	levelUpBanner.Position = UDim2.new(0.5, 0, 0.5, 60)
