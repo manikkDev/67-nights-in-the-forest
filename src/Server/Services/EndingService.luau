@@ -23,6 +23,7 @@ local EndingService = Knit.CreateService({
 	Client = {
 		EndingStarted = Knit.CreateSignal(),
 		ResultsReady = Knit.CreateSignal(),
+		RequestEarlyReturn = Knit.CreateSignal(),
 	},
 })
 
@@ -144,6 +145,21 @@ function EndingService:KnitStart()
 		end
 	end)
 	runStateService.RunEnding:Connect(onRunEnding)
+
+	-- Allow players to skip the results display and return to lobby early.
+	EndingService.Client.RequestEarlyReturn:Connect(function(player)
+		if endingRunId == "" then
+			return
+		end
+		if not runStateService:IsMember(player) then
+			return
+		end
+		local capturedRunId = endingRunId
+		if runStateService:GetRunId() == capturedRunId then
+			runStateService:CleanupRun("EARLY_RETURN")
+			endingRunId = ""
+		end
+	end)
 end
 
 return EndingService
