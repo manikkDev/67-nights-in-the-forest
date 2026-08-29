@@ -110,7 +110,10 @@ local wolfSummoned = false
     @param    signal  KnitSignal
 ]]
 local function broadcastToAll(signal, ...)
-	for _, player in ipairs(Players:GetPlayers()) do
+	if not runStateService or not runStateService:IsActive() then
+		return
+	end
+	for _, player in ipairs(runStateService:GetMembers()) do
 		signal:Fire(player, ...)
 	end
 end
@@ -274,9 +277,12 @@ end
     @returns  Vector3?
 ]]
 local function pickLandingPosition(): Vector3?
-	local players = Players:GetPlayers()
+	local players = runStateService:GetMembers()
 	local valid = {}
 	for _, player in ipairs(players) do
+		if not runStateService:IsActive() or not runStateService:IsMember(player) then
+			continue
+		end
 		if spawnService and not spawnService:IsPlayerSpawned(player) then
 			continue
 		end
@@ -484,7 +490,10 @@ local function updateDetection(dt: number)
 	end
 
 	local anyMoving = false
-	for _, player in ipairs(Players:GetPlayers()) do
+	for _, player in ipairs(runStateService:GetMembers()) do
+		if not runStateService:IsActive() or not runStateService:IsMember(player) then
+			continue
+		end
 		if spawnService and not spawnService:IsPlayerSpawned(player) then
 			continue
 		end
@@ -519,7 +528,10 @@ local function updateDetection(dt: number)
 		local target
 		-- Find the nearest moving player to chase
 		local nearestDist = math.huge
-		for _, player in ipairs(Players:GetPlayers()) do
+		for _, player in ipairs(runStateService:GetMembers()) do
+			if not runStateService:IsActive() or not runStateService:IsMember(player) then
+				continue
+			end
 			if spawnService and not spawnService:IsPlayerSpawned(player) then
 				continue
 			end
@@ -554,7 +566,10 @@ end
 local function findHuntableTarget(fromPosition: Vector3): Player?
 	local nearest: Player? = nil
 	local nearestDist = math.huge
-	for _, player in ipairs(Players:GetPlayers()) do
+	for _, player in ipairs(runStateService:GetMembers()) do
+		if not runStateService:IsActive() or not runStateService:IsMember(player) then
+			continue
+		end
 		if spawnService and not spawnService:IsPlayerSpawned(player) then
 			continue
 		end
@@ -879,6 +894,7 @@ end
 function OwlService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	timeService = Knit.GetService("TimeService")
+	runStateService = Knit.GetService("RunStateService")
 	campfireService = Knit.GetService("CampfireService")
 	spawnService = Knit.GetService("SpawnService")
 	animalAIService = Knit.GetService("AnimalAIService")

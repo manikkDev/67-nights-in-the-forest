@@ -404,7 +404,7 @@ local function broadcastFuel(target: Player?)
 		end
 		return
 	end
-	for _, player in ipairs(Players:GetPlayers()) do
+	for _, player in ipairs(runStateService:GetMembers()) do
 		if isPlayerInGame(player) then
 			CampfireService.Client.FuelChanged:Fire(player, fuel, maxFuel, fraction, isLit)
 		end
@@ -424,7 +424,7 @@ local function broadcastLevel(target: Player?)
 		end
 		return
 	end
-	for _, player in ipairs(Players:GetPlayers()) do
+	for _, player in ipairs(runStateService:GetMembers()) do
 		if isPlayerInGame(player) then
 			CampfireService.Client.LevelChanged:Fire(player, level, levelProgress, requirement, levelFraction)
 		end
@@ -455,7 +455,7 @@ local function broadcastSafeZone(target: Player?, force: boolean?)
 		end
 		return
 	end
-	for _, player in ipairs(Players:GetPlayers()) do
+	for _, player in ipairs(runStateService:GetMembers()) do
 		if isPlayerInGame(player) then
 			CampfireService.Client.SafeZoneChanged:Fire(player, currentSafeZoneRadius, isLit)
 		end

@@ -283,8 +283,8 @@ end
 ]]
 local function findOwner(model: Model): Player?
 	local droppedBy = model:GetAttribute("DroppedBy")
-	if droppedBy then
-		for _, player in ipairs(Players:GetPlayers()) do
+	if droppedBy and runStateService then
+		for _, player in ipairs(runStateService:GetMembers()) do
 			if player.UserId == droppedBy then
 				return player
 			end

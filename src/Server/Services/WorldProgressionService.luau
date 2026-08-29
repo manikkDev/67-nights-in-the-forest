@@ -24,7 +24,10 @@ local checkTimer = 0
 
 local function broadcastExpansion(level: number)
 	WorldProgressionService.Client.AccessRadius:Set(accessRadius)
-	for _, player in ipairs(Players:GetPlayers()) do
+	if not runStateService or not runStateService:IsActive() then
+		return
+	end
+	for _, player in ipairs(runStateService:GetMembers()) do
 		WorldProgressionService.Client.BoundaryExpanded:Fire(player, level, accessRadius)
 	end
 end
