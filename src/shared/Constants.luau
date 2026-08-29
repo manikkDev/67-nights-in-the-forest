@@ -20,7 +20,7 @@ return {
 	-- GAME_PLACE_ID is the sub-place (where reserved match servers run).
 	-- Fill in GAME_PLACE_ID after creating the sub-place on the Creator Dashboard.
 	LOBBY_PLACE_ID = 84560195693908,
-	GAME_PLACE_ID = 0, -- TODO: set after creating the game sub-place
+	GAME_PLACE_ID = 106278588126757,
 
 	PARTY_MIN_PLAYERS = 1,
 	PARTY_MAX_PLAYERS = 5,

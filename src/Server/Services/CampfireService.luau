@@ -124,7 +124,6 @@ local LOG_SCAN_RADIUS = 14
 
 -- | State Management | --
 local worldService: any = nil
-local playerDataService: any = nil
 local inventoryService: any = nil
 local spawnService: any = nil
 local runStateService: any = nil
@@ -878,7 +877,6 @@ end
 -- won't be called by Knit, so run setup and wire events directly.
 if not createSuccess then
 	worldService = Knit.GetService("WorldService")
-	playerDataService = Knit.GetService("PlayerDataService")
 	inventoryService = Knit.GetService("InventoryService")
 
 	if not CampfireService.Client then
