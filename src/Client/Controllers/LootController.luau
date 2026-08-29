@@ -7,8 +7,8 @@
     Client-side chest loot UI panel and opening VFX.
 
     @description
-    Listens to LootService.ChestOpened to show a professional loot
-    panel displaying what items were inside the chest, with icons,
+    Listens to LootService.ChestOpened to show a compact loot panel
+    displaying what items were inside the chest, with icons,
     quantities, and descriptions.  Also plays client-side particle
     burst, light flash, and sound at the chest position for instant
     feedback.
@@ -72,17 +72,15 @@ local TIER_DISPLAY = {
 	CaveDino = "Dino Cave Chest",
 }
 
-local TIER_COLORS = {
-	Basic = Color3.fromRGB(180, 140, 80),
-	Gold = Color3.fromRGB(255, 200, 60),
-	CaveDino = Color3.fromRGB(190, 55, 50),
-}
+-- Green accent palette for a clean, professional look.
+local ACCENT_COLOR = Color3.fromRGB(80, 200, 120)
+local ACCENT_DIM = Color3.fromRGB(50, 140, 80)
 
 -- | State Management | --
 local lootGui: ScreenGui? = nil
 local overlay: Frame? = nil
 local panel: Frame? = nil
-local dismissTimer: number? = nil
+local dismissTimer: thread? = nil
 
 -- // FUNCTIONS // --
 
@@ -133,7 +131,7 @@ local function spawnClientVFX(position: Vector3)
 end
 
 --[[
-    @summary  Build a single item row inside the loot panel.
+    @summary  Build a single compact item row inside the loot panel.
     @param    parent    Frame
     @param    itemName  string
     @param    count     number
@@ -141,72 +139,66 @@ end
 local function buildItemRow(parent: Frame, itemName: string, count: number)
 	local row = Instance.new("Frame")
 	row.Name = "ItemRow" .. itemName
-	row.Size = UDim2.new(1, 0, 0, 58)
-	row.BackgroundColor3 = Color3.fromRGB(38, 41, 48)
-	row.BackgroundTransparency = 0.3
+	row.Size = UDim2.new(1, 0, 0, 44)
+	row.BackgroundColor3 = Color3.fromRGB(35, 38, 44)
+	row.BackgroundTransparency = 0.4
 	row.BorderSizePixel = 0
 	row.Parent = parent
 
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 8)
+	corner.CornerRadius = UDim.new(0, 6)
 	corner.Parent = row
 
 	local icon = Instance.new("Frame")
 	icon.Name = "Icon"
-	icon.Size = UDim2.new(0, 40, 0, 40)
-	icon.Position = UDim2.new(0, 12, 0.5, -20)
+	icon.Size = UDim2.new(0, 32, 0, 32)
+	icon.Position = UDim2.new(0, 8, 0.5, -16)
 	icon.BackgroundColor3 = ITEM_COLORS[itemName] or Color3.fromRGB(120, 120, 130)
 	icon.BorderSizePixel = 0
 	icon.Parent = row
 
 	local iconCorner = Instance.new("UICorner")
-	iconCorner.CornerRadius = UDim.new(0, 8)
+	iconCorner.CornerRadius = UDim.new(0, 6)
 	iconCorner.Parent = icon
-
-	local iconStroke = Instance.new("UIStroke")
-	iconStroke.Color = Color3.fromRGB(255, 255, 255)
-	iconStroke.Transparency = 0.7
-	iconStroke.Thickness = 1
-	iconStroke.Parent = icon
 
 	local nameLabel = Instance.new("TextLabel")
 	nameLabel.Name = "Name"
-	nameLabel.Size = UDim2.new(1, -135, 0, 22)
-	nameLabel.Position = UDim2.new(0, 64, 0, 7)
+	nameLabel.Size = UDim2.new(1, -120, 0, 20)
+	nameLabel.Position = UDim2.new(0, 48, 0, 4)
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.TextSize = 16
-	nameLabel.TextColor3 = Color3.fromRGB(240, 240, 245)
+	nameLabel.TextSize = 14
+	nameLabel.TextColor3 = Color3.fromRGB(235, 238, 242)
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 	nameLabel.Text = itemName
 	nameLabel.Parent = row
 
 	local descLabel = Instance.new("TextLabel")
 	descLabel.Name = "Desc"
-	descLabel.Size = UDim2.new(1, -135, 0, 18)
-	descLabel.Position = UDim2.new(0, 64, 0, 30)
+	descLabel.Size = UDim2.new(1, -120, 0, 16)
+	descLabel.Position = UDim2.new(0, 48, 0, 24)
 	descLabel.BackgroundTransparency = 1
 	descLabel.Font = Enum.Font.Gotham
-	descLabel.TextSize = 12
-	descLabel.TextColor3 = Color3.fromRGB(160, 165, 175)
+	descLabel.TextSize = 11
+	descLabel.TextColor3 = Color3.fromRGB(150, 155, 165)
 	descLabel.TextXAlignment = Enum.TextXAlignment.Left
 	descLabel.Text = ITEM_DESCRIPTIONS[itemName] or ""
 	descLabel.Parent = row
 
 	local countBadge = Instance.new("TextLabel")
 	countBadge.Name = "Count"
-	countBadge.Size = UDim2.new(0, 48, 0, 28)
-	countBadge.Position = UDim2.new(1, -60, 0.5, -14)
-	countBadge.BackgroundColor3 = Color3.fromRGB(50, 55, 65)
+	countBadge.Size = UDim2.new(0, 40, 0, 22)
+	countBadge.Position = UDim2.new(1, -48, 0.5, -11)
+	countBadge.BackgroundColor3 = Color3.fromRGB(40, 48, 40)
 	countBadge.BackgroundTransparency = 0.2
 	countBadge.Font = Enum.Font.GothamBold
-	countLabel.TextSize = 14
-	countBadge.TextColor3 = Color3.fromRGB(255, 215, 120)
+	countBadge.TextSize = 13
+	countBadge.TextColor3 = ACCENT_COLOR
 	countBadge.Text = "x" .. tostring(count)
 	countBadge.Parent = row
 
 	local badgeCorner = Instance.new("UICorner")
-	badgeCorner.CornerRadius = UDim.new(0, 6)
+	badgeCorner.CornerRadius = UDim.new(0, 5)
 	badgeCorner.Parent = countBadge
 end
 
@@ -226,11 +218,14 @@ local function showLootPanel(position: Vector3, tier: string, granted: { [string
 		panel:Destroy()
 		panel = nil
 	end
+	if dismissTimer then
+		task.cancel(dismissTimer)
+		dismissTimer = nil
+	end
 	if overlay then
 		overlay.Visible = true
 	end
 
-	local tierColor = TIER_COLORS[tier] or Color3.fromRGB(200, 180, 100)
 	local tierName = TIER_DISPLAY[tier] or "Chest"
 
 	-- Sort: tools first, then resources alphabetically.
@@ -247,103 +242,101 @@ local function showLootPanel(position: Vector3, tier: string, granted: { [string
 		return a < b
 	end)
 
-	local PANEL_WIDTH = 440
-	local rowCount = math.min(#itemNames, 5)
-	local contentHeight = 156 + rowCount * 64
-	local PANEL_HEIGHT = math.min(contentHeight + 20, 480)
+	-- Compact panel sizing.
+	local PANEL_WIDTH = 360
+	local rowCount = #itemNames
+	local rowsHeight = rowCount * 50 -- 44px row + 6px padding
+	local PANEL_HEIGHT = 70 + rowsHeight + 16 -- header + rows + bottom padding
 
 	-- Build the panel.
 	local newPanel = Instance.new("Frame")
 	newPanel.Name = "LootPanel"
 	newPanel.Size = UDim2.new(0, PANEL_WIDTH, 0, PANEL_HEIGHT)
-	newPanel.Position = UDim2.new(0.5, -PANEL_WIDTH / 2, 0.5, -PANEL_HEIGHT / 2 + 60)
-	newPanel.BackgroundColor3 = Color3.fromRGB(28, 30, 36)
-	newPanel.BackgroundTransparency = 0.05
+	newPanel.Position = UDim2.new(0.5, -PANEL_WIDTH / 2, 0.5, -PANEL_HEIGHT / 2 + 40)
+	newPanel.BackgroundColor3 = Color3.fromRGB(24, 28, 32)
+	newPanel.BackgroundTransparency = 0.03
 	newPanel.BorderSizePixel = 0
 	newPanel.ClipsDescendants = true
 	newPanel.Parent = lootGui
 
 	local panelCorner = Instance.new("UICorner")
-	panelCorner.CornerRadius = UDim.new(0, 16)
+	panelCorner.CornerRadius = UDim.new(0, 12)
 	panelCorner.Parent = newPanel
 
 	local panelStroke = Instance.new("UIStroke")
-	panelStroke.Color = tierColor
-	panelStroke.Thickness = 2
-	panelStroke.Transparency = 0.2
+	panelStroke.Color = ACCENT_COLOR
+	panelStroke.Thickness = 1.5
+	panelStroke.Transparency = 0.25
 	panelStroke.Parent = newPanel
 
 	local panelGradient = Instance.new("UIGradient")
 	panelGradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 42, 50)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 27, 33)),
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(32, 38, 42)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(22, 26, 30)),
 	})
 	panelGradient.Rotation = 90
 	panelGradient.Parent = newPanel
 
-	-- Padding around all content.
-	local panelPadding = Instance.new("UIPadding")
-	panelPadding.PaddingLeft = UDim.new(0, 22)
-	panelPadding.PaddingRight = UDim.new(0, 22)
-	panelPadding.PaddingTop = UDim.new(0, 22)
-	panelPadding.PaddingBottom = UDim.new(0, 22)
-	panelPadding.Parent = newPanel
+	-- Close (X) button at top-right corner.
+	local closeBtn = Instance.new("TextButton")
+	closeBtn.Name = "CloseX"
+	closeBtn.Size = UDim2.new(0, 28, 0, 28)
+	closeBtn.Position = UDim2.new(1, -34, 0, 6)
+	closeBtn.BackgroundColor3 = Color3.fromRGB(40, 45, 50)
+	closeBtn.BackgroundTransparency = 0.3
+	closeBtn.Font = Enum.Font.GothamBold
+	closeBtn.TextSize = 16
+	closeBtn.TextColor3 = Color3.fromRGB(180, 185, 190)
+	closeBtn.Text = "X"
+	closeBtn.AutoButtonColor = true
+	closeBtn.Parent = newPanel
 
-	-- Vertical content layout.
-	local panelLayout = Instance.new("UIListLayout")
-	panelLayout.Padding = UDim.new(0, 12)
-	panelLayout.FillDirection = Enum.FillDirection.Vertical
-	panelLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	panelLayout.Parent = newPanel
+	local closeCorner = Instance.new("UICorner")
+	closeCorner.CornerRadius = UDim.new(0, 6)
+	closeCorner.Parent = closeBtn
 
-	-- Header container.
-	local header = Instance.new("Frame")
-	header.Name = "Header"
-	header.Size = UDim2.new(1, 0, 0, 52)
-	header.BackgroundTransparency = 1
-	header.Parent = newPanel
-
+	-- Header (title + subtitle) — left-aligned, compact.
 	local title = Instance.new("TextLabel")
 	title.Name = "Title"
-	title.Size = UDim2.new(1, 0, 0, 30)
-	title.Position = UDim2.new(0, 0, 0, 0)
+	title.Size = UDim2.new(1, -44, 0, 24)
+	title.Position = UDim2.new(0, 16, 0, 10)
 	title.BackgroundTransparency = 1
 	title.Font = Enum.Font.GothamBold
-	title.TextSize = 22
-	title.TextColor3 = tierColor
+	title.TextSize = 18
+	title.TextColor3 = ACCENT_COLOR
+	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.Text = "Chest Opened"
-	title.Parent = header
+	title.Parent = newPanel
 
 	local subtitle = Instance.new("TextLabel")
 	subtitle.Name = "Subtitle"
-	subtitle.Size = UDim2.new(1, 0, 0, 18)
-	subtitle.Position = UDim2.new(0, 0, 0, 30)
+	subtitle.Size = UDim2.new(1, -44, 0, 16)
+	subtitle.Position = UDim2.new(0, 16, 0, 34)
 	subtitle.BackgroundTransparency = 1
 	subtitle.Font = Enum.Font.Gotham
-	subtitle.TextSize = 14
-	subtitle.TextColor3 = Color3.fromRGB(160, 165, 175)
+	subtitle.TextSize = 12
+	subtitle.TextColor3 = Color3.fromRGB(140, 148, 158)
+	subtitle.TextXAlignment = Enum.TextXAlignment.Left
 	subtitle.Text = tierName
-	subtitle.Parent = header
+	subtitle.Parent = newPanel
 
-	-- Separator.
+	-- Separator line.
 	local separator = Instance.new("Frame")
 	separator.Name = "Separator"
-	separator.Size = UDim2.new(1, 0, 0, 2)
-	separator.BackgroundColor3 = tierColor
-	separator.BackgroundTransparency = 0.4
+	separator.Size = UDim2.new(1, -32, 0, 1)
+	separator.Position = UDim2.new(0, 16, 0, 56)
+	separator.BackgroundColor3 = ACCENT_DIM
+	separator.BackgroundTransparency = 0.5
 	separator.BorderSizePixel = 0
 	separator.Parent = newPanel
 
-	-- Item rows container (scrollable if more than 5 items).
-	local rowsFrame = Instance.new("ScrollingFrame")
+	-- Item rows container.
+	local rowsFrame = Instance.new("Frame")
 	rowsFrame.Name = "Rows"
-	rowsFrame.Size = UDim2.new(1, 0, 1, -170)
+	rowsFrame.Size = UDim2.new(1, -32, 0, rowsHeight)
+	rowsFrame.Position = UDim2.new(0, 16, 0, 64)
 	rowsFrame.BackgroundTransparency = 1
 	rowsFrame.BorderSizePixel = 0
-	rowsFrame.ScrollBarThickness = 6
-	rowsFrame.ScrollBarImageColor3 = tierColor
-	rowsFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-	rowsFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
 	rowsFrame.Parent = newPanel
 
 	local rowsLayout = Instance.new("UIListLayout")
@@ -351,66 +344,29 @@ local function showLootPanel(position: Vector3, tier: string, granted: { [string
 	rowsLayout.FillDirection = Enum.FillDirection.Vertical
 	rowsLayout.Parent = rowsFrame
 
-	local rowsPadding = Instance.new("UIPadding")
-	rowsPadding.PaddingRight = UDim.new(0, 6)
-	rowsPadding.Parent = rowsFrame
-
 	for _, itemName in ipairs(itemNames) do
 		buildItemRow(rowsFrame, itemName, granted[itemName])
 	end
 
-	-- Spacer before close button.
-	local spacer = Instance.new("Frame")
-	spacer.Name = "Spacer"
-	spacer.Size = UDim2.new(1, 0, 0, 0)
-	spacer.BackgroundTransparency = 1
-	spacer.Parent = newPanel
-
-	-- Close button.
-	local closeButton = Instance.new("TextButton")
-	closeButton.Name = "CloseButton"
-	closeButton.Size = UDim2.new(1, 0, 0, 44)
-	closeButton.BackgroundColor3 = Color3.fromRGB(45, 48, 56)
-	closeButton.BackgroundTransparency = 0.2
-	closeButton.Font = Enum.Font.GothamBold
-	closeButton.TextSize = 16
-	closeButton.TextColor3 = Color3.fromRGB(230, 230, 235)
-	closeButton.Text = "Close"
-	closeButton.AutoButtonColor = true
-	closeButton.Parent = newPanel
-
-	local btnCorner = Instance.new("UICorner")
-	btnCorner.CornerRadius = UDim.new(0, 10)
-	btnCorner.Parent = closeButton
-
-	local btnStroke = Instance.new("UIStroke")
-	btnStroke.Color = tierColor
-	btnStroke.Thickness = 1.5
-	btnStroke.Transparency = 0.3
-	btnStroke.Parent = closeButton
-
 	-- Entrance animation.
-	local closedPosition = UDim2.new(0.5, -PANEL_WIDTH / 2, 0.5, -PANEL_HEIGHT / 2 + 60)
-	local openPosition = UDim2.new(0.5, -PANEL_WIDTH / 2, 0.5, -PANEL_HEIGHT / 2)
-	newPanel.Position = closedPosition
+	local closedPos = UDim2.new(0.5, -PANEL_WIDTH / 2, 0.5, -PANEL_HEIGHT / 2 + 40)
+	local openPos = UDim2.new(0.5, -PANEL_WIDTH / 2, 0.5, -PANEL_HEIGHT / 2)
+	newPanel.Position = closedPos
 	newPanel.BackgroundTransparency = 1
-	TweenService:Create(newPanel, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-		Position = openPosition,
-		BackgroundTransparency = 0.05,
+	TweenService:Create(newPanel, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		Position = openPos,
+		BackgroundTransparency = 0.03,
 	}):Play()
 
 	panel = newPanel
 
 	-- Auto-dismiss timer.
-	if dismissTimer then
-		task.cancel(dismissTimer)
-	end
 	dismissTimer = task.delay(PANEL_AUTO_DISMISS, function()
 		LootController:DismissPanel()
 	end)
 
 	-- Close button handler.
-	closeButton.Activated:Connect(function()
+	closeBtn.Activated:Connect(function()
 		LootController:DismissPanel()
 	end)
 end
@@ -425,7 +381,7 @@ function LootController:DismissPanel()
 	end
 	if panel and panel.Parent then
 		local fadePanel = panel
-		local closed = fadePanel.Position + UDim2.new(0, 0, 0, 60)
+		local closed = fadePanel.Position + UDim2.new(0, 0, 0, 40)
 		TweenService:Create(fadePanel, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 			Position = closed,
 			BackgroundTransparency = 1,
