@@ -28,6 +28,7 @@ local Workspace = game:GetService("Workspace")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 local WorldPlacement = require(script.Parent.Parent.WorldPlacement)
 local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
@@ -485,6 +486,7 @@ end
 -- // INITIALIZATION // --
 
 function FacilityService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	runStateService = Knit.GetService("RunStateService")
 	worldService = Knit.GetService("WorldService")
 	inventoryService = Knit.GetService("InventoryService")

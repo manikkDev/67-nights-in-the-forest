@@ -26,6 +26,7 @@ local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local RecipeConfig = require(ReplicatedStorage.Shared.RecipeConfig)
 local UiSoundUtil = require(ReplicatedStorage.Shared.UiSoundUtil)
 
@@ -930,6 +931,7 @@ end
 -- // INITIALIZATION // --
 
 function CraftingController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	craftingService = Knit.GetService("CraftingService")
 	local runStateService = Knit.GetService("RunStateService")
 	buildUi()

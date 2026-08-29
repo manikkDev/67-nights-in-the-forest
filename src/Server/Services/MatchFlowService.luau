@@ -22,6 +22,7 @@ local HttpService = game:GetService("HttpService")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Constants = require(ReplicatedStorage.Shared.Constants)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local MatchFlowService = Knit.CreateService({
@@ -297,6 +298,10 @@ function MatchFlowService:EnterWaiting(player: Player, queueId: string)
 	if not player or player.Parent ~= Players or not isQueueId(queueId) then
 		return
 	end
+	-- Party formation only happens on the lobby place.
+	if not ServerRole.IsLobby() then
+		return
+	end
 	local existing = sessionsByPlayer[player]
 	if existing then
 		MatchFlowService.Client.FlowStateChanged:Fire(player, existing.state)
@@ -410,50 +415,53 @@ function MatchFlowService:KnitStart()
 	runStateService = Knit.GetService("RunStateService")
 	sessionRoutingService = Knit.GetService("SessionRoutingService")
 
-	self.Client.RequestSetCapacity:Connect(function(player: Player, requested: any)
-		if rateLimited(player) or typeof(requested) ~= "number" then
-			return
-		end
-		local session = sessionsByPlayer[player]
-		local capacity = math.floor(requested)
-		if not session or session.host ~= player or session.state ~= "Waiting"
-			or capacity < MIN_PARTY or capacity > MAX_PARTY or capacity < #rosterFor(session)
-		then
-			return
-		end
-		session.capacity = capacity
-		broadcastSession(session)
-	end)
+	-- Party formation handlers only run on the lobby place.
+	if ServerRole.IsLobby() then
+		self.Client.RequestSetCapacity:Connect(function(player: Player, requested: any)
+			if rateLimited(player) or typeof(requested) ~= "number" then
+				return
+			end
+			local session = sessionsByPlayer[player]
+			local capacity = math.floor(requested)
+			if not session or session.host ~= player or session.state ~= "Waiting"
+				or capacity < MIN_PARTY or capacity > MAX_PARTY or capacity < #rosterFor(session)
+			then
+				return
+			end
+			session.capacity = capacity
+			broadcastSession(session)
+		end)
 
-	self.Client.RequestLeave:Connect(function(player: Player)
-		if not rateLimited(player) then
-			removePlayerFromSession(player, true)
-		end
-	end)
+		self.Client.RequestLeave:Connect(function(player: Player)
+			if not rateLimited(player) then
+				removePlayerFromSession(player, true)
+			end
+		end)
 
-	self.Client.RequestStart:Connect(function(player: Player)
-		if rateLimited(player) then
-			return
-		end
-		local session = sessionsByPlayer[player]
-		if not session or session.host ~= player or session.state ~= "Waiting" or session.routing then
-			return
-		end
-		local count = #rosterFor(session)
-		if count < MIN_PARTY or count > session.capacity then
-			return
-		end
-		session.state = "Countdown"
-		session.endsAt = getServerNow() + COUNTDOWN_SECONDS
-		session.duration = COUNTDOWN_SECONDS
-		scheduleTimer(session)
-		fireToSession(session, MatchFlowService.Client.FlowStateChanged, "Countdown")
-		fireToSession(session, MatchFlowService.Client.Countdown, {
-			endsAt = session.endsAt,
-			duration = session.duration,
-		})
-		broadcastSession(session)
-	end)
+		self.Client.RequestStart:Connect(function(player: Player)
+			if rateLimited(player) then
+				return
+			end
+			local session = sessionsByPlayer[player]
+			if not session or session.host ~= player or session.state ~= "Waiting" or session.routing then
+				return
+			end
+			local count = #rosterFor(session)
+			if count < MIN_PARTY or count > session.capacity then
+				return
+			end
+			session.state = "Countdown"
+			session.endsAt = getServerNow() + COUNTDOWN_SECONDS
+			session.duration = COUNTDOWN_SECONDS
+			scheduleTimer(session)
+			fireToSession(session, MatchFlowService.Client.FlowStateChanged, "Countdown")
+			fireToSession(session, MatchFlowService.Client.Countdown, {
+				endsAt = session.endsAt,
+				duration = session.duration,
+			})
+			broadcastSession(session)
+		end)
+	end
 
 	sessionRoutingService.LocalPartyReady:Connect(function(participants, metadata)
 		local session = sessionsByQueue[metadata.queueId or ""]

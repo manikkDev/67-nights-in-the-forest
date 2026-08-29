@@ -31,6 +31,7 @@ local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local CarryController = Knit.CreateController({
@@ -604,6 +605,7 @@ end
 -- // INITIALIZATION // --
 
 function CarryController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	harvestService = Knit.GetService("HarvestService")
 	forageService = Knit.GetService("ForageService")
 	inventoryService = Knit.GetService("InventoryService")

@@ -28,6 +28,7 @@ local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
 local WorldPlacement = require(script.Parent.Parent.WorldPlacement)
@@ -290,6 +291,7 @@ end
 -- // INITIALIZATION // --
 
 function ScrapScatterService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	runStateService = Knit.GetService("RunStateService")
 	worldService = Knit.GetService("WorldService")
 	inventoryService = Knit.GetService("InventoryService")

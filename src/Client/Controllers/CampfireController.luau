@@ -23,6 +23,7 @@ local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 
 -- | Objects | --
@@ -792,6 +793,7 @@ end
 -- // INITIALIZATION // --
 
 function CampfireController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	buildGui()
 	buildTopLevelProgressBar()
 	buildLevelUpBanner()

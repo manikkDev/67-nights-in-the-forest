@@ -21,6 +21,7 @@ local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local HungerController = Knit.CreateController({
@@ -229,6 +230,7 @@ end
 -- // INITIALIZATION // --
 
 function HungerController:KnitInit()
+	if ServerRole.IsLobby() then return end
 	buildSurvivalGui()
 
 	local player = Players.LocalPlayer
@@ -246,6 +248,7 @@ function HungerController:KnitInit()
 end
 
 function HungerController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	local gameStateController = Knit.GetController("GameStateController")
 	local hungerService = Knit.GetService("HungerService")
 	local runStateService = Knit.GetService("RunStateService")

@@ -35,6 +35,7 @@ local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 
 -- | Objects | --
@@ -892,6 +893,7 @@ end
 -- // INITIALIZATION // --
 
 function OwlService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	worldService = Knit.GetService("WorldService")
 	timeService = Knit.GetService("TimeService")
 	runStateService = Knit.GetService("RunStateService")

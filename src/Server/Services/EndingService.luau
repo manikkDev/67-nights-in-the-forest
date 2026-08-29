@@ -23,10 +23,14 @@
 -- | Services | --
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
+local Constants = require(ReplicatedStorage.Shared.Constants)
 
 -- | Objects | --
 local EndingService = Knit.CreateService({
@@ -269,7 +273,15 @@ local function returnPlayerToLobby(player: Player)
 	replayVotes[player] = nil
 	returnCooldowns[player] = nil
 	voteCooldowns[player] = nil
-	spawnService:ReturnToLobby(player)
+	-- In production, teleport the player back to the lobby place.
+	-- In Studio, fall back to the in-place lobby spawn.
+	if not RunService:IsStudio() and Constants.LOBBY_PLACE_ID ~= 0 then
+		pcall(function()
+			TeleportService:TeleportAsync(Constants.LOBBY_PLACE_ID, { player })
+		end)
+	else
+		spawnService:ReturnToLobby(player)
+	end
 	EndingService.Client.IndividualReturnAck:Fire(player, { success = true })
 	-- If nobody remains, clean up the run.
 	if #remainingMembers() == 0 then
@@ -348,6 +360,7 @@ end
 -- // INITIALIZATION // --
 
 function EndingService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	runStateService = Knit.GetService("RunStateService")
 	timeService = Knit.GetService("TimeService")
 	playerDataService = Knit.GetService("PlayerDataService")

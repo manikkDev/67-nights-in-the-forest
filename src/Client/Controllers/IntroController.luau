@@ -28,6 +28,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
 local IntroAssets = require(ReplicatedStorage.Shared.IntroAssets)
 local Constants = require(ReplicatedStorage.Shared.Constants)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local IntroController = Knit.CreateController({
@@ -867,6 +868,12 @@ end
 function IntroController:KnitStart()
 	gameStateController = Knit.GetController("GameStateController")
 	local matchFlow = Knit.GetService("MatchFlowService")
+
+	-- The intro/lobby UI only runs on the lobby place.
+	-- On the game place, this controller does nothing.
+	if not ServerRole.IsLobby() then
+		return
+	end
 
 	-- Title screen PLAY button dismisses it and lets the player roam the lobby.
 	if titleScreen then

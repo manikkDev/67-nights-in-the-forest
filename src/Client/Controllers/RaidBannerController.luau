@@ -35,6 +35,7 @@ local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local RaidBannerController = Knit.CreateController({
@@ -638,6 +639,7 @@ end
 -- // INITIALIZATION // --
 
 function RaidBannerController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	local cultistRaidService = Knit.GetService("CultistRaidService")
 
 	cultistRaidService.RaidWarning:Connect(function(_dayNumber: number, phase: string)

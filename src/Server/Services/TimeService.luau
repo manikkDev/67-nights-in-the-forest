@@ -32,6 +32,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 
 -- | Objects | --
@@ -352,10 +353,15 @@ end
 
 -- // INITIALIZATION // --
 
-Lighting.ClockTime = DAY_START_CLOCK
-Lighting.Ambient = DAY_AMBIENT
-Lighting.OutdoorAmbient = DAY_OUTDOOR_AMBIENT
-Lighting.Brightness = DAY_BRIGHTNESS
-Lighting.FogEnd = DAY_FOG_END
+function TimeService:KnitStart()
+	if ServerRole.IsLobby() then
+		return
+	end
+	Lighting.ClockTime = DAY_START_CLOCK
+	Lighting.Ambient = DAY_AMBIENT
+	Lighting.OutdoorAmbient = DAY_OUTDOOR_AMBIENT
+	Lighting.Brightness = DAY_BRIGHTNESS
+	Lighting.FogEnd = DAY_FOG_END
+end
 
 return TimeService

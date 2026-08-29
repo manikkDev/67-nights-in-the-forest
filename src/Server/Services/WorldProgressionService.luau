@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 local WorldPlacement = require(script.Parent.Parent.WorldPlacement)
 
@@ -325,6 +326,7 @@ function WorldProgressionService.Client:GetState(_player: Player): { level: numb
 end
 
 function WorldProgressionService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	runStateService = Knit.GetService("RunStateService")
 	worldService = Knit.GetService("WorldService")
 	campfireService = Knit.GetService("CampfireService")

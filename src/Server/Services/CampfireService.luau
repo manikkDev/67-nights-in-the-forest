@@ -41,6 +41,7 @@ local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 
@@ -849,6 +850,7 @@ end
 -- // INITIALIZATION // --
 
 function CampfireService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	worldService = Knit.GetService("WorldService")
 	inventoryService = Knit.GetService("InventoryService")
 	spawnService = Knit.GetService("SpawnService")

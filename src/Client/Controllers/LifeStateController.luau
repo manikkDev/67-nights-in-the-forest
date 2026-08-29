@@ -14,6 +14,7 @@ local StarterGui = game:GetService("StarterGui")
 local RunService = game:GetService("RunService")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
 
 local LifeStateController = Knit.CreateController({ Name = "LifeStateController" })
@@ -129,6 +130,7 @@ local function disableReset()
 end
 
 function LifeStateController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	lifeService = Knit.GetService("PlayerLifeService")
 	local runStateService = Knit.GetService("RunStateService")
 	buildUi()

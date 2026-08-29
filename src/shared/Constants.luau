@@ -14,6 +14,14 @@
 return {
 	STORE_NAME = "67Nights_v2",
 	MAX_PLAYERS = 8,
+
+	-- Place IDs for the two-place architecture.
+	-- LOBBY_PLACE_ID is the start place (where players form parties).
+	-- GAME_PLACE_ID is the sub-place (where reserved match servers run).
+	-- Fill in GAME_PLACE_ID after creating the sub-place on the Creator Dashboard.
+	LOBBY_PLACE_ID = 84560195693908,
+	GAME_PLACE_ID = 0, -- TODO: set after creating the game sub-place
+
 	PARTY_MIN_PLAYERS = 1,
 	PARTY_MAX_PLAYERS = 5,
 	PARTY_QUEUE_IDS = { "Teleporter1", "Teleporter2", "Teleporter3" },

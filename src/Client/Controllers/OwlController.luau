@@ -28,6 +28,7 @@ local Lighting = game:GetService("Lighting")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local OwlController = Knit.CreateController({
@@ -237,6 +238,7 @@ end
 -- // INITIALIZATION // --
 
 function OwlController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	local owlService = Knit.GetService("OwlService")
 
 	owlService.OwlActive:Connect(function()

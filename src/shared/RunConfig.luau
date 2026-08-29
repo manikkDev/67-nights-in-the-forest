@@ -18,6 +18,7 @@ local RunService = game:GetService("RunService")
 local StudioTest = {
 	Enabled = false,
 	SkipLobby = false,
+	ForceGameMode = false,
 	GrantResources = false,
 	InfiniteWood = false,
 	FastClock = false,

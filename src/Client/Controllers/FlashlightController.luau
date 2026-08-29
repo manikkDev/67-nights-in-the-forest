@@ -33,6 +33,7 @@ local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
 
 -- | Objects | --
@@ -608,6 +609,7 @@ end
 -- // INITIALIZATION // --
 
 function FlashlightController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	gameStateController = Knit.GetController("GameStateController")
 	flashlightService = Knit.GetService("FlashlightService")
 

@@ -18,6 +18,7 @@ local ContextActionService = game:GetService("ContextActionService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
 local RescueConfig = require(ReplicatedStorage.Shared.RescueConfig)
 
@@ -751,6 +752,7 @@ end
 -- // INITIALIZATION // --
 
 function RescueController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	rescueService = Knit.GetService("RescueService")
 	local runStateService = Knit.GetService("RunStateService")
 	buildUi()

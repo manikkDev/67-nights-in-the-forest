@@ -27,6 +27,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 
@@ -427,6 +428,7 @@ end
 -- // INITIALIZATION // --
 
 function WorldService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	lobbyMap = findMap("lobby-map")
 	baseMap = findMap("Base-map")
 

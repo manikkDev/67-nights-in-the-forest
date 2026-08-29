@@ -24,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 
 -- | Objects | --
@@ -70,6 +71,7 @@ end
 -- // INITIALIZATION // --
 
 function TimeController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	local timeService = Knit.GetService("TimeService")
 	timeService.DayStarted:Connect(onDayStarted)
 	timeService.NightStarted:Connect(onNightStarted)

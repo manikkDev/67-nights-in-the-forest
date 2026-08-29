@@ -24,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
 
 -- | Objects | --
@@ -207,6 +208,7 @@ end
 -- // INITIALIZATION // --
 
 function HarvestController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	gameStateController = Knit.GetController("GameStateController")
 	local harvestService = Knit.GetService("HarvestService")
 	harvestService.TreeChopped:Connect(function()

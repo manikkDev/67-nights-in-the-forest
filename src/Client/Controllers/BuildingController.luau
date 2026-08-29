@@ -31,6 +31,7 @@ local ContextActionService = game:GetService("ContextActionService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
 local StructureConfig = require(ReplicatedStorage.Shared.StructureConfig)
 
@@ -474,6 +475,7 @@ end
 -- // INITIALIZATION // --
 
 function BuildingController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	craftingService = Knit.GetService("CraftingService")
 	buildingService = Knit.GetService("BuildingService")
 	buildStatusUi()

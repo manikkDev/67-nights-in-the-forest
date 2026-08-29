@@ -32,6 +32,7 @@ local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local CultistRaidService = Knit.CreateService({
@@ -307,6 +308,7 @@ end
 -- // INITIALIZATION // --
 
 function CultistRaidService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	timeService = Knit.GetService("TimeService")
 	worldService = Knit.GetService("WorldService")
 	runStateService = Knit.GetService("RunStateService")

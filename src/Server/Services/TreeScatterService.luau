@@ -27,6 +27,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 local WorldPlacement = require(script.Parent.Parent.WorldPlacement)
 
@@ -295,6 +296,7 @@ end
 -- // INITIALIZATION // --
 
 function TreeScatterService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	runStateService = Knit.GetService("RunStateService")
 	worldService = Knit.GetService("WorldService")
 

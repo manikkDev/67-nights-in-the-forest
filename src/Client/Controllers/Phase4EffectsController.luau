@@ -18,6 +18,7 @@ local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
 local AssetCatalog = require(ReplicatedStorage.Shared.AssetCatalog)
 
@@ -127,6 +128,7 @@ end
 -- // INITIALIZATION // --
 
 function Phase4EffectsController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	local timeService = Knit.GetService("TimeService")
 	local craftingService = Knit.GetService("CraftingService")
 	local buildingService = Knit.GetService("BuildingService")

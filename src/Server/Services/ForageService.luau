@@ -26,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 
@@ -416,6 +417,7 @@ end
 -- // INITIALIZATION // --
 
 function ForageService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	worldService = Knit.GetService("WorldService")
 	inventoryService = Knit.GetService("InventoryService")
 	hungerService = Knit.GetService("HungerService")

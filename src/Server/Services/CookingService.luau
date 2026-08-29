@@ -23,6 +23,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local CookingService = Knit.CreateService({
@@ -38,6 +39,7 @@ local CookingService = Knit.CreateService({
 -- // INITIALIZATION // --
 
 function CookingService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	-- Raw meat is cooked automatically when dropped onto the lit fire.
 end
 

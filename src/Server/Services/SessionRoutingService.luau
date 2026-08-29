@@ -27,6 +27,7 @@ local HttpService = game:GetService("HttpService")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local Constants = require(ReplicatedStorage.Shared.Constants)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local SessionRoutingService = Knit.CreateService({
@@ -155,7 +156,7 @@ end
 
 -- | Routing | --
 function SessionRoutingService:IsReservedRunServer(): boolean
-	return not RunService:IsStudio() and game.PrivateServerId ~= "" and game.PrivateServerOwnerId == 0
+	return ServerRole.IsGameServer()
 end
 
 function SessionRoutingService:RouteParty(partyId: string, hostUserId: number, players: { Player }): boolean
@@ -211,7 +212,7 @@ function SessionRoutingService:RouteParty(partyId: string, hostUserId: number, p
 	end
 
 	local reserveOk, accessCode = pcall(function()
-		return TeleportService:ReserveServerAsync(game.PlaceId)
+		return TeleportService:ReserveServerAsync(Constants.GAME_PLACE_ID)
 	end)
 	if not reserveOk or typeof(accessCode) ~= "string" then
 		warn("[SessionRoutingService] Could not reserve run server:", accessCode)
@@ -226,7 +227,7 @@ function SessionRoutingService:RouteParty(partyId: string, hostUserId: number, p
 	options.ReservedServerAccessCode = accessCode
 	options:SetTeleportData(metadata)
 	local teleportOk, teleportError = pcall(function()
-		TeleportService:TeleportAsync(game.PlaceId, livePlayers, options)
+		TeleportService:TeleportToPrivateServer(Constants.GAME_PLACE_ID, accessCode, livePlayers, nil, metadata)
 	end)
 	if not teleportOk then
 		for _, player in ipairs(livePlayers) do

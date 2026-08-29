@@ -27,6 +27,7 @@ local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local LootController = Knit.CreateController({
@@ -399,6 +400,7 @@ end
 -- // INITIALIZATION // --
 
 function LootController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "LootGui"
 	gui.ResetOnSpawn = false

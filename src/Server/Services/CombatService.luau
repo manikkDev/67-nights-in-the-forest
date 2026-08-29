@@ -31,6 +31,7 @@ local CollectionService = game:GetService("CollectionService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 
@@ -255,6 +256,7 @@ end
 -- // INITIALIZATION // --
 
 function CombatService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	harvestService = Knit.GetService("HarvestService")
 	spawnService = Knit.GetService("SpawnService")
 	runStateService = Knit.GetService("RunStateService")

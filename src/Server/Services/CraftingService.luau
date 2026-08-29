@@ -25,6 +25,7 @@ local HttpService = game:GetService("HttpService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local RecipeConfig = require(ReplicatedStorage.Shared.RecipeConfig)
 
 -- | Objects | --
@@ -801,6 +802,7 @@ end
 -- // INITIALIZATION // --
 
 function CraftingService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	runStateService = Knit.GetService("RunStateService")
 	playerDataService = Knit.GetService("PlayerDataService")
 	inventoryService = Knit.GetService("InventoryService")

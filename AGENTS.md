@@ -2,9 +2,48 @@
 
 ## Build & Verify
 
-- Build: `rojo build default.project.json --output build.rbxl`
+- **Lobby place**: `rojo build default.project.json --output build.rbxl`
+- **Game place**: `rojo build game.project.json --output game.rbxl`
 - Run from the repo root: `D:\Roblox Studio Games\67 nights in the forest`
 - Studio assets (ServerStorage.Assets) are NOT synced by Rojo — they live only in the .rbxl place file. Inspect them at runtime via the Roblox Studio MCP tools, not the filesystem.
+
+## Two-Place Architecture
+
+### Overview
+
+The experience uses two places under the same experience:
+
+- **Lobby place** (start place, ID `84560195693908`): `build.rbxl`. Contains the lobby map, teleporters, party formation UI. No game systems run here.
+- **Game place** (sub-place, ID set in `Constants.GAME_PLACE_ID`): `game.rbxl`. Contains the forest map, campfire, all game systems. Each party gets a reserved server of this place.
+
+### ServerRole detection (`src/shared/ServerRole.luau`)
+
+- `ServerRole.IsLobby()` → true on the lobby place
+- `ServerRole.IsGameServer()` → true on a reserved game server
+- Detection order: DataModel attribute `ServerRole` (set by `game.project.json`) → Studio `ForceGameMode` flag → production `PrivateServerId` check
+
+### Studio testing
+
+- **Lobby place** (`build.rbxl`): playtest shows lobby UI, teleporters, party formation. No fog, no game UI.
+- **Game place** (`game.rbxl`): playtest with `StudioTest.ForceGameMode = true` skips lobby and starts the game directly.
+- To test the game place in Studio: edit `src/shared/RunConfig.luau`, set `StudioTest.Enabled = true` and `StudioTest.ForceGameMode = true`, then playtest `game.rbxl`.
+- Real teleport testing requires publishing both places.
+
+### What's gated
+
+- **28 game-only server services** return early from `KnitStart` on the lobby (WorldService, CampfireService, AnimalAIService, etc.)
+- **25 game-only client controllers** return early from `KnitStart` on the lobby (HudController, InventoryController, WorldBoundaryController, etc.)
+- **4 controllers** also gate `KnitInit` (HungerController, InventoryController, HudController, CampSafetyController) because they create UI there
+- **Shared services** (MatchFlowService, SessionRoutingService, SpawnService, PlayerDataService) run on both places with conditional behavior
+- **IntroController** only runs on the lobby place (inverse gate: returns early if NOT lobby)
+
+### Creator Dashboard setup (required for production)
+
+1. Create a new sub-place under the experience on the Creator Dashboard
+2. Note the Place ID and set it as `Constants.GAME_PLACE_ID` in `src/shared/Constants.luau`
+3. Publish `game.rbxl` to the new sub-place
+4. Set the sub-place Access Control so players can't join directly (only via teleport)
+5. Publish `build.rbxl` to the start place
 
 ## Weapon Tool Creation (Spear / Axe / future weapons)
 

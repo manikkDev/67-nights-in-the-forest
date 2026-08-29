@@ -17,6 +17,7 @@ local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local EndingController = Knit.CreateController({
@@ -725,6 +726,7 @@ end
 -- // INITIALIZATION // --
 
 function EndingController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	endingService = Knit.GetService("EndingService")
 	runStateService = Knit.GetService("RunStateService")
 	localUserId = Players.LocalPlayer.UserId

@@ -23,6 +23,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 local Constants = require(ReplicatedStorage.Shared.Constants)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local SpawnService = Knit.CreateService({
@@ -281,17 +282,22 @@ function SpawnService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	matchFlowService = Knit.GetService("MatchFlowService")
 	runStateService = Knit.GetService("RunStateService")
-	wireTeleporters()
 
-	if RunConfig.IsTestEnabled("SkipLobby") then
-		task.delay(1, function()
-			for _, player in ipairs(Players:GetPlayers()) do
+	if ServerRole.IsLobby() then
+		-- Lobby place: wire teleporters for party formation.
+		wireTeleporters()
+	else
+		-- Game place: auto-spawn players when the run starts (Studio shortcut).
+		if RunConfig.IsTestEnabled("SkipLobby") or RunConfig.IsTestEnabled("ForceGameMode") then
+			task.delay(1, function()
+				for _, player in ipairs(Players:GetPlayers()) do
+					task.spawn(autoSpawnPlayer, player)
+				end
+			end)
+			Players.PlayerAdded:Connect(function(player)
 				task.spawn(autoSpawnPlayer, player)
-			end
-		end)
-		Players.PlayerAdded:Connect(function(player)
-			task.spawn(autoSpawnPlayer, player)
-		end)
+			end)
+		end
 	end
 end
 

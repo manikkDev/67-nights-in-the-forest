@@ -26,6 +26,7 @@ local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
 
 -- | Objects | --
@@ -74,6 +75,7 @@ end
 -- // INITIALIZATION // --
 
 function ProceduralAnimController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	gameStateController = Knit.GetController("GameStateController")
 	janitor:Add(RunService.Heartbeat:Connect(onHeartbeat), "Disconnect")
 end

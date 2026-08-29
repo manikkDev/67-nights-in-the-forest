@@ -30,6 +30,7 @@ local Players = game:GetService("Players")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
 
@@ -628,6 +629,7 @@ end
 -- // INITIALIZATION // --
 
 function GrinderService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	runStateService = Knit.GetService("RunStateService")
 	inventoryService = Knit.GetService("InventoryService")
 

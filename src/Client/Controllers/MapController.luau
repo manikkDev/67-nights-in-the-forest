@@ -28,6 +28,7 @@ local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local MapController = Knit.CreateController({
@@ -1677,6 +1678,7 @@ end
 -- // INITIALIZATION // --
 
 function MapController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	mapService = Knit.GetService("MapService")
 	local runStateService = Knit.GetService("RunStateService")
 

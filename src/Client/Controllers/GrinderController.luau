@@ -22,6 +22,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
 local AssetCatalog = require(ReplicatedStorage.Shared.AssetCatalog)
 
@@ -424,6 +425,7 @@ end
 -- // INITIALIZATION // --
 
 function GrinderController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	grinderService = Knit.GetService("GrinderService")
 	inventoryService = Knit.GetService("InventoryService")
 

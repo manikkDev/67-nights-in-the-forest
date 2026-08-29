@@ -23,6 +23,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local HudController = Knit.CreateController({
@@ -176,10 +177,12 @@ end
 -- // INITIALIZATION // --
 
 function HudController:KnitInit()
+	if ServerRole.IsLobby() then return end
 	createPhaseUi()
 end
 
 function HudController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	gameStateController = Knit.GetController("GameStateController")
 	local timeService = Knit.GetService("TimeService")
 	local runStateService = Knit.GetService("RunStateService")

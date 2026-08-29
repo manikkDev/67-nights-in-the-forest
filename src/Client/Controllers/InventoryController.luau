@@ -28,6 +28,7 @@ local UserInputService = game:GetService("UserInputService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
 
 -- | Objects | --
@@ -1194,6 +1195,7 @@ end
 -- // INITIALIZATION // --
 
 function InventoryController:KnitInit()
+	if ServerRole.IsLobby() then return end
 	local playerGui = localPlayer:WaitForChild("PlayerGui")
 	if not playerGui then
 		warn("[InventoryController] PlayerGui not found")
@@ -1208,6 +1210,7 @@ function InventoryController:KnitInit()
 end
 
 function InventoryController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	gameStateController = Knit.GetController("GameStateController")
 	local inventoryService = Knit.GetService("InventoryService")
 

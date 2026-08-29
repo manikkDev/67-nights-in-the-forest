@@ -29,6 +29,7 @@ local CollectionService = game:GetService("CollectionService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 
@@ -344,6 +345,7 @@ end
 -- // INITIALIZATION // --
 
 function FlashlightService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	deerService = Knit.GetService("DeerService")
 	owlService = Knit.GetService("OwlService")
 	RunService.Heartbeat:Connect(onHeartbeat)

@@ -19,6 +19,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 
 local WorldBoundaryController = Knit.CreateController({
@@ -143,6 +144,7 @@ local function updateProximity(dt: number)
 end
 
 function WorldBoundaryController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	worldService = Knit.GetService("WorldService")
 	progressionService = Knit.GetService("WorldProgressionService")
 	ensureWarning()

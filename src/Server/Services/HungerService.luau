@@ -28,6 +28,7 @@ local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local HungerService = Knit.CreateService({
@@ -166,6 +167,7 @@ end
 -- // INITIALIZATION // --
 
 function HungerService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	playerDataService = Knit.GetService("PlayerDataService")
 	spawnService = Knit.GetService("SpawnService")
 	playerLifeService = Knit.GetService("PlayerLifeService")

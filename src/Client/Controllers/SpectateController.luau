@@ -14,6 +14,7 @@ local ContextActionService = game:GetService("ContextActionService")
 local RunService = game:GetService("RunService")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
 
 local SpectateController = Knit.CreateController({ Name = "SpectateController" })
@@ -247,6 +248,7 @@ function SpectateController:Cycle(direction: number)
 end
 
 function SpectateController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	lifeService = Knit.GetService("PlayerLifeService")
 	local runStateService = Knit.GetService("RunStateService")
 	buildUi()

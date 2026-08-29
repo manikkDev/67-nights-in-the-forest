@@ -34,6 +34,7 @@ local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
@@ -1480,6 +1481,7 @@ end
 -- // INITIALIZATION // --
 
 function InventoryService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	playerDataService = Knit.GetService("PlayerDataService")
 	worldService = Knit.GetService("WorldService")
 	spawnService = Knit.GetService("SpawnService")

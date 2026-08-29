@@ -30,6 +30,7 @@ local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local CampSafetyController = Knit.CreateController({
@@ -299,11 +300,13 @@ end
 -- // INITIALIZATION // --
 
 function CampSafetyController:KnitInit()
+	if ServerRole.IsLobby() then return end
 	colorCorrection = ensureColorCorrection()
 	warningLabel = buildWarningLabel()
 end
 
 function CampSafetyController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	gameStateController = Knit.GetController("GameStateController")
 	worldService = Knit.GetService("WorldService")
 	campfireService = Knit.GetService("CampfireService")

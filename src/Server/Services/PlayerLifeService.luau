@@ -14,6 +14,7 @@ local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 
@@ -470,6 +471,7 @@ end
 Players.CharacterAutoLoads = false
 
 function PlayerLifeService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	runStateService = Knit.GetService("RunStateService")
 	inventoryService = Knit.GetService("InventoryService")
 	spawnService = Knit.GetService("SpawnService")

@@ -34,6 +34,7 @@ local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local NpcConfig = require(ReplicatedStorage.Shared.NpcConfig)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
@@ -1097,6 +1098,7 @@ end
 -- // INITIALIZATION // --
 
 function AnimalAIService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	worldService = Knit.GetService("WorldService")
 	timeService = Knit.GetService("TimeService")
 	spawnService = Knit.GetService("SpawnService")

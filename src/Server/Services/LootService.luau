@@ -28,6 +28,7 @@ local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local LootService = Knit.CreateService({
@@ -510,6 +511,7 @@ end
 -- // INITIALIZATION // --
 
 function LootService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	runStateService = Knit.GetService("RunStateService")
 	inventoryService = Knit.GetService("InventoryService")
 	worldService = Knit.GetService("WorldService")

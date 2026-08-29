@@ -24,6 +24,7 @@ local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local RescueConfig = require(ReplicatedStorage.Shared.RescueConfig)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
@@ -1503,6 +1504,7 @@ end
 -- // INITIALIZATION // --
 
 function RescueService:KnitStart()
+	if ServerRole.IsLobby() then return end
 	runStateService = Knit.GetService("RunStateService")
 	worldService = Knit.GetService("WorldService")
 	campfireService = Knit.GetService("CampfireService")

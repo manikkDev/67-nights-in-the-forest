@@ -28,6 +28,7 @@ local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local HealthBarController = Knit.CreateController({
@@ -312,6 +313,7 @@ end
 -- // INITIALIZATION // --
 
 function HealthBarController:KnitStart()
+	if ServerRole.IsLobby() then return end
 	local animalAIService = Knit.GetService("AnimalAIService")
 	local cultistRaidService = Knit.GetService("CultistRaidService")
 
