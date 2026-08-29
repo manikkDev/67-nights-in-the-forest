@@ -217,8 +217,10 @@ end
 
 -- | Run Start | --
 local function startRun(participants: { Player }, metadata: { [string]: any }, session: Session?): boolean
+	print("[MatchFlowService] startRun called with", #participants, "participants")
 	local startedRunId = runStateService and runStateService:StartRun(participants, metadata) or nil
 	if not startedRunId then
+		warn("[MatchFlowService] StartRun returned nil, session:", session ~= nil)
 		if session then
 			session.routing = false
 			setState(session, "Waiting")
@@ -277,9 +279,11 @@ local function beginStory(session: Session)
 			return
 		end
 		session.routing = true
+		print("[MatchFlowService] Routing party", session.partyId, "with", #participants, "players")
 		local accepted = sessionRoutingService
 			and sessionRoutingService:RouteParty(session.partyId, session.host.UserId, participants)
 		if not accepted then
+			warn("[MatchFlowService] RouteParty returned false for party", session.partyId)
 			session.routing = false
 			setState(session, "Waiting")
 		end
@@ -480,7 +484,8 @@ function MatchFlowService:KnitStart()
 		startRun(participants, metadata, nil)
 	end)
 
-	sessionRoutingService.PartyTeleportFailed:Connect(function(partyId)
+	sessionRoutingService.PartyTeleportFailed:Connect(function(partyId, players, reason)
+		warn("[MatchFlowService] Party teleport failed:", partyId, reason)
 		for _, session in pairs(sessionsByQueue) do
 			if session.partyId == partyId and session.state == "Story" then
 				session.routing = false

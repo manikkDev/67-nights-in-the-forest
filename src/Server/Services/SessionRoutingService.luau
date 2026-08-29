@@ -216,6 +216,7 @@ function SessionRoutingService:RouteParty(partyId: string, hostUserId: number, p
 	end)
 	if not reserveOk or typeof(accessCode) ~= "string" then
 		warn("[SessionRoutingService] Could not reserve run server:", accessCode)
+		SessionRoutingService.PartyTeleportFailed:Fire(partyId, livePlayers, "reserve failed")
 		return false
 	end
 
@@ -237,6 +238,7 @@ function SessionRoutingService:RouteParty(partyId: string, hostUserId: number, p
 		SessionRoutingService.PartyTeleportFailed:Fire(partyId, livePlayers, tostring(teleportError))
 		return false
 	end
+	print("[SessionRoutingService] Party teleported to game place", Constants.GAME_PLACE_ID, "with", #livePlayers, "players")
 	return true
 end
 
@@ -253,6 +255,7 @@ local function registerDestinationPlayer(player: Player)
 	end
 	local joinData = player:GetJoinData()
 	local metadata = joinData and joinData.TeleportData
+	print("[SessionRoutingService] Player arrived at game place:", player.Name, "has metadata:", metadata ~= nil)
 	if not validMetadata(metadata) or not isExpected(metadata, player.UserId) then
 		rejectArrival(player, "invalid party metadata")
 		return
@@ -299,6 +302,7 @@ local function assembleDestination()
 		return
 	end
 	destinationStarted = true
+	print("[SessionRoutingService] Destination ready! Firing with", #participants, "participants")
 	SessionRoutingService.DestinationReady:Fire(participants, destinationMetadata)
 end
 

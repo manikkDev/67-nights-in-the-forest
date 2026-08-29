@@ -588,8 +588,11 @@ end
 -- // INITIALIZATION // --
 
 function RunStateService:KnitStart()
-	if ServerRole.IsLobby() then return end
+	-- playerDataService is needed on both lobby and game for StartRun validation.
 	playerDataService = Knit.GetService("PlayerDataService")
+
+	-- Game-only wiring: time service, spawn, campfire, AI, etc.
+	if ServerRole.IsLobby() then return end
 	timeService = Knit.GetService("TimeService")
 	spawnService = Knit.GetService("SpawnService")
 	campfireService = Knit.GetService("CampfireService")

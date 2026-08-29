@@ -861,6 +861,10 @@ end
 -- // INITIALIZATION // --
 
 function IntroController:KnitInit()
+	-- Only build lobby UI on the lobby place.
+	if not ServerRole.IsLobby() then
+		return
+	end
 	buildGui()
 	buildTitleScreen()
 end
