@@ -227,7 +227,7 @@ function SessionRoutingService:RouteParty(partyId: string, hostUserId: number, p
 	options.ReservedServerAccessCode = accessCode
 	options:SetTeleportData(metadata)
 	local teleportOk, teleportError = pcall(function()
-		TeleportService:TeleportToPrivateServer(Constants.GAME_PLACE_ID, accessCode, livePlayers, nil, metadata)
+		TeleportService:TeleportAsync(Constants.GAME_PLACE_ID, livePlayers, options)
 	end)
 	if not teleportOk then
 		for _, player in ipairs(livePlayers) do

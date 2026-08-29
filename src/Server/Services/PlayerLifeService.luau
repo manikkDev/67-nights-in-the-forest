@@ -468,10 +468,9 @@ local function cleanupInvalidBodyDrags()
 	end
 end
 
-Players.CharacterAutoLoads = false
-
 function PlayerLifeService:KnitStart()
 	if ServerRole.IsLobby() then return end
+	Players.CharacterAutoLoads = false
 	runStateService = Knit.GetService("RunStateService")
 	inventoryService = Knit.GetService("InventoryService")
 	spawnService = Knit.GetService("SpawnService")

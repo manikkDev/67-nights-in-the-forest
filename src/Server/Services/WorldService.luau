@@ -428,14 +428,15 @@ end
 -- // INITIALIZATION // --
 
 function WorldService:KnitStart()
-	if ServerRole.IsLobby() then return end
 	lobbyMap = findMap("lobby-map")
-	baseMap = findMap("Base-map")
-
 	if lobbyMap then
 		ensurePrimaryPart(lobbyMap)
 		disableBrokenScripts(lobbyMap)
 	end
+
+	-- Game-only setup: base map, campfire, bonfire.
+	if ServerRole.IsLobby() then return end
+	baseMap = findMap("Base-map")
 
 	if baseMap then
 		ensurePrimaryPart(baseMap)
