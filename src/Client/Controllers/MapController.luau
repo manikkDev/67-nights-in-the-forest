@@ -58,8 +58,8 @@ local COLOR = {
 	CompassText = Color3.fromRGB(200, 195, 185),
 	Tick = Color3.fromRGB(120, 120, 120),
 	Text = Color3.fromRGB(240, 235, 225),
-	TextMuted = Color3.fromRGB(190, 185, 175),
-	TextDim = Color3.fromRGB(140, 135, 125),
+	TextMuted = Color3.fromRGB(200, 195, 185),
+	TextDim = Color3.fromRGB(170, 165, 155),
 	TextDark = Color3.fromRGB(20, 15, 10),
 	CloseBg = Color3.fromRGB(180, 55, 45),
 	SidebarBg = Color3.fromRGB(38, 36, 42),
@@ -159,9 +159,17 @@ local function showTooltip(pos: UDim2, title: string, description: string)
 	end
 	tooltipTitle.Text = title
 	tooltipDesc.Text = description
-	local width = math.max(140, #title * 7.5 + 24)
-	tooltipFrame.Size = UDim2.fromOffset(width, 46)
-	tooltipFrame.Position = UDim2.new(pos.X.Scale, pos.X.Offset, pos.Y.Scale, pos.Y.Offset - 58)
+	local width = math.max(180, #title * 8.5 + 32)
+	tooltipFrame.Size = UDim2.fromOffset(width, 56)
+	-- Convert minimap-local position to panel-local position
+	-- Minimap is centered in the left column which starts at (0, TITLE_BAR_HEIGHT)
+	local leftColWidth = PANEL_WIDTH - SIDEBAR_WIDTH
+	local minimapCenterX = leftColWidth * 0.5
+	local minimapCenterY = TITLE_BAR_HEIGHT + (PANEL_HEIGHT - TITLE_BAR_HEIGHT) * 0.5
+	local panelX = minimapCenterX + pos.X.Offset
+	local panelY = minimapCenterY + pos.Y.Offset
+	-- Position tooltip above the marker, clamped within the panel
+	tooltipFrame.Position = UDim2.fromOffset(panelX, panelY - 64)
 	tooltipFrame.Visible = true
 end
 
@@ -565,7 +573,9 @@ local function createLegendEntry(parent: Instance, order: number, entry: LegendE
 	title.Font = Enum.Font.GothamBold
 	title.Text = entry.title .. if count and count > 0 then "  (" .. tostring(count) .. ")" else ""
 	title.TextColor3 = COLOR.Text
-	title.TextSize = 13
+	title.TextSize = 14
+	title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	title.TextStrokeTransparency = 0.4
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.TextYAlignment = Enum.TextYAlignment.Center
 	title.Parent = row
@@ -574,10 +584,12 @@ local function createLegendEntry(parent: Instance, order: number, entry: LegendE
 	desc.Position = UDim2.new(0, 34, 0, 22)
 	desc.Size = UDim2.new(1, -34, 0, 18)
 	desc.BackgroundTransparency = 1
-	desc.Font = Enum.Font.Gotham
+	desc.Font = Enum.Font.GothamBold
 	desc.Text = entry.desc
 	desc.TextColor3 = COLOR.TextDim
-	desc.TextSize = 11
+	desc.TextSize = 13
+	desc.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	desc.TextStrokeTransparency = 0.5
 	desc.TextXAlignment = Enum.TextXAlignment.Left
 	desc.TextWrapped = true
 	desc.Parent = row
@@ -592,7 +604,9 @@ local function createSectionHeader(parent: Instance, order: number, headerText: 
 	header.Font = Enum.Font.GothamBlack
 	header.Text = headerText
 	header.TextColor3 = COLOR.SectionHeader
-	header.TextSize = 13
+	header.TextSize = 14
+	header.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	header.TextStrokeTransparency = 0.4
 	header.TextXAlignment = Enum.TextXAlignment.Left
 	header.TextYAlignment = Enum.TextYAlignment.Bottom
 	header.Parent = parent
@@ -711,10 +725,12 @@ local function buildSidebar(parent: Frame, counts: { [string]: number })
 	levelLabel.LayoutOrder = nextOrder()
 	levelLabel.Size = UDim2.new(1, 0, 0, 22)
 	levelLabel.BackgroundTransparency = 1
-	levelLabel.Font = Enum.Font.Gotham
+	levelLabel.Font = Enum.Font.GothamBold
 	levelLabel.Text = "Level: —"
 	levelLabel.TextColor3 = COLOR.TextMuted
-	levelLabel.TextSize = 14
+	levelLabel.TextSize = 15
+	levelLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	levelLabel.TextStrokeTransparency = 0.4
 	levelLabel.TextXAlignment = Enum.TextXAlignment.Left
 	levelLabel.Parent = content
 
@@ -723,10 +739,12 @@ local function buildSidebar(parent: Frame, counts: { [string]: number })
 	radiusLabel.LayoutOrder = nextOrder()
 	radiusLabel.Size = UDim2.new(1, 0, 0, 22)
 	radiusLabel.BackgroundTransparency = 1
-	radiusLabel.Font = Enum.Font.Gotham
+	radiusLabel.Font = Enum.Font.GothamBold
 	radiusLabel.Text = "Radius: — studs"
 	radiusLabel.TextColor3 = COLOR.TextMuted
-	radiusLabel.TextSize = 14
+	radiusLabel.TextSize = 15
+	radiusLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	radiusLabel.TextStrokeTransparency = 0.4
 	radiusLabel.TextXAlignment = Enum.TextXAlignment.Left
 	radiusLabel.Parent = content
 
@@ -768,7 +786,9 @@ local function buildSidebar(parent: Frame, counts: { [string]: number })
 	hoveredLabel.Font = Enum.Font.GothamBlack
 	hoveredLabel.Text = "—"
 	hoveredLabel.TextColor3 = COLOR.TextDim
-	hoveredLabel.TextSize = 16
+	hoveredLabel.TextSize = 17
+	hoveredLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	hoveredLabel.TextStrokeTransparency = 0.4
 	hoveredLabel.TextXAlignment = Enum.TextXAlignment.Left
 	hoveredLabel.Parent = content
 
@@ -777,10 +797,12 @@ local function buildSidebar(parent: Frame, counts: { [string]: number })
 	hoveredSubLabel.LayoutOrder = nextOrder()
 	hoveredSubLabel.Size = UDim2.new(1, 0, 0, 20)
 	hoveredSubLabel.BackgroundTransparency = 1
-	hoveredSubLabel.Font = Enum.Font.Gotham
+	hoveredSubLabel.Font = Enum.Font.GothamBold
 	hoveredSubLabel.Text = "Hover over a marker for details"
 	hoveredSubLabel.TextColor3 = COLOR.TextDim
-	hoveredSubLabel.TextSize = 13
+	hoveredSubLabel.TextSize = 14
+	hoveredSubLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	hoveredSubLabel.TextStrokeTransparency = 0.5
 	hoveredSubLabel.TextXAlignment = Enum.TextXAlignment.Left
 	hoveredSubLabel.Parent = content
 
@@ -792,7 +814,9 @@ local function buildSidebar(parent: Frame, counts: { [string]: number })
 	hoveredDistance.Font = Enum.Font.GothamBold
 	hoveredDistance.Text = ""
 	hoveredDistance.TextColor3 = COLOR.AccessRadius
-	hoveredDistance.TextSize = 13
+	hoveredDistance.TextSize = 14
+	hoveredDistance.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	hoveredDistance.TextStrokeTransparency = 0.4
 	hoveredDistance.TextXAlignment = Enum.TextXAlignment.Left
 	hoveredDistance.Parent = content
 end
@@ -801,44 +825,50 @@ local function buildTooltip(parent: Instance)
 	local tooltip = Instance.new("Frame")
 	tooltip.Name = "Tooltip"
 	tooltip.AnchorPoint = Vector2.new(0.5, 1)
-	tooltip.Size = UDim2.fromOffset(180, 50)
+	tooltip.Size = UDim2.fromOffset(220, 56)
 	tooltip.BackgroundColor3 = COLOR.TooltipBg
-	tooltip.BackgroundTransparency = 0.08
+	tooltip.BackgroundTransparency = 0.02
 	tooltip.BorderSizePixel = 0
 	tooltip.Visible = false
-	tooltip.ZIndex = 30
+	tooltip.ZIndex = 100
 	tooltip.Parent = parent
 	local tooltipCorner = Instance.new("UICorner")
 	tooltipCorner.CornerRadius = UDim.new(0, 8)
 	tooltipCorner.Parent = tooltip
 	local tooltipStroke = Instance.new("UIStroke")
 	tooltipStroke.Color = COLOR.TooltipStroke
-	tooltipStroke.Thickness = 1
-	tooltipStroke.Transparency = 0.25
+	tooltipStroke.Thickness = 2
+	tooltipStroke.Transparency = 0.1
 	tooltipStroke.Parent = tooltip
 
 	tooltipTitle = Instance.new("TextLabel")
 	assert(tooltipTitle, "tooltipTitle is nil")
-	tooltipTitle.Position = UDim2.new(0, 10, 0, 4)
-	tooltipTitle.Size = UDim2.new(1, -20, 0, 20)
+	tooltipTitle.Position = UDim2.new(0, 12, 0, 6)
+	tooltipTitle.Size = UDim2.new(1, -24, 0, 22)
 	tooltipTitle.BackgroundTransparency = 1
 	tooltipTitle.Font = Enum.Font.GothamBold
 	tooltipTitle.Text = ""
 	tooltipTitle.TextColor3 = COLOR.Text
-	tooltipTitle.TextSize = 13
+	tooltipTitle.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	tooltipTitle.TextStrokeTransparency = 0.3
+	tooltipTitle.TextSize = 15
+	tooltipTitle.ZIndex = 101
 	tooltipTitle.TextXAlignment = Enum.TextXAlignment.Center
 	tooltipTitle.TextYAlignment = Enum.TextYAlignment.Center
 	tooltipTitle.Parent = tooltip
 
 	tooltipDesc = Instance.new("TextLabel")
 	assert(tooltipDesc, "tooltipDesc is nil")
-	tooltipDesc.Position = UDim2.new(0, 10, 0, 24)
-	tooltipDesc.Size = UDim2.new(1, -20, 0, 20)
+	tooltipDesc.Position = UDim2.new(0, 12, 0, 28)
+	tooltipDesc.Size = UDim2.new(1, -24, 0, 22)
 	tooltipDesc.BackgroundTransparency = 1
-	tooltipDesc.Font = Enum.Font.Gotham
+	tooltipDesc.Font = Enum.Font.GothamBold
 	tooltipDesc.Text = ""
 	tooltipDesc.TextColor3 = COLOR.TextDim
-	tooltipDesc.TextSize = 11
+	tooltipDesc.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	tooltipDesc.TextStrokeTransparency = 0.4
+	tooltipDesc.TextSize = 13
+	tooltipDesc.ZIndex = 101
 	tooltipDesc.TextXAlignment = Enum.TextXAlignment.Center
 	tooltipDesc.TextYAlignment = Enum.TextYAlignment.Center
 	tooltipDesc.Parent = tooltip
@@ -970,7 +1000,8 @@ function buildGui()
 	minimapStroke.Parent = minimap
 	minimapFrame = minimap
 
-	buildTooltip(minimap)
+	-- Tooltip is parented to the panel (not the minimap) so it isn't clipped
+	buildTooltip(panel)
 
 	-- Player marker (white dot)
 	local pMarker = Instance.new("Frame")
@@ -1044,51 +1075,81 @@ function buildMapIcon()
 	iconGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	mapIconGui = iconGui
 
+	-- Container frame for the icon and a small label below it
+	local container = Instance.new("Frame")
+	container.Name = "MapIconContainer"
+	container.AnchorPoint = Vector2.new(1, 1)
+	container.Position = UDim2.new(1, -20, 1, -20) -- bottom-right corner
+	container.Size = UDim2.fromOffset(64, 64)
+	container.BackgroundTransparency = 1
+	container.Parent = iconGui
+
 	local iconBtn = Instance.new("TextButton")
 	iconBtn.Name = "MapIcon"
-	iconBtn.AnchorPoint = Vector2.new(1, 0)
-	iconBtn.Position = UDim2.new(1, -20, 0, 120) -- top-right, below the close button area
-	iconBtn.Size = UDim2.fromOffset(48, 48)
-	iconBtn.BackgroundColor3 = Color3.fromRGB(60, 48, 38)
-	iconBtn.BackgroundTransparency = 0.15
+	iconBtn.AnchorPoint = Vector2.new(0.5, 0.5)
+	iconBtn.Position = UDim2.fromScale(0.5, 0.5)
+	iconBtn.Size = UDim2.fromOffset(56, 56)
+	iconBtn.BackgroundColor3 = Color3.fromRGB(50, 38, 28)
+	iconBtn.BackgroundTransparency = 0.05
 	iconBtn.Text = ""
 	iconBtn.AutoButtonColor = false
-	iconBtn.ZIndex = 5
-	iconBtn.Parent = iconGui
+	iconBtn.ZIndex = 10
+	iconBtn.Parent = container
 	local iconCorner = Instance.new("UICorner")
-	iconCorner.CornerRadius = UDim.new(1, 0)
+	iconCorner.CornerRadius = UDim.new(0, 14)
 	iconCorner.Parent = iconBtn
 	local iconStroke = Instance.new("UIStroke")
-	iconStroke.Color = Color3.fromRGB(140, 115, 80)
-	iconStroke.Thickness = 2
+	iconStroke.Color = Color3.fromRGB(180, 150, 100)
+	iconStroke.Thickness = 3
+	iconStroke.Transparency = 0.1
 	iconStroke.Parent = iconBtn
+
+	-- Drop shadow for visibility against any background
+	local shadow = Instance.new("ImageLabel")
+	shadow.Name = "Shadow"
+	shadow.AnchorPoint = Vector2.new(0.5, 0.5)
+	shadow.Position = UDim2.new(0.5, 0, 0.5, 3)
+	shadow.Size = UDim2.fromOffset(72, 72)
+	shadow.BackgroundTransparency = 1
+	shadow.Image = "rbxasset://textures/ui/GuiImagePlaceHolder.png"
+	shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+	shadow.ImageTransparency = 0.6
+	shadow.ZIndex = 9
+	shadow.Parent = container
 
 	local iconLabel = Instance.new("TextLabel")
 	iconLabel.Size = UDim2.fromScale(1, 1)
 	iconLabel.BackgroundTransparency = 1
 	iconLabel.Font = Enum.Font.PermanentMarker
 	iconLabel.Text = "M"
-	iconLabel.TextColor3 = Color3.fromRGB(230, 215, 180)
-	iconLabel.TextSize = 22
+	iconLabel.TextColor3 = Color3.fromRGB(245, 230, 195)
+	iconLabel.TextStrokeColor3 = Color3.fromRGB(20, 10, 5)
+	iconLabel.TextStrokeTransparency = 0.3
+	iconLabel.TextSize = 28
+	iconLabel.ZIndex = 11
 	iconLabel.TextYAlignment = Enum.TextYAlignment.Center
 	iconLabel.Parent = iconBtn
 
 	local miniCompass = Instance.new("TextLabel")
-	miniCompass.Position = UDim2.new(0.5, -6, 0, 4)
-	miniCompass.Size = UDim2.fromOffset(12, 10)
+	miniCompass.AnchorPoint = Vector2.new(0.5, 0)
+	miniCompass.Position = UDim2.new(0.5, 0, 0, 3)
+	miniCompass.Size = UDim2.fromOffset(16, 12)
 	miniCompass.BackgroundTransparency = 1
 	miniCompass.Font = Enum.Font.GothamBold
 	miniCompass.Text = "N"
-	miniCompass.TextColor3 = Color3.fromRGB(200, 180, 140)
-	miniCompass.TextSize = 9
+	miniCompass.TextColor3 = Color3.fromRGB(220, 200, 160)
+	miniCompass.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	miniCompass.TextStrokeTransparency = 0.4
+	miniCompass.TextSize = 11
+	miniCompass.ZIndex = 12
 	miniCompass.TextXAlignment = Enum.TextXAlignment.Center
 	miniCompass.Parent = iconBtn
 
 	iconBtn.MouseEnter:Connect(function()
-		TweenService:Create(iconBtn, TweenInfo.new(0.12), { BackgroundColor3 = Color3.fromRGB(80, 65, 50), Size = UDim2.fromOffset(52, 52) }):Play()
+		TweenService:Create(iconBtn, TweenInfo.new(0.12), { BackgroundColor3 = Color3.fromRGB(75, 58, 42), Size = UDim2.fromOffset(60, 60) }):Play()
 	end)
 	iconBtn.MouseLeave:Connect(function()
-		TweenService:Create(iconBtn, TweenInfo.new(0.12), { BackgroundColor3 = Color3.fromRGB(60, 48, 38), Size = UDim2.fromOffset(48, 48) }):Play()
+		TweenService:Create(iconBtn, TweenInfo.new(0.12), { BackgroundColor3 = Color3.fromRGB(50, 38, 28), Size = UDim2.fromOffset(56, 56) }):Play()
 	end)
 	iconBtn.MouseButton1Click:Connect(function()
 		if mapService then
@@ -1104,7 +1165,7 @@ function buildMapIcon()
 
 	-- Animate in
 	iconBtn.Size = UDim2.fromOffset(0, 0)
-	TweenService:Create(iconBtn, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Size = UDim2.fromOffset(48, 48) }):Play()
+	TweenService:Create(iconBtn, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Size = UDim2.fromOffset(56, 56) }):Play()
 end
 
 function setMapIconVisible(visible: boolean)
@@ -1116,7 +1177,7 @@ function setMapIconVisible(visible: boolean)
 	end
 	if mapIconButton and visible then
 		mapIconButton.Size = UDim2.fromOffset(0, 0)
-		TweenService:Create(mapIconButton, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Size = UDim2.fromOffset(48, 48) }):Play()
+		TweenService:Create(mapIconButton, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Size = UDim2.fromOffset(56, 56) }):Play()
 	end
 end
 
@@ -1586,8 +1647,10 @@ local function showLockedMessage()
 	msg.Font = Enum.Font.GothamBold
 	msg.Text = "You need to craft the Map first!\nVisit the Crafting Bench."
 	msg.TextColor3 = Color3.fromRGB(240, 230, 200)
-	msg.TextSize = 16
+	msg.TextSize = 18
 	msg.TextWrapped = true
+	msg.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	msg.TextStrokeTransparency = 0.3
 	msg.ZIndex = 50
 	msg.Parent = panel
 	local msgCorner = Instance.new("UICorner")

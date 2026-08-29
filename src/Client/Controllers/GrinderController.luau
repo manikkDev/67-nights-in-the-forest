@@ -96,6 +96,8 @@ local function buildUi()
 	title.TextColor3 = Color3.fromRGB(235, 225, 195)
 	title.TextSize = 22
 	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	title.TextStrokeTransparency = 0.3
 	title.Text = "SHREDDER  \u{2699}  JUNK \u{2192} SCRAP"
 	title.Parent = panelFrame
 
@@ -109,6 +111,8 @@ local function buildUi()
 	close.Text = "X"
 	close.TextColor3 = Color3.new(1, 1, 1)
 	close.TextSize = 18
+	close.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	close.TextStrokeTransparency = 0.3
 	close.Parent = panelFrame
 	local closeCorner = Instance.new("UICorner")
 	closeCorner.CornerRadius = UDim.new(0, 8)
@@ -128,6 +132,8 @@ local function buildUi()
 	grindAll.Text = "GRIND ALL"
 	grindAll.TextColor3 = Color3.fromRGB(245, 245, 240)
 	grindAll.TextSize = 18
+	grindAll.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	grindAll.TextStrokeTransparency = 0.3
 	grindAll.Parent = panelFrame
 	local grindAllCorner = Instance.new("UICorner")
 	grindAllCorner.CornerRadius = UDim.new(0, 8)
@@ -203,6 +209,8 @@ refreshList = function()
 				row.TextSize = 15
 				row.TextWrapped = true
 				row.TextXAlignment = Enum.TextXAlignment.Left
+				row.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+				row.TextStrokeTransparency = 0.3
 				row.Text = string.format("  %s  %s  x%d  \u{2192}  %d Scrap",
 					config.DisplayName, boltString(config.BoltCount), count, config.ScrapYield * count)
 				row.Parent = listFrame
@@ -224,9 +232,11 @@ refreshList = function()
 			empty.Name = "Empty"
 			empty.Size = UDim2.new(1, 0, 0, 40)
 			empty.BackgroundTransparency = 1
-			empty.Font = Enum.Font.Gotham
+			empty.Font = Enum.Font.GothamBold
 			empty.TextColor3 = Color3.fromRGB(160, 160, 165)
 			empty.TextSize = 16
+			empty.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+			empty.TextStrokeTransparency = 0.4
 			empty.Text = "No junk items to grind. Find junk at facilities in the forest!"
 			empty.Parent = listFrame
 		end

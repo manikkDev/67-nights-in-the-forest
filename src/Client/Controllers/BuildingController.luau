@@ -55,7 +55,7 @@ local ARROW_LENGTH = 6
 local ARROW_THICKNESS = 0.8
 local GHOST_TRANSPARENCY = 0.5
 local Y_SMOOTH_LERP = 0.25 -- smoothing factor for Y position
-local Y_LIFT = 0.2 -- small lift to prevent ground clipping
+local Y_LIFT = 0.05 -- tiny lift so the model sits almost exactly on the ground
 
 -- | State Management | --
 local craftingService: any = nil
@@ -115,6 +115,8 @@ local function buildStatusUi()
 	label.TextColor3 = VALID_COLOR
 	label.TextSize = 17
 	label.TextWrapped = true
+	label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	label.TextStrokeTransparency = 0.3
 	label.Parent = screenGui
 	statusLabel = label
 	local constraint = Instance.new("UISizeConstraint")
@@ -131,10 +133,12 @@ local function buildStatusUi()
 	hint.Size = UDim2.new(0.8, 0, 0, 32)
 	hint.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
 	hint.BackgroundTransparency = 0.4
-	hint.Font = Enum.Font.Gotham
+	hint.Font = Enum.Font.GothamBold
 	hint.TextColor3 = Color3.fromRGB(200, 200, 210)
 	hint.TextSize = 14
 	hint.TextWrapped = true
+	hint.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	hint.TextStrokeTransparency = 0.4
 	hint.Text = "Rotate: R / Q  •  Place: Click / Enter  •  Cancel: X"
 	hint.Parent = screenGui
 	hintLabel = hint
@@ -229,8 +233,22 @@ local function updateGhost()
 		return
 	end
 
-	-- Compute the target Y position: ground + half footprint height + small lift
-	local targetY = result.Position.Y + definition.Footprint.Y * 0.5 + Y_LIFT
+	-- Compute the target Y position: ground + half model height + small lift.
+	-- If the preview model has loaded, use its actual bounding box so the
+	-- ghost preview matches where the server will place the model.
+	local groundY = result.Position.Y
+	local halfHeight: number
+	local aabbCenterOffset: Vector3
+	if ghostModel then
+		local aabbCF, aabbSize = ghostModel:GetBoundingBox()
+		local modelPivot = ghostModel:GetPivot()
+		halfHeight = aabbSize.Y * 0.5
+		aabbCenterOffset = aabbCF.Position - modelPivot.Position
+	else
+		halfHeight = definition.Footprint.Y * 0.5
+		aabbCenterOffset = Vector3.new(0, 0, 0)
+	end
+	local targetY = groundY + halfHeight + Y_LIFT
 
 	-- Smooth the Y position to prevent jitter from uneven terrain
 	if smoothedY == nil then
@@ -239,7 +257,9 @@ local function updateGhost()
 		smoothedY = smoothedY + (targetY - smoothedY) * Y_SMOOTH_LERP
 	end
 
-	local placedCFrame = CFrame.new(result.Position.X, smoothedY, result.Position.Z) * CFrame.Angles(0, yaw, 0)
+	local desiredAabbCenter = Vector3.new(result.Position.X, smoothedY, result.Position.Z)
+	local baseCFrame = CFrame.new(desiredAabbCenter) * CFrame.Angles(0, yaw, 0)
+	local placedCFrame = CFrame.new(desiredAabbCenter - baseCFrame.Rotation * aabbCenterOffset) * baseCFrame.Rotation
 	currentCFrame = placedCFrame
 
 	-- Update the footprint wireframe box

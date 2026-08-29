@@ -239,6 +239,8 @@ local function buildWarning(): TextLabel
 	label.TextSize = 22
 	label.Text = "The campfire has gone out, you are no longer safe"
 	label.TextTransparency = 1
+	label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	label.TextStrokeTransparency = 0.3
 	label.Parent = gui
 
 	warningLabel = label
@@ -323,6 +325,8 @@ local function buildLevelUpBanner(): Frame
 	title.TextSize = 24
 	title.TextXAlignment = Enum.TextXAlignment.Center
 	title.TextYAlignment = Enum.TextYAlignment.Bottom
+	title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	title.TextStrokeTransparency = 0.3
 	title.Parent = banner
 	levelUpTitle = title
 
@@ -338,6 +342,8 @@ local function buildLevelUpBanner(): Frame
 	subtitle.TextSize = 15
 	subtitle.TextXAlignment = Enum.TextXAlignment.Center
 	subtitle.TextYAlignment = Enum.TextYAlignment.Top
+	subtitle.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	subtitle.TextStrokeTransparency = 0.4
 	subtitle.Parent = banner
 	levelUpSubtitle = subtitle
 
@@ -380,7 +386,9 @@ local function buildStatRow(parent: Frame, name: string, y: number, labelText: s
 	label.Text = labelText
 	label.TextColor3 = Color3.fromRGB(220, 220, 225)
 	label.Font = Enum.Font.GothamBold
-	label.TextSize = 11
+	label.TextSize = 13
+	label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	label.TextStrokeTransparency = 0.4
 	label.TextXAlignment = Enum.TextXAlignment.Left
 	label.Parent = panel
 
@@ -437,7 +445,9 @@ local function buildStatRow(parent: Frame, name: string, y: number, labelText: s
 	valueLabel.Text = "0/0"
 	valueLabel.TextColor3 = Color3.fromRGB(240, 240, 245)
 	valueLabel.Font = Enum.Font.GothamBold
-	valueLabel.TextSize = 11
+	valueLabel.TextSize = 13
+	valueLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	valueLabel.TextStrokeTransparency = 0.4
 	valueLabel.TextXAlignment = Enum.TextXAlignment.Right
 	valueLabel.Parent = panel
 
@@ -616,6 +626,8 @@ local function buildGui()
 	header.Font = Enum.Font.GothamBlack
 	header.TextSize = 16
 	header.TextXAlignment = Enum.TextXAlignment.Left
+	header.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	header.TextStrokeTransparency = 0.3
 	header.Parent = panel
 
 	local levelLabelInstance = Instance.new("TextLabel") :: TextLabel
@@ -628,6 +640,8 @@ local function buildGui()
 	levelLabelInstance.Font = Enum.Font.GothamBold
 	levelLabelInstance.TextSize = 16
 	levelLabelInstance.TextXAlignment = Enum.TextXAlignment.Right
+	levelLabelInstance.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	levelLabelInstance.TextStrokeTransparency = 0.3
 	levelLabelInstance.Parent = panel
 	levelLabel = levelLabelInstance
 
@@ -642,8 +656,10 @@ local function buildGui()
 	statusLabelInstance.Text = "Lit"
 	statusLabelInstance.TextColor3 = Color3.fromRGB(120, 220, 120)
 	statusLabelInstance.Font = Enum.Font.GothamBold
-	statusLabelInstance.TextSize = 13
+	statusLabelInstance.TextSize = 14
 	statusLabelInstance.TextXAlignment = Enum.TextXAlignment.Left
+	statusLabelInstance.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	statusLabelInstance.TextStrokeTransparency = 0.4
 	statusLabelInstance.Parent = panel
 	statusLabel = statusLabelInstance
 

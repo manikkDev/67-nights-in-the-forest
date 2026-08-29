@@ -39,25 +39,42 @@ local InventoryController = Knit.CreateController({
 local BAG_TOOL_NAME = "Carry Bag"
 
 -- Panel dimensions
-local PANEL_WIDTH = 220
+local PANEL_WIDTH = 280
 local PANEL_MARGIN = 32
-local ROW_HEIGHT = 38
+local ROW_HEIGHT = 46
 local ROW_GAP = 4
 local PANEL_PADDING = 10
 local PANEL_GAP = 8
-local ICON_SIZE = 28
-local HEADER_HEIGHT = 18
+local ICON_SIZE = 30
+local HEADER_HEIGHT = 20
 local CAPACITY_CONTAINER_HEIGHT = 24
-local DROP_ALL_HEIGHT = 28
+local DROP_ALL_HEIGHT = 30
 local ROW_PADDING_X = 8
-local ROW_PADDING_Y = 5
-local ACTION_BUTTON_WIDTH = 36
-local ACTION_GAP = 5
+local ROW_PADDING_Y = 6
+local ACTION_BUTTON_WIDTH = 34
+local ACTION_GAP = 4
 local CAPACITY_HEIGHT = 4
 
 -- Maximum bag panel height before the row list starts scrolling.
 -- Keeps the panel on-screen regardless of how many resource types exist.
 local MAX_PANEL_HEIGHT = 460
+
+--[[
+    @summary  Format large counts compactly (e.g. 1.2k, 12k, 1.0M).
+    @param    n  number
+    @returns  string
+]]
+local function formatCount(n: number): string
+	if n < 1000 then
+		return tostring(n)
+	elseif n < 10000 then
+		return string.format("%.1fk", n / 1000)
+	elseif n < 1000000 then
+		return string.format("%.0fk", n / 1000)
+	else
+		return string.format("%.1fM", n / 1000000)
+	end
+end
 
 -- Tween timings
 local TWEEN_SLIDE = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -166,7 +183,7 @@ local gameStateController: any = nil
 local function buildTooltip(parent: ScreenGui): Frame
 	local tooltip = Instance.new("Frame")
 	tooltip.Name = "CarryBagTooltip"
-	tooltip.Size = UDim2.new(0, 220, 0, 0)
+	tooltip.Size = UDim2.new(0, 240, 0, 0)
 	tooltip.AutomaticSize = Enum.AutomaticSize.Y
 	tooltip.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
 	tooltip.BackgroundTransparency = 1
@@ -236,6 +253,8 @@ local function buildTooltip(parent: ScreenGui): Frame
 	title.TextColor3 = Color3.fromRGB(245, 245, 245)
 	title.Font = Enum.Font.GothamBlack
 	title.TextSize = 16
+	title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	title.TextStrokeTransparency = 0.3
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.TextYAlignment = Enum.TextYAlignment.Top
 	title.LayoutOrder = 1
@@ -248,6 +267,8 @@ local function buildTooltip(parent: ScreenGui): Frame
 	count.TextColor3 = Color3.fromRGB(200, 200, 210)
 	count.Font = Enum.Font.GothamBold
 	count.TextSize = 13
+	count.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	count.TextStrokeTransparency = 0.4
 	count.TextXAlignment = Enum.TextXAlignment.Left
 	count.TextYAlignment = Enum.TextYAlignment.Top
 	count.LayoutOrder = 2
@@ -259,8 +280,10 @@ local function buildTooltip(parent: ScreenGui): Frame
 	desc.AutomaticSize = Enum.AutomaticSize.Y
 	desc.BackgroundTransparency = 1
 	desc.TextColor3 = Color3.fromRGB(170, 170, 185)
-	desc.Font = Enum.Font.Gotham
-	desc.TextSize = 13
+	desc.Font = Enum.Font.GothamBold
+	desc.TextSize = 14
+	desc.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	desc.TextStrokeTransparency = 0.4
 	desc.TextWrapped = true
 	desc.TextXAlignment = Enum.TextXAlignment.Left
 	desc.TextYAlignment = Enum.TextYAlignment.Top
@@ -285,7 +308,7 @@ local function showTooltip(row: Frame, resourceName: string, count: number)
 	local junkConfig = JunkItemConfig[resourceName]
 	local displayName = junkConfig and junkConfig.DisplayName or resourceName
 	tooltipTitle.Text = displayName
-	tooltipCount.Text = "Count: " .. tostring(count)
+	tooltipCount.Text = "Count: " .. formatCount(count)
 	tooltipDesc.Text = ROW_DESCRIPTIONS[resourceName] or ""
 
 	local color = ROW_COLORS[resourceName] or Color3.fromRGB(245, 245, 245)
@@ -308,14 +331,14 @@ local function showTooltip(row: Frame, resourceName: string, count: number)
 	local rowPos = row.AbsolutePosition
 	local rowSize = row.AbsoluteSize
 
-	-- Tooltip width is fixed at 200, height is automatic.
-	local targetX = rowPos.X - 220 - 14
+	-- Tooltip width is fixed at 240, height is automatic.
+	local targetX = rowPos.X - 240 - 14
 	local targetY = rowPos.Y + (rowSize.Y - 60) / 2
 
 	-- Clamp to screen edges.
 	local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize
 	if viewport then
-		targetX = math.max(8, math.min(targetX, viewport.X - 228))
+		targetX = math.max(8, math.min(targetX, viewport.X - 248))
 		targetY = math.max(8, math.min(targetY, viewport.Y - 60))
 	end
 
@@ -350,7 +373,7 @@ end
 local function buildPillButton(name: string, text: string, color: Color3, hoverColor: Color3, parent: Frame): TextButton
 	local button = Instance.new("TextButton")
 	button.Name = name
-	button.Size = UDim2.new(0, ACTION_BUTTON_WIDTH, 0, 22)
+	button.Size = UDim2.new(0, ACTION_BUTTON_WIDTH, 0, 24)
 	button.BackgroundColor3 = color
 	button.BackgroundTransparency = 0.15
 	button.BorderSizePixel = 0
@@ -359,6 +382,8 @@ local function buildPillButton(name: string, text: string, color: Color3, hoverC
 	button.TextColor3 = Color3.fromRGB(255, 255, 255)
 	button.Font = Enum.Font.GothamBold
 	button.TextSize = 11
+	button.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	button.TextStrokeTransparency = 0.3
 	button.Parent = parent
 
 	local corner = Instance.new("UICorner")
@@ -372,16 +397,16 @@ local function buildPillButton(name: string, text: string, color: Color3, hoverC
 	stroke.Parent = button
 
 	button.MouseEnter:Connect(function()
-		TweenService:Create(button, TWEEN_HOVER, { BackgroundColor3 = hoverColor, Size = UDim2.new(0, ACTION_BUTTON_WIDTH + 4, 0, 22) }):Play()
+		TweenService:Create(button, TWEEN_HOVER, { BackgroundColor3 = hoverColor, Size = UDim2.new(0, ACTION_BUTTON_WIDTH + 4, 0, 24) }):Play()
 	end)
 	button.MouseLeave:Connect(function()
-		TweenService:Create(button, TWEEN_HOVER, { BackgroundColor3 = color, Size = UDim2.new(0, ACTION_BUTTON_WIDTH, 0, 22) }):Play()
+		TweenService:Create(button, TWEEN_HOVER, { BackgroundColor3 = color, Size = UDim2.new(0, ACTION_BUTTON_WIDTH, 0, 24) }):Play()
 	end)
 	button.MouseButton1Down:Connect(function()
-		TweenService:Create(button, TWEEN_HOVER, { Size = UDim2.new(0, ACTION_BUTTON_WIDTH - 2, 0, 20) }):Play()
+		TweenService:Create(button, TWEEN_HOVER, { Size = UDim2.new(0, ACTION_BUTTON_WIDTH - 2, 0, 22) }):Play()
 	end)
 	button.MouseButton1Up:Connect(function()
-		TweenService:Create(button, TWEEN_HOVER, { Size = UDim2.new(0, ACTION_BUTTON_WIDTH, 0, 22) }):Play()
+		TweenService:Create(button, TWEEN_HOVER, { Size = UDim2.new(0, ACTION_BUTTON_WIDTH, 0, 24) }):Play()
 	end)
 
 	return button
@@ -467,7 +492,9 @@ local function buildCapacityBar(parent: Frame, y: number)
 	label.Text = "0/5"
 	label.TextColor3 = Color3.fromRGB(200, 200, 210)
 	label.Font = Enum.Font.GothamBold
-	label.TextSize = 13
+	label.TextSize = 14
+	label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	label.TextStrokeTransparency = 0.4
 	label.TextXAlignment = Enum.TextXAlignment.Right
 	label.TextYAlignment = Enum.TextYAlignment.Center
 	label.Parent = container
@@ -484,7 +511,7 @@ local function buildDropAllButton(parent: Frame, y: number): TextButton
 	local container = Instance.new("Frame")
 	container.Name = "DropAllContainer"
 	container.Position = UDim2.new(0, PANEL_PADDING, 0, y)
-	container.Size = UDim2.new(0, contentW, 0, 28)
+	container.Size = UDim2.new(0, contentW, 0, DROP_ALL_HEIGHT)
 	container.BackgroundTransparency = 1
 	container.BorderSizePixel = 0
 	container.Parent = parent
@@ -499,7 +526,9 @@ local function buildDropAllButton(parent: Frame, y: number): TextButton
 	button.Text = "DROP ALL"
 	button.TextColor3 = Color3.fromRGB(255, 255, 255)
 	button.Font = Enum.Font.GothamBlack
-	button.TextSize = 16
+	button.TextSize = 15
+	button.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	button.TextStrokeTransparency = 0.3
 	button.Parent = container
 
 	local corner = Instance.new("UICorner")
@@ -615,7 +644,7 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 		end
 		iconInitial.Text = bolts
 		iconInitial.Font = Enum.Font.GothamBold
-		iconInitial.TextSize = 11
+		iconInitial.TextSize = 13
 	else
 		iconInitial.Text = string.sub(resourceName, 1, 1)
 		iconInitial.Font = Enum.Font.GothamBlack
@@ -629,8 +658,8 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	-- Count badge overlaid on the icon.
 	local badge = Instance.new("TextLabel")
 	badge.Name = "CountBadge"
-	badge.Size = UDim2.new(0, 18, 0, 14)
-	badge.Position = UDim2.new(1, -14, 1, -12)
+	badge.Size = UDim2.new(0, 22, 0, 16)
+	badge.Position = UDim2.new(1, -16, 1, -14)
 	badge.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
 	badge.BackgroundTransparency = 0.15
 	badge.BorderSizePixel = 0
@@ -638,6 +667,8 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	badge.TextColor3 = Color3.fromRGB(255, 255, 255)
 	badge.Font = Enum.Font.GothamBold
 	badge.TextSize = 11
+	badge.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	badge.TextStrokeTransparency = 0.4
 	badge.TextXAlignment = Enum.TextXAlignment.Center
 	badge.TextYAlignment = Enum.TextYAlignment.Center
 	badge.Parent = icon
@@ -649,7 +680,7 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	-- Name + count block in the centre.
 	local textContainer = Instance.new("Frame")
 	textContainer.Name = "TextContainer"
-	textContainer.Size = UDim2.new(1, -(ICON_SIZE + ACTION_BUTTON_WIDTH * 2 + ACTION_GAP * 2 + 16), 1, 0)
+	textContainer.Size = UDim2.new(1, -(ICON_SIZE + ACTION_BUTTON_WIDTH * 2 + ACTION_GAP + 12), 1, 0)
 	textContainer.Position = UDim2.new(0, ICON_SIZE + 10, 0, 0)
 	textContainer.BackgroundTransparency = 1
 	textContainer.BorderSizePixel = 0
@@ -658,28 +689,34 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 
 	local nameLabel = Instance.new("TextLabel")
 	nameLabel.Name = "Name"
-	nameLabel.Size = UDim2.new(1, 0, 0, 15)
-	nameLabel.Position = UDim2.new(0, 0, 0, 0)
+	nameLabel.Size = UDim2.new(1, 0, 0, 20)
+	nameLabel.Position = UDim2.new(0, 0, 0, 2)
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Text = displayName
 	nameLabel.TextColor3 = Color3.fromRGB(225, 225, 235)
 	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.TextSize = 13
+	nameLabel.TextSize = 14
+	nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	nameLabel.TextStrokeTransparency = 0.3
 	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 	nameLabel.TextYAlignment = Enum.TextYAlignment.Bottom
+	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
 	nameLabel.Parent = textContainer
 
 	local countLabel = Instance.new("TextLabel")
 	countLabel.Name = "Count"
-	countLabel.Size = UDim2.new(1, 0, 0, 14)
-	countLabel.Position = UDim2.new(0, 0, 0, 15)
+	countLabel.Size = UDim2.new(1, 0, 0, 16)
+	countLabel.Position = UDim2.new(0, 0, 0, 22)
 	countLabel.BackgroundTransparency = 1
 	countLabel.Text = "0"
 	countLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
-	countLabel.Font = Enum.Font.Gotham
-	countLabel.TextSize = 12
+	countLabel.Font = Enum.Font.GothamBold
+	countLabel.TextSize = 13
+	countLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	countLabel.TextStrokeTransparency = 0.4
 	countLabel.TextXAlignment = Enum.TextXAlignment.Left
 	countLabel.TextYAlignment = Enum.TextYAlignment.Top
+	countLabel.TextTruncate = Enum.TextTruncate.AtEnd
 	countLabel.Parent = textContainer
 
 	-- Action buttons container on the right.
@@ -699,7 +736,7 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 		Color3.fromRGB(80, 180, 110),
 		actionContainer
 	)
-	eatButton.Position = UDim2.new(0, 0, 0.5, -11)
+	eatButton.Position = UDim2.new(0, 0, 0.5, -12)
 	eatButton.Visible = EDIBLE_RESOURCES[resourceName] == true
 
 	local dropButton = buildPillButton(
@@ -709,7 +746,7 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 		Color3.fromRGB(195, 90, 75),
 		actionContainer
 	)
-	dropButton.Position = UDim2.new(0, ACTION_BUTTON_WIDTH + ACTION_GAP, 0.5, -11)
+	dropButton.Position = UDim2.new(0, ACTION_BUTTON_WIDTH + ACTION_GAP, 0.5, -12)
 
 	-- Keep action buttons always visible so hover/click is reliable.
 	-- Hover effects are still handled by onEnter/onLeave.
@@ -856,7 +893,9 @@ local function buildBagGui(): ScreenGui
 	header.Text = "CARRY BAG"
 	header.TextColor3 = Color3.fromRGB(245, 245, 245)
 	header.Font = Enum.Font.GothamBlack
-	header.TextSize = 15
+	header.TextSize = 16
+	header.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	header.TextStrokeTransparency = 0.3
 	header.TextXAlignment = Enum.TextXAlignment.Left
 	header.TextYAlignment = Enum.TextYAlignment.Center
 	header.Parent = panel
@@ -931,7 +970,7 @@ local function updateCapacity(total: number, capacity: number)
 		TweenService:Create(glow, TWEEN_CAPACITY, { BackgroundColor3 = color }):Play()
 	end
 
-	capacityText.Text = string.format("%d/%d", total, capacity)
+	capacityText.Text = formatCount(total) .. "/" .. tostring(capacity)
 
 	local dropAllContainer = bagPanel and bagPanel:FindFirstChild("DropAllContainer")
 	local dropAllButton = dropAllContainer and dropAllContainer:FindFirstChild("DropAllButton")
@@ -951,15 +990,15 @@ local function updateDisplay(resources: { [string]: number }?, capacity: number?
 		local count = resourceCounts[resourceName] or 0
 		total += count
 
-		entry.countLabel.Text = tostring(count)
-		entry.countBadge.Text = tostring(count)
+		entry.countLabel.Text = formatCount(count)
+		entry.countBadge.Text = formatCount(count)
 		entry.countBadge.Visible = count > 0
 
 		-- Count pop animation when a value changes.
 		if count ~= entry.lastCount then
 			entry.lastCount = count
 			local originalSize = entry.countLabel.TextSize
-			entry.countLabel.TextSize = 16
+			entry.countLabel.TextSize = 18
 			TweenService:Create(entry.countLabel, TWEEN_COUNT_POP, { TextSize = originalSize }):Play()
 		end
 
@@ -989,7 +1028,7 @@ local function updateDisplay(resources: { [string]: number }?, capacity: number?
 			local junkCfg = JunkItemConfig[resourceName]
 			local expectedTitle = junkCfg and junkCfg.DisplayName or resourceName
 			if tooltipTitle.Text == expectedTitle then
-				tooltipCount.Text = "Count: " .. tostring(count)
+				tooltipCount.Text = "Count: " .. formatCount(count)
 			end
 		end
 	end

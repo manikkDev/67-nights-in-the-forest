@@ -135,6 +135,8 @@ local function createPhaseUi()
 	textLabel.TextSize = 20
 	textLabel.TextXAlignment = Enum.TextXAlignment.Center
 	textLabel.TextYAlignment = Enum.TextYAlignment.Center
+	textLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	textLabel.TextStrokeTransparency = 0.3
 	textLabel.Text = "Day 1"
 	textLabel.ZIndex = 3
 	textLabel.Parent = bannerFrame

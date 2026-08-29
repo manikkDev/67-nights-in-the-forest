@@ -120,6 +120,8 @@ local function buildMapUi()
 	closeBtn.Font = Enum.Font.GothamBold
 	closeBtn.Text = "X"
 	closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	closeBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	closeBtn.TextStrokeTransparency = 0.3
 	closeBtn.TextSize = 20
 	closeBtn.Parent = frame
 	local closeCorner = Instance.new("UICorner")
@@ -175,6 +177,8 @@ local function buildMapUi()
 		missingLabel.Font = Enum.Font.PermanentMarker
 		missingLabel.Text = "MISSING"
 		missingLabel.TextColor3 = Color3.fromRGB(180, 30, 30)
+		missingLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		missingLabel.TextStrokeTransparency = 0.3
 		missingLabel.TextSize = 18
 		missingLabel.Parent = card
 
@@ -212,6 +216,8 @@ local function buildMapUi()
 		nameLabel.Font = Enum.Font.GothamBold
 		nameLabel.Text = displayName
 		nameLabel.TextColor3 = Color3.fromRGB(40, 30, 20)
+		nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		nameLabel.TextStrokeTransparency = 0.3
 		nameLabel.TextSize = 16
 		nameLabel.Parent = card
 
@@ -221,10 +227,12 @@ local function buildMapUi()
 		statusLabel.Position = UDim2.fromOffset(0, 280)
 		statusLabel.Size = UDim2.new(1, 0, 0, 20)
 		statusLabel.BackgroundTransparency = 1
-		statusLabel.Font = Enum.Font.Gotham
+		statusLabel.Font = Enum.Font.GothamBold
 		statusLabel.Text = "Locked"
 		statusLabel.TextColor3 = Color3.fromRGB(120, 120, 120)
-		statusLabel.TextSize = 13
+		statusLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		statusLabel.TextStrokeTransparency = 0.4
+		statusLabel.TextSize = 14
 		statusLabel.Parent = card
 
 		-- Track button
@@ -236,6 +244,8 @@ local function buildMapUi()
 		trackBtn.Font = Enum.Font.GothamBold
 		trackBtn.Text = "Track"
 		trackBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+		trackBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		trackBtn.TextStrokeTransparency = 0.3
 		trackBtn.TextSize = 16
 		trackBtn.Visible = false
 		trackBtn.Parent = card
@@ -381,6 +391,8 @@ local function buildUi()
 	arrow.Font = Enum.Font.GothamBlack
 	arrow.Text = "▲"
 	arrow.TextColor3 = Color3.fromRGB(220, 70, 60)
+	arrow.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	arrow.TextStrokeTransparency = 0.3
 	arrow.TextSize = 34
 	arrow.Parent = waypoint
 	arrowLabel = arrow
@@ -391,6 +403,8 @@ local function buildUi()
 	waypointText.BackgroundTransparency = 1
 	waypointText.Font = Enum.Font.GothamBold
 	waypointText.TextColor3 = Color3.fromRGB(240, 235, 220)
+	waypointText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	waypointText.TextStrokeTransparency = 0.3
 	waypointText.TextSize = 16
 	waypointText.TextWrapped = true
 	waypointText.TextXAlignment = Enum.TextXAlignment.Left
@@ -406,6 +420,8 @@ local function buildUi()
 	progress.Font = Enum.Font.GothamBold
 	progress.Text = "CHILDREN  0 / 4"
 	progress.TextColor3 = Color3.fromRGB(235, 225, 195)
+	progress.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	progress.TextStrokeTransparency = 0.3
 	progress.TextSize = 15
 	progress.Parent = screenGui
 	progressLabel = progress
@@ -422,6 +438,8 @@ local function buildUi()
 	carry.Font = Enum.Font.GothamBold
 	carry.Text = "Carrying child  •  G / B to drop"
 	carry.TextColor3 = Color3.fromRGB(245, 230, 190)
+	carry.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	carry.TextStrokeTransparency = 0.3
 	carry.TextSize = 17
 	carry.Visible = false
 	carry.Parent = screenGui

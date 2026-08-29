@@ -47,6 +47,7 @@ local FARM_GROWTH_CYCLES = 2
 local FARM_YIELD = 2
 local TRAP_DAMAGE = 40
 local STRUCTURE_TAG = "RunStructure"
+local GROUND_LIFT = 0.05 -- tiny lift so the model sits almost exactly on the ground
 
 -- | State Management | --
 local runStateService: any = nil
@@ -182,6 +183,8 @@ local function cloneTemplate(definition): Model?
 			descendant:Destroy()
 		elseif descendant:IsA("BasePart") then
 			descendant.Anchored = true
+		elseif descendant:IsA("JointInstance") or descendant:IsA("Constraint") then
+			descendant:Destroy()
 		end
 	end
 	return model
@@ -221,7 +224,7 @@ end
     @param    definition  table
     @returns  CFrame?
 ]]
-local function authoritativeCFrame(requested: CFrame, definition): CFrame?
+local function authoritativeCFrame(requested: CFrame, definition): (CFrame?, number?)
 	local grid = RunConfig.PlacementGrid
 	local snappedX = math.round(requested.Position.X / grid) * grid
 	local snappedZ = math.round(requested.Position.Z / grid) * grid
@@ -234,24 +237,22 @@ local function authoritativeCFrame(requested: CFrame, definition): CFrame?
 	params.FilterType = Enum.RaycastFilterType.Include
 	local baseMap = worldService and worldService:GetBaseMap()
 	if not baseMap then
-		return nil
+		return nil, nil
 	end
 	params.FilterDescendantsInstances = { baseMap }
 	local result = workspace:Raycast(origin, Vector3.new(0, -180, 0), params)
 	if not result then
-		return nil
+		return nil, nil
 	end
 	local upDot = result.Normal:Dot(Vector3.yAxis)
 	local slope = math.deg(math.acos(math.clamp(upDot, -1, 1)))
 	if slope > math.min(definition.MaxSlope, RunConfig.PlacementMaxSlope) then
-		return nil
+		return nil, nil
 	end
 
-	-- Use the footprint Y to position the model center above ground.
-	-- The footprint Y represents the model height, so center = groundY + height/2.
-	-- Add a small lift (0.2) to prevent the bottom from clipping into uneven ground.
-	local y = result.Position.Y + definition.Footprint.Y * 0.5 + 0.2
-	return CFrame.new(snappedX, y, snappedZ) * CFrame.Angles(0, snappedYaw, 0)
+	local groundY = result.Position.Y
+	local y = groundY + definition.Footprint.Y * 0.5 + GROUND_LIFT
+	return CFrame.new(snappedX, y, snappedZ) * CFrame.Angles(0, snappedYaw, 0), groundY
 end
 
 --[[
@@ -518,8 +519,8 @@ function BuildingService.Client:RequestPlace(player: Player, tokenId: string, re
 	end
 	placementCooldowns[player] = now
 
-	local finalCFrame = authoritativeCFrame(requestedCFrame, definition)
-	if not finalCFrame then
+	local finalCFrame, groundY = authoritativeCFrame(requestedCFrame, definition)
+	if not finalCFrame or not groundY then
 		return { ok = false, code = "INVALID_GROUND" }
 	end
 	if not isFootprintFree(player, finalCFrame, definition) then
@@ -531,6 +532,21 @@ function BuildingService.Client:RequestPlace(player: Player, tokenId: string, re
 		return { ok = false, code = "MISSING_TEMPLATE" }
 	end
 	styleBed(model, definition.Id)
+
+	-- Align the model so its actual bounding box bottom sits on the ground.
+	-- finalCFrame is based on the footprint center, which may not match the
+	-- model's true pivot or bounding box, causing floating/sinking.
+	local aabbCF, aabbSize = model:GetBoundingBox()
+	local modelPivot = model:GetPivot()
+	local aabbCenterOffset = aabbCF.Position - modelPivot.Position
+	local aabbHalfHeight = aabbSize.Y * 0.5
+	local desiredAabbCenter = Vector3.new(
+		finalCFrame.Position.X,
+		groundY + aabbHalfHeight + GROUND_LIFT,
+		finalCFrame.Position.Z
+	)
+	local adjustedCFrame = CFrame.new(desiredAabbCenter - finalCFrame.Rotation * aabbCenterOffset) * finalCFrame.Rotation
+
 	local capturedRunId = runStateService:GetRunId()
 	local structureId = HttpService:GenerateGUID(false)
 	model.Name = definition.Id
@@ -542,7 +558,7 @@ function BuildingService.Client:RequestPlace(player: Player, tokenId: string, re
 	model:SetAttribute("Health", definition.MaxHealth)
 	model:SetAttribute("PlacedCycle", timeService:GetCycleIndex())
 	model.Parent = structuresFolder
-	model:PivotTo(finalCFrame)
+	model:PivotTo(adjustedCFrame)
 	CollectionService:AddTag(model, STRUCTURE_TAG)
 
 	if not craftingService:ConsumePlacementToken(player, tokenId) or not runStateService:IsCurrentRun(capturedRunId) then

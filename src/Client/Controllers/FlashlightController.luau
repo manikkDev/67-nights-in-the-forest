@@ -400,6 +400,8 @@ local function buildBatteryPanel()
 	icon.Text = "🔦"
 	icon.TextSize = 18
 	icon.Font = Enum.Font.GothamBold
+	icon.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	icon.TextStrokeTransparency = 0.3
 	icon.Parent = frame
 
 	local title = Instance.new("TextLabel")
@@ -410,7 +412,9 @@ local function buildBatteryPanel()
 	title.Text = "FLASH"
 	title.TextColor3 = Color3.fromRGB(245, 245, 255)
 	title.Font = Enum.Font.GothamBold
-	title.TextSize = 12
+	title.TextSize = 14
+	title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	title.TextStrokeTransparency = 0.3
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.Parent = frame
 
@@ -422,7 +426,9 @@ local function buildBatteryPanel()
 	onOff.Text = "OFF"
 	onOff.TextColor3 = Color3.fromRGB(200, 200, 210)
 	onOff.Font = Enum.Font.GothamBlack
-	onOff.TextSize = 12
+	onOff.TextSize = 14
+	onOff.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	onOff.TextStrokeTransparency = 0.3
 	onOff.TextXAlignment = Enum.TextXAlignment.Right
 	onOff.Parent = frame
 
@@ -461,7 +467,9 @@ local function buildBatteryPanel()
 	percentage.Text = "100%"
 	percentage.TextColor3 = Color3.fromRGB(230, 230, 240)
 	percentage.Font = Enum.Font.GothamBold
-	percentage.TextSize = 12
+	percentage.TextSize = 14
+	percentage.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	percentage.TextStrokeTransparency = 0.3
 	percentage.TextXAlignment = Enum.TextXAlignment.Left
 	percentage.Parent = frame
 
@@ -473,7 +481,9 @@ local function buildBatteryPanel()
 	warn.Text = ""
 	warn.TextColor3 = Color3.fromRGB(255, 80, 80)
 	warn.Font = Enum.Font.GothamBlack
-	warn.TextSize = 10
+	warn.TextSize = 13
+	warn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	warn.TextStrokeTransparency = 0.3
 	warn.TextXAlignment = Enum.TextXAlignment.Right
 	warn.Parent = frame
 

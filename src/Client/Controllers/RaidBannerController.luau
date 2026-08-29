@@ -247,6 +247,8 @@ local function ensureGui()
 	titleLabel.TextSize = 16
 	titleLabel.TextColor3 = WARNING_COLOR
 	titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	titleLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	titleLabel.TextStrokeTransparency = 0.3
 	titleLabel.Text = "CULTIST RAID"
 	titleLabel.Parent = titleRow
 
@@ -259,6 +261,8 @@ local function ensureGui()
 	trackerCountLabel.TextSize = 15
 	trackerCountLabel.TextColor3 = Color3.fromRGB(230, 230, 235)
 	trackerCountLabel.TextXAlignment = Enum.TextXAlignment.Right
+	trackerCountLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	trackerCountLabel.TextStrokeTransparency = 0.4
 	trackerCountLabel.Text = "Enemies: 0 / 0"
 	trackerCountLabel.Parent = titleRow
 

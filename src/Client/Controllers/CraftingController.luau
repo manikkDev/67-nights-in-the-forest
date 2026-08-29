@@ -424,6 +424,8 @@ local function buildNotifGui()
 	title.TextColor3 = COLOR.NotifUpgrade
 	title.TextSize = 18
 	title.TextTransparency = 1
+	title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	title.TextStrokeTransparency = 0.3
 	title.TextXAlignment = Enum.TextXAlignment.Center
 	title.TextYAlignment = Enum.TextYAlignment.Center
 	title.Parent = banner
@@ -435,10 +437,12 @@ local function buildNotifGui()
 	subtitle.Position = UDim2.new(0.5, 0, 0, 42)
 	subtitle.Size = UDim2.new(1, -24, 0, 20)
 	subtitle.BackgroundTransparency = 1
-	subtitle.Font = Enum.Font.Gotham
+	subtitle.Font = Enum.Font.GothamBold
 	subtitle.TextColor3 = COLOR.TextMuted
-	subtitle.TextSize = 13
+	subtitle.TextSize = 14
 	subtitle.TextTransparency = 1
+	subtitle.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	subtitle.TextStrokeTransparency = 0.4
 	subtitle.TextXAlignment = Enum.TextXAlignment.Center
 	subtitle.TextYAlignment = Enum.TextYAlignment.Center
 	subtitle.Parent = banner
@@ -494,6 +498,8 @@ local function buildConfirmDialog(panelFrame: Frame)
 	title.Font = Enum.Font.GothamBlack
 	title.TextColor3 = COLOR.TextPrimary
 	title.TextSize = 18
+	title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	title.TextStrokeTransparency = 0.3
 	title.TextXAlignment = Enum.TextXAlignment.Center
 	title.TextYAlignment = Enum.TextYAlignment.Center
 	title.ZIndex = 12
@@ -506,10 +512,12 @@ local function buildConfirmDialog(panelFrame: Frame)
 	desc.Position = UDim2.new(0, 16, 0, 44)
 	desc.Size = UDim2.new(1, -32, 0, 32)
 	desc.BackgroundTransparency = 1
-	desc.Font = Enum.Font.Gotham
+	desc.Font = Enum.Font.GothamBold
 	desc.TextColor3 = COLOR.TextMuted
-	desc.TextSize = 13
+	desc.TextSize = 14
 	desc.TextWrapped = true
+	desc.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	desc.TextStrokeTransparency = 0.4
 	desc.TextXAlignment = Enum.TextXAlignment.Center
 	desc.TextYAlignment = Enum.TextYAlignment.Center
 	desc.ZIndex = 12
@@ -525,6 +533,8 @@ local function buildConfirmDialog(panelFrame: Frame)
 	cost.Font = Enum.Font.GothamBold
 	cost.TextColor3 = COLOR.StatusAmber
 	cost.TextSize = 14
+	cost.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	cost.TextStrokeTransparency = 0.3
 	cost.TextXAlignment = Enum.TextXAlignment.Center
 	cost.TextYAlignment = Enum.TextYAlignment.Center
 	cost.ZIndex = 12
@@ -545,6 +555,8 @@ local function buildConfirmDialog(panelFrame: Frame)
 	confirm.Text = "Confirm"
 	confirm.TextColor3 = Color3.fromRGB(255, 255, 255)
 	confirm.TextSize = 15
+	confirm.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	confirm.TextStrokeTransparency = 0.3
 	confirm.ZIndex = 12
 	confirm.Parent = card
 	confirmButton = confirm
@@ -580,6 +592,8 @@ local function buildConfirmDialog(panelFrame: Frame)
 	cancel.Text = "Cancel"
 	cancel.TextColor3 = Color3.fromRGB(255, 255, 255)
 	cancel.TextSize = 15
+	cancel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	cancel.TextStrokeTransparency = 0.3
 	cancel.ZIndex = 12
 	cancel.Parent = card
 	cancelButton = cancel
@@ -677,6 +691,8 @@ local function buildUi()
 	title.Font = Enum.Font.GothamBlack
 	title.TextColor3 = COLOR.TextPrimary
 	title.TextSize = 18
+	title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	title.TextStrokeTransparency = 0.3
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.TextYAlignment = Enum.TextYAlignment.Center
 	title.Parent = panelFrame
@@ -696,6 +712,8 @@ local function buildUi()
 	close.Text = "X"
 	close.TextColor3 = Color3.fromRGB(255, 255, 255)
 	close.TextSize = 16
+	close.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	close.TextStrokeTransparency = 0.3
 	close.Parent = panelFrame
 	local closeCorner = Instance.new("UICorner")
 	closeCorner.CornerRadius = UDim.new(0, 8)
@@ -743,6 +761,8 @@ local function buildUi()
 	resources.Font = Enum.Font.GothamBold
 	resources.TextColor3 = Color3.fromRGB(200, 200, 215)
 	resources.TextSize = 14
+	resources.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	resources.TextStrokeTransparency = 0.4
 	resources.TextXAlignment = Enum.TextXAlignment.Left
 	resources.TextYAlignment = Enum.TextYAlignment.Center
 	resources.Parent = resourcesContainer
@@ -815,6 +835,8 @@ local function buildUi()
 		nameLabel.Font = Enum.Font.GothamBold
 		nameLabel.TextColor3 = COLOR.TextPrimary
 		nameLabel.TextSize = 15
+		nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		nameLabel.TextStrokeTransparency = 0.3
 		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
 		nameLabel.TextYAlignment = Enum.TextYAlignment.Center
 		nameLabel.Text = recipe.DisplayName
@@ -826,9 +848,11 @@ local function buildUi()
 		costLabel.Position = UDim2.new(0, 12, 0, 30)
 		costLabel.Size = UDim2.new(1, -24, 0, 18)
 		costLabel.BackgroundTransparency = 1
-		costLabel.Font = Enum.Font.Gotham
+		costLabel.Font = Enum.Font.GothamBold
 		costLabel.TextColor3 = COLOR.TextMuted
 		costLabel.TextSize = 13
+		costLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		costLabel.TextStrokeTransparency = 0.4
 		costLabel.TextXAlignment = Enum.TextXAlignment.Left
 		costLabel.TextYAlignment = Enum.TextYAlignment.Center
 		costLabel.Text = "Cost: " .. formatCost(recipe.Cost)
@@ -843,7 +867,9 @@ local function buildUi()
 		statusLabel.BackgroundTransparency = 1
 		statusLabel.Font = Enum.Font.GothamBold
 		statusLabel.TextColor3 = COLOR.StatusAmber
-		statusLabel.TextSize = 12
+		statusLabel.TextSize = 13
+		statusLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		statusLabel.TextStrokeTransparency = 0.3
 		statusLabel.TextXAlignment = Enum.TextXAlignment.Right
 		statusLabel.TextYAlignment = Enum.TextYAlignment.Center
 		statusLabel.Text = ""

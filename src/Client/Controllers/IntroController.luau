@@ -298,11 +298,15 @@ local function buildGui()
 	local close = makeCircleButton(panel, "CloseButton", "X", CLOSE,
 		UDim2.new(1, -12, 0, 12), UDim2.fromOffset(36, 36))
 	close.AnchorPoint = Vector2.new(1, 0)
+	close.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	close.TextStrokeTransparency = 0.3
 
 	local title = makeLabel(panel, "CreatePartyTitle", "Create Party", 28, HANDWRITTEN,
 		UDim2.fromScale(0.5, 0.06), UDim2.new(0, 260, 0, 40))
 	title.AnchorPoint = Vector2.new(0.5, 0)
-	title.Font = Enum.Font.Gotham
+	title.Font = Enum.Font.GothamBold
+	title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	title.TextStrokeTransparency = 0.3
 
 	local partySize = makeLabel(panel, "PartySizeTitle", "Party Size", 36, BODY,
 		UDim2.fromScale(0.5, 0.22), UDim2.new(0, 260, 0, 44))
@@ -348,6 +352,8 @@ local function buildGui()
 		UDim2.fromScale(0.5, 0.58), UDim2.new(0, 320, 0, 80))
 	countLabel.AnchorPoint = Vector2.new(0.5, 0)
 	countLabel.Visible = false
+	countLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	countLabel.TextStrokeTransparency = 0.3
 	countdownLabel = countLabel
 
 	local story = Instance.new("Frame")
@@ -364,10 +370,14 @@ local function buildGui()
 	local story1 = makeLabel(story, "StoryLine1", "• Survive 99 Nights", 48, STORY,
 		UDim2.fromScale(0.1, 0.42), UDim2.fromScale(0.8, 0.12))
 	story1.TextXAlignment = Enum.TextXAlignment.Center
+	story1.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	story1.TextStrokeTransparency = 0.4
 
 	local story2 = makeLabel(story, "StoryLine2", "• Finding the Missing Children will help", 32, STORY,
 		UDim2.fromScale(0.1, 0.55), UDim2.fromScale(0.8, 0.1))
 	story2.TextXAlignment = Enum.TextXAlignment.Center
+	story2.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	story2.TextStrokeTransparency = 0.4
 
 	local day = Instance.new("Frame")
 	day.Name = "DayFrame"
@@ -382,7 +392,9 @@ local function buildGui()
 	local dayText = makeLabel(day, "DayText", "Day 1", 54, CREAM,
 		UDim2.fromScale(0.5, 0.5), UDim2.fromOffset(400, 90))
 	dayText.AnchorPoint = Vector2.new(0.5, 0.5)
-	dayText.Font = Enum.Font.Gotham
+	dayText.Font = Enum.Font.GothamBold
+	dayText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	dayText.TextStrokeTransparency = 0.3
 
 	updateSizeButtons()
 end
@@ -413,7 +425,7 @@ local function buildTitleScreen()
 	header.ZIndex = 10
 	header.Font = Enum.Font.Bangers
 	header.TextStrokeColor3 = Color3.new(0, 0, 0)
-	header.TextStrokeTransparency = 1
+	header.TextStrokeTransparency = 0.3
 
 	local panelsHolder = Instance.new("Frame")
 	panelsHolder.Name = "PanelsHolder"
@@ -493,15 +505,17 @@ local function buildTitleScreen()
 
 		local caption = makeLabel(panel, "Caption",
 			typeof(storyPanels[i]) == "table" and storyPanels[i].caption or "",
-			14, STORY_CAPTION,
+			15, STORY_CAPTION,
 			UDim2.new(), UDim2.new(1, 0, 0.28, 0))
 		caption.LayoutOrder = 2
 		caption.ZIndex = 8
 		caption.TextWrapped = true
 		caption.TextXAlignment = Enum.TextXAlignment.Center
 		caption.TextYAlignment = Enum.TextYAlignment.Center
-		caption.Font = Enum.Font.Gotham
+		caption.Font = Enum.Font.GothamBold
 		caption.RichText = true
+		caption.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+		caption.TextStrokeTransparency = 0.4
 	end
 
 	local play = Instance.new("TextButton")
@@ -511,7 +525,7 @@ local function buildTitleScreen()
 	play.TextSize = 46
 	play.Font = Enum.Font.Bangers
 	play.TextStrokeColor3 = Color3.new(0, 0, 0)
-	play.TextStrokeTransparency = 1
+	play.TextStrokeTransparency = 0.3
 	play.AutoButtonColor = true
 	play.BackgroundColor3 = PLAY
 	play.BackgroundTransparency = 0
