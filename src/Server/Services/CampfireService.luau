@@ -128,7 +128,6 @@ local inventoryService: any = nil
 local spawnService: any = nil
 local runStateService: any = nil
 local playerLifeService: any = nil
-local stateLoaded = false
 local level = 1
 local levelProgress = 0
 local maxFuel = MAX_FUEL_BY_LEVEL[1]
@@ -244,7 +243,6 @@ end
     @summary  Restore the campfire to its fresh-run state.
 ]]
 function CampfireService:ResetForRun()
-	stateLoaded = true
 	level = 1
 	levelProgress = 0
 	maxFuel = MAX_FUEL_BY_LEVEL[1]
@@ -914,12 +912,6 @@ end
 
 Players.PlayerRemoving:Connect(function(player)
 	feedCooldowns[player] = nil
-end)
-
-game:BindToClose(function()
-	if playerDataService then
-		saveCampfireState()
-	end
 end)
 
 return CampfireService

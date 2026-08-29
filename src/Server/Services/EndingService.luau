@@ -37,6 +37,9 @@ local EndingService = Knit.CreateService({
 		ReplayVoteChanged = Knit.CreateSignal(),
 		ReplayVoteResolved = Knit.CreateSignal(),
 		IndividualReturnAck = Knit.CreateSignal(),
+		RequestEarlyReturn = Knit.CreateSignal(),
+		RequestReplayVote = Knit.CreateSignal(),
+		RequestReplayCancel = Knit.CreateSignal(),
 	},
 })
 
