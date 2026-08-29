@@ -91,7 +91,7 @@ local mapIconButton: TextButton? = nil
 local minimapFrame: Frame? = nil
 local compassFrame: Frame? = nil
 local playerMarker: Frame? = nil
-local playerArrow: ImageLabel? = nil
+local playerArrow: TextLabel? = nil
 local sidebarFrame: Frame? = nil
 local hoveredLabel: TextLabel? = nil
 local hoveredSubLabel: TextLabel? = nil
@@ -106,7 +106,7 @@ local panelScale: UIScale? = nil
 local bgFrame: Frame? = nil
 local boardMinimapFrame: Frame? = nil
 local boardPlayerMarker: Frame? = nil
-local boardPlayerArrow: ImageLabel? = nil
+local boardPlayerArrow: TextLabel? = nil
 local boardMarkerItems: { Frame } = {}
 local mapOpen = false
 local mapData: { [string]: any } = nil
@@ -136,7 +136,7 @@ local function worldToMap(worldPos: Vector3): UDim2
 	local dz = worldPos.Z - campfireWorldPos.Z
 	local scale = MINIMAP_SIZE / (2 * mapRadius)
 	local px = dx * scale
-	local py = -dz * scale -- flip Z so north is up
+	local py = dz * scale -- north (-Z) maps to up (negative Y) on the map
 	local half = MINIMAP_SIZE * 0.5
 	px = math.clamp(px, -half + 8, half - 8)
 	py = math.clamp(py, -half + 8, half - 8)
@@ -991,15 +991,19 @@ function buildGui()
 	pMarkerStroke.Parent = pMarker
 	playerMarker = pMarker
 
-	-- Player direction arrow (triangle pointing in look direction)
-	local arrow = Instance.new("ImageLabel")
+	-- Player direction arrow (text triangle pointing in heading direction)
+	local arrow = Instance.new("TextLabel")
 	arrow.Name = "PlayerArrow"
 	arrow.AnchorPoint = Vector2.new(0.5, 0.5)
 	arrow.Position = UDim2.new(0.5, 0, 0.5, -PLAYER_MARKER_SIZE)
-	arrow.Size = UDim2.fromOffset(12, 16)
+	arrow.Size = UDim2.fromOffset(18, 22)
 	arrow.BackgroundTransparency = 1
-	arrow.Image = "rbxasset://textures/triangle.png"
-	arrow.ImageColor3 = COLOR.Player
+	arrow.Font = Enum.Font.GothamBlack
+	arrow.Text = "▲"
+	arrow.TextColor3 = COLOR.Player
+	arrow.TextSize = 18
+	arrow.TextXAlignment = Enum.TextXAlignment.Center
+	arrow.TextYAlignment = Enum.TextYAlignment.Center
 	arrow.Rotation = 0
 	arrow.ZIndex = 19
 	arrow.Parent = minimap
@@ -1185,7 +1189,7 @@ local function boardWorldToMap(worldPos: Vector3, boardSize: number): UDim2
 	local scale = boardSize / (2 * mapRadius)
 	-- Back face mirrors the X axis, so negate px to keep east on the right
 	local px = -dx * scale
-	local py = -dz * scale
+	local py = dz * scale -- north (-Z) maps to up (negative Y) on the map
 	local half = boardSize * 0.5
 	px = math.clamp(px, -half + 6, half - 6)
 	py = math.clamp(py, -half + 6, half - 6)
@@ -1372,14 +1376,18 @@ local function buildBoardMinimap(data: { [string]: any })
 	pMarkerStroke.Parent = pMarker
 	boardPlayerMarker = pMarker
 
-	local arrow = Instance.new("ImageLabel")
+	local arrow = Instance.new("TextLabel")
 	arrow.Name = "BoardPlayerArrow"
 	arrow.AnchorPoint = Vector2.new(0.5, 0.5)
 	arrow.Position = UDim2.new(0.5, 0, 0.5, -10)
-	arrow.Size = UDim2.fromOffset(10, 14)
+	arrow.Size = UDim2.fromOffset(14, 18)
 	arrow.BackgroundTransparency = 1
-	arrow.Image = "rbxasset://textures/triangle.png"
-	arrow.ImageColor3 = COLOR.Player
+	arrow.Font = Enum.Font.GothamBlack
+	arrow.Text = "▲"
+	arrow.TextColor3 = COLOR.Player
+	arrow.TextSize = 14
+	arrow.TextXAlignment = Enum.TextXAlignment.Center
+	arrow.TextYAlignment = Enum.TextYAlignment.Center
 	arrow.Rotation = 0
 	arrow.ZIndex = 14
 	arrow.Parent = innerMinimap
@@ -1416,6 +1424,7 @@ local function updateBoardPlayerMarker()
 	boardPlayerMarker.Position = mapPos
 
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local camera = workspace.CurrentCamera
 	local heading: Vector3?
 	if humanoid then
 		local move = humanoid.MoveDirection
@@ -1423,8 +1432,8 @@ local function updateBoardPlayerMarker()
 			heading = Vector3.new(move.X, 0, move.Z).Unit
 		end
 	end
-	if not heading then
-		local look = rootPart.CFrame.LookVector
+	if not heading and camera then
+		local look = camera.CFrame.LookVector
 		if look.Magnitude > 0 then
 			heading = Vector3.new(look.X, 0, look.Z).Unit
 		end
@@ -1447,6 +1456,7 @@ local function updatePlayerMarker()
 		local character = Players.LocalPlayer.Character
 		local rootPart = character and character:FindFirstChild("HumanoidRootPart")
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		local camera = workspace.CurrentCamera
 		if rootPart and rootPart:IsA("BasePart") then
 			currentPlayerPos = rootPart.Position
 			local mapPos = worldToMap(rootPart.Position)
@@ -1459,8 +1469,8 @@ local function updatePlayerMarker()
 					heading = Vector3.new(move.X, 0, move.Z).Unit
 				end
 			end
-			if not heading then
-				local look = rootPart.CFrame.LookVector
+			if not heading and camera then
+				local look = camera.CFrame.LookVector
 				if look.Magnitude > 0 then
 					heading = Vector3.new(look.X, 0, look.Z).Unit
 				end
@@ -1470,7 +1480,7 @@ local function updatePlayerMarker()
 				local angleRad = math.atan2(heading.X, -heading.Z)
 				local angleDeg = math.deg(angleRad)
 				playerArrow.Rotation = angleDeg
-				local offset = 14
+				local offset = 18
 				local dx = math.sin(angleRad) * offset
 				local dy = -math.cos(angleRad) * offset
 				playerArrow.Position = UDim2.new(mapPos.X.Scale, mapPos.X.Offset + dx, mapPos.Y.Scale, mapPos.Y.Offset + dy)
