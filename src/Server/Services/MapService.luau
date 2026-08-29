@@ -191,11 +191,11 @@ local function createMapBoard()
 	end
 	mapBoard = board
 
-	-- SurfaceGui on the board front face
+	-- SurfaceGui on the board back face (opposite side from the prompt)
 	local surfaceGui = Instance.new("SurfaceGui")
 	surfaceGui.Name = "BoardGui"
-	surfaceGui.Face = Enum.NormalId.Front
-	surfaceGui.CanvasSize = Vector2.new(1024, 512)
+	surfaceGui.Face = Enum.NormalId.Back
+	surfaceGui.CanvasSize = Vector2.new(1024, 660)
 	surfaceGui.Parent = board
 
 	-- Title label

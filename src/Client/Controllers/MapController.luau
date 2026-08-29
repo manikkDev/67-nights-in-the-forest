@@ -87,6 +87,7 @@ local COLOR = {
 local mapService: any = nil
 local gui: ScreenGui? = nil
 local mapIconGui: ScreenGui? = nil
+local mapIconButton: TextButton? = nil
 local minimapFrame: Frame? = nil
 local compassFrame: Frame? = nil
 local playerMarker: Frame? = nil
@@ -119,6 +120,13 @@ local markerGroups: { [string]: { Frame } } = {}
 local highlightedGroup: string? = nil
 
 -- // FUNCTIONS // --
+
+-- Forward declarations to resolve circular references between UI build functions
+local buildGui: () -> () = nil
+local buildMapIcon: () -> () = nil
+local setMapIconVisible: (visible: boolean) -> () = nil
+local openMap: (data: { [string]: any }) -> () = nil
+local closeMap: () -> () = nil
 
 local function worldToMap(worldPos: Vector3): UDim2
 	if not campfireWorldPos then
@@ -699,6 +707,7 @@ local function buildSidebar(parent: Frame, counts: { [string]: number })
 	createSectionHeader(content, nextOrder(), "ACCESSIBLE AREA")
 
 	levelLabel = Instance.new("TextLabel")
+	assert(levelLabel, "levelLabel is nil")
 	levelLabel.LayoutOrder = nextOrder()
 	levelLabel.Size = UDim2.new(1, 0, 0, 22)
 	levelLabel.BackgroundTransparency = 1
@@ -710,6 +719,7 @@ local function buildSidebar(parent: Frame, counts: { [string]: number })
 	levelLabel.Parent = content
 
 	radiusLabel = Instance.new("TextLabel")
+	assert(radiusLabel, "radiusLabel is nil")
 	radiusLabel.LayoutOrder = nextOrder()
 	radiusLabel.Size = UDim2.new(1, 0, 0, 22)
 	radiusLabel.BackgroundTransparency = 1
@@ -731,6 +741,7 @@ local function buildSidebar(parent: Frame, counts: { [string]: number })
 	barCorner.Parent = barBg
 
 	accessBarFill = Instance.new("Frame")
+	assert(accessBarFill, "accessBarFill is nil")
 	accessBarFill.Size = UDim2.new(0.2, 0, 1, 0)
 	accessBarFill.BackgroundColor3 = COLOR.BarFill
 	accessBarFill.BorderSizePixel = 0
@@ -750,6 +761,7 @@ local function buildSidebar(parent: Frame, counts: { [string]: number })
 	createSectionHeader(content, nextOrder(), "HOVERED MARKER")
 
 	hoveredLabel = Instance.new("TextLabel")
+	assert(hoveredLabel, "hoveredLabel is nil")
 	hoveredLabel.LayoutOrder = nextOrder()
 	hoveredLabel.Size = UDim2.new(1, 0, 0, 24)
 	hoveredLabel.BackgroundTransparency = 1
@@ -761,6 +773,7 @@ local function buildSidebar(parent: Frame, counts: { [string]: number })
 	hoveredLabel.Parent = content
 
 	hoveredSubLabel = Instance.new("TextLabel")
+	assert(hoveredSubLabel, "hoveredSubLabel is nil")
 	hoveredSubLabel.LayoutOrder = nextOrder()
 	hoveredSubLabel.Size = UDim2.new(1, 0, 0, 20)
 	hoveredSubLabel.BackgroundTransparency = 1
@@ -772,6 +785,7 @@ local function buildSidebar(parent: Frame, counts: { [string]: number })
 	hoveredSubLabel.Parent = content
 
 	hoveredDistance = Instance.new("TextLabel")
+	assert(hoveredDistance, "hoveredDistance is nil")
 	hoveredDistance.LayoutOrder = nextOrder()
 	hoveredDistance.Size = UDim2.new(1, 0, 0, 20)
 	hoveredDistance.BackgroundTransparency = 1
@@ -804,6 +818,7 @@ local function buildTooltip(parent: Instance)
 	tooltipStroke.Parent = tooltip
 
 	tooltipTitle = Instance.new("TextLabel")
+	assert(tooltipTitle, "tooltipTitle is nil")
 	tooltipTitle.Position = UDim2.new(0, 10, 0, 4)
 	tooltipTitle.Size = UDim2.new(1, -20, 0, 20)
 	tooltipTitle.BackgroundTransparency = 1
@@ -816,6 +831,7 @@ local function buildTooltip(parent: Instance)
 	tooltipTitle.Parent = tooltip
 
 	tooltipDesc = Instance.new("TextLabel")
+	assert(tooltipDesc, "tooltipDesc is nil")
 	tooltipDesc.Position = UDim2.new(0, 10, 0, 24)
 	tooltipDesc.Size = UDim2.new(1, -20, 0, 20)
 	tooltipDesc.BackgroundTransparency = 1
@@ -830,7 +846,7 @@ local function buildTooltip(parent: Instance)
 	tooltipFrame = tooltip
 end
 
-local function buildGui()
+function buildGui()
 	if gui then
 		return
 	end
@@ -1011,7 +1027,7 @@ local function buildGui()
 end
 
 -- Map quick-access icon that stays on screen when the full map is closed
-local function buildMapIcon()
+function buildMapIcon()
 	if mapIconGui then
 		return
 	end
@@ -1087,7 +1103,7 @@ local function buildMapIcon()
 	TweenService:Create(iconBtn, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Size = UDim2.fromOffset(48, 48) }):Play()
 end
 
-local function setMapIconVisible(visible: boolean)
+function setMapIconVisible(visible: boolean)
 	if not mapIconGui then
 		buildMapIcon()
 	end
@@ -1167,7 +1183,8 @@ local function boardWorldToMap(worldPos: Vector3, boardSize: number): UDim2
 	local dx = worldPos.X - campfireWorldPos.X
 	local dz = worldPos.Z - campfireWorldPos.Z
 	local scale = boardSize / (2 * mapRadius)
-	local px = dx * scale
+	-- Back face mirrors the X axis, so negate px to keep east on the right
+	local px = -dx * scale
 	local py = -dz * scale
 	local half = boardSize * 0.5
 	px = math.clamp(px, -half + 6, half - 6)
@@ -1176,10 +1193,11 @@ local function boardWorldToMap(worldPos: Vector3, boardSize: number): UDim2
 end
 
 local function buildBoardMinimap(data: { [string]: any })
-	if not data then
+	local boards = workspace:FindFirstChild("Boards")
+	if not boards then
 		return
 	end
-	local mapBoard = workspace:FindFirstChild("Boards") and workspace.Boards:FindFirstChild("MapBoard")
+	local mapBoard = boards:FindFirstChild("MapBoard")
 	if not mapBoard then
 		return
 	end
@@ -1199,13 +1217,14 @@ local function buildBoardMinimap(data: { [string]: any })
 	end
 
 	-- Build or clear the live minimap container
-	local liveMap = boardGui:FindFirstChild("LiveMap")
+	-- Canvas is 1024x660 (matches board 14:9 aspect). Use a square minimap that fits vertically.
+	local liveMap = boardGui:FindFirstChild("LiveMap") :: Frame?
 	if not liveMap then
 		liveMap = Instance.new("Frame")
 		liveMap.Name = "LiveMap"
-		liveMap.AnchorPoint = Vector2.new(0.5, 0)
-		liveMap.Position = UDim2.new(0.5, 0, 0, 70)
-		liveMap.Size = UDim2.fromOffset(380, 380)
+		liveMap.AnchorPoint = Vector2.new(0.5, 0.5)
+		liveMap.Position = UDim2.new(0.5, 0, 0.5, 10)
+		liveMap.Size = UDim2.fromOffset(440, 440)
 		liveMap.BackgroundColor3 = COLOR.MinimapBg
 		liveMap.BorderSizePixel = 0
 		liveMap.ClipsDescendants = true
@@ -1218,15 +1237,16 @@ local function buildBoardMinimap(data: { [string]: any })
 		liveStroke.Thickness = 4
 		liveStroke.Parent = liveMap
 	end
+	assert(liveMap, "liveMap is nil")
 	liveMap = liveMap :: Frame
 	boardMinimapFrame = liveMap
 	for _, child in ipairs(liveMap:GetChildren()) do
 		child:Destroy()
 	end
 
-table.clear(boardMarkerItems)
+	table.clear(boardMarkerItems)
 
-	local boardSize = 360
+	local boardSize = 420
 	local innerMinimap = Instance.new("Frame")
 	innerMinimap.Name = "InnerMinimap"
 	innerMinimap.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -1365,8 +1385,8 @@ table.clear(boardMarkerItems)
 	arrow.Parent = innerMinimap
 	boardPlayerArrow = arrow
 
-	-- Small compass labels on the board
-	local labels = { { n = "N", x = 0.5, y = 0.02 }, { n = "E", x = 0.96, y = 0.5 }, { n = "S", x = 0.5, y = 0.94 }, { n = "W", x = 0.02, y = 0.5 } }
+	-- Small compass labels on the board (E/W swapped because back face mirrors X)
+	local labels = { { n = "N", x = 0.5, y = 0.02 }, { n = "W", x = 0.96, y = 0.5 }, { n = "S", x = 0.5, y = 0.94 }, { n = "E", x = 0.02, y = 0.5 } }
 	for _, l in ipairs(labels) do
 		local label = Instance.new("TextLabel")
 		label.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -1391,7 +1411,7 @@ local function updateBoardPlayerMarker()
 	if not rootPart or not rootPart:IsA("BasePart") then
 		return
 	end
-	local boardSize = 360
+	local boardSize = 420
 	local mapPos = boardWorldToMap(rootPart.Position, boardSize)
 	boardPlayerMarker.Position = mapPos
 
@@ -1411,7 +1431,8 @@ local function updateBoardPlayerMarker()
 	end
 
 	if heading then
-		local angleRad = math.atan2(heading.X, -heading.Z)
+		-- Back face mirrors X, so negate the X component of the heading angle
+		local angleRad = math.atan2(-heading.X, -heading.Z)
 		local angleDeg = math.deg(angleRad)
 		boardPlayerArrow.Rotation = angleDeg
 		local offset = 12
@@ -1461,7 +1482,7 @@ local function updatePlayerMarker()
 	updateBoardPlayerMarker()
 end
 
-local function openMap(data: { [string]: any })
+function openMap(data: { [string]: any })
 	buildGui()
 	buildMapIcon()
 	if not gui or not bgFrame or not panelScale then
@@ -1473,7 +1494,8 @@ local function openMap(data: { [string]: any })
 	buildMarkers()
 
 	local counts = computeSidebarCounts()
-	buildSidebar(gui:FindFirstChild("Background"):FindFirstChild("Panel") :: Frame, counts)
+	local bg = gui:FindFirstChild("Background") :: Frame
+	buildSidebar(bg:FindFirstChild("Panel") :: Frame, counts)
 	updateAccessibleAreaInfo()
 	hideTooltip()
 
@@ -1499,7 +1521,7 @@ local function openMap(data: { [string]: any })
 	end
 end
 
-local function closeMap()
+function closeMap()
 	if not gui or not bgFrame or not panelScale then
 		if gui then
 			gui.Enabled = false
@@ -1533,7 +1555,8 @@ local function showLockedMessage()
 		return
 	end
 
-	local panel = gui:FindFirstChild("Background"):FindFirstChild("Panel")
+	local bg = gui:FindFirstChild("Background") :: Frame
+	local panel = bg:FindFirstChild("Panel") :: Frame
 	if not panel then
 		return
 	end
@@ -1651,7 +1674,7 @@ function MapController:KnitStart()
 				boardMinimapFrame = nil
 				boardPlayerMarker = nil
 				boardPlayerArrow = nil
-				table.clear(boardMarkerItems)
+					table.clear(boardMarkerItems)
 			end
 			if mapIconGui then
 				mapIconGui.Enabled = false
