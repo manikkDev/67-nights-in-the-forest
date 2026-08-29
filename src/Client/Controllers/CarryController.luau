@@ -605,7 +605,7 @@ end
 -- // INITIALIZATION // --
 
 function CarryController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	harvestService = Knit.GetService("HarvestService")
 	forageService = Knit.GetService("ForageService")
 	inventoryService = Knit.GetService("InventoryService")

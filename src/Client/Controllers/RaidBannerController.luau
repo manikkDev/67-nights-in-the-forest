@@ -639,7 +639,7 @@ end
 -- // INITIALIZATION // --
 
 function RaidBannerController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	local cultistRaidService = Knit.GetService("CultistRaidService")
 
 	cultistRaidService.RaidWarning:Connect(function(_dayNumber: number, phase: string)

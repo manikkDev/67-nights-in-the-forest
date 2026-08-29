@@ -609,7 +609,7 @@ end
 -- // INITIALIZATION // --
 
 function FlashlightController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	gameStateController = Knit.GetController("GameStateController")
 	flashlightService = Knit.GetService("FlashlightService")
 

@@ -417,7 +417,7 @@ end
 -- // INITIALIZATION // --
 
 function ForageService:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	worldService = Knit.GetService("WorldService")
 	inventoryService = Knit.GetService("InventoryService")
 	hungerService = Knit.GetService("HungerService")

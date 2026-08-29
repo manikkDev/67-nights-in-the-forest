@@ -230,7 +230,7 @@ end
 -- // INITIALIZATION // --
 
 function HungerController:KnitInit()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	buildSurvivalGui()
 
 	local player = Players.LocalPlayer
@@ -248,7 +248,7 @@ function HungerController:KnitInit()
 end
 
 function HungerController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	local gameStateController = Knit.GetController("GameStateController")
 	local hungerService = Knit.GetService("HungerService")
 	local runStateService = Knit.GetService("RunStateService")

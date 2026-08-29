@@ -1195,7 +1195,7 @@ end
 -- // INITIALIZATION // --
 
 function InventoryController:KnitInit()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	local playerGui = localPlayer:WaitForChild("PlayerGui")
 	if not playerGui then
 		warn("[InventoryController] PlayerGui not found")
@@ -1210,7 +1210,7 @@ function InventoryController:KnitInit()
 end
 
 function InventoryController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	gameStateController = Knit.GetController("GameStateController")
 	local inventoryService = Knit.GetService("InventoryService")
 

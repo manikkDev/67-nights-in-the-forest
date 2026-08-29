@@ -802,7 +802,7 @@ end
 -- // INITIALIZATION // --
 
 function CraftingService:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	runStateService = Knit.GetService("RunStateService")
 	playerDataService = Knit.GetService("PlayerDataService")
 	inventoryService = Knit.GetService("InventoryService")

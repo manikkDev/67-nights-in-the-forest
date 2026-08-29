@@ -177,12 +177,12 @@ end
 -- // INITIALIZATION // --
 
 function HudController:KnitInit()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	createPhaseUi()
 end
 
 function HudController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	gameStateController = Knit.GetController("GameStateController")
 	local timeService = Knit.GetService("TimeService")
 	local runStateService = Knit.GetService("RunStateService")

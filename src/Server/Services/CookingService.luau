@@ -39,7 +39,7 @@ local CookingService = Knit.CreateService({
 -- // INITIALIZATION // --
 
 function CookingService:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	-- Raw meat is cooked automatically when dropped onto the lit fire.
 end
 

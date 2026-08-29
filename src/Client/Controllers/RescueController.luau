@@ -752,7 +752,7 @@ end
 -- // INITIALIZATION // --
 
 function RescueController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	rescueService = Knit.GetService("RescueService")
 	local runStateService = Knit.GetService("RunStateService")
 	buildUi()

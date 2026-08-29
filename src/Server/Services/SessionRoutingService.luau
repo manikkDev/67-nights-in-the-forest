@@ -156,6 +156,12 @@ end
 
 -- | Routing | --
 function SessionRoutingService:IsReservedRunServer(): boolean
+	-- In Studio, never treat the server as a reserved run server because
+	-- players don't arrive via teleport (no TeleportData).  The LocalPartyReady
+	-- path handles Studio testing instead.
+	if RunService:IsStudio() then
+		return false
+	end
 	return ServerRole.IsGameServer()
 end
 

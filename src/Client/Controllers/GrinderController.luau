@@ -425,7 +425,7 @@ end
 -- // INITIALIZATION // --
 
 function GrinderController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	grinderService = Knit.GetService("GrinderService")
 	inventoryService = Knit.GetService("InventoryService")
 

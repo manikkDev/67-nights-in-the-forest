@@ -1504,7 +1504,7 @@ end
 -- // INITIALIZATION // --
 
 function RescueService:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	runStateService = Knit.GetService("RunStateService")
 	worldService = Knit.GetService("WorldService")
 	campfireService = Knit.GetService("CampfireService")

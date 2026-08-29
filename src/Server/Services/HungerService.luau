@@ -167,7 +167,7 @@ end
 -- // INITIALIZATION // --
 
 function HungerService:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	playerDataService = Knit.GetService("PlayerDataService")
 	spawnService = Knit.GetService("SpawnService")
 	playerLifeService = Knit.GetService("PlayerLifeService")

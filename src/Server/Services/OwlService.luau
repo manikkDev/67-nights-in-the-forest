@@ -893,7 +893,7 @@ end
 -- // INITIALIZATION // --
 
 function OwlService:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	worldService = Knit.GetService("WorldService")
 	timeService = Knit.GetService("TimeService")
 	runStateService = Knit.GetService("RunStateService")

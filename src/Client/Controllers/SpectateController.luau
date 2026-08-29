@@ -248,7 +248,7 @@ function SpectateController:Cycle(direction: number)
 end
 
 function SpectateController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	lifeService = Knit.GetService("PlayerLifeService")
 	local runStateService = Knit.GetService("RunStateService")
 	buildUi()

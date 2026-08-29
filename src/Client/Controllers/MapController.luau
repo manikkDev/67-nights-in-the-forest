@@ -1678,7 +1678,7 @@ end
 -- // INITIALIZATION // --
 
 function MapController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	mapService = Knit.GetService("MapService")
 	local runStateService = Knit.GetService("RunStateService")
 

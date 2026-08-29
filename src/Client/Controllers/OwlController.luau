@@ -238,7 +238,7 @@ end
 -- // INITIALIZATION // --
 
 function OwlController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	local owlService = Knit.GetService("OwlService")
 
 	owlService.OwlActive:Connect(function()

@@ -208,7 +208,7 @@ end
 -- // INITIALIZATION // --
 
 function HarvestController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	gameStateController = Knit.GetController("GameStateController")
 	local harvestService = Knit.GetService("HarvestService")
 	harvestService.TreeChopped:Connect(function()

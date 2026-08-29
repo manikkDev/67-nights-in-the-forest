@@ -1098,7 +1098,7 @@ end
 -- // INITIALIZATION // --
 
 function AnimalAIService:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	worldService = Knit.GetService("WorldService")
 	timeService = Knit.GetService("TimeService")
 	spawnService = Knit.GetService("SpawnService")

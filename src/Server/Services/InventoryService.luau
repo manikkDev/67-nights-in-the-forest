@@ -1481,7 +1481,7 @@ end
 -- // INITIALIZATION // --
 
 function InventoryService:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	playerDataService = Knit.GetService("PlayerDataService")
 	worldService = Knit.GetService("WorldService")
 	spawnService = Knit.GetService("SpawnService")

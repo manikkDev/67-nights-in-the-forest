@@ -360,7 +360,7 @@ end
 -- // INITIALIZATION // --
 
 function EndingService:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	runStateService = Knit.GetService("RunStateService")
 	timeService = Knit.GetService("TimeService")
 	playerDataService = Knit.GetService("PlayerDataService")

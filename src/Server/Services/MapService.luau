@@ -272,7 +272,7 @@ end
 -- // INITIALIZATION // --
 
 function MapService:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	runStateService = Knit.GetService("RunStateService")
 	worldService = Knit.GetService("WorldService")
 	rescueService = Knit.GetService("RescueService")

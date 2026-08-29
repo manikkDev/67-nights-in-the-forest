@@ -71,7 +71,7 @@ end
 -- // INITIALIZATION // --
 
 function TimeController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	local timeService = Knit.GetService("TimeService")
 	timeService.DayStarted:Connect(onDayStarted)
 	timeService.NightStarted:Connect(onNightStarted)

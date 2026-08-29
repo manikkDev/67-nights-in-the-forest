@@ -475,7 +475,7 @@ end
 -- // INITIALIZATION // --
 
 function BuildingController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	craftingService = Knit.GetService("CraftingService")
 	buildingService = Knit.GetService("BuildingService")
 	buildStatusUi()

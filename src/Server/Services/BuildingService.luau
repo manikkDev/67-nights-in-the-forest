@@ -674,7 +674,7 @@ end
 -- // INITIALIZATION // --
 
 function BuildingService:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	runStateService = Knit.GetService("RunStateService")
 	craftingService = Knit.GetService("CraftingService")
 	worldService = Knit.GetService("WorldService")

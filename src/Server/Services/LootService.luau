@@ -511,7 +511,7 @@ end
 -- // INITIALIZATION // --
 
 function LootService:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	runStateService = Knit.GetService("RunStateService")
 	inventoryService = Knit.GetService("InventoryService")
 	worldService = Knit.GetService("WorldService")

@@ -726,7 +726,7 @@ end
 -- // INITIALIZATION // --
 
 function EndingController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	endingService = Knit.GetService("EndingService")
 	runStateService = Knit.GetService("RunStateService")
 	localUserId = Players.LocalPlayer.UserId

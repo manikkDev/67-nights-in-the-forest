@@ -435,7 +435,7 @@ function WorldService:KnitStart()
 	end
 
 	-- Game-only setup: base map, campfire, bonfire.
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	baseMap = findMap("Base-map")
 
 	if baseMap then

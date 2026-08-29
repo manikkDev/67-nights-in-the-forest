@@ -592,7 +592,7 @@ function RunStateService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 
 	-- Game-only wiring: time service, spawn, campfire, AI, etc.
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	timeService = Knit.GetService("TimeService")
 	spawnService = Knit.GetService("SpawnService")
 	campfireService = Knit.GetService("CampfireService")

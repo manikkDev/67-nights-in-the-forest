@@ -931,7 +931,7 @@ end
 -- // INITIALIZATION // --
 
 function CraftingController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	craftingService = Knit.GetService("CraftingService")
 	local runStateService = Knit.GetService("RunStateService")
 	buildUi()

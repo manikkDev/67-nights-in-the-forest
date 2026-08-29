@@ -313,7 +313,7 @@ end
 -- // INITIALIZATION // --
 
 function HealthBarController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	local animalAIService = Knit.GetService("AnimalAIService")
 	local cultistRaidService = Knit.GetService("CultistRaidService")
 

@@ -256,7 +256,7 @@ end
 -- // INITIALIZATION // --
 
 function CombatService:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	harvestService = Knit.GetService("HarvestService")
 	spawnService = Knit.GetService("SpawnService")
 	runStateService = Knit.GetService("RunStateService")

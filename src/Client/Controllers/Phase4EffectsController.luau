@@ -128,7 +128,7 @@ end
 -- // INITIALIZATION // --
 
 function Phase4EffectsController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	local timeService = Knit.GetService("TimeService")
 	local craftingService = Knit.GetService("CraftingService")
 	local buildingService = Knit.GetService("BuildingService")

@@ -28,6 +28,10 @@ local ServerRole = {}
     @returns  boolean
 ]]
 function ServerRole.IsLobby(): boolean
+	-- In Studio with SkipLobby, the server acts as both lobby AND game.
+	if RunService:IsStudio() and RunConfig.IsTestEnabled("SkipLobby") then
+		return true
+	end
 	return not ServerRole.IsGameServer()
 end
 
@@ -47,7 +51,9 @@ function ServerRole.IsGameServer(): boolean
 	end
 	-- No attribute set — fall back to runtime detection.
 	if RunService:IsStudio() then
-		return RunConfig.IsTestEnabled("ForceGameMode")
+		-- In Studio, SkipLobby mode means the lobby server also acts as the
+		-- game server (since there's no real teleport to a separate place).
+		return RunConfig.IsTestEnabled("ForceGameMode") or RunConfig.IsTestEnabled("SkipLobby")
 	end
 	-- A reserved game server has a non-empty PrivateServerId with no owner.
 	-- Public servers (lobby) have an empty PrivateServerId.

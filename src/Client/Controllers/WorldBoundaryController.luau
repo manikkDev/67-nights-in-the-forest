@@ -144,7 +144,7 @@ local function updateProximity(dt: number)
 end
 
 function WorldBoundaryController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	worldService = Knit.GetService("WorldService")
 	progressionService = Knit.GetService("WorldProgressionService")
 	ensureWarning()

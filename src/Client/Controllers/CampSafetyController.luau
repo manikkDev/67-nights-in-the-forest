@@ -300,13 +300,13 @@ end
 -- // INITIALIZATION // --
 
 function CampSafetyController:KnitInit()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	colorCorrection = ensureColorCorrection()
 	warningLabel = buildWarningLabel()
 end
 
 function CampSafetyController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	gameStateController = Knit.GetController("GameStateController")
 	worldService = Knit.GetService("WorldService")
 	campfireService = Knit.GetService("CampfireService")

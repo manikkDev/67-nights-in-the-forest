@@ -75,7 +75,7 @@ end
 -- // INITIALIZATION // --
 
 function ProceduralAnimController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	gameStateController = Knit.GetController("GameStateController")
 	janitor:Add(RunService.Heartbeat:Connect(onHeartbeat), "Disconnect")
 end

@@ -400,7 +400,7 @@ end
 -- // INITIALIZATION // --
 
 function LootController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "LootGui"
 	gui.ResetOnSpawn = false

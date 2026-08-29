@@ -130,7 +130,7 @@ local function disableReset()
 end
 
 function LifeStateController:KnitStart()
-	if ServerRole.IsLobby() then return end
+	if not ServerRole.IsGameServer() then return end
 	lifeService = Knit.GetService("PlayerLifeService")
 	local runStateService = Knit.GetService("RunStateService")
 	buildUi()
