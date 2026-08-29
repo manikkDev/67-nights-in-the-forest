@@ -105,6 +105,7 @@ local STALKER_DEFS = {
 -- | State Management | --
 local worldService: any = nil
 local timeService: any = nil
+local runStateService: any = nil
 local campfireService: any = nil
 local spawnService: any = nil
 local playerLifeService: any = nil
@@ -121,7 +122,10 @@ local lastPhase: string? = nil
     @param    signal  KnitSignal
 ]]
 local function broadcastToAll(signal, ...)
-	for _, player in ipairs(Players:GetPlayers()) do
+	if not runStateService or not runStateService:IsActive() then
+		return
+	end
+	for _, player in ipairs(runStateService:GetMembers()) do
 		signal:Fire(player, ...)
 	end
 end
@@ -463,7 +467,10 @@ local function findHuntableTarget(fromPosition: Vector3): (Player?, Vector3?)
 	local nearest: Player? = nil
 	local nearestPos: Vector3? = nil
 	local nearestDist = math.huge
-	for _, player in ipairs(Players:GetPlayers()) do
+	for _, player in ipairs(runStateService:GetMembers()) do
+		if not runStateService:IsActive() or not runStateService:IsMember(player) then
+			continue
+		end
 		if spawnService and not spawnService:IsPlayerSpawned(player) then
 			continue
 		end
@@ -1200,6 +1207,7 @@ end
 function DeerService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	timeService = Knit.GetService("TimeService")
+	runStateService = Knit.GetService("RunStateService")
 	campfireService = Knit.GetService("CampfireService")
 	spawnService = Knit.GetService("SpawnService")
 	playerLifeService = Knit.GetService("PlayerLifeService")

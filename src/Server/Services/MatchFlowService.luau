@@ -342,6 +342,46 @@ function MatchFlowService:GetState(player: Player): FlowState
 	return if session then session.state else "Lobby"
 end
 
+--[[
+    @summary  Restart a run for the same party after a unanimous replay vote.
+    @desc    Used by EndingService when every remaining member votes to replay.
+             The party metadata (party id, host, initial size) is preserved so
+             difficulty scaling and host rights remain consistent.
+    @param   participants  { Player }  -- remaining members who voted yes
+    @param   metadata      table       -- { partyId, hostUserId, initialPartySize }
+]]
+function MatchFlowService:StartRunForReplay(participants: { Player }, metadata: { [string]: any }): boolean
+	if not runStateService or #participants == 0 then
+		return false
+	end
+	local startedRunId = runStateService:StartRun(participants, metadata)
+	if not startedRunId then
+		return false
+	end
+	if spawnService then
+		spawnService:SpawnParty(participants)
+	end
+	if timeService then
+		timeService:StartMatch()
+	end
+	for _, player in ipairs(participants) do
+		if player.Parent == Players and runStateService:IsMember(player) then
+			MatchFlowService.Client.FlowStateChanged:Fire(player, "Day1")
+		end
+	end
+	task.delay(DAY1_HOLD_SECONDS, function()
+		if not runStateService:IsCurrentRun(startedRunId) then
+			return
+		end
+		for _, player in ipairs(participants) do
+			if player.Parent == Players and runStateService:IsMember(player) then
+				MatchFlowService.Client.FlowStateChanged:Fire(player, "InGame")
+			end
+		end
+	end)
+	return true
+end
+
 function MatchFlowService.Client:GetSnapshot(player: Player): { [string]: any }
 	local session = sessionsByPlayer[player]
 	return if session then snapshotFor(session, player) else { state = "Lobby" }

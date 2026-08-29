@@ -71,6 +71,9 @@ local Config = {
 	MaxStructures = 48,
 
 	ResultsDisplaySeconds = 12,
+	ReplayVoteSeconds = 30,
+	ReplayRequestCooldown = 1.5,
+	EarlyReturnCooldown = 1.5,
 
 	StudioTest = StudioTest,
 }

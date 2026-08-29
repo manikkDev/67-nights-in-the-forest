@@ -58,6 +58,7 @@ local CULTIST_MODEL_KEYS = { "Cultist", "Cultist2" }
 -- | State Management | --
 local timeService: any = nil
 local worldService: any = nil
+local runStateService: any = nil
 local animalAIService: any = nil
 local campfireService: any = nil
 local deerService: any = nil
@@ -78,7 +79,10 @@ local preNightWarningFired = false
     @param    signal  KnitSignal
 ]]
 local function broadcastToAll(signal, ...)
-	for _, player in ipairs(Players:GetPlayers()) do
+	if not runStateService or not runStateService:IsActive() then
+		return
+	end
+	for _, player in ipairs(runStateService:GetMembers()) do
 		signal:Fire(player, ...)
 	end
 end
@@ -305,6 +309,7 @@ end
 function CultistRaidService:KnitStart()
 	timeService = Knit.GetService("TimeService")
 	worldService = Knit.GetService("WorldService")
+	runStateService = Knit.GetService("RunStateService")
 	animalAIService = Knit.GetService("AnimalAIService")
 	campfireService = Knit.GetService("CampfireService")
 	deerService = Knit.GetService("DeerService")

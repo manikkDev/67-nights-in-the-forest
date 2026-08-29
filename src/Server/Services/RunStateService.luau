@@ -387,6 +387,18 @@ function RunStateService:AddMember(player: Player): boolean
 end
 
 --[[
+    @summary  Remove a player from the live run without ending it for others.
+    @desc    Used by EndingService when a player individually returns to the
+             lobby. The member record is preserved so the run still knows who
+             was originally part of the party, but the player no longer
+             receives run-scoped broadcasts or counts as a participant.
+    @param   player  Player
+]]
+function RunStateService:RemoveMember(player: Player)
+	members[player] = nil
+end
+
+--[[
     @summary  Begin a new run for the given players.
     @param    participants  { Player }
     @returns  string?  -- the new run identifier, or nil when refused

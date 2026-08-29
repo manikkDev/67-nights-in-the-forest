@@ -88,6 +88,7 @@ local DEFAULT_R15_IDLE_ID = "rbxassetid://507766388"
 -- | State Management | --
 local worldService: any = nil
 local timeService: any = nil
+local runStateService: any = nil
 local campfireService: any = nil
 local spawnService: any = nil
 local animalAIService: any = nil

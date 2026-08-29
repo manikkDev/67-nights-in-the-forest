@@ -54,6 +54,7 @@ local WEAPON_COOLDOWN = { Axe = 0.6, Spear = 0.9 }
 -- | State Management | --
 local harvestService: any = nil
 local spawnService: any = nil
+local runStateService: any = nil
 local spearTemplate: Tool? = nil
 local attackCooldowns: { [Player]: number } = {}
 
@@ -142,7 +143,10 @@ end
     @param    signal  KnitSignal
 ]]
 local function broadcastToAll(signal, ...)
-	for _, player in ipairs(Players:GetPlayers()) do
+	if not runStateService or not runStateService:IsActive() then
+		return
+	end
+	for _, player in ipairs(runStateService:GetMembers()) do
 		signal:Fire(player, ...)
 	end
 end
@@ -253,6 +257,7 @@ end
 function CombatService:KnitStart()
 	harvestService = Knit.GetService("HarvestService")
 	spawnService = Knit.GetService("SpawnService")
+	runStateService = Knit.GetService("RunStateService")
 
 	spearTemplate = buildSpearTool()
 end
