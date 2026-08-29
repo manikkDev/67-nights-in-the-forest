@@ -53,8 +53,9 @@ local currentMapStates: { [string]: any } = {}
 local trackedRescueId: string? = nil
 local portraitsLoaded = false
 
--- Forward declaration so loadPortraits can call refreshMapUi.
+-- Forward declaration so loadPortraits can call refreshMapUi and loadBoardPortraits.
 local refreshMapUi: ({ [string]: any }) -> () = nil
+local loadBoardPortraits: () -> () = nil
 
 local CAVE_ORDER = { "Dino", "Kraken", "Squid", "Koala" }
 
@@ -345,6 +346,83 @@ local function loadPortraits()
 		if mapOpen and currentMapStates then
 			refreshMapUi(currentMapStates)
 		end
+		-- Also populate the physical board's ViewportFrames.
+		loadBoardPortraits()
+	end)
+end
+
+--[[
+    @summary  Populate the physical board's SurfaceGui ViewportFrames with
+              portrait clones from ReplicatedStorage. ViewportFrame contents
+              do not replicate from the server, so the client must create
+              the camera and model locally for the board to show portraits.
+]]
+loadBoardPortraits = function()
+	task.spawn(function()
+		local folder = ReplicatedStorage:WaitForChild("Portraits", 10)
+		if not folder then
+			return
+		end
+		-- Find the physical board in the workspace, retrying for up to ~20s.
+		local boardModel = nil
+		for _ = 1, 40 do
+			local boardsFolder = workspace:FindFirstChild("Boards")
+			if boardsFolder then
+				boardModel = boardsFolder:FindFirstChild("MissingChildrenBoard")
+			end
+			if boardModel then
+				break
+			end
+			task.wait(0.5)
+		end
+		if not boardModel then
+			return
+		end
+		local boardPanel = boardModel:FindFirstChild("BoardPanel")
+		if not boardPanel or not boardPanel:IsA("BasePart") then
+			return
+		end
+		local surfaceGui = boardPanel:FindFirstChild("BoardGui")
+		if not surfaceGui or not surfaceGui:IsA("SurfaceGui") then
+			return
+		end
+		local posterRow = surfaceGui:FindFirstChild("PosterRow")
+		if not posterRow then
+			return
+		end
+		-- Each poster slot is a Frame named "<rescueId>Poster"
+		for _, rescueId in ipairs(CAVE_ORDER) do
+			local slot = posterRow:FindFirstChild(rescueId .. "Poster")
+			if not slot then
+				continue
+			end
+			local viewport = slot:FindFirstChild("Portrait")
+			if not viewport or not viewport:IsA("ViewportFrame") then
+				continue
+			end
+			-- Skip if already populated by this client.
+			if viewport:FindFirstChild("PortraitModel") then
+				continue
+			end
+			local template = folder:FindFirstChild(rescueId .. "PortraitTemplate")
+			if not template or not template:IsA("Model") then
+				continue
+			end
+			local model = template:Clone()
+			model.Name = "PortraitModel"
+			model:PivotTo(CFrame.new(0, 0, 0) * CFrame.Angles(0, math.rad(180), 0))
+			model.Parent = viewport
+			local size = model:GetExtentsSize()
+			local radius = math.max(size.X, size.Y, size.Z) / 2
+			if radius <= 0 then
+				radius = 3
+			end
+			local distance = radius * 2.8
+			local camera = Instance.new("Camera")
+			camera.CFrame = CFrame.new(Vector3.new(0, size.Y * 0.3, distance), Vector3.new(0, 0, 0))
+			camera.Parent = viewport
+			viewport.CurrentCamera = camera
+		end
 	end)
 end
 
@@ -372,7 +450,7 @@ refreshMapUi = function(states: { [string]: any })
 			if statusLabel then
 				local reqLevel = info.requiredCampfireLevel or "?"
 				statusLabel.Text = "Locked (Lv " .. tostring(reqLevel) .. ")"
-				statusLabel.TextColor3 = Color3.fromRGB(120, 120, 120)
+				statusLabel.TextColor3 = Color3.fromRGB(200, 60, 50)
 			end
 			if trackBtn then trackBtn.Visible = false end
 			if foundStamp then foundStamp.Visible = false end
@@ -381,7 +459,7 @@ refreshMapUi = function(states: { [string]: any })
 			if viewport then viewport.Visible = true end
 			if statusLabel then
 				statusLabel.Text = "Rescued!"
-				statusLabel.TextColor3 = Color3.fromRGB(30, 160, 50)
+				statusLabel.TextColor3 = Color3.fromRGB(40, 180, 60)
 			end
 			if trackBtn then trackBtn.Visible = false end
 			if foundStamp then foundStamp.Visible = true end
@@ -392,10 +470,10 @@ refreshMapUi = function(states: { [string]: any })
 			if statusLabel then
 				if state == "Carried" then
 					statusLabel.Text = "Being carried"
-					statusLabel.TextColor3 = Color3.fromRGB(200, 160, 30)
+					statusLabel.TextColor3 = Color3.fromRGB(210, 160, 30)
 				else
 					statusLabel.Text = "Available"
-					statusLabel.TextColor3 = Color3.fromRGB(200, 80, 30)
+					statusLabel.TextColor3 = Color3.fromRGB(40, 170, 60)
 				end
 			end
 			if trackBtn then
@@ -680,6 +758,8 @@ function RescueController:KnitStart()
 	if gui then
 		gui.Enabled = false
 	end
+	-- Populate the physical board portraits (retries until the board exists).
+	task.defer(loadBoardPortraits)
 
 	janitor:Add(rescueService.WaypointChanged:Connect(function(payload)
 		if typeof(payload) ~= "table" or payload.cleared == true then
@@ -731,6 +811,8 @@ function RescueController:KnitStart()
 		if typeof(snapshot) == "table" then
 			openMapUi(snapshot)
 		end
+		-- Ensure the physical board has portraits visible.
+		loadBoardPortraits()
 	end), "Disconnect")
 
 	-- Poster state updated: refresh map UI if open

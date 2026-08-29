@@ -72,18 +72,22 @@ local function buildSpearTool(): Tool?
 	end
 
 	local clone = source:Clone()
-	local shaft = clone:FindFirstChild("Union")
+	local handleModel = clone:FindFirstChild("handle")
+	local originalShaft = handleModel and handleModel:FindFirstChild("Handle")
+	local shaft = handleModel and handleModel:FindFirstChild("Grip")
 	if not shaft or not shaft:IsA("BasePart") then
-		warn("[CombatService] Spear shaft (Union) not found")
+		warn("[CombatService] Spear hand grip not found")
 		clone:Destroy()
 		return nil
+	end
+	if originalShaft and originalShaft:IsA("BasePart") then
+		originalShaft.Name = "Shaft"
 	end
 
 	local tool = Instance.new("Tool")
 	tool.Name = SPEAR_TOOL_NAME
 	tool.RequiresHandle = true
-	tool.GripPos = Vector3.new(0, -2, 0)
-	tool.GripForward = Vector3.new(0, 0, -1)
+	tool.Grip = CFrame.Angles(0, 0, math.rad(90))
 
 	shaft.Name = "Handle"
 	shaft.CanCollide = false
@@ -105,10 +109,12 @@ local function buildSpearTool(): Tool?
 				if sub:IsA("BasePart") then
 					sub.Anchored = false
 					sub.CanCollide = false
-					local weld = Instance.new("WeldConstraint")
-					weld.Part0 = shaft
-					weld.Part1 = sub
-					weld.Parent = shaft
+					if sub ~= shaft then
+						local weld = Instance.new("WeldConstraint")
+						weld.Part0 = shaft
+						weld.Part1 = sub
+						weld.Parent = shaft
+					end
 				end
 			end
 			for _, sub in ipairs(child:GetChildren()) do
@@ -123,26 +129,12 @@ local function buildSpearTool(): Tool?
 end
 
 --[[
-    @summary  Grant the Spear tool to a player's Backpack and StarterGear.
-    @param    player  Player
+    @summary  Return the cached Spear tool template for cloning by
+              other services (e.g. LootService granting it from chests).
+    @returns  Tool?
 ]]
-local function giveSpear(player: Player)
-	if not spearTemplate then
-		return
-	end
-	if spawnService and not spawnService:IsPlayerSpawned(player) then
-		return
-	end
-
-	local backpack = player:WaitForChild("Backpack")
-	if not backpack:FindFirstChild(SPEAR_TOOL_NAME) then
-		spearTemplate:Clone().Parent = backpack
-	end
-
-	local starterGear = player:WaitForChild("StarterGear")
-	if not starterGear:FindFirstChild(SPEAR_TOOL_NAME) then
-		spearTemplate:Clone().Parent = starterGear
-	end
+function CombatService:GetSpearTemplate(): Tool?
+	return spearTemplate
 end
 
 --[[
@@ -263,17 +255,6 @@ function CombatService:KnitStart()
 	spawnService = Knit.GetService("SpawnService")
 
 	spearTemplate = buildSpearTool()
-
-	if spawnService and spawnService.PlayerSpawned then
-		spawnService.PlayerSpawned:Connect(giveSpear)
-	end
-
-	for _, player in ipairs(Players:GetPlayers()) do
-		if spawnService and spawnService:IsPlayerSpawned(player) then
-			giveSpear(player)
-		end
-	end
-
 end
 
 Players.PlayerRemoving:Connect(function(player)

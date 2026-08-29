@@ -48,6 +48,8 @@ local toolJanitor = Janitor.new()
 local charJanitor = Janitor.new()
 local gameStateController: any = nil
 local damageCorrection: ColorCorrectionEffect? = nil
+local spearAnimId: string? = nil
+local cachedSpearTrack: AnimationTrack? = nil
 
 -- // FUNCTIONS // --
 
@@ -141,6 +143,55 @@ local function flashDamage()
 end
 
 --[[
+    @summary  Play the spear swing animation on the local character.
+    @desc     Reuses the same overhead strike animation the Axe uses
+              (published as AxeStrikeAnimation in ReplicatedStorage by
+              HarvestService). Caches the AnimationTrack per character.
+]]
+local function playSpearSwing()
+	-- Cache the animation id from ReplicatedStorage.
+	if not spearAnimId then
+		local anim = ReplicatedStorage:FindFirstChild("AxeStrikeAnimation")
+		if anim and anim:IsA("Animation") then
+			spearAnimId = anim.AnimationId
+		end
+	end
+	if not spearAnimId then
+		return
+	end
+
+	local character = Players.LocalPlayer.Character
+	if not character then
+		return
+	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		return
+	end
+
+	-- Reuse cached track if it still belongs to this animator.
+	if cachedSpearTrack and cachedSpearTrack.Parent == animator then
+		cachedSpearTrack:Play()
+		return
+	end
+
+	local animInstance = Instance.new("Animation")
+	animInstance.AnimationId = spearAnimId
+
+	cachedSpearTrack = animator:LoadAnimation(animInstance)
+	if cachedSpearTrack then
+		cachedSpearTrack.Priority = Enum.AnimationPriority.Action
+		cachedSpearTrack:Play()
+	end
+end
+
+--[[
     @summary  Wire Tool.Activated on the given Spear tool.
     @param    tool  Tool
 ]]
@@ -150,6 +201,7 @@ local function wireSpear(tool: Tool)
 		if not gameStateController or not gameStateController:IsInGame() then
 			return
 		end
+		playSpearSwing()
 		local combatService = Knit.GetService("CombatService")
 		combatService:RequestAttack()
 	end), "Disconnect")
@@ -164,6 +216,7 @@ local function watchForSpear(player: Player)
 	local function checkCharacter(character: Model)
 		toolJanitor:Cleanup()
 		charJanitor:Cleanup()
+		cachedSpearTrack = nil
 
 		local tool = character:FindFirstChild(SPEAR_TOOL_NAME)
 		if tool and tool:IsA("Tool") then

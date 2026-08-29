@@ -1128,6 +1128,19 @@ function RescueService:GetRescuedCount(): number
 end
 
 --[[
+    @summary  Return the center position of a cave by id.
+    @param    caveId  string
+    @returns  Vector3?
+]]
+function RescueService:GetCaveCenter(caveId: string): Vector3?
+	local record = caveRecords[caveId]
+	if record then
+		return record.center
+	end
+	return nil
+end
+
+--[[
     @summary  Return read-only cave positions for the map board.
     @returns  { { id: string, displayName: string, position: Vector3, state: string } }
 ]]
