@@ -71,8 +71,12 @@ local storyFrame: Frame? = nil
 local dayFrame: Frame? = nil
 local countdownLabel: TextLabel? = nil
 local createButton: TextButton? = nil
+local leaveButton: TextButton? = nil
+local rosterLabel: TextLabel? = nil
+local statusLabel: TextLabel? = nil
 local sizeButtons: { TextButton } = {}
 local selectedSize = 1
+local sessionSnapshot: { [string]: any }? = nil
 local countdownEndsAt: number? = nil
 local flowState = "Lobby"
 local introFinished = false
@@ -250,19 +254,49 @@ local function makeCircleButton(parent: Instance, name: string, text: string, co
 end
 
 local function updateSizeButtons()
+	local canConfigure = flowState == "Waiting" and sessionSnapshot ~= nil and sessionSnapshot.isHost == true
 	for i, button in ipairs(sizeButtons) do
+		button.Active = canConfigure
+		button.AutoButtonColor = canConfigure
 		if i == selectedSize then
 			button.BackgroundColor3 = SIZE_SELECTED
 			button.TextColor3 = Color3.new(0.1, 0.1, 0.1)
 		else
-			button.BackgroundColor3 = if i == 1 then SIZE_BTN else SIZE_DISABLED
-			button.TextColor3 = if i == 1 then Color3.new(1, 1, 1) else Color3.new(0.6, 0.6, 0.6)
+			button.BackgroundColor3 = if canConfigure then SIZE_BTN else SIZE_DISABLED
+			button.TextColor3 = if canConfigure then Color3.new(1, 1, 1) else Color3.new(0.6, 0.6, 0.6)
 		end
 	end
 	if createButton then
-		createButton.Text = "Create"
-		createButton.BackgroundColor3 = CREATE
+		createButton.Visible = flowState == "Waiting"
+		createButton.Active = canConfigure
+		createButton.AutoButtonColor = canConfigure
+		createButton.Text = if canConfigure then "Start" else "Waiting for Host"
+		createButton.BackgroundColor3 = if canConfigure then CREATE else SIZE_DISABLED
 	end
+end
+
+local function renderSession(snapshot: { [string]: any })
+	sessionSnapshot = snapshot
+	if typeof(snapshot.capacity) == "number" then
+		selectedSize = math.clamp(math.floor(snapshot.capacity), 1, 5)
+	end
+	local roster = if typeof(snapshot.roster) == "table" then snapshot.roster else {}
+	local lines = {}
+	for _, member in ipairs(roster) do
+		if typeof(member) == "table" then
+			table.insert(lines, (member.isHost and "Host  " or "Member  ") .. tostring(member.name or member.username or "Player"))
+		end
+	end
+	if rosterLabel then
+		rosterLabel.Text = #lines > 0 and table.concat(lines, "\n") or "Waiting for players..."
+	end
+	if statusLabel then
+		local queueName = tostring(snapshot.queueId or "Queue")
+		statusLabel.Text = if snapshot.isHost
+			then ("%s  |  You are host  |  %d/%d"):format(queueName, #roster, selectedSize)
+			else ("%s  |  Waiting for host  |  %d/%d"):format(queueName, #roster, selectedSize)
+	end
+	updateSizeButtons()
 end
 
 local function buildGui()
@@ -283,7 +317,7 @@ local function buildGui()
 	panel.Name = "CreatePartyFrame"
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
 	panel.Position = UDim2.fromScale(0.5, 0.5)
-	panel.Size = UDim2.fromOffset(420, 360)
+	panel.Size = UDim2.new(0.9, 0, 0.86, 0)
 	panel.BackgroundColor3 = PANEL
 	panel.BackgroundTransparency = PANEL_ALPHA
 	panel.BorderSizePixel = 0
@@ -294,6 +328,10 @@ local function buildGui()
 	local panelCorner = Instance.new("UICorner")
 	panelCorner.CornerRadius = UDim.new(0, 16)
 	panelCorner.Parent = panel
+	local panelSize = Instance.new("UISizeConstraint")
+	panelSize.MinSize = Vector2.new(300, 440)
+	panelSize.MaxSize = Vector2.new(540, 580)
+	panelSize.Parent = panel
 
 	local close = makeCircleButton(panel, "CloseButton", "X", CLOSE,
 		UDim2.new(1, -12, 0, 12), UDim2.fromOffset(36, 36))
@@ -308,15 +346,20 @@ local function buildGui()
 	title.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 	title.TextStrokeTransparency = 0.3
 
-	local partySize = makeLabel(panel, "PartySizeTitle", "Party Size", 36, BODY,
-		UDim2.fromScale(0.5, 0.22), UDim2.new(0, 260, 0, 44))
+	local status = makeLabel(panel, "StatusLabel", "Waiting for queue...", 16, BODY,
+		UDim2.fromScale(0.5, 0.14), UDim2.new(0.88, 0, 0, 34))
+	status.AnchorPoint = Vector2.new(0.5, 0)
+	statusLabel = status
+
+	local partySize = makeLabel(panel, "PartySizeTitle", "Party Capacity", 24, BODY,
+		UDim2.fromScale(0.5, 0.22), UDim2.new(0, 260, 0, 34))
 	partySize.AnchorPoint = Vector2.new(0.5, 0)
 
 	local sizeHolder = Instance.new("Frame")
 	sizeHolder.Name = "SizeHolder"
-	sizeHolder.AnchorPoint = Vector2.new(0.5, 0.5)
-	sizeHolder.Position = UDim2.fromScale(0.5, 0.4)
-	sizeHolder.Size = UDim2.fromOffset(280, 56)
+	sizeHolder.AnchorPoint = Vector2.new(0.5, 0)
+	sizeHolder.Position = UDim2.fromScale(0.5, 0.29)
+	sizeHolder.Size = UDim2.new(0.88, 0, 0, 48)
 	sizeHolder.BackgroundTransparency = 1
 	sizeHolder.ZIndex = 22
 	sizeHolder.Parent = panel
@@ -324,29 +367,31 @@ local function buildGui()
 	sizeList.FillDirection = Enum.FillDirection.Horizontal
 	sizeList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	sizeList.VerticalAlignment = Enum.VerticalAlignment.Center
-	sizeList.Padding = UDim.new(0, 12)
+	sizeList.Padding = UDim.new(0, 8)
 	sizeList.Parent = sizeHolder
 
 	for i = 1, 5 do
-		local btn = makeButton(sizeHolder, "Size" .. i, tostring(i), 22,
-			if i == 1 then SIZE_BTN else SIZE_DISABLED,
-			UDim2.new(), UDim2.fromOffset(48, 48), 8)
+		local btn = makeButton(sizeHolder, "Size" .. i, tostring(i), 20, SIZE_BTN,
+			UDim2.new(), UDim2.fromOffset(44, 44), 8)
 		btn.LayoutOrder = i
 		table.insert(sizeButtons, btn)
-		if i ~= 1 then
-			btn.AutoButtonColor = false
-			btn.Active = false
-		end
 	end
 
-	local createBtn = makeButton(panel, "CreateButton", "Create", 24, CREATE,
-		UDim2.fromScale(0.5, 0.58), UDim2.fromOffset(320, 52), 10)
+	local roster = makeLabel(panel, "RosterLabel", "Waiting for players...", 18, BODY,
+		UDim2.fromScale(0.08, 0.41), UDim2.new(0.84, 0, 0.27, 0))
+	roster.TextXAlignment = Enum.TextXAlignment.Left
+	roster.TextYAlignment = Enum.TextYAlignment.Top
+	rosterLabel = roster
+
+	local createBtn = makeButton(panel, "CreateButton", "Start", 22, CREATE,
+		UDim2.fromScale(0.5, 0.72), UDim2.new(0.78, 0, 0, 48), 10)
 	createBtn.AnchorPoint = Vector2.new(0.5, 0)
 	createButton = createBtn
 
-	local customize = makeButton(panel, "CustomizeButton", "customize", 18, CUSTOMIZE,
-		UDim2.fromScale(0.5, 0.75), UDim2.fromOffset(140, 32), 8)
-	customize.AnchorPoint = Vector2.new(0.5, 0)
+	local leaveBtn = makeButton(panel, "LeaveButton", "Leave", 19, CLOSE,
+		UDim2.fromScale(0.5, 0.83), UDim2.new(0.48, 0, 0, 42), 10)
+	leaveBtn.AnchorPoint = Vector2.new(0.5, 0)
+	leaveButton = leaveBtn
 
 	local countLabel = makeLabel(panel, "CountdownLabel", "5", 64, CREAM,
 		UDim2.fromScale(0.5, 0.58), UDim2.new(0, 320, 0, 80))
@@ -664,6 +709,24 @@ local function showCreateParty()
 	if not createPartyFrame then
 		return
 	end
+	waitingJanitor:Cleanup()
+	countdownEndsAt = nil
+	if countdownLabel then
+		countdownLabel.Visible = false
+	end
+	for _, button in ipairs(sizeButtons) do
+		button.Visible = true
+	end
+	if createButton then
+		createButton.Visible = true
+	end
+	for _, name in ipairs({ "PartySizeTitle", "SizeHolder", "RosterLabel", "StatusLabel" }) do
+		local object = createPartyFrame:FindFirstChild(name)
+		if object and object:IsA("GuiObject") then
+			object.Visible = true
+		end
+	end
+	updateSizeButtons()
 	if titleScreen then
 		if titleScreen.Visible then
 			hideTitleScreen()
@@ -686,9 +749,11 @@ local function showCountdown()
 	if createButton then
 		createButton.Visible = false
 	end
-	local customize = createPartyFrame:FindFirstChild("CustomizeButton")
-	if customize then
-		customize.Visible = false
+	for _, name in ipairs({ "PartySizeTitle", "SizeHolder" }) do
+		local object = createPartyFrame:FindFirstChild(name)
+		if object and object:IsA("GuiObject") then
+			object.Visible = false
+		end
 	end
 	if countdownLabel then
 		countdownLabel.Visible = true
@@ -747,24 +812,49 @@ local function finishIntro()
 		return
 	end
 	introFinished = true
-	if not dayFrame then
-		unlockMovement()
-		unlockCamera()
-		if gameStateController then
-			gameStateController:MarkIntroComplete()
-		end
-		destroyIntroGui()
-		return
+	if dayFrame then
+		fadeGui(dayFrame, 1, REVEAL_SECONDS)
 	end
-	fadeGui(dayFrame, 1, REVEAL_SECONDS)
-	task.delay(REVEAL_SECONDS, function()
+	task.delay(if dayFrame then REVEAL_SECONDS else 0, function()
+		if dayFrame then
+			dayFrame.Visible = false
+		end
+		waitingJanitor:Cleanup()
 		unlockMovement()
 		unlockCamera()
 		if gameStateController then
 			gameStateController:MarkIntroComplete()
 		end
-		destroyIntroGui()
 	end)
+end
+
+local function resetForLobby()
+	waitingJanitor:Cleanup()
+	countdownEndsAt = nil
+	introFinished = false
+	sessionSnapshot = nil
+	selectedSize = 1
+	if createPartyFrame then
+		createPartyFrame.Visible = false
+	end
+	if storyFrame then
+		storyFrame.Visible = false
+	end
+	if dayFrame then
+		dayFrame.Visible = false
+	end
+	if countdownLabel then
+		countdownLabel.Visible = false
+	end
+	for _, button in ipairs(sizeButtons) do
+		button.Visible = true
+	end
+	if leaveButton then
+		leaveButton.Visible = true
+	end
+	unlockMovement()
+	unlockCamera()
+	updateSizeButtons()
 end
 
 -- // INITIALIZATION // --
@@ -790,22 +880,35 @@ function IntroController:KnitStart()
 
 	if createButton then
 		createButton.MouseButton1Click:Connect(function()
-			if selectedSize ~= 1 or flowState ~= "Waiting" then
-				return
+			if flowState == "Waiting" and sessionSnapshot and sessionSnapshot.isHost == true then
+				matchFlow.RequestStart:Fire()
 			end
-			matchFlow.RequestStart:Fire()
 		end)
+	end
+
+	local function requestLeave()
+		if flowState == "Waiting" or flowState == "Countdown" then
+			matchFlow.RequestLeave:Fire()
+		end
+	end
+	if leaveButton then
+		leaveButton.MouseButton1Click:Connect(requestLeave)
+	end
+	if createPartyFrame then
+		local close = createPartyFrame:FindFirstChild("CloseButton")
+		if close and close:IsA("TextButton") then
+			close.MouseButton1Click:Connect(requestLeave)
+		end
 	end
 
 	for i, btn in ipairs(sizeButtons) do
 		btn.MouseButton1Click:Connect(function()
-			if flowState ~= "Waiting" then
+			if flowState ~= "Waiting" or not sessionSnapshot or sessionSnapshot.isHost ~= true then
 				return
 			end
-			if i == 1 then
-				selectedSize = 1
-				updateSizeButtons()
-			end
+			selectedSize = i
+			updateSizeButtons()
+			matchFlow.RequestSetCapacity:Fire(i)
 		end)
 	end
 
@@ -820,7 +923,9 @@ function IntroController:KnitStart()
 			end
 		end
 		flowState = state
-		if state == "Waiting" then
+		if state == "Lobby" then
+			resetForLobby()
+		elseif state == "Waiting" then
 			showCreateParty()
 		elseif state == "Countdown" then
 			showCountdown()
@@ -836,6 +941,34 @@ function IntroController:KnitStart()
 	matchFlow.Countdown:Connect(function(payload)
 		if typeof(payload) == "table" and typeof(payload.endsAt) == "number" then
 			countdownEndsAt = payload.endsAt
+		end
+	end)
+
+	matchFlow.SessionChanged:Connect(function(snapshot)
+		if typeof(snapshot) ~= "table" then
+			return
+		end
+		if snapshot.state == "Lobby" then
+			sessionSnapshot = nil
+		else
+			renderSession(snapshot)
+		end
+	end)
+
+	matchFlow:GetSnapshot():andThen(function(snapshot)
+		if typeof(snapshot) ~= "table" then
+			return
+		end
+		if snapshot.state ~= "Lobby" then
+			flowState = snapshot.state
+			renderSession(snapshot)
+			if snapshot.state == "Waiting" then
+				showCreateParty()
+			elseif snapshot.state == "Countdown" then
+				countdownEndsAt = snapshot.endsAt
+				showCreateParty()
+				showCountdown()
+			end
 		end
 	end)
 

@@ -126,6 +126,8 @@ local worldService: any = nil
 local playerDataService: any = nil
 local inventoryService: any = nil
 local spawnService: any = nil
+local runStateService: any = nil
+local playerLifeService: any = nil
 local stateLoaded = false
 local level = 1
 local levelProgress = 0
@@ -229,7 +231,7 @@ end
     @param    amount  number
 ]]
 function CampfireService:ApplyExternalDrain(amount: number)
-	if amount <= 0 or not isLit then
+	if not runStateService or not runStateService:IsActive() or amount <= 0 or not isLit then
 		return
 	end
 	fuel = math.clamp(fuel - amount, 0, maxFuel)
@@ -273,7 +275,7 @@ local function processLevelUps()
 		maxFuel = MAX_FUEL_BY_LEVEL[level]
 		fuel = math.clamp(fuel, 0, maxFuel)
 		currentSafeZoneRadius = if isLit then SAFE_ZONE_RADIUS_BY_LEVEL[level] else 0
-		for _, player in ipairs(Players:GetPlayers()) do
+		for _, player in ipairs(runStateService:GetMembers()) do
 			CampfireService.Client.LevelUp:Fire(player, level, level - 1, currentSafeZoneRadius, maxFuel)
 		end
 		CampfireService.LevelChangedServer:Fire(level, level - 1)
@@ -285,55 +287,6 @@ local function processLevelUps()
 		if levelProgress > cap then
 			levelProgress = cap
 		end
-	end
-end
-
---[[
-    @summary  Load the shared campfire state from a player's profile.
-    @param    player  Player
-]]
-local function loadCampfireStateFromPlayer(player: Player)
-	if not playerDataService then
-		stateLoaded = true
-		return
-	end
-
-	local ok, data = pcall(playerDataService.GetData, playerDataService, player)
-	if ok and data and data.Campfire then
-		level = math.clamp(data.Campfire.Level, 1, #MAX_FUEL_BY_LEVEL)
-		maxFuel = MAX_FUEL_BY_LEVEL[level]
-		levelProgress = math.clamp(data.Campfire.Progress, 0, (LEVEL_REQUIREMENTS[level] or math.huge))
-		fuel = math.clamp(data.Campfire.Fuel, 0, maxFuel)
-		isLit = fuel > 0
-	end
-
-	stateLoaded = true
-end
-
---[[
-    @summary  Save the shared campfire state into a single player's profile.
-    @param    player  Player
-]]
-local function saveCampfireStateToPlayer(player: Player)
-	if not playerDataService then
-		return
-	end
-
-	local ok = pcall(playerDataService.UpdateData, playerDataService, player, function(data)
-		data.Campfire = { Level = level, Progress = levelProgress, Fuel = fuel }
-	end)
-
-	if not ok then
-		warn("[CampfireService] Failed to save campfire state for", player.Name)
-	end
-end
-
---[[
-    @summary  Save the shared campfire state to every player's profile.
-]]
-local function saveCampfireState()
-	for _, player in ipairs(Players:GetPlayers()) do
-		saveCampfireStateToPlayer(player)
 	end
 end
 
@@ -430,10 +383,17 @@ end
     @param    target  Player?  -- nil to broadcast to all
 ]]
 local function isPlayerInGame(player: Player): boolean
-	if not spawnService then
-		return false
-	end
-	return spawnService:IsPlayerSpawned(player)
+	return runStateService ~= nil
+		and runStateService:IsActive()
+		and runStateService:IsMember(player)
+		and spawnService ~= nil
+		and spawnService:IsPlayerSpawned(player)
+end
+
+local function canInteract(player: Player): boolean
+	return isPlayerInGame(player)
+		and playerLifeService ~= nil
+		and playerLifeService:IsAlive(player)
 end
 
 local function broadcastFuel(target: Player?)
@@ -478,15 +438,6 @@ end
 ]]
 local function broadcastSafeZone(target: Player?, force: boolean?)
 	updateSafeZone()
-
-	-- Keep the replicated properties always in sync with the server state.
-	-- The SafeZoneChanged signal below is throttled to avoid spamming clients.
-	if CampfireService.Client.SafeZoneRadius then
-		CampfireService.Client.SafeZoneRadius:Set(currentSafeZoneRadius)
-	end
-	if CampfireService.Client.IsLit then
-		CampfireService.Client.IsLit:Set(isLit)
-	end
 
 	local shouldBroadcast = force
 		or math.abs(currentSafeZoneRadius - lastBroadcastRadius) >= SAFE_ZONE_BROADCAST_THRESHOLD
@@ -535,7 +486,7 @@ local function addFuel(woodAmount: number)
 	-- show the Campfire Level banner for the current level so the player
 	-- gets clear feedback the campfire is now burning.
 	if not wasLit and level == previousLevel then
-		for _, player in ipairs(Players:GetPlayers()) do
+		for _, player in ipairs(runStateService:GetMembers()) do
 			CampfireService.Client.LevelUp:Fire(player, level, level - 1, currentSafeZoneRadius, maxFuel)
 		end
 	end
@@ -544,7 +495,6 @@ local function addFuel(woodAmount: number)
 	broadcastSafeZone(nil, true)
 	broadcastFuel()
 	broadcastLevel()
-	saveCampfireState()
 end
 
 --[[
@@ -554,7 +504,7 @@ end
     @param    amount  number  -- logs to feed (default 1)
 ]]
 local function feedCampfire(player: Player, amount: number)
-	if not campfirePart or not inventoryService then
+	if not canInteract(player) or not campfirePart or not inventoryService then
 		return
 	end
 
@@ -590,20 +540,27 @@ end
     @summary  Convert a dropped RawMeat model into CookedMeat, either adding
               it to the original owner's inventory or spawning a pickup.
 ]]
+local function getEligibleDropOwner(model: Model): Player?
+	local ownerId = model:GetAttribute("DroppedBy")
+	if typeof(ownerId) ~= "number" then
+		return nil
+	end
+	for _, player in ipairs(runStateService:GetMembers()) do
+		if player.UserId == ownerId and canInteract(player) then
+			return player
+		end
+	end
+	return nil
+end
+
 local function cookRawMeat(model: Model)
 	if not isLit or fuel <= 0 or not inventoryService then
 		return
 	end
 
-	local ownerId = model:GetAttribute("DroppedBy")
-	local owner: Player? = nil
-	if ownerId and typeof(ownerId) == "number" then
-		for _, player in ipairs(Players:GetPlayers()) do
-			if player.UserId == ownerId then
-				owner = player
-				break
-			end
-		end
+	local owner = getEligibleDropOwner(model)
+	if not owner then
+		return
 	end
 
 	if owner then
@@ -665,12 +622,15 @@ local function scanForLogFuel()
 		if inventoryService:IsModelDragged(model) then
 			continue
 		end
+		if not getEligibleDropOwner(model) then
+			continue
+		end
 
 		if resourceName == "Wood" or resourceName == "Coal" then
 			consumedThisScan[model] = true
 			addFuel(if resourceName == "Coal" then 3 else 1)
 			model:Destroy()
-		elseif resourceName == "RawMeat" or resourceName == "RabbitMeat" then
+		elseif resourceName == "RawMeat" then
 			consumedThisScan[model] = true
 			cookRawMeat(model)
 		end
@@ -682,6 +642,9 @@ end
     @param    dt  number  -- delta time in seconds
 ]]
 local function onHeartbeat(dt: number)
+	if not runStateService or not runStateService:IsActive() then
+		return
+	end
 	if isLit then
 		local drain = FUEL_DRAIN_BASE * (FUEL_DRAIN_MULTIPLIER_BY_LEVEL[level] or 1) * dt
 		fuel = math.clamp(fuel - drain, 0, maxFuel)
@@ -864,6 +827,9 @@ end
     @returns  number, number, number, number, number, boolean
 ]]
 function CampfireService.Client:GetState(player: Player): (number, number, number, number, number, boolean)
+	if not runStateService:IsActive() or not runStateService:IsMember(player) then
+		return 0, MAX_FUEL_BY_LEVEL[1], 1, 0, LEVEL_REQUIREMENTS[1], false
+	end
 	local requirement = LEVEL_REQUIREMENTS[level] or LEVEL_REQUIREMENTS[#LEVEL_REQUIREMENTS]
 	return fuel, maxFuel, level, levelProgress, requirement, isLit
 end
@@ -875,6 +841,9 @@ end
     @returns  number, boolean  -- radius, isLit
 ]]
 function CampfireService.Client:GetSafeZoneInfo(player: Player): (number, boolean)
+	if not runStateService:IsActive() or not runStateService:IsMember(player) then
+		return 0, false
+	end
 	updateSafeZone()
 	return currentSafeZoneRadius, isLit
 end
@@ -883,64 +852,26 @@ end
 
 function CampfireService:KnitStart()
 	worldService = Knit.GetService("WorldService")
-	playerDataService = Knit.GetService("PlayerDataService")
 	inventoryService = Knit.GetService("InventoryService")
 	spawnService = Knit.GetService("SpawnService")
+	runStateService = Knit.GetService("RunStateService")
+	playerLifeService = Knit.GetService("PlayerLifeService")
 
-	for _, player in ipairs(Players:GetPlayers()) do
-		if not stateLoaded then
-			loadCampfireStateFromPlayer(player)
-		end
-	end
+	-- Campfire progress is authoritative in-memory run state. Player profiles
+	-- are deliberately never loaded or saved as the source for this shared state.
+	runStateService.RunStarted:Connect(function()
+		CampfireService:ResetForRun()
+		updateFireVisuals()
+		updateSafeZone()
+	end)
+	runStateService.RunCleaned:Connect(function()
+		CampfireService:ResetForRun()
+		updateFireVisuals()
+		updateSafeZone()
+	end)
 
 	setupCampfire()
 	CampfireService._HeartbeatConnection = RunService.Heartbeat:Connect(onHeartbeat)
-
-	Players.PlayerAdded:Connect(function(player)
-		if not stateLoaded then
-			loadCampfireStateFromPlayer(player)
-			updateFireVisuals()
-			updateSafeZone()
-			broadcastSafeZone(nil, true)
-			broadcastFuel()
-			broadcastLevel()
-		elseif playerDataService then
-			saveCampfireStateToPlayer(player)
-		end
-
-		if CampfireService.Client.SafeZoneRadius then
-			CampfireService.Client.SafeZoneRadius:Set(currentSafeZoneRadius)
-		end
-		if CampfireService.Client.IsLit then
-			CampfireService.Client.IsLit:Set(isLit)
-		end
-
-		local fraction = if maxFuel > 0 then fuel / maxFuel else 0
-		local requirement = LEVEL_REQUIREMENTS[level] or LEVEL_REQUIREMENTS[#LEVEL_REQUIREMENTS]
-		CampfireService.Client.SafeZoneChanged:Fire(player, currentSafeZoneRadius, isLit)
-		CampfireService.Client.FuelChanged:Fire(player, fuel, maxFuel, fraction, isLit)
-		CampfireService.Client.LevelChanged:Fire(player, level, levelProgress, requirement, math.clamp(levelProgress / requirement, 0, 1))
-	end)
-
-	if CampfireService.Client.SafeZoneRadius then
-		CampfireService.Client.SafeZoneRadius:Set(currentSafeZoneRadius)
-	end
-	if CampfireService.Client.IsLit then
-		CampfireService.Client.IsLit:Set(isLit)
-	end
-
-	for _, player in ipairs(Players:GetPlayers()) do
-		local fraction = if maxFuel > 0 then fuel / maxFuel else 0
-		local requirement = LEVEL_REQUIREMENTS[level] or LEVEL_REQUIREMENTS[#LEVEL_REQUIREMENTS]
-		CampfireService.Client.SafeZoneChanged:Fire(player, currentSafeZoneRadius, isLit)
-		CampfireService.Client.FuelChanged:Fire(player, fuel, maxFuel, fraction, isLit)
-		CampfireService.Client.LevelChanged:Fire(player, level, levelProgress, requirement, math.clamp(levelProgress / requirement, 0, 1))
-
-		if playerDataService then
-			saveCampfireStateToPlayer(player)
-		end
-	end
-
 end
 
 -- Rojo hot-reload path: if the service already existed, the new module's KnitStart

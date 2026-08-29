@@ -51,6 +51,7 @@ local gameStateController: any = nil
 local harvestService: any = nil
 local forageService: any = nil
 local inventoryService: any = nil
+local lifeService: any = nil
 local lastPickupTime = 0
 local hoveredModel: Model? = nil
 local hoverHighlight: Highlight? = nil
@@ -58,6 +59,7 @@ local hoverNameGui: BillboardGui? = nil
 
 local draggingModel: Model? = nil
 local draggingResourceName: string? = nil
+local draggingBodyPlayer: Player? = nil
 local dragTarget: BasePart? = nil
 local lastDragTargetSent = 0
 
@@ -93,6 +95,21 @@ local function findPickupModel(instance: Instance): (Model?, string?)
 			end
 		end
 		current = current.Parent
+	end
+	return nil, nil
+end
+
+-- Body models are never pickup resources. They are identified only by their
+-- owning Player and authoritative replicated life-state attribute.
+local function findBodyModel(instance: Instance): (Model?, Player?)
+	local model = instance:FindFirstAncestorOfClass("Model")
+	local player = model and Players:GetPlayerFromCharacter(model)
+	if not model or not player or player == localPlayer then
+		return nil, nil
+	end
+	local state = model:GetAttribute("LifeState")
+	if state == "Downed" or state == "Eliminated" then
+		return model, player
 	end
 	return nil, nil
 end
@@ -282,11 +299,14 @@ end
     @summary  Release the currently dragged item.
 ]]
 local function stopDrag()
-	if inventoryService then
+	if draggingBodyPlayer then
+		if lifeService then lifeService:RequestBodyDragStop() end
+	elseif inventoryService then
 		inventoryService:RequestDragStop()
 	end
 	draggingModel = nil
 	draggingResourceName = nil
+	draggingBodyPlayer = nil
 	dragTarget = nil
 end
 
@@ -330,7 +350,9 @@ local function updateDragTarget()
 	end
 	lastDragTargetSent = now
 
-	if inventoryService then
+	if draggingBodyPlayer then
+		if lifeService then lifeService.BodyDragTargetMoved:Fire(targetPos) end
+	elseif inventoryService then
 		inventoryService.DragTargetMoved:Fire(targetPos)
 	end
 end
@@ -340,25 +362,27 @@ end
 ]]
 local function updateHover()
 	if not gameStateController or not gameStateController:IsInGame() then
+		if draggingModel then stopDrag() end
 		clearHover()
 		return
 	end
 
-	if not isHoldingCarryBag() then
-		if draggingModel then
-			stopDrag()
-		end
-		clearHover()
-		return
-	end
-
-	if draggingModel and draggingResourceName then
+	if draggingModel then
 		if not draggingModel.Parent then
 			stopDrag()
 			clearHover()
 			return
 		end
-		setHover(draggingModel, draggingResourceName, "Release [LMB]")
+		if draggingBodyPlayer then
+			setHover(draggingModel, draggingBodyPlayer.DisplayName, "Release [LMB]")
+		elseif draggingResourceName then
+			if not isHoldingCarryBag() then
+				stopDrag()
+				clearHover()
+				return
+			end
+			setHover(draggingModel, draggingResourceName, "Release [LMB]")
+		end
 		updateDragTarget()
 		return
 	end
@@ -367,13 +391,20 @@ local function updateHover()
 		clearHover()
 		return
 	end
-
 	local instance = getMouseRay()
 	if not instance then
 		clearHover()
 		return
 	end
-
+	local body, bodyPlayer = findBodyModel(instance)
+	if body and bodyPlayer and isInRange(body) then
+		setHover(body, bodyPlayer.DisplayName, "[LMB] Lift / Drag Body")
+		return
+	end
+	if not isHoldingCarryBag() then
+		clearHover()
+		return
+	end
 	local model, resourceName = findPickupModel(instance)
 	if model and resourceName then
 		setHover(model, resourceName, "[LMB] Drag | [F] Pickup")
@@ -466,6 +497,27 @@ local function startDrag(model: Model, resourceName: string): boolean
 	return true
 end
 
+local function startBodyDrag(model: Model, targetPlayer: Player): boolean
+	if not lifeService or not isInRange(model) then
+		return false
+	end
+	local ok, result = lifeService:RequestBodyDragStart(targetPlayer):await()
+	if not ok or not result then
+		return false
+	end
+	draggingModel = model
+	draggingBodyPlayer = targetPlayer
+	draggingResourceName = nil
+	local target = workspace:WaitForChild("BodyDragTarget_" .. tostring(localPlayer.UserId), 2)
+	if target and target:IsA("BasePart") then
+		dragTarget = target
+		updateDragTarget()
+		return true
+	end
+	stopDrag()
+	return false
+end
+
 --[[
     @summary  Handle keyboard input for the pickup/drop key.
 ]]
@@ -476,11 +528,7 @@ local function onInputBegan(input: InputObject, gameProcessed: boolean)
 	if not gameStateController or not gameStateController:IsInGame() then
 		return
 	end
-	if not isHoldingCarryBag() then
-		return
-	end
-
-	-- LMB drag start.
+	-- LMB drag start. Bodies do not require the Carry Bag and never enter inventory.
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		if isMouseOverGui() then
 			return
@@ -497,14 +545,22 @@ local function onInputBegan(input: InputObject, gameProcessed: boolean)
 			return
 		end
 
-		local model, resourceName = findPickupModel(instance)
-		if model and resourceName then
-			startDrag(model, resourceName)
+		local body, bodyPlayer = findBodyModel(instance)
+		if body and bodyPlayer then
+			startBodyDrag(body, bodyPlayer)
+			return
+		end
+		if isHoldingCarryBag() then
+			local model, resourceName = findPickupModel(instance)
+			if model and resourceName then startDrag(model, resourceName) end
 		end
 		return
 	end
 
-	-- F key pickup/drop-one.
+	-- F key pickup/drop-one remains inventory-only.
+	if not isHoldingCarryBag() then
+		return
+	end
 	if input.KeyCode ~= PICKUP_KEY then
 		return
 	end
@@ -551,7 +607,20 @@ function CarryController:KnitStart()
 	harvestService = Knit.GetService("HarvestService")
 	forageService = Knit.GetService("ForageService")
 	inventoryService = Knit.GetService("InventoryService")
+	lifeService = Knit.GetService("PlayerLifeService")
 	gameStateController = Knit.GetController("GameStateController")
+
+	lifeService.LifeStateChanged:Connect(function(payload)
+		if typeof(payload) ~= "table" then return end
+		if draggingBodyPlayer and (payload.userId == draggingBodyPlayer.UserId or payload.userId == localPlayer.UserId) then
+			local state = payload.state
+			if payload.userId == draggingBodyPlayer.UserId and state ~= "Downed" and state ~= "Eliminated" then
+				stopDrag()
+			elseif payload.userId == localPlayer.UserId and state ~= "Alive" then
+				stopDrag()
+			end
+		end
+	end)
 
 	UserInputService.InputBegan:Connect(onInputBegan)
 	UserInputService.InputEnded:Connect(onInputEnded)

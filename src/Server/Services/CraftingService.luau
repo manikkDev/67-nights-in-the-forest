@@ -226,9 +226,6 @@ local function destroyUnauthorizedSounds()
 			end
 		end
 	end
-	if count > 0 then
-		print(("[CraftingService] Destroyed %d unauthorized sound(s)"):format(count))
-	end
 	return count
 end
 
@@ -426,12 +423,6 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 		scrap = countLabels[1]
 	end
 
-	print(("[CraftingService] Table counters: found %d count labels"):format(#countLabels))
-	for _, label in ipairs(countLabels) do
-		local role = if label == woodenSheet then "WoodenSheet" elseif label == scrap then "Scrap" else "Extra"
-		print(("  %s = %s (text=%q, hasImage=%s)"):format(role, label.Name, label.Text, tostring(hasImageIcon(label))))
-	end
-
 	return woodenSheet, scrap
 end
 
@@ -501,7 +492,6 @@ local function attachPrompt(model: Model)
 		newPrompt.RequiresLineOfSight = false
 		newPrompt.Parent = bestPart
 		prompt = newPrompt
-		print(("[CraftingService] attachPrompt: no existing prompt, created one on %s"):format(bestPart.Name))
 	else
 		-- Configure the existing prompt for crafting.
 		prompt.ActionText = "Craft"
@@ -546,33 +536,18 @@ local function attachPrompt(model: Model)
 				frontEdgeWorldPos += Vector3.new(0, 1.5, 0)
 
 				parent.Position = hostPart.CFrame:PointToObjectSpace(frontEdgeWorldPos)
-				print(("[CraftingService] attachPrompt: repositioned attachment to front edge of table top %s"):format(topPart.Name))
 			else
 				-- Fallback: center the attachment on the host part.
 				parent.Position = Vector3.new(0, 0, 0)
-				print("[CraftingService] attachPrompt: repositioned attachment to host part center (no table top found)")
 			end
 		end
-
-		print(("[CraftingService] attachPrompt: hooked into existing prompt '%s' on %s (distance=%d)"):format(
-			prompt.Name, prompt.Parent and prompt.Parent.Name or "unknown", prompt.MaxActivationDistance
-		))
 	end
 
 	assert(prompt, "[CraftingService] attachPrompt: prompt is nil after setup")
 	local activePrompt = prompt :: ProximityPrompt
 	activePrompt.Triggered:Connect(function(player)
-		local isActive = runStateService:IsActive()
-		local isMember = runStateService:IsMember(player)
-		print(("[CraftingService] Prompt triggered by %s | isActive=%s | isMember=%s"):format(
-			player.Name, tostring(isActive), tostring(isMember)
-		))
-		if isActive and isMember then
+		if runStateService:IsActive() and runStateService:IsMember(player) and isNearBench(player) then
 			CraftingService.Client.OpenCrafting:Fire(player)
-		else
-			warn(("[CraftingService] Cannot open crafting for %s | active=%s member=%s"):format(
-				player.Name, tostring(isActive), tostring(isMember)
-			))
 		end
 	end)
 end
@@ -604,7 +579,6 @@ local function placeBench()
 	if manualBench then
 		clone = manualBench
 		isManualBench = true
-		print("[CraftingService] Using sanitized user crafting-table")
 	else
 		-- No manual bench: try the ServerStorage source.
 		local mapsItems = ServerStorage.Assets:FindFirstChild("Assets maps items")
@@ -701,7 +675,7 @@ end
     @param    amount    number  -- how much was produced
 ]]
 function CraftingService:AddShreddedTotal(resource: string, amount: number)
-	if amount <= 0 then
+	if not runStateService:IsActive() or amount <= 0 then
 		return
 	end
 	if resource == "WoodenSheet" then
@@ -749,6 +723,9 @@ end
     @returns  table
 ]]
 function CraftingService.Client:GetBenchState(player: Player): { [string]: any }
+	if not runStateService:IsActive() or not runStateService:IsMember(player) then
+		return { tier = 1, resources = {}, recipeCounts = {}, unlocks = {}, isNearBench = false }
+	end
 	local data = playerDataService and playerDataService:GetData(player)
 	return {
 		tier = benchTier,

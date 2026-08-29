@@ -68,6 +68,7 @@ local bladeAttachment1: Attachment? = nil
 local grindSound: Sound? = nil
 local grindStopTimer: any = nil
 local touchCooldowns: { [Model]: number } = {} -- debounce per junk model
+local isNearGrinder: (Player) -> boolean
 
 -- // FUNCTIONS // --
 
@@ -269,7 +270,7 @@ local function attachPrompt(model: Model)
 	prompt.HoldDuration = 0
 	prompt.Parent = anchor
 	prompt.Triggered:Connect(function(player)
-		if runStateService:IsActive() and runStateService:IsMember(player) then
+		if runStateService:IsActive() and runStateService:IsMember(player) and isNearGrinder(player) then
 			GrinderService.Client.OpenGrinder:Fire(player)
 		end
 	end)
@@ -319,6 +320,10 @@ local function autoGrindTouched(model: Model)
 		return
 	end
 	if not runStateService:IsActive() or not runStateService:IsMember(player) then
+		return
+	end
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then
 		return
 	end
 
@@ -465,13 +470,14 @@ end
     @param    player  Player
     @returns  boolean
 ]]
-local function isNearGrinder(player: Player): boolean
+isNearGrinder = function(player: Player): boolean
 	if not grinderPosition then
 		return false
 	end
 	local character = player.Character
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-	if not rootPart or not rootPart:IsA("BasePart") then
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not rootPart or not rootPart:IsA("BasePart") or not humanoid or humanoid.Health <= 0 then
 		return false
 	end
 	return (rootPart.Position - grinderPosition).Magnitude <= GRIND_RANGE
@@ -561,7 +567,11 @@ function GrinderService:StopGrindAnimation()
 	if grindStopTimer then
 		task.cancel(grindStopTimer)
 	end
+	local capturedRunId = runStateService:GetRunId()
 	grindStopTimer = task.delay(1.5, function()
+		if not runStateService:IsCurrentRun(capturedRunId) then
+			return
+		end
 		if bladeAngularVel then
 			bladeAngularVel.AngularVelocity = Vector3.new(0, IDLE_SPIN_SPEED, 0)
 		end

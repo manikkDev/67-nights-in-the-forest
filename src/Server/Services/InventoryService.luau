@@ -53,8 +53,8 @@ local InventoryService = Knit.CreateService({
 InventoryService.ServerResourcesChanged = Signal.new()
 
 -- | Configuration | --
-local BASE_CAPACITY = 999999 -- TEMP: infinite capacity for testing, revert to 40 when done
-local BAG_CAPACITY_BONUS = 0 -- TEMP: folded into base, revert to 40 when done
+local BASE_CAPACITY = 40
+local BAG_CAPACITY_BONUS = 40
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local CARRY_BAG_NAME = "carry-bag"
 local CARRY_BAG_TOOL_NAME = "Carry Bag"
@@ -68,7 +68,6 @@ local RESOURCE_NAMES = {
 	"Mushrooms",
 	"RawMeat",
 	"CookedMeat",
-	"RabbitMeat",
 	"OwlFeather",
 	"CultistGem",
 	"Bandage",
@@ -99,7 +98,6 @@ local DROP_ASSETS: { [string]: string? } = {
 	Berries = "Carrot",
 	RawMeat = "rabbit-meat",
 	CookedMeat = "wolf-meat",
-	RabbitMeat = "rabbit-meat",
 	OwlFeather = nil :: string?,
 	CultistGem = "cultist gem",
 	Bandage = "Bandage",

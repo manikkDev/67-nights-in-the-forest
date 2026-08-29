@@ -319,9 +319,20 @@ end
     @param    payload table
 ]]
 local function broadcast(signal, payload)
+	if not runStateService:IsActive() then
+		return
+	end
 	for _, player in ipairs(runStateService:GetMembers()) do
 		signal:Fire(player, payload)
 	end
+end
+
+local function canInteract(player: Player): boolean
+	if not runStateService:IsActive() or not runStateService:IsMember(player) then
+		return false
+	end
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	return humanoid ~= nil and humanoid.Health > 0
 end
 
 --[[
@@ -360,7 +371,10 @@ local function wireStructure(record)
 	elseif structureId == "BearTrap" then
 		model:SetAttribute("Armed", true)
 		anchor.Touched:Connect(function(hit)
-			if model:GetAttribute("Armed") ~= true then
+			if not runStateService:IsActive()
+				or not runStateService:IsCurrentRun(model:GetAttribute("RunId"))
+				or model:GetAttribute("Armed") ~= true
+			then
 				return
 			end
 			local target = hit:FindFirstAncestorOfClass("Model")
@@ -383,6 +397,9 @@ end
     @param    payload  table
 ]]
 local function onDawn(payload)
+	if not runStateService:IsActive() then
+		return
+	end
 	for _, record in pairs(structures) do
 		if record.definition.Id == "FarmPlot" and record.model.Parent then
 			local readyCycle = record.model:GetAttribute("ReadyCycle")
@@ -414,7 +431,7 @@ end
     @returns  boolean  -- true when the structure was destroyed
 ]]
 function BuildingService:DamageStructure(model: Model, amount: number): boolean
-	if typeof(amount) ~= "number" or amount <= 0 then
+	if not runStateService:IsActive() or typeof(amount) ~= "number" or amount <= 0 then
 		return false
 	end
 	local structureId = model:GetAttribute("StructureId")
@@ -444,7 +461,7 @@ end
     @returns  Model?
 ]]
 function BuildingService.Client:GetPreviewModel(player: Player, structureId: string): Model?
-	if typeof(structureId) ~= "string" then
+	if not canInteract(player) or typeof(structureId) ~= "string" then
 		return nil
 	end
 	local definition = StructureConfig[structureId]
@@ -598,7 +615,7 @@ end
     @returns  boolean
 ]]
 function BuildingService.Client:RequestToggleGate(player: Player, structureId: string): boolean
-	if typeof(structureId) ~= "string" then
+	if not canInteract(player) or typeof(structureId) ~= "string" then
 		return false
 	end
 	local record = structures[structureId]
@@ -628,7 +645,7 @@ end
     @returns  boolean
 ]]
 function BuildingService.Client:RequestHarvest(player: Player, structureId: string): boolean
-	if typeof(structureId) ~= "string" then
+	if not canInteract(player) or typeof(structureId) ~= "string" then
 		return false
 	end
 	local record = structures[structureId]

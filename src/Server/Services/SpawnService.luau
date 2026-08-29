@@ -4,16 +4,12 @@
     @date    2025
 
     @summary
-    Server-authoritative lobby-to-game teleportation.
+    Server-authoritative queue entry and run-member character spawning.
 
     @description
-    Wires the lobby-map teleporter pads (Teleporter1/2/3 EnterPart)
-    to teleport players to the base-map Campfire on touch.  Also
-    exposes a Knit Remote for programmatic spawn requests.
-
-    @exports
-    - Knit Remote: RequestSpawn  -> void  (client -> server)
-    - SpawnService:SpawnPlayer(player)    (server only)
+    Teleporter1/2/3 touches enter isolated MatchFlow queues. Only current run
+    members may spawn at the campfire. This service owns fresh character loads,
+    deterministic party spacing, and deterministic lobby returns.
 ]]
 
 -- // VARIABLES // --
@@ -26,6 +22,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
+local Constants = require(ReplicatedStorage.Shared.Constants)
 
 -- | Objects | --
 local SpawnService = Knit.CreateService({
@@ -39,111 +36,206 @@ local SpawnService = Knit.CreateService({
 SpawnService.PlayerSpawned = Signal.new()
 
 -- | Configuration | --
-local SPAWN_RADIUS = 15
+local SPAWN_RADIUS = 12
 local SPAWN_HEIGHT = 5
-local TELEPORT_COOLDOWN = 5
+local TOUCH_COOLDOWN = 1
+local CHARACTER_TIMEOUT = 12
 
 -- | State Management | --
 local worldService: any = nil
 local matchFlowService: any = nil
 local runStateService: any = nil
 local spawnedPlayers: { [Player]: boolean } = {}
-local teleportCooldowns: { [Player]: number } = {}
+local spawningPlayers: { [Player]: boolean } = {}
+local touchCooldowns: { [Player]: number } = {}
 
 -- // FUNCTIONS // --
 
---[[
-    @summary  Teleport a player's character to a random point around the Campfire.
-    @desc    Uses math.random so players do not stack on each other.
-             Server-authoritative — the client cannot choose a position.
-    @param   player  Player  -- the Roblox player
-]]
-function SpawnService:SpawnPlayer(player: Player)
+-- | Character Safety | --
+local function loadFreshCharacter(player: Player): Model?
+	if player.Parent ~= Players then
+		return nil
+	end
+	local ok, err = pcall(function()
+		player:LoadCharacter()
+	end)
+	if not ok then
+		warn("[SpawnService] Character reload failed for", player.Name, err)
+	end
+	local deadline = os.clock() + CHARACTER_TIMEOUT
+	while player.Parent == Players and os.clock() < deadline do
+		local character = player.Character
+		if character and character.Parent and character:FindFirstChild("HumanoidRootPart") then
+			return character
+		end
+		task.wait(0.1)
+	end
+	return nil
+end
+
+local function queueAllowed(queueId: string): boolean
+	for _, allowed in ipairs(Constants.PARTY_QUEUE_IDS or {}) do
+		if queueId == allowed then
+			return true
+		end
+	end
+	return false
+end
+
+local function deterministicLobbyCFrame(): CFrame?
+	local lobbyMap = worldService and worldService:GetLobbyMap()
+	if not lobbyMap then
+		return nil
+	end
+	for _, name in ipairs({ "LobbySpawn", "SpawnLocation", "TeleportHere" }) do
+		local destination = lobbyMap:FindFirstChild(name, true)
+		if destination and destination:IsA("BasePart") then
+			return destination.CFrame * CFrame.new(0, 4, 0)
+		end
+	end
+	return lobbyMap:GetPivot() * CFrame.new(0, 8, 0)
+end
+
+-- | Run Spawning | --
+function SpawnService:SpawnPlayer(player: Player, slot: number?, partySize: number?): boolean
 	if spawnedPlayers[player] then
-		return
+		return true
 	end
-
-	local character = player.Character
-	if not character then
-		return
+	if spawningPlayers[player] or not runStateService or not runStateService:IsMember(player) then
+		return false
 	end
+	spawningPlayers[player] = true
 
-	local primaryPart = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
-	if not primaryPart then
-		return
-	end
-
-	local campfireCFrame = worldService and worldService:GetCampfireCFrame() or nil
+	local campfireCFrame = worldService and worldService:GetCampfireCFrame()
 	if not campfireCFrame then
+		spawningPlayers[player] = nil
 		warn("[SpawnService] Campfire CFrame not available")
-		return
+		return false
+	end
+	local character = loadFreshCharacter(player)
+	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+	if not rootPart or not rootPart:IsA("BasePart") or not runStateService:IsMember(player) then
+		spawningPlayers[player] = nil
+		return false
 	end
 
-	local angle = math.random() * math.pi * 2
-	local offsetX = math.cos(angle) * SPAWN_RADIUS
-	local offsetZ = math.sin(angle) * SPAWN_RADIUS
+	local count = math.max(1, partySize or 1)
+	local index = math.clamp(slot or 1, 1, count)
+	local angle = ((index - 1) / count) * math.pi * 2
+	local target = campfireCFrame * CFrame.new(math.cos(angle) * SPAWN_RADIUS, SPAWN_HEIGHT, math.sin(angle) * SPAWN_RADIUS)
+	rootPart.Anchored = false
+	character:PivotTo(target)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid:Move(Vector3.zero, false)
+	end
 
-	local targetCFrame = campfireCFrame * CFrame.new(offsetX, SPAWN_HEIGHT, offsetZ)
-	primaryPart.CFrame = targetCFrame
-
+	spawningPlayers[player] = nil
 	spawnedPlayers[player] = true
 	SpawnService.Client.PlayerSpawned:Fire(player)
 	SpawnService.PlayerSpawned:Fire(player)
+	return true
+end
+
+function SpawnService:SpawnParty(participants: { Player }): boolean
+	local completed = 0
+	local expected = #participants
+	for index, player in ipairs(participants) do
+		task.spawn(function()
+			self:SpawnPlayer(player, index, expected)
+			completed += 1
+		end)
+	end
+	local deadline = os.clock() + CHARACTER_TIMEOUT + 2
+	while completed < expected and os.clock() < deadline do
+		task.wait(0.1)
+	end
+	return completed == expected
+end
+
+function SpawnService:IsPlayerSpawned(player: Player): boolean
+	return spawnedPlayers[player] == true
 end
 
 --[[
-    @summary  Wire all teleporter EnterParts in the lobby-map for touch teleport.
-    @desc    Finds Teleporter1/2/3 models in the lobby-map and connects
-             Touched events on their EnterPart children.  When a player
-             touches an EnterPart, they are teleported to the base-map.
+    @summary  Move an existing revivable character to a safe campfire position.
+    @desc     Unlike SpawnPlayer, this deliberately preserves the in-world body
+              and does not reload the character.
 ]]
+function SpawnService:ReviveAtCampfire(player: Player): boolean
+	if player.Parent ~= Players or not runStateService or not runStateService:IsActive() or not runStateService:IsMember(player) then
+		return false
+	end
+	local campfireCFrame = worldService and worldService:GetCampfireCFrame()
+	local character = player.Character
+	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+	if not campfireCFrame or not character or not rootPart or not rootPart:IsA("BasePart") then
+		return false
+	end
+	for _, descendant in ipairs(character:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			descendant.Anchored = false
+			descendant.AssemblyLinearVelocity = Vector3.zero
+			descendant.AssemblyAngularVelocity = Vector3.zero
+		end
+	end
+	character:PivotTo(campfireCFrame * CFrame.new(0, SPAWN_HEIGHT, SPAWN_RADIUS))
+	return true
+end
+
+function SpawnService:ResetPlayer(player: Player)
+	spawnedPlayers[player] = nil
+	spawningPlayers[player] = nil
+	touchCooldowns[player] = nil
+end
+
+function SpawnService:ReturnToLobby(player: Player): boolean
+	local target = deterministicLobbyCFrame()
+	if not target or player.Parent ~= Players then
+		return false
+	end
+	local character = loadFreshCharacter(player)
+	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+	if not rootPart or not rootPart:IsA("BasePart") then
+		return false
+	end
+	rootPart.Anchored = false
+	character:PivotTo(target)
+	self:ResetPlayer(player)
+	return true
+end
+
+-- | Teleporter Queues | --
 local function wireTeleporters()
-	if not worldService then
-		task.defer(wireTeleporters)
-		return
-	end
-	local lobbyMap = worldService:GetLobbyMap()
+	local lobbyMap = worldService and worldService:GetLobbyMap()
 	if not lobbyMap then
-		task.defer(wireTeleporters)
+		task.delay(1, wireTeleporters)
 		return
 	end
-
-	for _, child in ipairs(lobbyMap:GetChildren()) do
-		if child:IsA("Model") and child.Name:match("^Teleporter%d") then
-			-- Connect Touched on ALL EnterPart children (each teleporter has 4)
-			for _, desc in ipairs(child:GetDescendants()) do
-				if desc.Name == "EnterPart" and desc:IsA("BasePart") then
-					desc.Touched:Connect(function(hit)
+	for _, teleporter in ipairs(lobbyMap:GetChildren()) do
+		if teleporter:IsA("Model") and queueAllowed(teleporter.Name) then
+			local queueId = teleporter.Name
+			for _, descendant in ipairs(teleporter:GetDescendants()) do
+				if descendant.Name == "EnterPart" and descendant:IsA("BasePart") then
+					descendant.Touched:Connect(function(hit)
 						local character = hit:FindFirstAncestorOfClass("Model")
-						if not character then return end
-						local player = Players:GetPlayerFromCharacter(character)
-						if not player then return end
-						if spawnedPlayers[player] then return end
-
-						local now = os.clock()
-						if teleportCooldowns[player] and (now - teleportCooldowns[player]) < TELEPORT_COOLDOWN then
+						local player = character and Players:GetPlayerFromCharacter(character)
+						if not player or spawnedPlayers[player] then
 							return
 						end
-						teleportCooldowns[player] = now
-
-						-- Move the player inside the teleporter box instantly before the UI opens.
-						local teleporter = desc:FindFirstAncestorOfClass("Model")
-						local destination = teleporter and teleporter:FindFirstChild("TeleportHere")
-						if destination and destination:IsA("BasePart") then
-							local hrp = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
-							if hrp then
-								hrp.CFrame = destination.CFrame * CFrame.new(0, 3, 0)
-								local humanoid = character:FindFirstChildOfClass("Humanoid")
-								if humanoid then
-									humanoid:Move(Vector3.new(), true)
-								end
-							end
+						local now = os.clock()
+						if now - (touchCooldowns[player] or 0) < TOUCH_COOLDOWN then
+							return
 						end
+						touchCooldowns[player] = now
 
+						local destination = teleporter:FindFirstChild("TeleportHere")
+						local rootPart = character:FindFirstChild("HumanoidRootPart")
+						if destination and destination:IsA("BasePart") and rootPart and rootPart:IsA("BasePart") then
+							character:PivotTo(destination.CFrame * CFrame.new(0, 3, 0))
+						end
 						if matchFlowService then
-							matchFlowService:EnterWaiting(player)
-						else
-							SpawnService:SpawnPlayer(player)
+							matchFlowService:EnterWaiting(player, queueId)
 						end
 					end)
 				end
@@ -152,122 +244,38 @@ local function wireTeleporters()
 	end
 end
 
---[[
-    @summary  Client-facing remote requesting teleportation to the game map.
-    @desc    The server validates that the player has not already spawned
-             and that a character exists before teleporting.
-    @param   player  Player  -- injected by Knit
-]]
 function SpawnService.Client:RequestSpawn(player: Player)
-	if matchFlowService then
-		matchFlowService:EnterWaiting(player)
-	else
-		self.Server:SpawnPlayer(player)
-	end
+	self.Server:SpawnPlayer(player)
 end
 
---[[
-    @summary  Check whether a player has been teleported to the game map.
-    @param    player  Player
-    @returns  boolean
-]]
-function SpawnService:IsPlayerSpawned(player: Player): boolean
-	return spawnedPlayers[player] == true
-end
-
--- // INITIALIZATION // --
-
---[[
-    @summary  Clear the spawned flag so a player can join the next run.
-    @param    player  Player
-]]
-function SpawnService:ResetPlayer(player: Player)
-	spawnedPlayers[player] = nil
-	teleportCooldowns[player] = nil
-end
-
---[[
-    @summary  Move an existing character back to a safe lobby position.
-    @param    player  Player
-    @returns  boolean
-]]
-function SpawnService:ReturnToLobby(player: Player): boolean
-	local character = player.Character
-	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-	local lobbyMap = worldService and worldService:GetLobbyMap()
-	if not rootPart or not rootPart:IsA("BasePart") or not lobbyMap then
-		return false
-	end
-	local destination = lobbyMap:FindFirstChild("TeleportHere", true)
-	local targetCFrame = if destination and destination:IsA("BasePart")
-		then destination.CFrame * CFrame.new(0, 4, 0)
-		else lobbyMap:GetPivot() * CFrame.new(0, 8, 0)
-	rootPart.Anchored = false
-	rootPart.CFrame = targetCFrame
-	self:ResetPlayer(player)
-	return true
-end
-
---[[
-    @summary  Studio-only shortcut that skips the lobby and starts a run.
-    @param    player  Player
-]]
+-- | Studio Shortcut | --
 local function autoSpawnPlayer(player: Player)
-	if not RunConfig.IsTestEnabled("SkipLobby") then
+	if not RunConfig.IsTestEnabled("SkipLobby") or spawnedPlayers[player] then
 		return
 	end
-	if spawnedPlayers[player] then
-		return
-	end
-
-	if not player.Character then
-		player.CharacterAdded:Wait()
-	end
-	task.wait(0.5)
-
-	if not player.Parent then
-		return
-	end
-
-	if runStateService and runStateService:GetPhase() == "Lobby" then
-		local startedRunId = nil
-		for _ = 1, 30 do
-			startedRunId = runStateService:StartRun({ player })
-			if startedRunId or not player.Parent or runStateService:GetPhase() ~= "Lobby" then
-				break
-			end
-			task.wait(0.5)
-		end
-		if not startedRunId and runStateService:GetPhase() == "Lobby" then
-			warn("[SpawnService] Studio test could not start because the profile was not ready")
+	for _ = 1, 30 do
+		if not player.Parent then
 			return
 		end
+		if runStateService:GetPhase() ~= "Lobby" then
+			break
+		end
+		if runStateService:StartRun({ player }) then
+			break
+		end
+		task.wait(0.5)
 	end
 	SpawnService:SpawnPlayer(player)
-
 	local timeService = Knit.GetService("TimeService")
 	if timeService and not timeService:IsRunning() then
 		timeService:StartMatch()
 	end
-
-	task.wait(1)
-
-	if not player.Parent then
-		return
-	end
-
-	if RunConfig.IsTestEnabled("ForceNight") then
-		local Lighting = game:GetService("Lighting")
-		Lighting.ClockTime = 0
-		Lighting.Ambient = Color3.fromRGB(20, 22, 32)
-		Lighting.OutdoorAmbient = Color3.fromRGB(12, 14, 20)
-		Lighting.Brightness = 0.35
-	end
-
 	if matchFlowService then
 		matchFlowService.Client.FlowStateChanged:Fire(player, "InGame")
 	end
 end
+
+-- // INITIALIZATION // --
 
 function SpawnService:KnitStart()
 	worldService = Knit.GetService("WorldService")
@@ -276,7 +284,6 @@ function SpawnService:KnitStart()
 	wireTeleporters()
 
 	if RunConfig.IsTestEnabled("SkipLobby") then
-		warn("[SpawnService] Studio test: SkipLobby is enabled")
 		task.delay(1, function()
 			for _, player in ipairs(Players:GetPlayers()) do
 				task.spawn(autoSpawnPlayer, player)
@@ -290,7 +297,8 @@ end
 
 Players.PlayerRemoving:Connect(function(player)
 	spawnedPlayers[player] = nil
-	teleportCooldowns[player] = nil
+	spawningPlayers[player] = nil
+	touchCooldowns[player] = nil
 end)
 
 return SpawnService

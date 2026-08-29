@@ -201,6 +201,20 @@ local function migrateProfile(data: { [string]: any })
 		end
 		data.DataVersion = 3
 	end
+
+	if (data.DataVersion or 1) < 4 then
+		data.Resources = data.Resources or {}
+		data.Resources.RawMeat = (data.Resources.RawMeat or 0) + (data.Resources.RabbitMeat or 0)
+		data.Resources.RabbitMeat = nil
+		if typeof(data.Inventory) == "table" and typeof(data.Inventory.PickupOrder) == "table" then
+			for index, resourceName in ipairs(data.Inventory.PickupOrder) do
+				if resourceName == "RabbitMeat" then
+					data.Inventory.PickupOrder[index] = "RawMeat"
+				end
+			end
+		end
+		data.DataVersion = 4
+	end
 end
 
 --[[

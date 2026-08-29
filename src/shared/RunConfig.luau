@@ -16,20 +16,22 @@
 local RunService = game:GetService("RunService")
 
 local StudioTest = {
-	Enabled = true,
-	SkipLobby = true, -- TEMP: skip lobby for testing, revert to false when done
-	GrantResources = true, -- TEMP: grant all resources for testing, revert to false when done
+	Enabled = false,
+	SkipLobby = false,
+	GrantResources = false,
 	InfiniteWood = false,
-	FastClock = true, -- TEMP: 15s day/night for testing, revert to false when done
+	FastClock = false,
 	ForceNight = false,
-	VerboseFlashlight = true,
+	VerboseFlashlight = false,
 	VerboseStalkers = false,
+	DayDuration = 15,
+	NightDuration = 15,
 }
 
 local Config = {
 	GoalDay = 67,
 
-	DayDuration = 5,
+	DayDuration = 180,
 	NightDuration = 90,
 	DayStartClock = 6,
 	DayEndClock = 18,
@@ -42,11 +44,23 @@ local Config = {
 
 	RaidCycleInterval = 4,
 
+	-- Difficulty is fixed from RunState's initial party size for the entire run.
+	-- Counts and health rise conservatively; enemy damage is intentionally unchanged.
+	Difficulty = {
+		MaxPartySize = 5,
+		HealthPerAdditionalPlayer = 0.12,
+		CountPerAdditionalPlayer = 0.15,
+	},
+
 	DownedDuration = 45,
 	ReviveHoldDuration = 5,
 	ReviveHealth = 35,
 	ReviveRange = 12,
 	ReviveGracePeriod = 3,
+	BodyDragStartRange = 12,
+	BodyDragMaxDistance = 28,
+	BodyDragUpdateInterval = 0.04,
+	BodyDragResponsiveness = 35,
 
 	PlacementGrid = 2,
 	PlacementRotationDegrees = 15,
@@ -83,9 +97,36 @@ end
 ]]
 function Config.GetPhaseDuration(phase: string): number
 	if Config.IsTestEnabled("FastClock") then
-		return if phase == "Day" then Config.DayDuration else Config.NightDuration
+		return if phase == "Day" then StudioTest.DayDuration else StudioTest.NightDuration
 	end
 	return if phase == "Day" then Config.DayDuration else Config.NightDuration
+end
+
+local function normalizedPartySize(initialPartySize: number?): number
+	local size = if typeof(initialPartySize) == "number" then math.floor(initialPartySize) else 1
+	return math.clamp(size, 1, Config.Difficulty.MaxPartySize)
+end
+
+function Config.GetEnemyHealthMultiplier(initialPartySize: number?): number
+	return 1 + (normalizedPartySize(initialPartySize) - 1) * Config.Difficulty.HealthPerAdditionalPlayer
+end
+
+function Config.GetEnemyCountMultiplier(initialPartySize: number?): number
+	return 1 + (normalizedPartySize(initialPartySize) - 1) * Config.Difficulty.CountPerAdditionalPlayer
+end
+
+function Config.ScaleEnemyHealth(baseHealth: number, initialPartySize: number?): number
+	if baseHealth <= 0 then
+		return baseHealth
+	end
+	return math.max(baseHealth, math.round(baseHealth * Config.GetEnemyHealthMultiplier(initialPartySize)))
+end
+
+function Config.ScaleEnemyCount(baseCount: number, initialPartySize: number?): number
+	if baseCount <= 0 then
+		return 0
+	end
+	return math.max(baseCount, math.round(baseCount * Config.GetEnemyCountMultiplier(initialPartySize)))
 end
 
 return Config

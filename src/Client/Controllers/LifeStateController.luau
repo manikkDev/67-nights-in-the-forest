@@ -4,245 +4,152 @@
     @date    2025
 
     @summary
-    Downed timer, teammate alerts, revive feedback, spectator camera,
-    and reset-button protection for the managed life-state system.
+    Compact downed-state status, bleed-out timer, and reset protection.
+    Spectator presentation is owned by SpectateController.
 ]]
 
--- // VARIABLES // --
-
--- | Services | --
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterGui = game:GetService("StarterGui")
 local RunService = game:GetService("RunService")
-local ContextActionService = game:GetService("ContextActionService")
 
--- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
 
--- | Objects | --
-local LifeStateController = Knit.CreateController({
-	Name = "LifeStateController",
-})
+local LifeStateController = Knit.CreateController({ Name = "LifeStateController" })
 local janitor = Janitor.new()
+local localPlayer = Players.LocalPlayer
 
--- | Configuration | --
-local NEXT_ACTION = "SpectateNext"
-local PREVIOUS_ACTION = "SpectatePrevious"
-
--- | State Management | --
 local lifeService: any = nil
 local gui: ScreenGui? = nil
-local overlay: Frame? = nil
-local titleLabel: TextLabel? = nil
+local card: Frame? = nil
 local timerLabel: TextLabel? = nil
-local hintLabel: TextLabel? = nil
 local selfState = "Lobby"
 local bleedOutAt = 0
-local spectateIndex = 1
 
--- // FUNCTIONS // --
-
---[[
-    @summary  Build the life-state overlay once.
-]]
 local function buildUi()
-	if gui then
-		return
-	end
+	if gui then return end
 	local screenGui = Instance.new("ScreenGui")
 	screenGui.Name = "LifeStateGui"
 	screenGui.ResetOnSpawn = false
-	screenGui.IgnoreGuiInset = true
+	screenGui.IgnoreGuiInset = false
+	screenGui.DisplayOrder = 45
 	screenGui.Enabled = false
-	screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+	screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 	gui = screenGui
 
-	local overlayFrame = Instance.new("Frame")
-	overlayFrame.Size = UDim2.fromScale(1, 1)
-	overlayFrame.BackgroundColor3 = Color3.fromRGB(45, 5, 8)
-	overlayFrame.BackgroundTransparency = 0.42
-	overlayFrame.BorderSizePixel = 0
-	overlayFrame.Parent = screenGui
-	overlay = overlayFrame
+	local panel = Instance.new("Frame")
+	panel.Name = "DownedCard"
+	panel.AnchorPoint = Vector2.new(0.5, 1)
+	panel.Position = UDim2.new(0.5, 0, 1, -34)
+	panel.Size = UDim2.new(0.86, 0, 0, 104)
+	panel.BackgroundColor3 = Color3.fromRGB(25, 16, 18)
+	panel.BackgroundTransparency = 0.08
+	panel.BorderSizePixel = 0
+	panel.Parent = screenGui
+	card = panel
+	local size = Instance.new("UISizeConstraint")
+	size.MaxSize = Vector2.new(440, 104)
+	size.MinSize = Vector2.new(280, 96)
+	size.Parent = panel
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0, 12)
+	corner.Parent = panel
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(165, 58, 55)
+	stroke.Thickness = 1.5
+	stroke.Transparency = 0.15
+	stroke.Parent = panel
+
+	local accent = Instance.new("Frame")
+	accent.Size = UDim2.new(0, 4, 1, -20)
+	accent.Position = UDim2.fromOffset(10, 10)
+	accent.BackgroundColor3 = Color3.fromRGB(205, 66, 58)
+	accent.BorderSizePixel = 0
+	accent.Parent = panel
+	local accentCorner = Instance.new("UICorner")
+	accentCorner.CornerRadius = UDim.new(1, 0)
+	accentCorner.Parent = accent
 
 	local title = Instance.new("TextLabel")
-	title.AnchorPoint = Vector2.new(0.5, 0.5)
-	title.Position = UDim2.fromScale(0.5, 0.4)
-	title.Size = UDim2.new(0.9, 0, 0, 60)
+	title.Position = UDim2.fromOffset(28, 14)
+	title.Size = UDim2.new(1, -130, 0, 28)
 	title.BackgroundTransparency = 1
-	title.Font = Enum.Font.GothamBlack
+	title.Font = Enum.Font.GothamBold
 	title.Text = "YOU ARE DOWNED"
-	title.TextColor3 = Color3.fromRGB(245, 225, 215)
-	title.TextScaled = true
-	title.Parent = overlayFrame
-	titleLabel = title
-	local titleConstraint = Instance.new("UITextSizeConstraint")
-	titleConstraint.MaxTextSize = 40
-	titleConstraint.MinTextSize = 20
-	titleConstraint.Parent = title
+	title.TextColor3 = Color3.fromRGB(242, 226, 220)
+	title.TextSize = 21
+	title.TextXAlignment = Enum.TextXAlignment.Left
+	title.Parent = panel
 
 	local timer = Instance.new("TextLabel")
-	timer.AnchorPoint = Vector2.new(0.5, 0)
-	timer.Position = UDim2.fromScale(0.5, 0.48)
-	timer.Size = UDim2.fromOffset(240, 48)
+	timer.AnchorPoint = Vector2.new(1, 0)
+	timer.Position = UDim2.new(1, -18, 0, 13)
+	timer.Size = UDim2.fromOffset(82, 32)
 	timer.BackgroundTransparency = 1
-	timer.Font = Enum.Font.GothamBlack
-	timer.Text = "45.0"
-	timer.TextColor3 = Color3.fromRGB(255, 90, 80)
-	timer.TextSize = 34
-	timer.Parent = overlayFrame
+	timer.Font = Enum.Font.GothamBold
+	timer.Text = "45.0s"
+	timer.TextColor3 = Color3.fromRGB(235, 88, 76)
+	timer.TextSize = 24
+	timer.TextXAlignment = Enum.TextXAlignment.Right
+	timer.Parent = panel
 	timerLabel = timer
 
 	local hint = Instance.new("TextLabel")
-	hint.AnchorPoint = Vector2.new(0.5, 0)
-	hint.Position = UDim2.fromScale(0.5, 0.56)
-	hint.Size = UDim2.new(0.85, 0, 0, 52)
+	hint.Position = UDim2.fromOffset(28, 49)
+	hint.Size = UDim2.new(1, -48, 0, 38)
 	hint.BackgroundTransparency = 1
-	hint.Font = Enum.Font.Gotham
-	hint.Text = "A teammate needs a Bandage to revive you"
-	hint.TextColor3 = Color3.fromRGB(225, 215, 210)
-	hint.TextSize = 17
+	hint.Font = Enum.Font.GothamBold
+	hint.Text = "Stay put — a teammate can revive you with one Bandage."
+	hint.TextColor3 = Color3.fromRGB(185, 177, 174)
+	hint.TextSize = 14
 	hint.TextWrapped = true
-	hint.Parent = overlayFrame
-	hintLabel = hint
+	hint.TextXAlignment = Enum.TextXAlignment.Left
+	hint.TextYAlignment = Enum.TextYAlignment.Top
+	hint.Parent = panel
 end
 
---[[
-    @summary  Return living teammates that can be spectated.
-    @returns  { Player }
-]]
-local function livingTeammates(): { Player }
-	local list = {}
-	for _, player in ipairs(Players:GetPlayers()) do
-		if player ~= Players.LocalPlayer
-			and player.Character
-			and player.Character:GetAttribute("LifeState") == "Alive"
-		then
-			table.insert(list, player)
-		end
-	end
-	return list
-end
-
---[[
-    @summary  Set the camera to a living teammate at the current index.
-]]
-local function updateSpectatorCamera()
-	local targets = livingTeammates()
-	if #targets == 0 then
-		return
-	end
-	spectateIndex = ((spectateIndex - 1) % #targets) + 1
-	local humanoid = targets[spectateIndex].Character and targets[spectateIndex].Character:FindFirstChildOfClass("Humanoid")
-	if humanoid and workspace.CurrentCamera then
-		workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
-		workspace.CurrentCamera.CameraSubject = humanoid
-	end
-	if hintLabel then
-		hintLabel.Text = "Spectating " .. targets[spectateIndex].DisplayName .. "  •  Q/E or shoulders to switch"
-	end
-end
-
---[[
-    @summary  Restore the local character camera after revival or lobby return.
-]]
-local function restoreCamera()
-	local humanoid = Players.LocalPlayer.Character and Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-	if humanoid and workspace.CurrentCamera then
-		workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
-		workspace.CurrentCamera.CameraSubject = humanoid
-	end
-	ContextActionService:UnbindAction(NEXT_ACTION)
-	ContextActionService:UnbindAction(PREVIOUS_ACTION)
-end
-
---[[
-    @summary  Cycle the spectator target in one direction.
-    @param    actionName  string
-    @param    inputState  UserInputState
-    @returns  ContextActionResult
-]]
-local function onSpectateAction(actionName: string, inputState: Enum.UserInputState): Enum.ContextActionResult
-	if inputState ~= Enum.UserInputState.Begin then
-		return Enum.ContextActionResult.Sink
-	end
-	spectateIndex += if actionName == NEXT_ACTION then 1 else -1
-	updateSpectatorCamera()
-	return Enum.ContextActionResult.Sink
-end
-
---[[
-    @summary  Apply one authoritative local life-state presentation.
-    @param    state    string
-    @param    payload  table
-]]
-local function applyState(state: string, payload)
+local function applyState(state: string, payload: any)
 	selfState = state
 	buildUi()
-	if not gui or not overlay or not titleLabel or not timerLabel or not hintLabel then
-		return
-	end
 	if state == "Downed" then
-		bleedOutAt = payload.bleedOutAt or workspace:GetServerTimeNow()
-		gui.Enabled = true
-		overlay.BackgroundTransparency = 0.42
-		titleLabel.Text = "YOU ARE DOWNED"
-		hintLabel.Text = "A teammate needs a Bandage to revive you"
-	elseif state == "Eliminated" then
-		gui.Enabled = true
-		overlay.BackgroundTransparency = 0.25
-		titleLabel.Text = "YOU WERE LOST"
-		timerLabel.Text = "SPECTATING"
-		ContextActionService:BindAction(NEXT_ACTION, onSpectateAction, true, Enum.KeyCode.E, Enum.KeyCode.ButtonR1)
-		ContextActionService:BindAction(PREVIOUS_ACTION, onSpectateAction, true, Enum.KeyCode.Q, Enum.KeyCode.ButtonL1)
-		updateSpectatorCamera()
+		bleedOutAt = if typeof(payload) == "table" then payload.bleedOutAt or workspace:GetServerTimeNow() else workspace:GetServerTimeNow()
+		if gui then gui.Enabled = true end
 	else
-		gui.Enabled = false
 		bleedOutAt = 0
-		restoreCamera()
+		if gui then gui.Enabled = false end
 	end
 end
 
---[[
-    @summary  Disable Roblox's direct reset path after CoreGui is ready.
-]]
 local function disableReset()
 	for _ = 1, 20 do
-		local ok = pcall(function()
-			StarterGui:SetCore("ResetButtonCallback", false)
-		end)
-		if ok then
-			return
-		end
+		if pcall(function() StarterGui:SetCore("ResetButtonCallback", false) end) then return end
 		task.wait(0.25)
 	end
 end
 
--- // INITIALIZATION // --
-
 function LifeStateController:KnitStart()
 	lifeService = Knit.GetService("PlayerLifeService")
+	local runStateService = Knit.GetService("RunStateService")
 	buildUi()
 	task.spawn(disableReset)
-
 	janitor:Add(lifeService.LifeStateChanged:Connect(function(payload)
-		if typeof(payload) == "table" and payload.userId == Players.LocalPlayer.UserId then
+		if typeof(payload) == "table" and payload.userId == localPlayer.UserId then
 			applyState(payload.state, payload)
 		end
 	end), "Disconnect")
-
-	lifeService:GetSnapshot():andThen(function(snapshot)
-		if typeof(snapshot) == "table" then
-			applyState(snapshot.selfState or "Lobby", {})
+	janitor:Add(runStateService.RunPhaseChanged:Connect(function(payload)
+		if typeof(payload) == "table" and (payload.phase == "Ending" or payload.phase == "Ended" or payload.phase == "Lobby") then
+			if gui then gui.Enabled = false end
+			if payload.phase == "Lobby" then selfState = "Lobby" end
 		end
+	end), "Disconnect")
+	lifeService:GetSnapshot():andThen(function(snapshot)
+		if typeof(snapshot) == "table" then applyState(snapshot.selfState or "Lobby", {}) end
 	end)
-
 	janitor:Add(RunService.RenderStepped:Connect(function()
 		if selfState == "Downed" and timerLabel then
-			local remaining = math.max(0, bleedOutAt - workspace:GetServerTimeNow())
-			timerLabel.Text = string.format("%.1f", remaining)
+			timerLabel.Text = string.format("%.1fs", math.max(0, bleedOutAt - workspace:GetServerTimeNow()))
 		end
 	end), "Disconnect")
 end

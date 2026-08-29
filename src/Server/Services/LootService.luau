@@ -254,11 +254,12 @@ local function animateChestOpen(chest: Model)
 		return
 	end
 	local originalSize = primary.Size
+	local capturedRunId = runStateService:GetRunId()
 	TweenService:Create(primary, TweenInfo.new(0.2, Enum.EasingStyle.Bounce, Enum.EasingDirection.Out), {
 		Size = originalSize * 1.15,
 	}):Play()
 	task.delay(0.2, function()
-		if primary.Parent then
+		if runStateService:IsCurrentRun(capturedRunId) and primary.Parent then
 			TweenService:Create(primary, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {
 				Size = originalSize,
 			}):Play()
@@ -515,13 +516,15 @@ function LootService:KnitStart()
 	rescueService = Knit.GetService("RescueService")
 	combatService = Knit.GetService("CombatService")
 
-	runStateService.RunStarted:Connect(function()
+	runStateService.RunStarted:Connect(function(runId)
 		spawnChests()
 		-- Defer cave chest spawning so RescueService.buildCaves() runs first
 		-- (it also defers on RunStarted via task.defer).
 		task.defer(function()
 			task.wait(0.1)
-			spawnCaveChests()
+			if runStateService:IsCurrentRun(runId) then
+				spawnCaveChests()
+			end
 		end)
 	end)
 	Players.PlayerRemoving:Connect(function(player)

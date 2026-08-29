@@ -25,6 +25,7 @@ local RunService = game:GetService("RunService")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local RescueConfig = require(ReplicatedStorage.Shared.RescueConfig)
+local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 local WorldPlacement = require(script.Parent.Parent.WorldPlacement)
 
@@ -95,9 +96,18 @@ local updatePosterStates: (any) -> () = nil
     @param    payload  table
 ]]
 local function broadcast(signal, payload)
+	if not runStateService:IsActive() then
+		return
+	end
 	for _, player in ipairs(runStateService:GetMembers()) do
 		signal:Fire(player, payload)
 	end
+end
+
+local function canInteract(player: Player): boolean
+	return runStateService:IsActive()
+		and runStateService:IsMember(player)
+		and playerLifeService:IsAlive(player)
 end
 
 --[[
@@ -385,7 +395,7 @@ local function buildCaves()
 	for index, rescueId in ipairs(CAVE_ORDER) do
 		local definition = RescueConfig[rescueId]
 		local ring = WorldProgressionConfig.CaveRings[rescueId]
-		local caveCFrame, overlapCount = WorldPlacement.FindPosition({
+		local caveCFrame = WorldPlacement.FindPosition({
 			center = campfireCFrame.Position,
 			groundPart = groundPart,
 			bounds = bounds,
@@ -406,9 +416,6 @@ local function buildCaves()
 		local center = caveCFrame.Position
 		-- Always clear obstacles (even if overlapCount is 0, the expanded
 		-- clearing footprint may catch nearby objects)
-		if overlapCount and overlapCount > 0 then
-			print(("[RescueService] Clearing %d obstacles for %s cave"):format(overlapCount, rescueId))
-		end
 		clearCaveObstacles(
 			caveCFrame * CFrame.new(0, WorldProgressionConfig.Placement.CaveFootprint.Y * 0.5, 0),
 			WorldProgressionConfig.Placement.CaveFootprint
@@ -444,8 +451,9 @@ end
     @param    record  table
 ]]
 local function spawnGuards(record)
-	for index = 1, record.definition.GuardCount do
-		local angle = index / record.definition.GuardCount * math.pi * 2
+	local guardCount = RunConfig.ScaleEnemyCount(record.definition.GuardCount, runStateService:GetInitialPartySize())
+	for index = 1, guardCount do
+		local angle = index / guardCount * math.pi * 2
 		local position = record.center + Vector3.new(math.cos(angle) * 24, 4, math.sin(angle) * 24)
 		local guard = animalAIService:SpawnNpc(record.definition.GuardSpecies, CFrame.new(position))
 		if guard then
@@ -963,9 +971,11 @@ local function createPosterBoard()
 	prompt.MaxActivationDistance = PICKUP_RANGE
 	prompt.Parent = board
 	prompt.Triggered:Connect(function(player)
-		-- Open the map UI only; the player chooses a kid to track from there.
-		local snapshot = RescueService.Client:GetSnapshot(player)
-		RescueService.Client.BoardOpened:Fire(player, snapshot)
+		if canInteract(player) then
+			-- Open the map UI only; the player chooses a kid to track from there.
+			local snapshot = RescueService.Client:GetSnapshot(player)
+			RescueService.Client.BoardOpened:Fire(player, snapshot)
+		end
 	end)
 end
 
@@ -1136,6 +1146,9 @@ local function onHeartbeat(dt: number)
 		return
 	end
 	for player, childId in pairs(carriedBy) do
+		if not canInteract(player) then
+			continue
+		end
 		local rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		local record = caveRecords[childId]
 		if rootPart and rootPart:IsA("BasePart") and record and campfireService:IsInSafeZone(rootPart.Position) then
@@ -1219,7 +1232,7 @@ function RescueService:TryPickupKey(player: Player, caveId: string): boolean
 	if not record or record.state ~= "KeyDropped" or not record.keyModel then
 		return false
 	end
-	if not playerLifeService:IsAlive(player) or not runStateService:IsMember(player) then
+	if not canInteract(player) then
 		return false
 	end
 	local rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -1240,6 +1253,9 @@ end
     @returns  boolean
 ]]
 function RescueService:TryUnlockGate(player: Player, caveId: string): boolean
+	if not canInteract(player) then
+		return false
+	end
 	local record = caveRecords[caveId]
 	if not record or record.state ~= "KeyDropped" or not keyOwners[player] or not keyOwners[player][caveId] then
 		return false
@@ -1278,7 +1294,7 @@ function RescueService:TryCarryChild(player: Player, caveId: string): boolean
 	if not record or record.state ~= "Unlocked" or not record.child or carriedBy[player] then
 		return false
 	end
-	if not playerLifeService:IsAlive(player) or record.carrier then
+	if not canInteract(player) or record.carrier then
 		return false
 	end
 	local character = player.Character
@@ -1372,7 +1388,7 @@ end
     @param    player  Player
 ]]
 function RescueService:SelectBoardTarget(player: Player)
-	if not campfireService:IsLit() then
+	if not canInteract(player) or not campfireService:IsLit() then
 		return
 	end
 	local rootPart = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -1407,6 +1423,9 @@ end
     @returns  boolean
 ]]
 function RescueService.Client:RequestDropChild(player: Player): boolean
+	if not canInteract(player) then
+		return false
+	end
 	local now = os.clock()
 	if dropCooldowns[player] and now - dropCooldowns[player] < DROP_COOLDOWN then
 		return false
@@ -1433,7 +1452,7 @@ end
     @param    rescueId  string  -- the child to track
 ]]
 function RescueService.Client:RequestSetWaypoint(player: Player, rescueId: string)
-	if typeof(rescueId) ~= "string" then
+	if not canInteract(player) or typeof(rescueId) ~= "string" then
 		return
 	end
 	local record = caveRecords[rescueId]
@@ -1455,7 +1474,9 @@ end
     @param    player  Player  -- injected by Knit
 ]]
 function RescueService.Client:RequestClearWaypoint(player: Player)
-	RescueService.Client.WaypointChanged:Fire(player, { cleared = true })
+	if runStateService:IsActive() and runStateService:IsMember(player) then
+		RescueService.Client.WaypointChanged:Fire(player, { cleared = true })
+	end
 end
 
 --[[
@@ -1464,6 +1485,9 @@ end
     @returns  table
 ]]
 function RescueService.Client:GetSnapshot(player: Player): { [string]: any }
+	if not runStateService:IsActive() or not runStateService:IsMember(player) then
+		return { records = {}, rescuedCount = 0, carrying = nil }
+	end
 	local records = {}
 	for rescueId, record in pairs(caveRecords) do
 		records[rescueId] = {
@@ -1494,9 +1518,12 @@ function RescueService:KnitStart()
 		end
 	end
 
-	runStateService.RunStarted:Connect(function()
+	runStateService.RunStarted:Connect(function(runId)
 		-- Wait one frame so buildings and facilities are placed and reserved first
 		task.defer(function()
+			if not runStateService:IsCurrentRun(runId) then
+				return
+			end
 			buildCaves()
 			createPosterBoard()
 			unlockForLevel(campfireService:GetLevel())

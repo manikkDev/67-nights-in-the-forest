@@ -36,6 +36,7 @@ local TweenService = game:GetService("TweenService")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local NpcConfig = require(ReplicatedStorage.Shared.NpcConfig)
+local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 
@@ -359,9 +360,16 @@ end
     @param    signal  KnitSignal
 ]]
 local function broadcastToAll(signal, ...)
-	for _, player in ipairs(Players:GetPlayers()) do
+	if not runStateService or not runStateService:IsActive() then
+		return
+	end
+	for _, player in ipairs(runStateService:GetMembers()) do
 		signal:Fire(player, ...)
 	end
+end
+
+local function scaledCount(baseCount: number): number
+	return RunConfig.ScaleEnemyCount(baseCount, runStateService and runStateService:GetInitialPartySize() or 1)
 end
 
 --[[
@@ -376,7 +384,7 @@ local function grantLoot(record, player: Player)
 	for _, entry in ipairs(record.config.Loot or {}) do
 		if math.random() <= entry.Chance then
 			local amount = math.random(entry.Min, entry.Max)
-			if entry.Resource == "RabbitMeat" or entry.Resource == "CultistGem" then
+			if entry.Resource == "RawMeat" or entry.Resource == "CultistGem" then
 				-- Spawn as a physical world drop so the player can pick it up.
 				for _ = 1, amount do
 					local drop = inventoryService:BuildDropModel(entry.Resource)
@@ -530,7 +538,10 @@ end
 local function findNearestPlayer(position: Vector3, range: number): (Player?, number?)
 	local nearest: Player? = nil
 	local nearestDist: number? = nil
-	for _, player in ipairs(Players:GetPlayers()) do
+	for _, player in ipairs(runStateService:GetMembers()) do
+		if not runStateService:IsActive() or not runStateService:IsMember(player) then
+			continue
+		end
 		if spawnService and not spawnService:IsPlayerSpawned(player) then
 			continue
 		end

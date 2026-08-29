@@ -61,10 +61,7 @@ RunStateService.RunCleaned = Signal.new()
 
 -- | Configuration | --
 local RUNTIME_FOLDER_NAME = "Runtime"
--- "Resources" and "Inventory" are NOT run-scoped — the player's bag
--- contents persist across runs and rejoins, matching the reference
--- game where collected items stay in your inventory.
-local RUN_SCOPED_PROFILE_KEYS = { "Base", "Rescue", "Stats", "Campfire" }
+local RUN_SCOPED_PROFILE_KEYS = { "Resources", "Inventory", "Base", "Rescue", "Stats", "Campfire" }
 
 -- | State Management | --
 local playerDataService: any = nil
@@ -76,7 +73,11 @@ local animalAIService: any = nil
 local runId = ""
 local phase: RunPhase = "Lobby"
 local runStartedAt = 0
+local partyId = ""
+local hostUserId = 0
+local initialPartySize = 0
 local members: { [Player]: boolean } = {}
+local memberRecords: { [number]: { userId: number, name: string, username: string } } = {}
 local multiplierSources: { [string]: number } = {}
 local runtimeFolder: Folder? = nil
 local cleanupCallbacks: { () -> () } = {}
@@ -99,7 +100,6 @@ local function freshRunTable(key: string): { [string]: any }
 			Berries = 0,
 			Mushrooms = 0,
 			RawMeat = 0,
-			RabbitMeat = 0,
 			CookedMeat = 0,
 			OwlFeather = 0,
 			CultistGem = 0,
@@ -188,12 +188,29 @@ end
     @summary  Broadcast the current lifecycle phase to every member.
     @param    payload  table?  -- optional extra state for clients
 ]]
+local function buildMemberSnapshot(): { { userId: number, name: string, username: string } }
+	local result = {}
+	for _, record in pairs(memberRecords) do
+		table.insert(result, table.clone(record))
+	end
+	table.sort(result, function(a, b)
+		return a.userId < b.userId
+	end)
+	return result
+end
+
 local function broadcastPhase(payload: { [string]: any }?)
-	local data = payload or {}
+	local data = table.clone(payload or {})
 	data.phase = phase
 	data.runId = runId
-	for _, player in ipairs(Players:GetPlayers()) do
-		RunStateService.Client.RunPhaseChanged:Fire(player, data)
+	data.partyId = partyId
+	data.hostUserId = hostUserId
+	data.initialPartySize = initialPartySize
+	data.members = buildMemberSnapshot()
+	for player in pairs(members) do
+		if player.Parent == Players then
+			RunStateService.Client.RunPhaseChanged:Fire(player, data)
+		end
 	end
 	RunStateService.PhaseChanged:Fire(phase, data)
 end
@@ -206,6 +223,18 @@ end
 ]]
 function RunStateService:GetRunId(): string
 	return runId
+end
+
+function RunStateService:GetPartyId(): string
+	return partyId
+end
+
+function RunStateService:GetHostUserId(): number
+	return hostUserId
+end
+
+function RunStateService:GetInitialPartySize(): number
+	return initialPartySize
 end
 
 --[[
@@ -295,11 +324,13 @@ function RunStateService:AddMultiplierSource(key: string, amount: number)
 	multiplierSources[key] = math.max(0, math.floor(amount))
 
 	local multiplier = self:GetMultiplier()
-	for _, player in ipairs(Players:GetPlayers()) do
-		RunStateService.Client.MultiplierChanged:Fire(player, {
-			multiplier = multiplier,
-			sources = table.clone(multiplierSources),
-		})
+	for player in pairs(members) do
+		if player.Parent == Players then
+			RunStateService.Client.MultiplierChanged:Fire(player, {
+				multiplier = multiplier,
+				sources = table.clone(multiplierSources),
+			})
+		end
 	end
 end
 
@@ -344,11 +375,15 @@ end
     @summary  Add a player to the live run without restarting it.
     @param    player  Player
 ]]
-function RunStateService:AddMember(player: Player)
-	if phase == "Lobby" or phase == "Ended" then
-		return
+function RunStateService:AddMember(player: Player): boolean
+	if phase == "Lobby" or phase == "Ended" or not player or player.Parent ~= Players then
+		return false
+	end
+	if not memberRecords[player.UserId] then
+		return false
 	end
 	members[player] = true
+	return true
 end
 
 --[[
@@ -356,30 +391,54 @@ end
     @param    participants  { Player }
     @returns  string?  -- the new run identifier, or nil when refused
 ]]
-function RunStateService:StartRun(participants: { Player }): string?
+function RunStateService:StartRun(participants: { Player }, metadata: { [string]: any }?): string?
 	if phase == "Active" or phase == "Starting" or phase == "Ending" then
 		return nil
 	end
-	if #participants == 0 or not playerDataService then
+	if #participants == 0 or #participants > 5 or not playerDataService then
 		return nil
 	end
+	local seenUserIds = {}
 	for _, player in ipairs(participants) do
-		if not player.Parent or not playerDataService:GetData(player) then
+		if not player.Parent or not playerDataService:GetData(player) or seenUserIds[player.UserId] then
 			return nil
 		end
+		seenUserIds[player.UserId] = true
+	end
+
+	local requestedPartyId = metadata and metadata.partyId
+	local requestedHostId = metadata and metadata.hostUserId
+	local requestedInitialSize = metadata and metadata.initialPartySize
+	if requestedPartyId ~= nil and (typeof(requestedPartyId) ~= "string" or #requestedPartyId < 8) then
+		return nil
+	end
+	if requestedHostId ~= nil and typeof(requestedHostId) ~= "number" then
+		return nil
+	end
+	if requestedInitialSize ~= nil and (typeof(requestedInitialSize) ~= "number" or requestedInitialSize < #participants or requestedInitialSize > 5) then
+		return nil
 	end
 
 	runId = HttpService:GenerateGUID(false)
+	partyId = requestedPartyId or runId
+	hostUserId = if requestedHostId and seenUserIds[requestedHostId] then requestedHostId else participants[1].UserId
+	initialPartySize = requestedInitialSize or #participants
 	WorldPlacement.Reset()
 	phase = "Starting"
 	runStartedAt = os.clock()
 	members = {}
+	memberRecords = {}
 	multiplierSources = {}
 	cleanupCallbacks = {}
 
 	for _, player in ipairs(participants) do
 		if player.Parent then
 			members[player] = true
+			memberRecords[player.UserId] = {
+				userId = player.UserId,
+				name = player.DisplayName,
+				username = player.Name,
+			}
 			resetPlayerRunData(player)
 		end
 	end
@@ -471,13 +530,17 @@ function RunStateService:CleanupRun(reason: string)
 		end
 	end
 
+	phase = "Lobby"
+	broadcastPhase({ reason = reason })
+
 	members = {}
+	memberRecords = {}
 	multiplierSources = {}
 	runStartedAt = 0
 	runId = ""
-	phase = "Lobby"
-
-	broadcastPhase({ reason = reason })
+	partyId = ""
+	hostUserId = 0
+	initialPartySize = 0
 	RunStateService.RunCleaned:Fire(reason)
 end
 
@@ -487,10 +550,21 @@ end
     @returns  table
 ]]
 function RunStateService.Client:GetSnapshot(player: Player): { [string]: any }
+	if members[player] ~= true then
+		return {
+			phase = "Lobby",
+			isMember = false,
+			goalDay = RunConfig.GoalDay,
+		}
+	end
 	return {
 		runId = runId,
+		partyId = partyId,
+		hostUserId = hostUserId,
+		initialPartySize = initialPartySize,
+		members = buildMemberSnapshot(),
 		phase = phase,
-		isMember = members[player] == true,
+		isMember = true,
 		multiplier = RunStateService:GetMultiplier(),
 		sources = table.clone(multiplierSources),
 		goalDay = RunConfig.GoalDay,
