@@ -53,6 +53,9 @@ local PICKUP_RANGE = 10
 local DROP_COOLDOWN = 0.35
 local CARRY_WALK_SPEED = 10
 local RESCUE_CHECK_INTERVAL = 0.2
+local WANDER_RADIUS = 18 -- How far from their tent a rescued kid will walk.
+local WANDER_INTERVAL = 4 -- Seconds before picking a new wander target.
+local KID_WALK_SPEED = 8
 
 -- | State Management | --
 local runStateService: any = nil
@@ -76,6 +79,8 @@ local exclamationPart: Part? = nil
 local heartbeatConnection: RBXScriptConnection? = nil
 local portraitTemplates: { [string]: Model } = {}
 local portraitFolder: Folder? = nil
+local wanderingKids: { [Model]: { tentPosition: Vector3, nextWander: number } } = {}
+local wanderTimer = 0
 
 -- Forward declaration so unlockForLevel can broadcast poster state changes.
 local updatePosterStates: (any) -> () = nil
@@ -356,6 +361,7 @@ local function buildCaves()
 	caveRecords = {}
 	carriedBy = {}
 	keyOwners = {}
+	wanderingKids = {}
 	rescuedCount = 0
 	rescueOrder = 0
 	rescueCheckTimer = 0
@@ -1050,10 +1056,26 @@ local function settleAtCamp(record)
 	if child then
 		local rootPart = child:FindFirstChild("HumanoidRootPart")
 		if rootPart and rootPart:IsA("BasePart") then
-			rootPart.Anchored = true
+			rootPart.Anchored = false
 		end
-		child:PivotTo(CFrame.new(campPosition + Vector3.new(0, 3, -5)))
+		-- Unanchor all body parts so the Humanoid can walk.
+		for _, descendant in ipairs(child:GetDescendants()) do
+			if descendant:IsA("BasePart") and descendant.Name ~= "HumanoidRootPart" then
+				descendant.Anchored = false
+				descendant.CanCollide = false
+			end
+		end
+		child:PivotTo(CFrame.new(campPosition + Vector3.new(0, 3, 0)))
 		child:SetAttribute("RescueState", "Rescued")
+		-- Set walk speed and register for wandering.
+		local humanoid = child:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.WalkSpeed = KID_WALK_SPEED
+		end
+		wanderingKids[child] = {
+			tentPosition = campPosition,
+			nextWander = 0,
+		}
 	end
 end
 
@@ -1102,6 +1124,11 @@ end
 local function onHeartbeat(dt: number)
 	rescueCheckTimer += dt
 	if rescueCheckTimer < RESCUE_CHECK_INTERVAL then
+		-- Still update wander every frame even if rescue check is throttled.
+		wanderTimer += dt
+		if wanderTimer >= 0.5 then
+			wanderTimer = 0
+		end
 		return
 	end
 	rescueCheckTimer = 0
@@ -1113,6 +1140,30 @@ local function onHeartbeat(dt: number)
 		local record = caveRecords[childId]
 		if rootPart and rootPart:IsA("BasePart") and record and campfireService:IsInSafeZone(rootPart.Position) then
 			completeRescue(player, record)
+		end
+	end
+	-- Update wandering rescued kids.
+	for child, data in pairs(wanderingKids) do
+		if not child.Parent then
+			wanderingKids[child] = nil
+			continue
+		end
+		local humanoid = child:FindFirstChildOfClass("Humanoid")
+		local rootPart = child:FindFirstChild("HumanoidRootPart")
+		if not humanoid or not rootPart then
+			continue
+		end
+		-- Pick a new wander target when the kid reaches their destination
+		-- or when the wander interval elapses.
+		data.nextWander -= rescueCheckTimer
+		if humanoid.MoveDirection.Magnitude < 0.1 or data.nextWander <= 0 then
+			local angle = math.random() * math.pi * 2
+			local dist = math.random() * WANDER_RADIUS
+			local target = data.tentPosition + Vector3.new(math.cos(angle) * dist, 0, math.sin(angle) * dist)
+			-- Keep the kid on the ground.
+			target = groundPosition(target)
+			humanoid:MoveTo(target)
+			data.nextWander = WANDER_INTERVAL + math.random() * 3
 		end
 	end
 end
@@ -1474,6 +1525,7 @@ function RescueService:KnitStart()
 		caveRecords = {}
 		carriedBy = {}
 		keyOwners = {}
+		wanderingKids = {}
 		-- Don't destroy the board model — it lives in Workspace.Boards
 		-- so the user can reposition it in Studio. Just nil references.
 		posterBoard = nil

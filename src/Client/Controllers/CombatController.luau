@@ -37,6 +37,7 @@ local CombatController = Knit.CreateController({
 
 -- | Configuration | --
 local SPEAR_TOOL_NAME = "Spear"
+local SPEAR_COOLDOWN = 0.9
 local SHAKE_DURATION = 0.15
 local SHAKE_MAGNITUDE = 0.16
 local DAMAGE_FLASH_DURATION = 0.35
@@ -50,6 +51,7 @@ local gameStateController: any = nil
 local damageCorrection: ColorCorrectionEffect? = nil
 local spearAnimId: string? = nil
 local cachedSpearTrack: AnimationTrack? = nil
+local lastSpearAttack = 0
 
 -- // FUNCTIONS // --
 
@@ -201,6 +203,11 @@ local function wireSpear(tool: Tool)
 		if not gameStateController or not gameStateController:IsInGame() then
 			return
 		end
+		local now = os.clock()
+		if (now - lastSpearAttack) < SPEAR_COOLDOWN then
+			return
+		end
+		lastSpearAttack = now
 		playSpearSwing()
 		local combatService = Knit.GetService("CombatService")
 		combatService:RequestAttack()

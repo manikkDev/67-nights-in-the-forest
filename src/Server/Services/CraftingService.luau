@@ -57,10 +57,17 @@ local unlocks: { [string]: boolean } = {}
 local placementTokens: { [Player]: { [string]: { structureId: string, runId: string } } } = {}
 local craftCooldowns: { [Player]: number } = {}
 
--- Cached references to the two resource counter labels on the
--- crafting table (wood count and scrap/bolt count).
-local woodCounter: TextLabel? = nil
+-- Cached references to the resource counter labels on the
+-- crafting table (wooden sheet count, scrap/bolt count).
+-- These show the SHARED run total of shredded output, not
+-- individual player inventory.
+local woodenSheetCounter: TextLabel? = nil
 local scrapCounter: TextLabel? = nil
+
+-- Shared run totals: how much WoodenSheet and Scrap have been
+-- produced by ALL team members via the shredder this run.
+local totalWoodenSheetShredded = 0
+local totalScrapShredded = 0
 
 -- // FUNCTIONS // --
 
@@ -293,13 +300,12 @@ local function cleanManualBench(): Model?
 end
 
 --[[
-    @summary  Discover the wood and scrap counter labels on the bench.
-    @desc     The crafting table package uses two kinds of TextLabels:
-              - "Part|xxxx" labels hold the icon/emoji text.
-              - "ObjectParts|xxxx" labels hold the numeric count.
-              We target the "ObjectParts|" labels and sort them
-              left-to-right (left = wood, right = scrap).
-    @returns  TextLabel? woodCounter, TextLabel? scrapCounter
+    @summary  Discover the wooden sheet and scrap counter labels.
+    @desc     The crafting table has two SurfaceGui panels with counter
+              TextLabels. The panel with an ImageLabel shows the
+              WoodenSheet count. The panel with an emoji (🔩) shows
+              the Scrap count.
+    @returns  TextLabel? woodenSheetCounter, TextLabel? scrapCounter
 ]]
 local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 	local allLabels: { TextLabel } = {}
@@ -320,31 +326,88 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 		return nil
 	end
 
+	-- A count label shows a number (possibly with leading/trailing spaces).
 	local function isNumericText(text: string): boolean
-		return text and text:match("^%-?%d+$") ~= nil
+		return text and text:match("^%s*%-?%d+%s*$") ~= nil
 	end
 
-	-- The user confirmed that count labels have "ObjectParts" in their
-	-- name and icon labels have "Part|" (but not "ObjectParts").
-	local function isCountLabel(name: string): boolean
-		return name:find("ObjectParts") ~= nil
+	-- Count labels have "ObjectParts" in their name OR show a number
+	-- but are not emoji/icon labels. Icon labels show emoji or short
+	-- text and have "Part|" (but not "ObjectParts") in their name.
+	local function isCountLabel(label: TextLabel): boolean
+		if label.Name:find("ObjectParts") then
+			return true
+		end
+		-- Also accept "Part|xxxx" labels that show a number (like "     0")
+		-- but only if they're not showing emoji.
+		if isNumericText(label.Text) then
+			return true
+		end
+		return false
 	end
 
-	local function isIconLabel(name: string): boolean
-		return name:find("Part|") ~= nil and name:find("ObjectParts") == nil
+	local function isIconLabel(label: TextLabel): boolean
+		if label.Name:find("ObjectParts") then
+			return false
+		end
+		-- Icon labels show emoji or short non-numeric text
+		if not isNumericText(label.Text) then
+			return true
+		end
+		return false
 	end
 
-	-- Phase 1: collect all TextLabels whose name contains "ObjectParts".
+	-- Collect all count labels (numeric TextLabels).
 	local countLabels: { TextLabel } = {}
 	for _, label in ipairs(allLabels) do
-		if isCountLabel(label.Name) then
+		if isCountLabel(label) and not isIconLabel(label) then
 			table.insert(countLabels, label)
 		end
 	end
 
-	-- Phase 2: if we found 2+ count labels, sort left-to-right by host
-	-- BasePart position in model space.  Left = wood, right = scrap.
-	if #countLabels >= 2 then
+	-- Helper: find the SurfaceGui ancestor of a label.
+	local function getSurfaceGui(label: TextLabel): SurfaceGui?
+		local current: Instance? = label
+		while current do
+			if current:IsA("SurfaceGui") then
+				return current :: SurfaceGui
+			end
+			current = current.Parent
+		end
+		return nil
+	end
+
+	-- Helper: check if a label's SurfaceGui contains an ImageLabel.
+	local function hasImageIcon(label: TextLabel): boolean
+		local gui = getSurfaceGui(label)
+		if not gui then
+			return false
+		end
+		for _, desc in ipairs(gui:GetDescendants()) do
+			if desc:IsA("ImageLabel") then
+				return true
+			end
+		end
+		return false
+	end
+
+	-- Assign counters by their panel type:
+	-- - Label in a SurfaceGui with an ImageLabel = WoodenSheet counter
+	-- - Label with "ObjectParts" in name = Scrap counter
+	local woodenSheet: TextLabel? = nil
+	local scrap: TextLabel? = nil
+
+	for _, label in ipairs(countLabels) do
+		if hasImageIcon(label) then
+			woodenSheet = label
+		elseif label.Name:find("ObjectParts") then
+			scrap = label
+		end
+	end
+
+	-- Fallback: if we have 2 labels but couldn't classify by icon,
+	-- sort by position (left = wooden sheet, right = scrap).
+	if not woodenSheet and not scrap and #countLabels == 2 then
 		local pivot = model:GetPivot()
 		table.sort(countLabels, function(a, b)
 			local partA = getHostPart(a)
@@ -354,70 +417,34 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 			end
 			return a.Name < b.Name
 		end)
-
-		local wood = countLabels[1]
-		local scrap = countLabels[2]
-		print(("[CraftingService] Table counters (ObjectParts): Wood=%s text=%s, Scrap=%s text=%s"):format(
-			wood.Name, wood.Text, scrap.Name, scrap.Text
-		))
-		return wood, scrap
+		woodenSheet = countLabels[1]
+		scrap = countLabels[2]
 	end
 
-	-- Phase 3 fallback: exactly 1 ObjectParts label found.  Use it for
-	-- scrap and look for any other numeric non-icon label for wood.
-	if #countLabels == 1 then
-		local scrap = countLabels[1]
-		local wood: TextLabel? = nil
-
-		for _, label in ipairs(allLabels) do
-			if label ~= scrap and not isIconLabel(label.Name) and isNumericText(label.Text) then
-				wood = label
-				break
-			end
-		end
-
-		if wood then
-			print(("[CraftingService] Table counters (fallback): Wood=%s text=%s, Scrap=%s text=%s"):format(
-				wood.Name, wood.Text, scrap.Name, scrap.Text
-			))
-			return wood, scrap
-		end
-
-		print(("[CraftingService] Table counters (partial): Scrap=%s text=%s, no wood counter found"):format(
-			scrap.Name, scrap.Text
-		))
-		return nil, scrap
+	-- Fallback: if we have 1 label, assign to scrap.
+	if #countLabels == 1 and not scrap then
+		scrap = countLabels[1]
 	end
 
-	-- Phase 4 fallback: no ObjectParts labels found.  Log everything.
-	warn("[CraftingService] Could not find ObjectParts counter labels on the crafting table")
-	warn("[CraftingService] All TextLabels in bench model:")
-	for _, label in ipairs(allLabels) do
-		local host = getHostPart(label)
-		warn(("  - TextLabel: %s | Text: %q | Parent: %s | HostPart: %s"):format(
-			label:GetFullName(),
-			label.Text,
-			label.Parent and label.Parent.Name or "nil",
-			host and host.Name or "none"
-		))
+	print(("[CraftingService] Table counters: found %d count labels"):format(#countLabels))
+	for _, label in ipairs(countLabels) do
+		local role = if label == woodenSheet then "WoodenSheet" elseif label == scrap then "Scrap" else "Extra"
+		print(("  %s = %s (text=%q, hasImage=%s)"):format(role, label.Name, label.Text, tostring(hasImageIcon(label))))
 	end
 
-	return nil, nil
+	return woodenSheet, scrap
 end
 
 --[[
-    @summary  Update the wood and scrap counter TextLabels on the table.
-    @param    resources  table  -- { Wood = N, Scrap = N, ... }
+    @summary  Update the wooden sheet and scrap counter TextLabels
+              on the table to show the shared run shredded totals.
 ]]
-local function updateTableCounters(resources: { [string]: number }?)
-	if not resources then
-		return
-	end
-	if woodCounter and woodCounter.Parent then
-		woodCounter.Text = tostring(resources.Wood or 0)
+local function updateTableCounters()
+	if woodenSheetCounter and woodenSheetCounter.Parent then
+		woodenSheetCounter.Text = tostring(totalWoodenSheetShredded)
 	end
 	if scrapCounter and scrapCounter.Parent then
-		scrapCounter.Text = tostring(resources.Scrap or 0)
+		scrapCounter.Text = tostring(totalScrapShredded)
 	end
 end
 
@@ -469,7 +496,7 @@ local function attachPrompt(model: Model)
 		newPrompt.Name = "CraftingPrompt"
 		newPrompt.ActionText = "Craft"
 		newPrompt.ObjectText = "Crafting Bench"
-		newPrompt.MaxActivationDistance = BENCH_RANGE
+		newPrompt.MaxActivationDistance = 10
 		newPrompt.HoldDuration = 0.25
 		newPrompt.RequiresLineOfSight = false
 		newPrompt.Parent = bestPart
@@ -481,12 +508,54 @@ local function attachPrompt(model: Model)
 		prompt.ObjectText = "Crafting Bench"
 		prompt.HoldDuration = 0.25
 		prompt.RequiresLineOfSight = false
-		-- Increase the activation distance if it's too small.
-		if prompt.MaxActivationDistance < BENCH_RANGE then
-			prompt.MaxActivationDistance = BENCH_RANGE
+
+		-- The package's prompt may be on an Attachment that is offset
+		-- far from the table surface.  Reposition it to the **front
+		-- edge of the table top** so the "E Craft" prompt appears
+		-- right on top of the crafting table, like before.
+		local parent = prompt.Parent
+		if parent and parent:IsA("Attachment") and parent.Parent and parent.Parent:IsA("BasePart") then
+			local hostPart = parent.Parent :: BasePart
+			local benchCFrame = model:GetPivot()
+
+			-- Find the table top: the highest flat part with
+			-- significant X/Z size (a flat surface).
+			local topPart: BasePart? = nil
+			local topY = -math.huge
+			for _, desc in ipairs(model:GetDescendants()) do
+				if desc:IsA("BasePart") then
+					local p = desc :: BasePart
+					if p.Size.X > 2 and p.Size.Z > 2 and p.Size.Y < p.Size.X and p.Size.Y < p.Size.Z then
+						local localPos = benchCFrame:PointToObjectSpace(p.Position)
+						if localPos.Y > topY then
+							topY = localPos.Y
+							topPart = p
+						end
+					end
+				end
+			end
+
+			if topPart then
+				-- Target: front edge of the table top, centered in Z,
+				-- and raised slightly above the surface so the prompt
+				-- appears on top of the table.
+				local halfWidth = topPart.Size.X * 0.5
+				local frontEdgeWorldCFrame = topPart.CFrame * CFrame.new(-halfWidth, 0, 0)
+				local frontEdgeWorldPos = frontEdgeWorldCFrame.Position
+				-- Raise 1.5 studs above the table top.
+				frontEdgeWorldPos += Vector3.new(0, 1.5, 0)
+
+				parent.Position = hostPart.CFrame:PointToObjectSpace(frontEdgeWorldPos)
+				print(("[CraftingService] attachPrompt: repositioned attachment to front edge of table top %s"):format(topPart.Name))
+			else
+				-- Fallback: center the attachment on the host part.
+				parent.Position = Vector3.new(0, 0, 0)
+				print("[CraftingService] attachPrompt: repositioned attachment to host part center (no table top found)")
+			end
 		end
-		print(("[CraftingService] attachPrompt: hooked into existing prompt '%s' on %s"):format(
-			prompt.Name, prompt.Parent and prompt.Parent.Name or "unknown"
+
+		print(("[CraftingService] attachPrompt: hooked into existing prompt '%s' on %s (distance=%d)"):format(
+			prompt.Name, prompt.Parent and prompt.Parent.Name or "unknown", prompt.MaxActivationDistance
 		))
 	end
 
@@ -518,8 +587,10 @@ local function placeBench()
 	end
 	benchModel = nil
 	isManualBench = false
-	woodCounter = nil
+	woodenSheetCounter = nil
 	scrapCounter = nil
+	totalWoodenSheetShredded = 0
+	totalScrapShredded = 0
 
 	local campfireCFrame = worldService and worldService:GetCampfireCFrame()
 	if not campfireCFrame then
@@ -565,7 +636,15 @@ local function placeBench()
 	end
 
 	benchModel = bench
-	woodCounter, scrapCounter = findTableCounters(bench)
+	woodenSheetCounter, scrapCounter = findTableCounters(bench)
+
+	-- Reset all numeric TextLabels from package defaults (e.g. "9999")
+	-- to "0" since no shredding has happened yet this run.
+	for _, desc in ipairs(bench:GetDescendants()) do
+		if desc:IsA("TextLabel") and desc.Text:match("^%s*%d+%s*$") then
+			desc.Text = "0"
+		end
+	end
 
 	-- Make sure the user can see it in Studio when not playtesting.
 	if isManualBench then
@@ -573,15 +652,6 @@ local function placeBench()
 	end
 
 	attachPrompt(bench)
-
-	-- Initial counter values
-	local members = runStateService:GetMembers()
-	if #members > 0 and playerDataService then
-		local data = playerDataService:GetData(members[1])
-		if data and data.Resources then
-			updateTableCounters(data.Resources)
-		end
-	end
 
 	-- Place the shredder next to the bench (same side of campfire)
 	if grinderService then
@@ -619,6 +689,29 @@ end
 ]]
 function CraftingService:HasUnlock(unlockId: string): boolean
 	return unlocks[unlockId] == true
+end
+
+--[[
+    @summary  Increment the shared run shredded total and update
+              the crafting bench counter labels.
+    @desc     Called by GrinderService when a player shreds wood
+              into WoodenSheet or junk into Scrap.  The counter
+              on the bench shows the total for all team members.
+    @param    resource  string  -- "WoodenSheet" or "Scrap"
+    @param    amount    number  -- how much was produced
+]]
+function CraftingService:AddShreddedTotal(resource: string, amount: number)
+	if amount <= 0 then
+		return
+	end
+	if resource == "WoodenSheet" then
+		totalWoodenSheetShredded += amount
+	elseif resource == "Scrap" then
+		totalScrapShredded += amount
+	else
+		return
+	end
+	updateTableCounters()
 end
 
 --[[
@@ -754,18 +847,12 @@ function CraftingService:KnitStart()
 		if not isManualBench then
 			benchModel = nil
 		end
-		woodCounter = nil
+		woodenSheetCounter = nil
 		scrapCounter = nil
+		totalWoodenSheetShredded = 0
+		totalScrapShredded = 0
 		placementTokens = {}
 		craftCooldowns = {}
-	end)
-
-	-- Update the table's wood/scrap counters whenever resources change
-	-- (pickup, grind, craft, drop, etc.)
-	inventoryService.ServerResourcesChanged:Connect(function(player, resources)
-		if runStateService:IsActive() and runStateService:IsMember(player) then
-			updateTableCounters(resources)
-		end
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)

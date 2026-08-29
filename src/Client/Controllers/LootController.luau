@@ -40,6 +40,7 @@ local PANEL_AUTO_DISMISS = 8
 -- Item display data: colors and descriptions for loot UI rows.
 local ITEM_COLORS = {
 	Wood = Color3.fromRGB(170, 110, 65),
+	WoodenSheet = Color3.fromRGB(200, 175, 120),
 	Scrap = Color3.fromRGB(150, 155, 165),
 	Coal = Color3.fromRGB(70, 70, 75),
 	Bandage = Color3.fromRGB(235, 235, 225),
@@ -54,6 +55,7 @@ local ITEM_COLORS = {
 
 local ITEM_DESCRIPTIONS = {
 	Wood = "Used for building and fueling campfires.",
+	WoodenSheet = "Shredded from wood. Used for advanced crafting.",
 	Scrap = "Salvaged metal used for advanced crafting.",
 	Coal = "Burns far longer than wood in the campfire.",
 	Bandage = "Revives a downed teammate.",

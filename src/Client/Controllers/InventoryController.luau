@@ -85,14 +85,14 @@ local TWEEN_COUNT_POP = TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDi
 local TWEEN_CAPACITY = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 -- Content data
-local EDIBLE_RESOURCES = { Berries = true, Mushrooms = true, RawMeat = true, CookedMeat = true, RabbitMeat = true }
+local EDIBLE_RESOURCES = { Berries = true, Mushrooms = true, RawMeat = true, CookedMeat = true }
 local ROW_ORDER = {
 	"Wood",
+	"WoodenSheet",
 	"Scrap",
 	"Coal",
 	"Berries",
 	"Mushrooms",
-	"RabbitMeat",
 	"RawMeat",
 	"CookedMeat",
 	"Bandage",
@@ -107,6 +107,7 @@ local ROW_ORDER = {
 }
 local ROW_COLORS = {
 	Wood = Color3.fromRGB(170, 110, 65),
+	WoodenSheet = Color3.fromRGB(200, 175, 120),
 	Scrap = Color3.fromRGB(150, 155, 165),
 	Coal = Color3.fromRGB(70, 70, 75),
 	Bandage = Color3.fromRGB(235, 235, 225),
@@ -115,7 +116,6 @@ local ROW_COLORS = {
 	Mushrooms = Color3.fromRGB(210, 110, 95),
 	RawMeat = Color3.fromRGB(200, 100, 100),
 	CookedMeat = Color3.fromRGB(215, 160, 80),
-	RabbitMeat = Color3.fromRGB(200, 100, 100),
 	Bolt = Color3.fromRGB(140, 140, 145),
 	SheetMetal = Color3.fromRGB(170, 170, 175),
 	OldRadio = Color3.fromRGB(80, 60, 45),
@@ -126,6 +126,7 @@ local ROW_COLORS = {
 }
 local ROW_DESCRIPTIONS = {
 	Wood = "Used for building and fueling campfires.",
+	WoodenSheet = "Shredded from wood at the Shredder. Used for advanced crafting.",
 	Scrap = "Salvaged metal used for advanced crafting.",
 	Coal = "Burns far longer than wood in the campfire.",
 	Bandage = "Revives a downed teammate.",
@@ -134,7 +135,6 @@ local ROW_DESCRIPTIONS = {
 	Mushrooms = "Restores a small amount of hunger.",
 	RawMeat = "Cook it at the campfire to restore more hunger.",
 	CookedMeat = "A filling meal that restores lots of hunger.",
-	RabbitMeat = "Fresh rabbit meat. Cook it at the campfire.",
 	Bolt = "Junk. Grind at the Shredder for 1 Scrap.",
 	SheetMetal = "Junk. Grind at the Shredder for 1 Scrap.",
 	OldRadio = "Junk. Grind at the Shredder for 2 Scrap.",
@@ -213,26 +213,6 @@ local function buildTooltip(parent: ScreenGui): Frame
 	stroke.Thickness = 1
 	stroke.Transparency = 0.1
 	stroke.Parent = tooltip
-
-	local arrow = Instance.new("Frame")
-	arrow.Name = "Arrow"
-	arrow.Size = UDim2.new(0, 12, 0, 12)
-	arrow.Position = UDim2.new(0, -6, 0, 8)
-	arrow.Rotation = 45
-	arrow.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
-	arrow.BorderSizePixel = 0
-	arrow.ZIndex = 49
-	arrow.Parent = tooltip
-
-	local arrowCorner = Instance.new("UICorner")
-	arrowCorner.CornerRadius = UDim.new(0, 2)
-	arrowCorner.Parent = arrow
-
-	local arrowStroke = Instance.new("UIStroke")
-	arrowStroke.Color = Color3.fromRGB(100, 100, 115)
-	arrowStroke.Thickness = 1
-	arrowStroke.Transparency = 0.1
-	arrowStroke.Parent = arrow
 
 	local layout = Instance.new("UIListLayout")
 	layout.Padding = UDim.new(0, 4)
@@ -314,15 +294,6 @@ local function showTooltip(row: Frame, resourceName: string, count: number)
 	local color = ROW_COLORS[resourceName] or Color3.fromRGB(245, 245, 245)
 	tooltipTitle.TextColor3 = color
 
-	local arrow = tooltipFrame:FindFirstChild("Arrow")
-	if arrow and arrow:IsA("Frame") then
-		arrow.BackgroundColor3 = color
-		local arrowStroke = arrow:FindFirstChildOfClass("UIStroke")
-		if arrowStroke then
-			arrowStroke.Color = color
-		end
-	end
-
 	local stroke = tooltipFrame:FindFirstChildOfClass("UIStroke")
 	if stroke then
 		stroke.Color = color
@@ -346,10 +317,6 @@ local function showTooltip(row: Frame, resourceName: string, count: number)
 	tooltipFrame.Visible = true
 
 	TweenService:Create(tooltipFrame, TWEEN_FADE, { BackgroundTransparency = 0 }):Play()
-	local arrowObj = tooltipFrame:FindFirstChild("Arrow")
-	if arrowObj then
-		arrowObj.Position = UDim2.new(0, -6, 0, math.clamp(rowSize.Y / 2 - 6, 8, 80))
-	end
 end
 
 --[[

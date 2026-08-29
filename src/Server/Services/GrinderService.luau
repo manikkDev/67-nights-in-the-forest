@@ -26,6 +26,7 @@
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -66,6 +67,7 @@ local bladeAttachment0: Attachment? = nil
 local bladeAttachment1: Attachment? = nil
 local grindSound: Sound? = nil
 local grindStopTimer: any = nil
+local touchCooldowns: { [Model]: number } = {} -- debounce per junk model
 
 -- // FUNCTIONS // --
 
@@ -274,6 +276,113 @@ local function attachPrompt(model: Model)
 end
 
 --[[
+    @summary  Find the player who owns/dropped a junk model.
+    @param    model  Model
+    @returns  Player?
+]]
+local function findOwner(model: Model): Player?
+	local droppedBy = model:GetAttribute("DroppedBy")
+	if droppedBy then
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player.UserId == droppedBy then
+				return player
+			end
+		end
+	end
+	return nil
+end
+
+--[[
+    @summary  Auto-grind a junk or wood model that touched the shredder.
+    @desc     Junk items -> Scrap (metal sheets). Wood -> WoodenSheet.
+    @param    model  Model -- the dropped item model
+]]
+local function autoGrindTouched(model: Model)
+	local resourceName = model:GetAttribute("Resource")
+	if not resourceName then
+		return
+	end
+	-- Only process junk items or Wood.
+	local isJunk = JunkItemConfig[resourceName] ~= nil
+	local isWood = resourceName == "Wood"
+	if not isJunk and not isWood then
+		return
+	end
+	-- Debounce: each model can only be ground once.
+	if touchCooldowns[model] then
+		return
+	end
+	touchCooldowns[model] = os.clock()
+
+	local player = findOwner(model)
+	if not player then
+		return
+	end
+	if not runStateService:IsActive() or not runStateService:IsMember(player) then
+		return
+	end
+
+	local inventoryService = Knit.GetService("InventoryService")
+	local craftingService = Knit.GetService("CraftingService")
+
+	if isWood then
+		-- Wood -> WoodenSheet (1 wood = 1 wooden sheet).
+		local added = inventoryService:AddResource(player, "WoodenSheet", 1)
+		if added > 0 then
+			model:Destroy()
+			touchCooldowns[model] = nil
+			GrinderService:StartGrindAnimation()
+			GrinderService.Client.GrinderProcessed:Fire(player, {
+				position = grinderPosition,
+				scrapAmount = added,
+				junkId = "WoodenSheet",
+			})
+			GrinderService:StopGrindAnimation()
+			craftingService:AddShreddedTotal("WoodenSheet", added)
+		end
+	else
+		local config = JunkItemConfig[resourceName]
+		local added = inventoryService:AddResource(player, "Scrap", config.ScrapYield)
+		if added > 0 then
+			model:Destroy()
+			touchCooldowns[model] = nil
+			GrinderService:StartGrindAnimation()
+			GrinderService.Client.GrinderProcessed:Fire(player, {
+				position = grinderPosition,
+				scrapAmount = added,
+				junkId = resourceName,
+			})
+			GrinderService:StopGrindAnimation()
+			craftingService:AddShreddedTotal("Scrap", added)
+		end
+	end
+end
+
+--[[
+    @summary  Connect Touched events on all shredder parts so that
+              any junk item that physically touches the shredder is
+              instantly ground.
+    @param    model  Model
+]]
+local function connectTouchHandlers(model: Model)
+	for _, desc in ipairs(model:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			desc.Touched:Connect(function(hit)
+				local hitModel = hit:FindFirstAncestorWhichIsA("Model")
+				if not hitModel then
+					return
+				end
+				-- Process models with a Resource attribute that's junk or Wood.
+				local res = hitModel:GetAttribute("Resource")
+				if res and (JunkItemConfig[res] or res == "Wood") then
+					autoGrindTouched(hitModel)
+				end
+			end)
+		end
+	end
+end
+
+--[[
     @summary  Place the shredder next to the crafting bench.
     @desc     Called by CraftingService.placeBench() after the bench
               is positioned. A manually placed "Shredder"/"Grinder"
@@ -325,6 +434,7 @@ function GrinderService:PlaceGrinder(campfireCFrame: CFrame)
 	bladePart = findBladePart(model)
 	anchorAndSanitize(model, bladePart)
 	attachPrompt(model)
+	connectTouchHandlers(model)
 
 	-- Set up the spinning blade if we found one
 	if bladePart then
@@ -400,6 +510,8 @@ local function processGrind(player: Player, junkId: string): number
 			junkId = junkId,
 		})
 		GrinderService:StopGrindAnimation()
+		local craftingService = Knit.GetService("CraftingService")
+		craftingService:AddShreddedTotal("Scrap", added)
 	end
 	return added
 end

@@ -29,12 +29,12 @@ local StudioTest = {
 local Config = {
 	GoalDay = 67,
 
-	DayDuration = 300, -- TEMP: 300s for testing, revert to 180 when done
+	DayDuration = 5,
 	NightDuration = 90,
 	DayStartClock = 6,
 	DayEndClock = 18,
 
-	StartingHealth = 1000, -- TEMP: 1000 HP for testing, revert to 100 when done
+	StartingHealth = 100,
 	StartingHunger = 100,
 
 	BaseMultiplier = 1,

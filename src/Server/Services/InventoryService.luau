@@ -61,6 +61,7 @@ local CARRY_BAG_TOOL_NAME = "Carry Bag"
 local FLASHLIGHT_TOOL_NAME = "Flashlight"
 local RESOURCE_NAMES = {
 	"Wood",
+	"WoodenSheet",
 	"Scrap",
 	"Coal",
 	"Berries",
@@ -92,6 +93,7 @@ local GRIND_DROP_RANGE = 14
 -- Map resources to the asset name in ITEMS_PATH.  Mushrooms use their own asset builder.
 local DROP_ASSETS: { [string]: string? } = {
 	Wood = "Log",
+	WoodenSheet = nil :: string?,
 	Coal = "Coal",
 	Scrap = "Coal",
 	Berries = "Carrot",
@@ -100,7 +102,7 @@ local DROP_ASSETS: { [string]: string? } = {
 	RabbitMeat = "rabbit-meat",
 	OwlFeather = nil :: string?,
 	CultistGem = "cultist gem",
-	Bandage = nil :: string?,
+	Bandage = "Bandage",
 	Bolt = nil :: string?,
 	OldRadio = nil :: string?,
 	SheetMetal = nil :: string?,
@@ -980,20 +982,23 @@ local function stopDrag(player: Player)
 	if model and model.Parent then
 		local resourceName = model:GetAttribute("Resource")
 		local isJunk = resourceName and JunkItemConfig[resourceName] ~= nil
+		local isWood = resourceName == "Wood"
 
 		-- Check if the item was dropped near the shredder.
-		-- If it's a junk item near the shredder, auto-grind it.
-		local grinderService = isJunk and Knit.GetService("GrinderService") or nil
+		-- If it's a junk item or wood near the shredder, auto-grind it.
+		local grinderService = (isJunk or isWood) and Knit.GetService("GrinderService") or nil
 		local grinderPos = grinderService and grinderService:GetGrinderPosition()
 		local config = isJunk and JunkItemConfig[resourceName] or nil
-		if grinderPos and config then
+		if grinderPos and (config or isWood) then
 			local dist = (model:GetPivot().Position - grinderPos).Magnitude
 			if dist <= GRIND_DROP_RANGE then
-				-- Grant the scrap FIRST.  If the player is at carry
+				-- Grant the output FIRST.  If the player is at carry
 				-- capacity AddResource returns 0, and destroying the
-				-- model anyway would silently delete their junk for
+				-- model anyway would silently delete their item for
 				-- nothing — so in that case we let it fall instead.
-				local added = InventoryService:AddResource(player, "Scrap", config.ScrapYield)
+				local outputResource = if isWood then "WoodenSheet" else "Scrap"
+				local outputAmount = if isWood then 1 else config.ScrapYield
+				local added = InventoryService:AddResource(player, outputResource, outputAmount)
 				if added > 0 then
 					model:Destroy()
 					dragging[player] = nil
@@ -1003,8 +1008,10 @@ local function stopDrag(player: Player)
 					grinderService.Client.GrinderProcessed:Fire(player, {
 						position = grinderPos,
 						scrapAmount = added,
-						junkId = resourceName,
+						junkId = if isWood then "WoodenSheet" else resourceName,
 					})
+					local craftingService = Knit.GetService("CraftingService")
+					craftingService:AddShreddedTotal(outputResource, added)
 					return
 				end
 				warn(("[InventoryService] %s could not grind %s: inventory full"):format(player.Name, resourceName))
