@@ -74,6 +74,11 @@ local posterBoard: Part? = nil
 local posterSlots: { [string]: { frame: Frame, viewport: ViewportFrame, blackOverlay: Frame, foundStamp:TextLabel, nameLabel: TextLabel, model: Model? } } = {}
 local exclamationPart: Part? = nil
 local heartbeatConnection: RBXScriptConnection? = nil
+local portraitTemplates: { [string]: Model } = {}
+local portraitFolder: Folder? = nil
+
+-- Forward declaration so unlockForLevel can broadcast poster state changes.
+local updatePosterStates: (any) -> () = nil
 
 -- // FUNCTIONS // --
 
@@ -451,11 +456,13 @@ end
     @param    campfireLevel  number
 ]]
 local function unlockForLevel(campfireLevel: number)
+	local anyUnlocked = false
 	for rescueId, record in pairs(caveRecords) do
 		if record.state == "Locked" and campfireLevel >= record.definition.RequiredCampfireLevel then
 			record.state = "Available"
 			record.model:SetAttribute("State", "Available")
 			spawnGuards(record)
+			anyUnlocked = true
 			broadcast(RescueService.Client.CaveUnlocked, {
 				rescueId = rescueId,
 				displayName = record.definition.DisplayName,
@@ -463,6 +470,11 @@ local function unlockForLevel(campfireLevel: number)
 				requiredCampfireLevel = record.definition.RequiredCampfireLevel,
 			})
 		end
+	end
+	-- Always broadcast the latest poster state so any open map UI refreshes
+	-- immediately, even if no cave changed this tick (covers late joiners).
+	if anyUnlocked then
+		updatePosterStates()
 	end
 end
 
@@ -527,11 +539,69 @@ local function onNpcDied(model: Model)
 end
 
 --[[
+    @summary  Build a shared, script-free portrait template for a rescue id.
+              The template is parented to ReplicatedStorage.Portraits so the
+              physical board and the client map UI can both clone it.
+    @param    rescueId  string
+    @returns  Model?
+]]
+local function createPortraitTemplate(rescueId: string): Model?
+	local definition = RescueConfig[rescueId]
+	if not definition then
+		warn("[RescueService] createPortraitTemplate: no definition for", rescueId)
+		return nil
+	end
+	local npcAssets = ServerStorage.Assets:FindFirstChild("Assets Npcs")
+	if not npcAssets then
+		warn("[RescueService] createPortraitTemplate: 'Assets Npcs' folder not found in ServerStorage.Assets")
+		return nil
+	end
+	local source = npcAssets:FindFirstChild(definition.RigTemplate)
+	if not source then
+		warn("[RescueService] createPortraitTemplate: rig template not found:", definition.RigTemplate)
+		return nil
+	end
+	if not source:IsA("Model") then
+		warn("[RescueService] createPortraitTemplate: rig template is not a Model:", definition.RigTemplate, source.ClassName)
+		return nil
+	end
+	local model = source:Clone()
+	model.Name = rescueId .. "PortraitTemplate"
+	-- Remove scripts so the template never runs AI on the client or server.
+	for _, desc in ipairs(model:GetDescendants()) do
+		if desc:IsA("BaseScript") or desc:IsA("ModuleScript") then
+			desc:Destroy()
+		elseif desc:IsA("BasePart") then
+			desc.Anchored = true
+			desc.CanCollide = false
+		end
+	end
+	-- Apply variant styling (hat, color tint).
+	styleChildVariant(model, definition)
+	-- Parent to the shared folder so clients can replicate it.
+	if not portraitFolder then
+		portraitFolder = Instance.new("Folder")
+		portraitFolder.Name = "Portraits"
+		portraitFolder.Parent = ReplicatedStorage
+	end
+	model.Parent = portraitFolder
+	return model
+end
+
+--[[
     @summary  Clone and pose a child model for display in a ViewportFrame.
+              Uses the shared template from ReplicatedStorage when available.
     @param    rescueId  string
     @returns  Model?
 ]]
 local function createPortraitModel(rescueId: string): Model?
+	local template = portraitTemplates[rescueId]
+	if template then
+		local model = template:Clone()
+		model.Name = "Portrait_" .. rescueId
+		return model
+	end
+	-- Fallback: build a one-off template if the shared folder is missing.
 	local definition = RescueConfig[rescueId]
 	if not definition then
 		warn("[RescueService] createPortraitModel: no definition for", rescueId)
@@ -574,8 +644,9 @@ local function setupViewportPortrait(viewport: ViewportFrame, model: Model)
 	-- Parent model directly to ViewportFrame (more reliable than WorldModel for static portraits)
 	model.Parent = viewport
 
-	-- Reset model to origin
-	model:PivotTo(CFrame.new(0, 0, 0))
+	-- Reset model to origin and rotate 180° so the front faces the camera
+	-- (which is positioned at +Z looking toward origin).
+	model:PivotTo(CFrame.new(0, 0, 0) * CFrame.Angles(0, math.rad(180), 0))
 
 	-- Compute bounding box to frame the camera properly
 	local size = model:GetExtentsSize()
@@ -627,12 +698,14 @@ local function createPosterSlot(parent: Instance, index: number, rescueId: strin
 	local missingLabel = Instance.new("TextLabel")
 	missingLabel.Name = "MissingLabel"
 	missingLabel.Position = UDim2.fromOffset(0, 6)
-	missingLabel.Size = UDim2.new(1, 0, 0, 28)
+	missingLabel.Size = UDim2.new(1, 0, 0, 30)
 	missingLabel.BackgroundTransparency = 1
 	missingLabel.Font = Enum.Font.PermanentMarker
 	missingLabel.Text = "MISSING"
-	missingLabel.TextColor3 = Color3.fromRGB(180, 30, 30)
-	missingLabel.TextSize = 22
+	missingLabel.TextColor3 = Color3.fromRGB(190, 35, 35)
+	missingLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	missingLabel.TextStrokeTransparency = 0.2
+	missingLabel.TextSize = 24
 	missingLabel.Parent = paper
 
 	-- ViewportFrame for the child portrait
@@ -643,52 +716,55 @@ local function createPosterSlot(parent: Instance, index: number, rescueId: strin
 	viewport.BackgroundTransparency = 1
 	viewport.Parent = paper
 
-	-- Black overlay (shown when locked)
+	-- Lock badge (small corner icon shown when locked; portrait stays visible)
 	local blackOverlay = Instance.new("Frame")
 	blackOverlay.Name = "BlackOverlay"
-	blackOverlay.Position = UDim2.fromOffset(10, 38)
-	blackOverlay.Size = UDim2.new(1, -20, 1, -80)
+	blackOverlay.AnchorPoint = Vector2.new(1, 0)
+	blackOverlay.Position = UDim2.new(1, -10, 0, 38)
+	blackOverlay.Size = UDim2.fromOffset(40, 40)
 	blackOverlay.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-	blackOverlay.BackgroundTransparency = 0.05
+	blackOverlay.BackgroundTransparency = 0.3
 	blackOverlay.Visible = true
 	blackOverlay.Parent = paper
 	local overlayCorner = Instance.new("UICorner")
-	overlayCorner.CornerRadius = UDim.new(0, 4)
+	overlayCorner.CornerRadius = UDim.new(0, 6)
 	overlayCorner.Parent = blackOverlay
-	-- Scribble effect: a lock icon on the black overlay
+	-- Lock icon in the corner badge
 	local questionLabel = Instance.new("TextLabel")
 	questionLabel.Size = UDim2.fromScale(1, 1)
 	questionLabel.BackgroundTransparency = 1
 	questionLabel.Font = Enum.Font.GothamBlack
 	questionLabel.Text = "🔒"
-	questionLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-	questionLabel.TextSize = 60
+	questionLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+	questionLabel.TextSize = 24
 	questionLabel.Parent = blackOverlay
 
 	-- Name label at bottom
 	local nameLabel = Instance.new("TextLabel")
 	nameLabel.Name = "NameLabel"
-	nameLabel.Position = UDim2.fromOffset(0, slotHeight - 36)
-	nameLabel.Size = UDim2.new(1, 0, 0, 30)
+	nameLabel.Position = UDim2.fromOffset(0, slotHeight - 38)
+	nameLabel.Size = UDim2.new(1, 0, 0, 32)
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Font = Enum.Font.GothamBold
 	nameLabel.Text = displayName
-	nameLabel.TextColor3 = Color3.fromRGB(40, 30, 20)
-	nameLabel.TextSize = 18
+	nameLabel.TextColor3 = Color3.fromRGB(35, 25, 15)
+	nameLabel.TextStrokeColor3 = Color3.fromRGB(255, 245, 220)
+	nameLabel.TextStrokeTransparency = 0.5
+	nameLabel.TextSize = 20
 	nameLabel.Parent = paper
 
 	-- FOUND stamp (shown when rescued)
 	local foundStamp = Instance.new("TextLabel")
 	foundStamp.Name = "FoundStamp"
 	foundStamp.Position = UDim2.fromOffset(20, 80)
-	foundStamp.Size = UDim2.fromOffset(190, 60)
+	foundStamp.Size = UDim2.fromOffset(190, 64)
 	foundStamp.BackgroundTransparency = 1
 	foundStamp.Font = Enum.Font.PermanentMarker
 	foundStamp.Text = "FOUND!"
-	foundStamp.TextColor3 = Color3.fromRGB(30, 160, 50)
-	foundStamp.TextSize = 42
+	foundStamp.TextColor3 = Color3.fromRGB(35, 170, 55)
+	foundStamp.TextSize = 46
 	foundStamp.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-	foundStamp.TextStrokeTransparency = 0.3
+	foundStamp.TextStrokeTransparency = 0.2
 	foundStamp.Rotation = -15
 	foundStamp.Visible = false
 	foundStamp.ZIndex = 10
@@ -844,10 +920,10 @@ local function createPosterBoard()
 	titleLabel.BackgroundTransparency = 1
 	titleLabel.Font = Enum.Font.PermanentMarker
 	titleLabel.Text = "MISSING KID LOCATIONS"
-	titleLabel.TextColor3 = Color3.fromRGB(240, 230, 200)
+	titleLabel.TextColor3 = Color3.fromRGB(245, 235, 210)
 	titleLabel.TextStrokeColor3 = Color3.fromRGB(20, 10, 5)
-	titleLabel.TextStrokeTransparency = 0.2
-	titleLabel.TextSize = 38
+	titleLabel.TextStrokeTransparency = 0.15
+	titleLabel.TextSize = 40
 	titleLabel.Parent = surfaceGui
 
 	-- Poster row container (parented directly to SurfaceGui)
@@ -867,7 +943,8 @@ local function createPosterBoard()
 		if model then
 			slot.model = model
 			setupViewportPortrait(slot.viewport, model)
-			slot.blackOverlay.Visible = false
+			-- Keep the lock badge visible initially; updatePosterStates
+			-- will hide it for unlocked kids.
 		else
 			warn("[RescueService] Failed to create portrait for", rescueId)
 		end
@@ -880,8 +957,7 @@ local function createPosterBoard()
 	prompt.MaxActivationDistance = PICKUP_RANGE
 	prompt.Parent = board
 	prompt.Triggered:Connect(function(player)
-		RescueService:SelectBoardTarget(player)
-		-- Also send the board snapshot to open the map UI
+		-- Open the map UI only; the player chooses a kid to track from there.
 		local snapshot = RescueService.Client:GetSnapshot(player)
 		RescueService.Client.BoardOpened:Fire(player, snapshot)
 	end)
@@ -891,7 +967,7 @@ end
     @summary  Update all poster slots to reflect current cave states.
               Called after any rescue state change.
 ]]
-local function updatePosterStates()
+updatePosterStates = function()
 	local anyAvailable = false
 	for rescueId, slot in pairs(posterSlots) do
 		local record = caveRecords[rescueId]
@@ -902,9 +978,11 @@ local function updatePosterStates()
 		if state ~= "Locked" then
 			anyAvailable = true
 		end
-		-- Show a semi-transparent lock overlay when locked, but keep portrait visible
+		-- Portraits are always visible on the board. For locked kids,
+		-- show a small semi-transparent lock badge in the corner instead
+		-- of covering the entire portrait.
 		if state == "Locked" then
-			slot.blackOverlay.BackgroundTransparency = 0.4
+			slot.blackOverlay.BackgroundTransparency = 1
 			slot.blackOverlay.Visible = true
 		else
 			slot.blackOverlay.Visible = false
@@ -927,6 +1005,7 @@ local function updatePosterStates()
 			state = record.state,
 			displayName = record.definition.DisplayName,
 			position = record.center,
+			requiredCampfireLevel = record.definition.RequiredCampfireLevel,
 		}
 	end
 	broadcast(RescueService.Client.PosterStateUpdated, { states = states, rescuedCount = rescuedCount })
@@ -1308,6 +1387,14 @@ function RescueService.Client:RequestSetWaypoint(player: Player, rescueId: strin
 end
 
 --[[
+    @summary  Client request to clear the current waypoint.
+    @param    player  Player  -- injected by Knit
+]]
+function RescueService.Client:RequestClearWaypoint(player: Player)
+	RescueService.Client.WaypointChanged:Fire(player, { cleared = true })
+end
+
+--[[
     @summary  Return a client-safe rescue snapshot.
     @param    player  Player  -- injected by Knit
     @returns  table
@@ -1333,6 +1420,15 @@ function RescueService:KnitStart()
 	campfireService = Knit.GetService("CampfireService")
 	animalAIService = Knit.GetService("AnimalAIService")
 	playerLifeService = Knit.GetService("PlayerLifeService")
+
+	-- Build shared portrait templates once so both the physical board and
+	-- the client map UI can clone them from ReplicatedStorage.
+	for _, rescueId in ipairs(CAVE_ORDER) do
+		local template = createPortraitTemplate(rescueId)
+		if template then
+			portraitTemplates[rescueId] = template
+		end
+	end
 
 	runStateService.RunStarted:Connect(function()
 		-- Wait one frame so buildings and facilities are placed and reserved first

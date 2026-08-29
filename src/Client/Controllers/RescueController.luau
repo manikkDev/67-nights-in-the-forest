@@ -46,10 +46,15 @@ local bannerHideAt = 0
 
 -- Map UI state
 local mapGui: ScreenGui? = nil
-local mapFrame: Frame? = nil
+local _mapFrame: Frame? = nil
 local mapCards: { [string]: Frame } = {}
 local mapOpen = false
 local currentMapStates: { [string]: any } = {}
+local trackedRescueId: string? = nil
+local portraitsLoaded = false
+
+-- Forward declaration so loadPortraits can call refreshMapUi.
+local refreshMapUi: ({ [string]: any }) -> () = nil
 
 local CAVE_ORDER = { "Dino", "Kraken", "Squid", "Koala" }
 
@@ -87,7 +92,7 @@ local function buildMapUi()
 	frame.BackgroundColor3 = Color3.fromRGB(85, 58, 34)
 	frame.BorderSizePixel = 0
 	frame.Parent = bg
-	mapFrame = frame
+	_mapFrame = frame
 	local frameCorner = Instance.new("UICorner")
 	frameCorner.CornerRadius = UDim.new(0, 12)
 	frameCorner.Parent = frame
@@ -104,10 +109,10 @@ local function buildMapUi()
 	title.BackgroundTransparency = 1
 	title.Font = Enum.Font.PermanentMarker
 	title.Text = "MISSING KID LOCATIONS"
-	title.TextColor3 = Color3.fromRGB(240, 230, 200)
+	title.TextColor3 = Color3.fromRGB(245, 235, 210)
 	title.TextStrokeColor3 = Color3.fromRGB(20, 10, 5)
-	title.TextStrokeTransparency = 0.2
-	title.TextSize = 32
+	title.TextStrokeTransparency = 0.15
+	title.TextSize = 34
 	title.Parent = frame
 
 	-- Close button
@@ -140,22 +145,25 @@ local function buildMapUi()
 	cardsRow.BackgroundTransparency = 1
 	cardsRow.Parent = frame
 
-	-- Use UIListLayout for horizontal layout
+	-- Use UIListLayout for horizontal layout, sorted by LayoutOrder so we
+	-- keep the canonical progression: Dino, Kraken, Squid, Koala.
 	local layout = Instance.new("UIListLayout")
 	layout.FillDirection = Enum.FillDirection.Horizontal
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.VerticalAlignment = Enum.VerticalAlignment.Top
+	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.Padding = UDim.new(0, 16)
 	layout.Parent = cardsRow
 
 	-- Create 4 cards
 	mapCards = {}
-	for _, rescueId in ipairs(CAVE_ORDER) do
+	for index, rescueId in ipairs(CAVE_ORDER) do
 		local definition = RescueConfig[rescueId]
 		local displayName = definition and definition.DisplayName or rescueId
 
 		local card = Instance.new("Frame")
 		card.Name = rescueId .. "Card"
+		card.LayoutOrder = index
 		card.Size = UDim2.fromOffset(180, 360)
 		card.BackgroundColor3 = Color3.fromRGB(232, 224, 198)
 		card.BorderSizePixel = 0
@@ -172,14 +180,14 @@ local function buildMapUi()
 		local missingLabel = Instance.new("TextLabel")
 		missingLabel.Name = "MissingLabel"
 		missingLabel.Position = UDim2.fromOffset(0, 6)
-		missingLabel.Size = UDim2.new(1, 0, 0, 24)
+		missingLabel.Size = UDim2.new(1, 0, 0, 26)
 		missingLabel.BackgroundTransparency = 1
 		missingLabel.Font = Enum.Font.PermanentMarker
 		missingLabel.Text = "MISSING"
-		missingLabel.TextColor3 = Color3.fromRGB(180, 30, 30)
+		missingLabel.TextColor3 = Color3.fromRGB(190, 35, 35)
 		missingLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-		missingLabel.TextStrokeTransparency = 0.3
-		missingLabel.TextSize = 18
+		missingLabel.TextStrokeTransparency = 0.2
+		missingLabel.TextSize = 20
 		missingLabel.Parent = card
 
 		-- ViewportFrame for portrait
@@ -190,70 +198,81 @@ local function buildMapUi()
 		viewport.BackgroundTransparency = 1
 		viewport.Parent = card
 
-		-- Black overlay
+		-- Lock badge (small corner icon; portrait stays visible behind it)
 		local blackOverlay = Instance.new("Frame")
 		blackOverlay.Name = "BlackOverlay"
-		blackOverlay.Position = UDim2.fromOffset(8, 32)
-		blackOverlay.Size = UDim2.new(1, -16, 0, 220)
+		blackOverlay.AnchorPoint = Vector2.new(1, 0)
+		blackOverlay.Position = UDim2.new(1, -8, 0, 32)
+		blackOverlay.Size = UDim2.fromOffset(36, 36)
 		blackOverlay.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+		blackOverlay.BackgroundTransparency = 0.3
 		blackOverlay.Visible = true
 		blackOverlay.Parent = card
+		local overlayCorner = Instance.new("UICorner")
+		overlayCorner.CornerRadius = UDim.new(0, 6)
+		overlayCorner.Parent = blackOverlay
 		local overlayQ = Instance.new("TextLabel")
 		overlayQ.Size = UDim2.fromScale(1, 1)
 		overlayQ.BackgroundTransparency = 1
 		overlayQ.Font = Enum.Font.GothamBlack
-		overlayQ.Text = "?"
-		overlayQ.TextColor3 = Color3.fromRGB(60, 60, 60)
-		overlayQ.TextSize = 60
+		overlayQ.Text = "🔒"
+		overlayQ.TextColor3 = Color3.fromRGB(220, 220, 220)
+		overlayQ.TextSize = 20
 		overlayQ.Parent = blackOverlay
 
 		-- Name label
 		local nameLabel = Instance.new("TextLabel")
 		nameLabel.Name = "NameLabel"
 		nameLabel.Position = UDim2.fromOffset(0, 256)
-		nameLabel.Size = UDim2.new(1, 0, 0, 24)
+		nameLabel.Size = UDim2.new(1, 0, 0, 26)
 		nameLabel.BackgroundTransparency = 1
 		nameLabel.Font = Enum.Font.GothamBold
 		nameLabel.Text = displayName
-		nameLabel.TextColor3 = Color3.fromRGB(40, 30, 20)
-		nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-		nameLabel.TextStrokeTransparency = 0.3
-		nameLabel.TextSize = 16
+		nameLabel.TextColor3 = Color3.fromRGB(35, 25, 15)
+		nameLabel.TextStrokeColor3 = Color3.fromRGB(255, 245, 220)
+		nameLabel.TextStrokeTransparency = 0.6
+		nameLabel.TextSize = 18
 		nameLabel.Parent = card
 
 		-- Status label
 		local statusLabel = Instance.new("TextLabel")
 		statusLabel.Name = "StatusLabel"
-		statusLabel.Position = UDim2.fromOffset(0, 280)
-		statusLabel.Size = UDim2.new(1, 0, 0, 20)
+		statusLabel.Position = UDim2.fromOffset(0, 282)
+		statusLabel.Size = UDim2.new(1, 0, 0, 22)
 		statusLabel.BackgroundTransparency = 1
 		statusLabel.Font = Enum.Font.GothamBold
 		statusLabel.Text = "Locked"
-		statusLabel.TextColor3 = Color3.fromRGB(120, 120, 120)
-		statusLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-		statusLabel.TextStrokeTransparency = 0.4
-		statusLabel.TextSize = 14
+		statusLabel.TextColor3 = Color3.fromRGB(110, 110, 110)
+		statusLabel.TextStrokeColor3 = Color3.fromRGB(255, 250, 230)
+		statusLabel.TextStrokeTransparency = 0.5
+		statusLabel.TextSize = 15
 		statusLabel.Parent = card
 
 		-- Track button
 		local trackBtn = Instance.new("TextButton")
 		trackBtn.Name = "TrackButton"
 		trackBtn.Position = UDim2.fromOffset(20, 310)
-		trackBtn.Size = UDim2.new(1, -40, 0, 36)
+		trackBtn.Size = UDim2.new(1, -40, 0, 38)
 		trackBtn.BackgroundColor3 = Color3.fromRGB(60, 130, 200)
 		trackBtn.Font = Enum.Font.GothamBold
 		trackBtn.Text = "Track"
 		trackBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 		trackBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-		trackBtn.TextStrokeTransparency = 0.3
-		trackBtn.TextSize = 16
+		trackBtn.TextStrokeTransparency = 0.25
+		trackBtn.TextSize = 18
 		trackBtn.Visible = false
 		trackBtn.Parent = card
 		local trackCorner = Instance.new("UICorner")
 		trackCorner.CornerRadius = UDim.new(0, 6)
 		trackCorner.Parent = trackBtn
 		trackBtn.MouseButton1Click:Connect(function()
-			if rescueService then
+			if not rescueService then
+				return
+			end
+			if trackedRescueId == rescueId then
+				-- Already tracking this kid — untrack instead.
+				rescueService:RequestClearWaypoint()
+			else
 				rescueService:RequestSetWaypoint(rescueId)
 			end
 			screenGui.Enabled = false
@@ -264,14 +283,14 @@ local function buildMapUi()
 		local foundStamp = Instance.new("TextLabel")
 		foundStamp.Name = "FoundStamp"
 		foundStamp.Position = UDim2.fromOffset(10, 80)
-		foundStamp.Size = UDim2.fromOffset(160, 50)
+		foundStamp.Size = UDim2.fromOffset(160, 54)
 		foundStamp.BackgroundTransparency = 1
 		foundStamp.Font = Enum.Font.PermanentMarker
 		foundStamp.Text = "FOUND!"
-		foundStamp.TextColor3 = Color3.fromRGB(30, 160, 50)
+		foundStamp.TextColor3 = Color3.fromRGB(35, 170, 55)
 		foundStamp.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-		foundStamp.TextStrokeTransparency = 0.3
-		foundStamp.TextSize = 32
+		foundStamp.TextStrokeTransparency = 0.2
+		foundStamp.TextSize = 36
 		foundStamp.Rotation = -12
 		foundStamp.Visible = false
 		foundStamp.ZIndex = 10
@@ -282,10 +301,58 @@ local function buildMapUi()
 end
 
 --[[
+    @summary  Clone portrait templates from ReplicatedStorage into each
+              card's ViewportFrame and set up a camera. Runs once.
+]]
+local function loadPortraits()
+	if portraitsLoaded then
+		return
+	end
+	task.spawn(function()
+		local folder = ReplicatedStorage:WaitForChild("Portraits", 10)
+		if not folder then
+			warn("[RescueController] ReplicatedStorage.Portraits not found; portraits will stay hidden.")
+			return
+		end
+		for rescueId, card in pairs(mapCards) do
+			local viewport = card:FindFirstChild("Portrait")
+			if not viewport or not viewport:IsA("ViewportFrame") then
+				continue
+			end
+			local template = folder:FindFirstChild(rescueId .. "PortraitTemplate")
+			if not template or not template:IsA("Model") then
+				continue
+			end
+			local model = template:Clone()
+			model.Name = "Portrait_" .. rescueId
+			-- Rotate 180° so the front faces the camera (at +Z looking toward origin).
+			model:PivotTo(CFrame.new(0, 0, 0) * CFrame.Angles(0, math.rad(180), 0))
+			model.Parent = viewport
+
+			local size = model:GetExtentsSize()
+			local radius = math.max(size.X, size.Y, size.Z) / 2
+			if radius <= 0 then
+				radius = 3
+			end
+			local distance = radius * 2.8
+			local camera = Instance.new("Camera")
+			camera.CFrame = CFrame.new(Vector3.new(0, size.Y * 0.3, distance), Vector3.new(0, 0, 0))
+			camera.Parent = viewport
+			viewport.CurrentCamera = camera
+		end
+		portraitsLoaded = true
+		-- Refresh the map UI so newly-loaded portraits show for unlocked cards.
+		if mapOpen and currentMapStates then
+			refreshMapUi(currentMapStates)
+		end
+	end)
+end
+
+--[[
     @summary  Update the map UI cards to reflect current rescue states.
     @param    states  table  -- { [rescueId] = { state, displayName, position } }
 ]]
-local function refreshMapUi(states: { [string]: any })
+refreshMapUi = function(states: { [string]: any })
 	for rescueId, card in pairs(mapCards) do
 		local info = states and states[rescueId]
 		if not info then
@@ -299,15 +366,23 @@ local function refreshMapUi(states: { [string]: any })
 		local foundStamp = card:FindFirstChild("FoundStamp")
 
 		if state == "Locked" then
+			-- Portrait stays visible; show a small lock badge overlay.
 			if blackOverlay then blackOverlay.Visible = true end
-			if viewport then viewport.Visible = false end
-			if statusLabel then statusLabel.Text = "Locked" statusLabel.TextColor3 = Color3.fromRGB(120, 120, 120) end
+			if viewport then viewport.Visible = true end
+			if statusLabel then
+				local reqLevel = info.requiredCampfireLevel or "?"
+				statusLabel.Text = "Locked (Lv " .. tostring(reqLevel) .. ")"
+				statusLabel.TextColor3 = Color3.fromRGB(120, 120, 120)
+			end
 			if trackBtn then trackBtn.Visible = false end
 			if foundStamp then foundStamp.Visible = false end
 		elseif state == "Rescued" then
 			if blackOverlay then blackOverlay.Visible = false end
 			if viewport then viewport.Visible = true end
-			if statusLabel then statusLabel.Text = "Rescued!" statusLabel.TextColor3 = Color3.fromRGB(30, 160, 50) end
+			if statusLabel then
+				statusLabel.Text = "Rescued!"
+				statusLabel.TextColor3 = Color3.fromRGB(30, 160, 50)
+			end
 			if trackBtn then trackBtn.Visible = false end
 			if foundStamp then foundStamp.Visible = true end
 		else
@@ -323,7 +398,16 @@ local function refreshMapUi(states: { [string]: any })
 					statusLabel.TextColor3 = Color3.fromRGB(200, 80, 30)
 				end
 			end
-			if trackBtn then trackBtn.Visible = true end
+			if trackBtn then
+				trackBtn.Visible = true
+				if trackedRescueId == rescueId then
+					trackBtn.Text = "Untrack"
+					trackBtn.BackgroundColor3 = Color3.fromRGB(170, 90, 60)
+				else
+					trackBtn.Text = "Track"
+					trackBtn.BackgroundColor3 = Color3.fromRGB(60, 130, 200)
+				end
+			end
 			if foundStamp then foundStamp.Visible = false end
 		end
 	end
@@ -340,9 +424,11 @@ local function openMapUi(snapshot: { [string]: any })
 	if not mapGui then
 		return
 	end
+	loadPortraits()
 	mapGui.Enabled = true
 	mapOpen = true
 	if snapshot and snapshot.records then
+		currentMapStates = snapshot.records
 		refreshMapUi(snapshot.records)
 	end
 end
@@ -399,17 +485,40 @@ local function buildUi()
 
 	local waypointText = Instance.new("TextLabel")
 	waypointText.Position = UDim2.fromOffset(58, 8)
-	waypointText.Size = UDim2.new(1, -68, 1, -16)
+	waypointText.Size = UDim2.new(1, -100, 1, -16)
 	waypointText.BackgroundTransparency = 1
 	waypointText.Font = Enum.Font.GothamBold
-	waypointText.TextColor3 = Color3.fromRGB(240, 235, 220)
+	waypointText.TextColor3 = Color3.fromRGB(245, 240, 225)
 	waypointText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-	waypointText.TextStrokeTransparency = 0.3
-	waypointText.TextSize = 16
+	waypointText.TextStrokeTransparency = 0.2
+	waypointText.TextSize = 18
 	waypointText.TextWrapped = true
 	waypointText.TextXAlignment = Enum.TextXAlignment.Left
 	waypointText.Parent = waypoint
 	waypointLabel = waypointText
+
+	-- Untrack (X) button on the right side of the waypoint.
+	local untrackBtn = Instance.new("TextButton")
+	untrackBtn.Name = "UntrackButton"
+	untrackBtn.AnchorPoint = Vector2.new(1, 0.5)
+	untrackBtn.Position = UDim2.new(1, -8, 0.5, 0)
+	untrackBtn.Size = UDim2.fromOffset(28, 28)
+	untrackBtn.BackgroundColor3 = Color3.fromRGB(180, 50, 40)
+	untrackBtn.Font = Enum.Font.GothamBold
+	untrackBtn.Text = "X"
+	untrackBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+	untrackBtn.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+	untrackBtn.TextStrokeTransparency = 0.3
+	untrackBtn.TextSize = 16
+	untrackBtn.Parent = waypoint
+	local untrackCorner = Instance.new("UICorner")
+	untrackCorner.CornerRadius = UDim.new(1, 0)
+	untrackCorner.Parent = untrackBtn
+	untrackBtn.MouseButton1Click:Connect(function()
+		if rescueService then
+			rescueService:RequestClearWaypoint()
+		end
+	end)
 
 	local progress = Instance.new("TextLabel")
 	progress.AnchorPoint = Vector2.new(1, 0)
@@ -419,10 +528,10 @@ local function buildUi()
 	progress.BackgroundTransparency = 0.2
 	progress.Font = Enum.Font.GothamBold
 	progress.Text = "CHILDREN  0 / 4"
-	progress.TextColor3 = Color3.fromRGB(235, 225, 195)
+	progress.TextColor3 = Color3.fromRGB(240, 230, 200)
 	progress.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-	progress.TextStrokeTransparency = 0.3
-	progress.TextSize = 15
+	progress.TextStrokeTransparency = 0.2
+	progress.TextSize = 16
 	progress.Parent = screenGui
 	progressLabel = progress
 	local progressCorner = Instance.new("UICorner")
@@ -437,10 +546,10 @@ local function buildUi()
 	carry.BackgroundTransparency = 0.12
 	carry.Font = Enum.Font.GothamBold
 	carry.Text = "Carrying child  •  G / B to drop"
-	carry.TextColor3 = Color3.fromRGB(245, 230, 190)
+	carry.TextColor3 = Color3.fromRGB(250, 235, 195)
 	carry.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-	carry.TextStrokeTransparency = 0.3
-	carry.TextSize = 17
+	carry.TextStrokeTransparency = 0.2
+	carry.TextSize = 18
 	carry.Visible = false
 	carry.Parent = screenGui
 	carryLabel = carry
@@ -576,10 +685,20 @@ function RescueController:KnitStart()
 		if typeof(payload) ~= "table" or payload.cleared == true then
 			targetPosition = nil
 			targetName = ""
+			trackedRescueId = nil
+			-- Refresh map UI if open so the button text resets to "Track".
+			if mapOpen and currentMapStates then
+				refreshMapUi(currentMapStates)
+			end
 			return
 		end
 		targetPosition = payload.position
 		targetName = payload.displayName or "Missing Child"
+		trackedRescueId = payload.childId
+		-- Refresh map UI if open so the button text updates to "Untrack".
+		if mapOpen and currentMapStates then
+			refreshMapUi(currentMapStates)
+		end
 	end), "Disconnect")
 
 	janitor:Add(rescueService.CaveUnlocked:Connect(function(payload)
@@ -602,6 +721,7 @@ function RescueController:KnitStart()
 			showBanner((payload.displayName or "Child") .. " RESCUED  •  " .. tostring(payload.multiplier or 1) .. "x DAYS")
 			if targetName == payload.displayName then
 				targetPosition = nil
+				trackedRescueId = nil
 			end
 		end
 	end), "Disconnect")
@@ -646,6 +766,8 @@ function RescueController:KnitStart()
 			end
 			closeMapUi()
 			targetPosition = nil
+			targetName = ""
+			trackedRescueId = nil
 			setCarrying(nil)
 			if progressLabel then
 				progressLabel.Text = "CHILDREN  0 / 4"
