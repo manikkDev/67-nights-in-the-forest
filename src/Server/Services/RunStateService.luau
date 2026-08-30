@@ -406,14 +406,33 @@ end
 ]]
 function RunStateService:StartRun(participants: { Player }, metadata: { [string]: any }?): string?
 	if phase == "Active" or phase == "Starting" or phase == "Ending" then
+		warn("[RunStateService] StartRun rejected — phase is", phase)
 		return nil
 	end
-	if #participants == 0 or #participants > 5 or not playerDataService then
+	if #participants == 0 then
+		warn("[RunStateService] StartRun rejected — 0 participants")
+		return nil
+	end
+	if #participants > 5 then
+		warn("[RunStateService] StartRun rejected — too many participants:", #participants)
+		return nil
+	end
+	if not playerDataService then
+		warn("[RunStateService] StartRun rejected — playerDataService is nil")
 		return nil
 	end
 	local seenUserIds = {}
 	for _, player in ipairs(participants) do
-		if not player.Parent or not playerDataService:GetData(player) or seenUserIds[player.UserId] then
+		if not player.Parent then
+			warn("[RunStateService] StartRun rejected — player has no Parent:", player.Name)
+			return nil
+		end
+		if not playerDataService:GetData(player) then
+			warn("[RunStateService] StartRun rejected — no profile data for:", player.Name)
+			return nil
+		end
+		if seenUserIds[player.UserId] then
+			warn("[RunStateService] StartRun rejected — duplicate userId:", player.UserId)
 			return nil
 		end
 		seenUserIds[player.UserId] = true
@@ -423,12 +442,15 @@ function RunStateService:StartRun(participants: { Player }, metadata: { [string]
 	local requestedHostId = metadata and metadata.hostUserId
 	local requestedInitialSize = metadata and metadata.initialPartySize
 	if requestedPartyId ~= nil and (typeof(requestedPartyId) ~= "string" or #requestedPartyId < 8) then
+		warn("[RunStateService] StartRun rejected — invalid partyId in metadata")
 		return nil
 	end
 	if requestedHostId ~= nil and typeof(requestedHostId) ~= "number" then
+		warn("[RunStateService] StartRun rejected — invalid hostUserId in metadata")
 		return nil
 	end
 	if requestedInitialSize ~= nil and (typeof(requestedInitialSize) ~= "number" or requestedInitialSize < #participants or requestedInitialSize > 5) then
+		warn("[RunStateService] StartRun rejected — invalid initialPartySize:", requestedInitialSize, "participants:", #participants)
 		return nil
 	end
 
@@ -470,6 +492,7 @@ function RunStateService:StartRun(participants: { Player }, metadata: { [string]
 	phase = "Active"
 	broadcastPhase({ startedAt = runStartedAt })
 
+	print("[RunStateService] StartRun succeeded — runId:", runId, "partyId:", partyId, "members:", #participants)
 	return runId
 end
 

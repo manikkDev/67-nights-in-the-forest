@@ -20,7 +20,9 @@ The experience uses two places under the same experience:
 
 - `ServerRole.IsLobby()` → true on the lobby place
 - `ServerRole.IsGameServer()` → true on a reserved game server
-- Detection order: DataModel attribute `ServerRole` (set by `game.project.json`) → Studio `ForceGameMode` flag → production `PrivateServerId` check
+- Detection order: DataModel attribute `ServerRole` (set by `game.project.json`) → **PlaceId check** (production only: `game.PlaceId == Constants.GAME_PLACE_ID`) → Studio `ForceGameMode`/`SkipLobby` flags → production `PrivateServerId` check
+- The PlaceId check is the most reliable detection in production — it doesn't depend on attributes or PrivateServerId behavior.
+- A one-shot diagnostic log is printed on the first `IsGameServer()` call showing all detection values.
 
 ### Studio testing
 

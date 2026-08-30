@@ -20,8 +20,30 @@
 
 local RunService = game:GetService("RunService")
 local RunConfig = require(script.Parent.RunConfig)
+local Constants = require(script.Parent.Constants)
 
 local ServerRole = {}
+
+-- One-shot diagnostic log so we can see exactly how role detection resolved.
+local detectionLogged = false
+local function logDetection(source: string, result: boolean)
+	if detectionLogged then
+		return
+	end
+	detectionLogged = true
+	print(("[ServerRole] %s -> IsGameServer=%s | PlaceId=%d GAME_PLACE_ID=%d LOBBY_PLACE_ID=%d | attr=%s | PrivateServerId=%s OwnerId=%d | IsStudio=%s")
+		:format(
+			source,
+			tostring(result),
+			game.PlaceId or -1,
+			Constants.GAME_PLACE_ID,
+			Constants.LOBBY_PLACE_ID,
+			tostring(game:GetAttribute("ServerRole")),
+			game.PrivateServerId ~= "" and "non-empty" or "empty",
+			game.PrivateServerOwnerId,
+			tostring(RunService:IsStudio())
+		))
+end
 
 --[[
     @summary  Returns true when the current server is the lobby place.
@@ -45,19 +67,39 @@ function ServerRole.IsGameServer(): boolean
 	-- to mark the game place project file.
 	local attr = game:GetAttribute("ServerRole")
 	if attr == "Game" then
+		logDetection("attr=Game", true)
 		return true
 	elseif attr == "Lobby" then
+		logDetection("attr=Lobby", false)
 		return false
 	end
-	-- No attribute set — fall back to runtime detection.
+
+	-- PlaceId check: the most reliable detection in production.
+	-- In Studio the PlaceId is the lobby place, so skip this check there.
+	if not RunService:IsStudio() then
+		if game.PlaceId == Constants.GAME_PLACE_ID then
+			logDetection("PlaceId==GAME_PLACE_ID", true)
+			return true
+		end
+		if game.PlaceId == Constants.LOBBY_PLACE_ID then
+			logDetection("PlaceId==LOBBY_PLACE_ID", false)
+			return false
+		end
+	end
+
+	-- No attribute or PlaceId match — fall back to runtime detection.
 	if RunService:IsStudio() then
 		-- In Studio, SkipLobby mode means the lobby server also acts as the
 		-- game server (since there's no real teleport to a separate place).
-		return RunConfig.IsTestEnabled("ForceGameMode") or RunConfig.IsTestEnabled("SkipLobby")
+		local result = RunConfig.IsTestEnabled("ForceGameMode") or RunConfig.IsTestEnabled("SkipLobby")
+		logDetection("Studio flags", result)
+		return result
 	end
 	-- A reserved game server has a non-empty PrivateServerId with no owner.
 	-- Public servers (lobby) have an empty PrivateServerId.
-	return game.PrivateServerId ~= "" and game.PrivateServerOwnerId == 0
+	local result = game.PrivateServerId ~= "" and game.PrivateServerOwnerId == 0
+	logDetection("PrivateServerId fallback", result)
+	return result
 end
 
 return ServerRole

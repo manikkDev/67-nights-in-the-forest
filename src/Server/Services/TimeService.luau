@@ -354,7 +354,7 @@ end
 -- // INITIALIZATION // --
 
 function TimeService:KnitStart()
-	if ServerRole.IsLobby() then
+	if not ServerRole.IsGameServer() then
 		return
 	end
 	Lighting.ClockTime = DAY_START_CLOCK

@@ -102,7 +102,15 @@ function SpawnService:SpawnPlayer(player: Player, slot: number?, partySize: numb
 	if spawnedPlayers[player] then
 		return true
 	end
-	if spawningPlayers[player] or not runStateService or not runStateService:IsMember(player) then
+	if spawningPlayers[player] then
+		return false
+	end
+	if not runStateService then
+		warn("[SpawnService] SpawnPlayer rejected — runStateService is nil for", player.Name)
+		return false
+	end
+	if not runStateService:IsMember(player) then
+		warn("[SpawnService] SpawnPlayer rejected — player is not a run member:", player.Name)
 		return false
 	end
 	spawningPlayers[player] = true
@@ -110,13 +118,19 @@ function SpawnService:SpawnPlayer(player: Player, slot: number?, partySize: numb
 	local campfireCFrame = worldService and worldService:GetCampfireCFrame()
 	if not campfireCFrame then
 		spawningPlayers[player] = nil
-		warn("[SpawnService] Campfire CFrame not available")
+		warn("[SpawnService] Campfire CFrame not available — cannot spawn", player.Name)
 		return false
 	end
 	local character = loadFreshCharacter(player)
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-	if not rootPart or not rootPart:IsA("BasePart") or not runStateService:IsMember(player) then
+	if not rootPart or not rootPart:IsA("BasePart") then
 		spawningPlayers[player] = nil
+		warn("[SpawnService] Character load failed for", player.Name)
+		return false
+	end
+	if not runStateService:IsMember(player) then
+		spawningPlayers[player] = nil
+		warn("[SpawnService] Player lost membership during spawn:", player.Name)
 		return false
 	end
 
@@ -135,6 +149,7 @@ function SpawnService:SpawnPlayer(player: Player, slot: number?, partySize: numb
 	spawnedPlayers[player] = true
 	SpawnService.Client.PlayerSpawned:Fire(player)
 	SpawnService.PlayerSpawned:Fire(player)
+	print("[SpawnService] Player spawned at campfire:", player.Name, "slot", index, "of", count)
 	return true
 end
 

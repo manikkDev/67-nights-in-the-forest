@@ -217,7 +217,7 @@ end
 
 -- | Run Start | --
 local function startRun(participants: { Player }, metadata: { [string]: any }, session: Session?): boolean
-	print("[MatchFlowService] startRun called with", #participants, "participants")
+	print("[MatchFlowService] startRun called with", #participants, "participants, has session:", session ~= nil)
 	local startedRunId = runStateService and runStateService:StartRun(participants, metadata) or nil
 	if not startedRunId then
 		warn("[MatchFlowService] StartRun returned nil, session:", session ~= nil)
@@ -227,6 +227,7 @@ local function startRun(participants: { Player }, metadata: { [string]: any }, s
 		end
 		return false
 	end
+	print("[MatchFlowService] StartRun returned runId:", startedRunId)
 
 	if session then
 		for _, player in ipairs(participants) do
@@ -234,10 +235,17 @@ local function startRun(participants: { Player }, metadata: { [string]: any }, s
 		end
 	end
 	if spawnService then
-		spawnService:SpawnParty(participants)
+		print("[MatchFlowService] Calling SpawnParty for", #participants, "players")
+		local spawnOk = spawnService:SpawnParty(participants)
+		print("[MatchFlowService] SpawnParty returned:", spawnOk)
+	else
+		warn("[MatchFlowService] spawnService is nil — cannot spawn players")
 	end
 	if timeService then
+		print("[MatchFlowService] Calling TimeService:StartMatch")
 		timeService:StartMatch()
+	else
+		warn("[MatchFlowService] timeService is nil — cannot start clock")
 	end
 
 	if session then
@@ -246,6 +254,7 @@ local function startRun(participants: { Player }, metadata: { [string]: any }, s
 		for _, player in ipairs(participants) do
 			MatchFlowService.Client.FlowStateChanged:Fire(player, "Day1")
 		end
+		print("[MatchFlowService] Fired FlowStateChanged=Day1 to", #participants, "players")
 	end
 	task.delay(DAY1_HOLD_SECONDS, function()
 		if not runStateService or not runStateService:IsCurrentRun(startedRunId) then
@@ -259,6 +268,7 @@ local function startRun(participants: { Player }, metadata: { [string]: any }, s
 					MatchFlowService.Client.FlowStateChanged:Fire(player, "InGame")
 				end
 			end
+			print("[MatchFlowService] Fired FlowStateChanged=InGame to remaining players")
 		end
 	end)
 	return true
@@ -468,6 +478,7 @@ function MatchFlowService:KnitStart()
 	end
 
 	sessionRoutingService.LocalPartyReady:Connect(function(participants, metadata)
+		print("[MatchFlowService] LocalPartyReady fired with", #participants, "participants")
 		local session = sessionsByQueue[metadata.queueId or ""]
 		if not session then
 			for _, candidate in pairs(sessionsByQueue) do
@@ -481,6 +492,7 @@ function MatchFlowService:KnitStart()
 	end)
 
 	sessionRoutingService.DestinationReady:Connect(function(participants, metadata)
+		print("[MatchFlowService] DestinationReady fired with", #participants, "participants, partyId:", metadata and metadata.partyId or "nil")
 		startRun(participants, metadata, nil)
 	end)
 
