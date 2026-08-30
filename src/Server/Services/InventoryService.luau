@@ -56,7 +56,10 @@ InventoryService.ServerResourcesChanged = Signal.new()
 -- | Configuration | --
 local BASE_CAPACITY = 40
 local BAG_CAPACITY_BONUS = 40
-local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
+local ITEMS_PATH = ServerStorage:FindFirstChild("Assets") and ServerStorage.Assets:FindFirstChild(Constants.ITEMS_PATH) or nil
+if not ITEMS_PATH then
+	warn("[InventoryService] ITEMS_PATH not found: ServerStorage.Assets." .. tostring(Constants.ITEMS_PATH))
+end
 local CARRY_BAG_NAME = "carry-bag"
 local CARRY_BAG_TOOL_NAME = "Carry Bag"
 local FLASHLIGHT_TOOL_NAME = "Flashlight"

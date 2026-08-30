@@ -234,7 +234,8 @@ end
     @returns  Model?
 ]]
 local function buildShredderModel(): Model?
-	local itemsPath = ServerStorage.Assets:FindFirstChild(Constants.ITEMS_PATH)
+	local assets = ServerStorage:FindFirstChild("Assets")
+	local itemsPath = assets and assets:FindFirstChild(Constants.ITEMS_PATH)
 	if not itemsPath then
 		warn("[GrinderService] Assets Items folder not found in ServerStorage")
 		return nil

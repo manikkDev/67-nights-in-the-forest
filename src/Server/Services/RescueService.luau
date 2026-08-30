@@ -256,7 +256,12 @@ end
     @returns  Model?
 ]]
 local function createChild(definition, caveCFrame: CFrame): Model?
-	local npcAssets = ServerStorage.Assets:FindFirstChild("Assets Npcs")
+	local assets = ServerStorage:FindFirstChild("Assets")
+	if not assets then
+		warn("[RescueService] ServerStorage.Assets missing")
+		return nil
+	end
+	local npcAssets = assets:FindFirstChild("Assets Npcs")
 	local source = npcAssets and npcAssets:FindFirstChild(definition.RigTemplate)
 	if not source or not source:IsA("Model") then
 		warn("[RescueService] Missing child rig", definition.RigTemplate)
@@ -566,7 +571,12 @@ local function createPortraitTemplate(rescueId: string): Model?
 		warn("[RescueService] createPortraitTemplate: no definition for", rescueId)
 		return nil
 	end
-	local npcAssets = ServerStorage.Assets:FindFirstChild("Assets Npcs")
+	local assets = ServerStorage:FindFirstChild("Assets")
+	if not assets then
+		warn("[RescueService] createPortraitTemplate: ServerStorage.Assets missing")
+		return nil
+	end
+	local npcAssets = assets:FindFirstChild("Assets Npcs")
 	if not npcAssets then
 		warn("[RescueService] createPortraitTemplate: 'Assets Npcs' folder not found in ServerStorage.Assets")
 		return nil
@@ -622,7 +632,12 @@ local function createPortraitModel(rescueId: string): Model?
 		warn("[RescueService] createPortraitModel: no definition for", rescueId)
 		return nil
 	end
-	local npcAssets = ServerStorage.Assets:FindFirstChild("Assets Npcs")
+	local assets = ServerStorage:FindFirstChild("Assets")
+	if not assets then
+		warn("[RescueService] createPortraitModel: ServerStorage.Assets missing")
+		return nil
+	end
+	local npcAssets = assets:FindFirstChild("Assets Npcs")
 	if not npcAssets then
 		warn("[RescueService] createPortraitModel: 'Assets Npcs' folder not found in ServerStorage.Assets")
 		return nil

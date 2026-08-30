@@ -124,7 +124,8 @@ end
     @returns  Model?
 ]]
 local function cloneChest(tier: string): Model?
-	local mapsItems = ServerStorage.Assets:FindFirstChild("Assets maps items")
+	local assets = ServerStorage:FindFirstChild("Assets")
+	local mapsItems = assets and assets:FindFirstChild("Assets maps items")
 	local assetName = if tier == "Gold" then "Gold-chest" else "basic-chest"
 	local source = mapsItems and mapsItems:FindFirstChild(assetName)
 	if not source then

@@ -582,7 +582,8 @@ local function placeBench()
 		isManualBench = true
 	else
 		-- No manual bench: try the ServerStorage source.
-		local mapsItems = ServerStorage.Assets:FindFirstChild("Assets maps items")
+		local assets = ServerStorage:FindFirstChild("Assets")
+		local mapsItems = assets and assets:FindFirstChild("Assets maps items")
 		local source = mapsItems and mapsItems:FindFirstChild("crafting-table")
 		if source and source:IsA("Model") then
 			local sourceModel = source :: Model

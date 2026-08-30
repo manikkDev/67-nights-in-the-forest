@@ -44,7 +44,10 @@ local CombatService = Knit.CreateService({
 })
 
 -- | Configuration | --
-local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
+local ITEMS_PATH = ServerStorage:FindFirstChild("Assets") and ServerStorage.Assets:FindFirstChild(Constants.ITEMS_PATH) or nil
+if not ITEMS_PATH then
+	warn("[CombatService] ITEMS_PATH not found: ServerStorage.Assets." .. tostring(Constants.ITEMS_PATH))
+end
 local AXE_TOOL_NAME = "Axe"
 local SPEAR_TOOL_NAME = "Spear"
 local ATTACK_RANGE = 8

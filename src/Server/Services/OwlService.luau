@@ -52,7 +52,10 @@ local OwlService = Knit.CreateService({
 })
 
 -- | Configuration | --
-local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
+local NPC_SOURCE_PATH = ServerStorage:FindFirstChild("Assets") and ServerStorage.Assets:FindFirstChild("Assets Npcs") or nil
+if not NPC_SOURCE_PATH then
+	warn("[OwlService] NPC_SOURCE_PATH not found: ServerStorage.Assets.Assets Npcs")
+end
 local OWL_MODEL_NAME = "Owl"
 local DORMANT_HOLDING_POSITION = Vector3.new(0, -500, 0)
 local DECISION_INTERVAL = 0.15

@@ -54,7 +54,10 @@ local AnimalAIService = Knit.CreateService({
 AnimalAIService.NpcDiedServer = Signal.new()
 
 -- | Configuration | --
-local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
+local NPC_SOURCE_PATH = ServerStorage:FindFirstChild("Assets") and ServerStorage.Assets:FindFirstChild("Assets Npcs") or nil
+if not NPC_SOURCE_PATH then
+	warn("[AnimalAIService] NPC_SOURCE_PATH not found: ServerStorage.Assets.Assets Npcs")
+end
 local DECISION_INTERVAL = 0.25
 local MIN_SPAWN_DIST = 20
 local MAX_SPAWN_DIST = 60

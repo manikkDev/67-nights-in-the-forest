@@ -38,7 +38,10 @@ local WorldService = Knit.CreateService({
 })
 
 -- | Configuration | --
-local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
+local ITEMS_PATH = ServerStorage:FindFirstChild("Assets") and ServerStorage.Assets:FindFirstChild(Constants.ITEMS_PATH) or nil
+if not ITEMS_PATH then
+	warn("[WorldService] ITEMS_PATH not found: ServerStorage.Assets." .. tostring(Constants.ITEMS_PATH))
+end
 local CAMPFIRE_SIZE = Vector3.new(6, 3, 6)
 local GROUND_RAY_HEIGHT = 500
 local BONFIRE_SCALE = 2
@@ -331,6 +334,10 @@ local function placeBonfire(map: Model, ground: CFrame): Model?
 	end
 
 	-- No pre-placed Bonfire — clone one from Assets Items
+	if not ITEMS_PATH then
+		warn("[WorldService] Cannot create Bonfire — ITEMS_PATH is nil")
+		return nil
+	end
 	local source = ITEMS_PATH:FindFirstChild("Bonfire")
 	if not source then
 		warn("[WorldService] Bonfire model not found in Assets Items")
@@ -428,10 +435,13 @@ end
 -- // INITIALIZATION // --
 
 function WorldService:KnitStart()
-	lobbyMap = findMap("lobby-map")
-	if lobbyMap then
-		ensurePrimaryPart(lobbyMap)
-		disableBrokenScripts(lobbyMap)
+	-- Only look for the lobby map on the lobby place.
+	if ServerRole.IsLobby() then
+		lobbyMap = findMap("lobby-map")
+		if lobbyMap then
+			ensurePrimaryPart(lobbyMap)
+			disableBrokenScripts(lobbyMap)
+		end
 	end
 
 	-- Game-only setup: base map, campfire, bonfire.

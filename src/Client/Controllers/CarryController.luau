@@ -439,19 +439,25 @@ local function tryPickup(model: Model, resourceName: string): boolean
 		return false
 	end
 
-	lastPickupTime = now
+	local fired = false
 
 	if resourceName == "Wood" and harvestService then
 		harvestService:RequestPickup(model)
+		fired = true
 	elseif resourceName == "Berries" or resourceName == "Mushrooms" then
 		if forageService then
 			forageService:RequestPickup(model)
+			fired = true
 		end
 	elseif inventoryService then
 		inventoryService:RequestPickup(model)
+		fired = true
 	end
 
-	return true
+	if fired then
+		lastPickupTime = now
+	end
+	return fired
 end
 
 --[[

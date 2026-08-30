@@ -61,7 +61,10 @@ local GIANT_WOOD_DROP_MIN = 10
 local GIANT_WOOD_DROP_MAX = 15
 local PICKUP_RANGE = 12
 local LOG_LIFETIME = 300
-local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
+local ITEMS_PATH = ServerStorage:FindFirstChild("Assets") and ServerStorage.Assets:FindFirstChild(Constants.ITEMS_PATH) or nil
+if not ITEMS_PATH then
+	warn("[HarvestService] ITEMS_PATH not found: ServerStorage.Assets." .. tostring(Constants.ITEMS_PATH))
+end
 local TREE_MODEL_NAMES = { "Tree", "bigtree", "GiantTree" }
 local AXE_TOOL_NAME = "Axe"
 

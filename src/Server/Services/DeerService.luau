@@ -49,7 +49,10 @@ local DeerService = Knit.CreateService({
 })
 
 -- | Configuration | --
-local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
+local NPC_SOURCE_PATH = ServerStorage:FindFirstChild("Assets") and ServerStorage.Assets:FindFirstChild("Assets Npcs") or nil
+if not NPC_SOURCE_PATH then
+	warn("[DeerService] NPC_SOURCE_PATH not found: ServerStorage.Assets.Assets Npcs")
+end
 local DORMANT_HOLDING_POSITION = Vector3.new(0, 300, 0)
 local DECISION_INTERVAL = 0.2
 local CONTACT_RANGE = 14

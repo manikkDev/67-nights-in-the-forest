@@ -37,7 +37,10 @@ local ForageService = Knit.CreateService({
 })
 
 -- | Configuration | --
-local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
+local ITEMS_PATH = ServerStorage:FindFirstChild("Assets") and ServerStorage.Assets:FindFirstChild(Constants.ITEMS_PATH) or nil
+if not ITEMS_PATH then
+	warn("[ForageService] ITEMS_PATH not found: ServerStorage.Assets." .. tostring(Constants.ITEMS_PATH))
+end
 local TREE_MODEL_NAMES = { "Tree", "bigtree", "GiantTree" }
 local BERRY_TARGET_COUNT = 35
 local MUSHROOM_TARGET_COUNT = 25

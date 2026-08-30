@@ -158,8 +158,10 @@ function SpawnService:SpawnParty(participants: { Player }): boolean
 	local expected = #participants
 	for index, player in ipairs(participants) do
 		task.spawn(function()
-			self:SpawnPlayer(player, index, expected)
-			completed += 1
+			local ok = self:SpawnPlayer(player, index, expected)
+			if ok then
+				completed += 1
+			end
 		end)
 	end
 	local deadline = os.clock() + CHARACTER_TIMEOUT + 2
