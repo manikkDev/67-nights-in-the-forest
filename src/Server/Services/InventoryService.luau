@@ -88,7 +88,7 @@ local DROP_LIFETIME = 300
 
 local DRAG_MAX_HORIZONTAL_DISTANCE = 20
 local DRAG_MIN_HEIGHT_FROM_ROOT = -3
-local DRAG_MAX_HEIGHT_FROM_ROOT = 14
+local DRAG_MAX_HEIGHT_FROM_ROOT = 3
 local DRAG_CLEANUP_TOLERANCE = 4
 
 -- How close a dragged junk item must be released to the shredder to grind.

@@ -648,11 +648,11 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	-- Name + count block in the centre.
 	local textContainer = Instance.new("Frame")
 	textContainer.Name = "TextContainer"
-	textContainer.Size = UDim2.new(1, -(ICON_SIZE + ACTION_BUTTON_WIDTH * 2 + ACTION_GAP + 12), 1, 0)
+	textContainer.Size = UDim2.new(1, -(ICON_SIZE + ACTION_BUTTON_WIDTH * 2 + ACTION_GAP + 16), 1, 0)
 	textContainer.Position = UDim2.new(0, ICON_SIZE + 10, 0, 0)
 	textContainer.BackgroundTransparency = 1
 	textContainer.BorderSizePixel = 0
-	textContainer.ClipsDescendants = true
+	textContainer.ClipsDescendants = false
 	textContainer.Parent = row
 
 	local nameLabel = Instance.new("TextLabel")
@@ -673,8 +673,8 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 
 	local countLabel = Instance.new("TextLabel")
 	countLabel.Name = "Count"
-	countLabel.Size = UDim2.new(1, 0, 0, 16)
-	countLabel.Position = UDim2.new(0, 0, 0, 22)
+	countLabel.Size = UDim2.new(1, 0, 0, 20)
+	countLabel.Position = UDim2.new(0, 0, 0, 20)
 	countLabel.BackgroundTransparency = 1
 	countLabel.Text = "0"
 	countLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
@@ -966,7 +966,7 @@ local function updateDisplay(resources: { [string]: number }?, capacity: number?
 		if count ~= entry.lastCount then
 			entry.lastCount = count
 			local originalSize = entry.countLabel.TextSize
-			entry.countLabel.TextSize = 18
+			entry.countLabel.TextSize = 16
 			TweenService:Create(entry.countLabel, TWEEN_COUNT_POP, { TextSize = originalSize }):Play()
 		end
 
