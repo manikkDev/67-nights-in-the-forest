@@ -106,6 +106,10 @@ end
 
 --[[
     @summary  Return whether the player owns every cost in a recipe.
+              WoodenSheet and Scrap are SHARED run totals (produced by
+              the shredder), so they are checked against the shared pool.
+              All other resources are checked against the player's
+              personal inventory.
     @param    player  Player
     @param    cost    table
     @returns  boolean
@@ -116,7 +120,15 @@ local function canAfford(player: Player, cost: { [string]: number }): boolean
 		return false
 	end
 	for resourceName, amount in pairs(cost) do
-		if (data.Resources[resourceName] or 0) < amount then
+		local available
+		if resourceName == "WoodenSheet" then
+			available = totalWoodenSheetShredded
+		elseif resourceName == "Scrap" then
+			available = totalScrapShredded
+		else
+			available = data.Resources[resourceName] or 0
+		end
+		if available < amount then
 			return false
 		end
 	end
@@ -125,19 +137,40 @@ end
 
 --[[
     @summary  Deduct a fully validated recipe cost without yielding.
+              WoodenSheet and Scrap are deducted from the SHARED run
+              totals (and the bench counter is updated). All other
+              resources are deducted from the player's personal inventory.
     @param    player  Player
     @param    cost    table
 ]]
 local function deductCost(player: Player, cost: { [string]: number })
+	-- First deduct shared resources (WoodenSheet, Scrap)
+	local sharedDeducted = false
+	for resourceName, amount in pairs(cost) do
+		if resourceName == "WoodenSheet" then
+			totalWoodenSheetShredded = math.max(0, totalWoodenSheetShredded - amount)
+			sharedDeducted = true
+		elseif resourceName == "Scrap" then
+			totalScrapShredded = math.max(0, totalScrapShredded - amount)
+			sharedDeducted = true
+		end
+	end
+	if sharedDeducted then
+		updateTableCounters()
+	end
+
+	-- Then deduct personal resources
 	playerDataService:UpdateData(player, function(data)
 		for resourceName, amount in pairs(cost) do
-			data.Resources[resourceName] -= amount
-			if data.Inventory and data.Inventory.PickupOrder then
-				for _ = 1, amount do
-					for index = #data.Inventory.PickupOrder, 1, -1 do
-						if data.Inventory.PickupOrder[index] == resourceName then
-							table.remove(data.Inventory.PickupOrder, index)
-							break
+			if resourceName ~= "WoodenSheet" and resourceName ~= "Scrap" then
+				data.Resources[resourceName] -= amount
+				if data.Inventory and data.Inventory.PickupOrder then
+					for _ = 1, amount do
+						for index = #data.Inventory.PickupOrder, 1, -1 do
+							if data.Inventory.PickupOrder[index] == resourceName then
+								table.remove(data.Inventory.PickupOrder, index)
+								break
+							end
 						end
 					end
 				end
@@ -170,6 +203,10 @@ local function broadcastState()
 		tier = benchTier,
 		recipeCounts = table.clone(recipeCounts),
 		unlocks = table.clone(unlocks),
+		-- Include shared shredded totals so all teammates see the
+		-- same WoodenSheet/Scrap counts in the crafting UI.
+		sharedWoodenSheet = totalWoodenSheetShredded,
+		sharedScrap = totalScrapShredded,
 	}
 	for _, player in ipairs(runStateService:GetMembers()) do
 		CraftingService.Client.CraftingStateChanged:Fire(player, snapshot)
@@ -729,9 +766,20 @@ function CraftingService.Client:GetBenchState(player: Player): { [string]: any }
 		return { tier = 1, resources = {}, recipeCounts = {}, unlocks = {}, isNearBench = false }
 	end
 	local data = playerDataService and playerDataService:GetData(player)
+	-- Build a merged resource table: personal inventory + shared
+	-- WoodenSheet/Scrap totals (so the client UI shows the shared
+	-- shredded amounts that crafting actually consumes from).
+	local resources = {}
+	if data and data.Resources then
+		for k, v in pairs(data.Resources) do
+			resources[k] = v
+		end
+	end
+	resources.WoodenSheet = totalWoodenSheetShredded
+	resources.Scrap = totalScrapShredded
 	return {
 		tier = benchTier,
-		resources = if data then table.clone(data.Resources) else {},
+		resources = resources,
 		recipeCounts = table.clone(recipeCounts),
 		unlocks = table.clone(unlocks),
 		isNearBench = isNearBench(player),

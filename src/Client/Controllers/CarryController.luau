@@ -42,7 +42,8 @@ local CarryController = Knit.CreateController({
 local PICKUP_KEY = Enum.KeyCode.F
 local PICKUP_RANGE = 12
 local PICKUP_COOLDOWN = 0.2
-local RAY_LENGTH = 32
+local RAY_LENGTH = 128
+local DRAG_MAX_DISTANCE = 50 -- matches server-side DRAG_MAX_DISTANCE
 local HOVER_EMISSIVE = Color3.fromRGB(160, 220, 255)
 local BAG_TOOL_NAME = "Carry Bag"
 
@@ -160,6 +161,18 @@ local function isMouseOverGui(): boolean
 			-- Exclude our own hover BillboardGui so it doesn't block interactions.
 			local layer = gui:FindFirstAncestorOfClass("BillboardGui")
 			if layer and layer.Name == "CarryHoverLabel" then
+				continue
+			end
+			-- Exclude fully-transparent frames (invisible containers/overlays)
+			if gui:IsA("Frame") and gui.BackgroundTransparency >= 1 then
+				continue
+			end
+			-- Exclude text labels with fully transparent text AND background
+			if gui:IsA("TextLabel") and gui.TextTransparency >= 1 and gui.BackgroundTransparency >= 1 then
+				continue
+			end
+			-- Exclude images with fully transparent image AND background
+			if gui:IsA("ImageLabel") and gui.ImageTransparency >= 1 and gui.BackgroundTransparency >= 1 then
 				continue
 			end
 			return true
@@ -318,7 +331,16 @@ end
 
 --[[
     @summary  Move the invisible drag target to the current mouse position in 3D space.
+    @desc     When the ray hits a surface, the target moves to that point.
+              When the ray hits nothing (sky), the target is projected onto
+              a horizontal plane at the item's current height so moving the
+              mouse up/down lifts/lowers the item instead of sending it
+              farther away. The target is clamped to DRAG_MAX_DISTANCE
+              from the player and to a reasonable vertical range.
 ]]
+local DRAG_VERTICAL_MIN = -2 -- below player feet
+local DRAG_VERTICAL_MAX = 15 -- above player head
+
 local function updateDragTarget()
 	if not dragTarget or not dragTarget.Parent then
 		return
@@ -326,6 +348,12 @@ local function updateDragTarget()
 
 	local camera = workspace.CurrentCamera
 	if not camera then
+		return
+	end
+
+	local character = localPlayer.Character
+	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+	if not rootPart or not rootPart:IsA("BasePart") then
 		return
 	end
 
@@ -341,14 +369,51 @@ local function updateDragTarget()
 	if draggingModel then
 		table.insert(filterList, draggingModel)
 	end
-	local character = localPlayer.Character
 	if character then
 		table.insert(filterList, character)
 	end
 	raycastParams.FilterDescendantsInstances = filterList
 
 	local result = workspace:Raycast(ray.Origin, ray.Direction * RAY_LENGTH, raycastParams)
-	local targetPos = result and result.Position or (ray.Origin + ray.Direction * RAY_LENGTH)
+	local targetPos: Vector3
+	if result then
+		targetPos = result.Position
+	else
+		-- Ray hit nothing (sky). Project onto a horizontal plane at the
+		-- item's current height so the mouse lifts/lowers the item
+		-- vertically instead of sending it farther away.
+		local itemHeight = draggingModel and draggingModel:GetPivot().Y or rootPart.Position.Y
+		local planeY = math.clamp(itemHeight, rootPart.Position.Y + DRAG_VERTICAL_MIN, rootPart.Position.Y + DRAG_VERTICAL_MAX)
+		-- Intersect the camera ray with the horizontal plane at planeY
+		local rayDir = ray.Direction.Unit
+		if math.abs(rayDir.Y) > 0.001 then
+			local t = (planeY - ray.Origin.Y) / rayDir.Y
+			if t > 0 then
+				targetPos = ray.Origin + rayDir * t
+			else
+				targetPos = ray.Origin + rayDir * 30
+			end
+		else
+			-- Ray is horizontal — place 30 studs ahead at item height
+			targetPos = ray.Origin + rayDir * 30
+			targetPos = Vector3.new(targetPos.X, planeY, targetPos.Z)
+		end
+	end
+
+	-- Clamp to DRAG_MAX_DISTANCE from the player's root part
+	local offset = targetPos - rootPart.Position
+	local dist = offset.Magnitude
+	if dist > DRAG_MAX_DISTANCE then
+		targetPos = rootPart.Position + (offset / dist) * DRAG_MAX_DISTANCE
+	end
+
+	-- Clamp vertical range relative to the player
+	local playerY = rootPart.Position.Y
+	targetPos = Vector3.new(
+		targetPos.X,
+		math.clamp(targetPos.Y, playerY + DRAG_VERTICAL_MIN, playerY + DRAG_VERTICAL_MAX),
+		targetPos.Z
+	)
 
 	local now = os.clock()
 	if now - lastDragTargetSent < 0.03 then
@@ -366,7 +431,7 @@ end
 --[[
     @summary  Per-frame hover check so items highlight as the cursor moves.
 ]]
-local function updateHover()
+local function updateHover(dt)
 	if not gameStateController or not gameStateController:IsInGame() then
 		if draggingModel then stopDrag() end
 		clearHover()

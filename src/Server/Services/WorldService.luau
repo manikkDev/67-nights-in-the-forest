@@ -449,11 +449,15 @@ function WorldService:KnitStart()
 	baseMap = findMap("Base-map")
 
 	if baseMap then
+		print("[WorldService] Base-map found — setting up forest")
 		ensurePrimaryPart(baseMap)
 		local groundPartInstance = baseMap:FindFirstChild("Земля", true)
 		if groundPartInstance and groundPartInstance:IsA("BasePart") then
 			groundPart = groundPartInstance
 			ensureExpandedGround(baseMap, groundPartInstance)
+			print("[WorldService] Ground part found:", groundPartInstance:GetFullName())
+		else
+			warn("[WorldService] Ground part 'Земля' NOT FOUND in Base-map — forage spawning will fail")
 		end
 		-- Map is pre-populated in edit mode (structures, trees, ground all
 		-- permanently placed). Only create campfire/bonfire at runtime:
@@ -461,6 +465,7 @@ function WorldService:KnitStart()
 		campfire = createCampfire(baseMap, ground)
 		bonfire = placeBonfire(baseMap, ground)
 		forestReady = true
+		print("[WorldService] Forest ready — campfire and bonfire placed, forestReady=true")
 		disableBrokenScripts(baseMap)
 	end
 end

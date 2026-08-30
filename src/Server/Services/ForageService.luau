@@ -110,6 +110,8 @@ local function collectTreePivots()
 		return
 	end
 
+	print("[ForageService] Forest ready — collecting tree pivots")
+
 	-- Remove edit-mode preview forage items before spawning real ones.
 	local preview = baseMap:FindFirstChild("ForagePreview")
 	if preview then
@@ -125,6 +127,7 @@ local function collectTreePivots()
 		end
 	end
 
+	print(("[ForageService] Found %d tree pivots"):format(#treePivots))
 end
 
 --[[
@@ -262,6 +265,10 @@ local function spawnForagePickup(resourceName: string, unlockLevel: number?)
 		task.delay(2, spawnForagePickup, resourceName, level)
 		return
 	end
+	if not ITEMS_PATH then
+		warn("[ForageService] Cannot spawn forage — ITEMS_PATH is nil")
+		return
+	end
 
 	local model: Model
 	local cframe: CFrame
@@ -291,6 +298,7 @@ local function spawnForagePickup(resourceName: string, unlockLevel: number?)
 
 	model.Parent = baseMap
 	activePickups += 1
+	print(("[ForageService] Spawned %s pickup at %s (total: %d)"):format(resourceName, tostring(position), activePickups))
 end
 
 --[[
@@ -345,10 +353,12 @@ end
 ]]
 local function spawnInitialForage()
 	if #treePivots == 0 then
+		print("[ForageService] Waiting for tree pivots before spawning forage...")
 		task.delay(2, spawnInitialForage)
 		return
 	end
 
+	print(("[ForageService] Spawning initial forage — %d tree pivots found"):format(#treePivots))
 	local levelCount = #WorldProgressionConfig.AccessRadiusByLevel
 	for index = 1, BERRY_TARGET_COUNT do
 		local unlockLevel = if index <= math.ceil(BERRY_TARGET_COUNT * 0.4) then 1 else ((index - 1) % levelCount) + 1
@@ -358,7 +368,7 @@ local function spawnInitialForage()
 		local unlockLevel = if index <= math.ceil(MUSHROOM_TARGET_COUNT * 0.4) then 1 else ((index - 1) % levelCount) + 1
 		spawnForagePickup("Mushrooms", unlockLevel)
 	end
-
+	print(("[ForageService] Initial forage spawn complete — %d active pickups"):format(activePickups))
 end
 
 -- // CLIENT REMOTES // --

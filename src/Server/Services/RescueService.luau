@@ -82,7 +82,6 @@ local heartbeatConnection: RBXScriptConnection? = nil
 local portraitTemplates: { [string]: Model } = {}
 local portraitFolder: Folder? = nil
 local wanderingKids: { [Model]: { tentPosition: Vector3, nextWander: number } } = {}
-local wanderTimer = 0
 
 -- Forward declaration so unlockForLevel can broadcast poster state changes.
 local updatePosterStates: (any) -> () = nil
@@ -1150,13 +1149,9 @@ end
 local function onHeartbeat(dt: number)
 	rescueCheckTimer += dt
 	if rescueCheckTimer < RESCUE_CHECK_INTERVAL then
-		-- Still update wander every frame even if rescue check is throttled.
-		wanderTimer += dt
-		if wanderTimer >= 0.5 then
-			wanderTimer = 0
-		end
 		return
 	end
+	local elapsed = rescueCheckTimer
 	rescueCheckTimer = 0
 	if not runStateService:IsActive() or not campfireService:IsLit() then
 		return
@@ -1184,7 +1179,7 @@ local function onHeartbeat(dt: number)
 		end
 		-- Pick a new wander target when the kid reaches their destination
 		-- or when the wander interval elapses.
-		data.nextWander -= rescueCheckTimer
+		data.nextWander -= elapsed
 		if humanoid.MoveDirection.Magnitude < 0.1 or data.nextWander <= 0 then
 			local angle = math.random() * math.pi * 2
 			local dist = math.random() * WANDER_RADIUS

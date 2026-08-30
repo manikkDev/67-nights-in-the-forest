@@ -954,6 +954,17 @@ function CraftingController:KnitStart()
 			currentState.tier = snapshot.tier or currentState.tier
 			currentState.recipeCounts = snapshot.recipeCounts or currentState.recipeCounts
 			currentState.unlocks = snapshot.unlocks or currentState.unlocks
+			-- Update shared shredded totals from the broadcast so all
+			-- teammates see the same WoodenSheet/Scrap counts.
+			if not currentState.resources then
+				currentState.resources = {}
+			end
+			if snapshot.sharedWoodenSheet ~= nil then
+				currentState.resources.WoodenSheet = snapshot.sharedWoodenSheet
+			end
+			if snapshot.sharedScrap ~= nil then
+				currentState.resources.Scrap = snapshot.sharedScrap
+			end
 			if gui and gui.Enabled then
 				craftingService:GetBenchState():andThen(function(fullSnapshot)
 					if typeof(fullSnapshot) == "table" then
@@ -961,6 +972,8 @@ function CraftingController:KnitStart()
 						refreshDisplay()
 					end
 				end)
+			else
+				refreshDisplay()
 			end
 		end
 	end)

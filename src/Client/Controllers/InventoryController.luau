@@ -25,6 +25,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -89,8 +90,6 @@ local TWEEN_CAPACITY = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDire
 local EDIBLE_RESOURCES = { Berries = true, Mushrooms = true, RawMeat = true, CookedMeat = true }
 local ROW_ORDER = {
 	"Wood",
-	"WoodenSheet",
-	"Scrap",
 	"Coal",
 	"Berries",
 	"Mushrooms",
@@ -1012,10 +1011,13 @@ local function showBag()
 		return
 	end
 	if not bagPanel then
-		warn("[InventoryController] showBag — bagPanel is nil")
 		return
 	end
+	-- Idempotent: if already open, just ensure the GUI is enabled
 	if isOpen then
+		if bagGui then
+			bagGui.Enabled = true
+		end
 		return
 	end
 	isOpen = true
@@ -1191,6 +1193,36 @@ local function watchBagTool()
 		onCharacterAdded(localPlayer.Character)
 	end
 	localPlayer.CharacterAdded:Connect(onCharacterAdded)
+
+	-- Heartbeat poll: detect bag tool equip even if the Equipped event
+	-- was missed (timing issue with late tool creation). Also auto-hide
+	-- when the bag is unequipped and the player has no items.
+	RunService.Heartbeat:Connect(function()
+		if not gameStateController or not gameStateController:IsInGame() then
+			return
+		end
+		local character = localPlayer.Character
+		if not character then return end
+		local hasBagEquipped = character:FindFirstChild(BAG_TOOL_NAME) ~= nil
+		if hasBagEquipped and not isOpen then
+			showBag()
+		elseif not hasBagEquipped and isOpen then
+			-- Only auto-hide if the player has no items (the bag was
+			-- auto-shown by the equip poll, not by picking up items)
+			local hasItems = false
+			for _, entry in pairs(rowEntries) do
+				local countText = entry.countLabel and entry.countLabel.Text or "0"
+				local count = tonumber(countText:match("%d+")) or 0
+				if count > 0 then
+					hasItems = true
+					break
+				end
+			end
+			if not hasItems then
+				hideBag()
+			end
+		end
+	end)
 end
 
 -- // INITIALIZATION // --

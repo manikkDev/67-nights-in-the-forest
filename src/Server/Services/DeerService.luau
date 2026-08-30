@@ -95,7 +95,7 @@ local STALKER_DEFS = {
 	Deer = {
 		ModelName = "Deer",
 		BaseSpeed = 14,
-		AttackDamage = 55,
+		AttackDamage = 25,
 		UsesFlashlightStun = true,
 	},
 	RamMonster = {
@@ -251,6 +251,7 @@ local DEFAULT_R6_RUN_ID = "rbxassetid://180426354"
 ]]
 local function buildAnimationTracks(stalker)
 	stalker.tracks = {}
+	stalker.usingProceduralGait = false
 	local humanoid = stalker.humanoid
 	local animator = humanoid:FindFirstChildOfClass("Animator")
 	if not animator then
@@ -274,6 +275,7 @@ local function buildAnimationTracks(stalker)
 		return track
 	end
 
+	local loadedAnyBaked = false
 	local animFolder = stalker.model:FindFirstChild("Animations")
 	if animFolder then
 		for _, animInstance in ipairs(animFolder:GetChildren()) do
@@ -282,6 +284,7 @@ local function buildAnimationTracks(stalker)
 					return animator:LoadAnimation(animInstance)
 				end)
 				if ok and track then
+					loadedAnyBaked = true
 					track.Looped = animInstance.Name ~= "Jumpscare"
 						and animInstance.Name ~= "StunnedStart"
 						and animInstance.Name ~= "StunnedEnd"
@@ -311,6 +314,17 @@ local function buildAnimationTracks(stalker)
 	if not stalker.tracks.Idle then
 		stalker.tracks.Idle = loadTrack(DEFAULT_R6_IDLE_ID, true)
 	end
+
+	-- If no baked animations loaded (production: RegisterKeyframeSequence
+	-- fails) AND the default R6 tracks also failed to load, fall back to
+	-- procedural gait so the deer doesn't T-pose.
+	if not loadedAnyBaked and (not stalker.tracks.Walk or not stalker.tracks.Walk.IsPlaying) then
+		stalker.usingProceduralGait = true
+		stalker.gaitJoints = _collectGaitJoints(stalker.model)
+		stalker.gaitPhase = 0
+		print(("[DeerService] %s using procedural gait fallback (%d joints)"):format(
+			stalker.key, #stalker.gaitJoints))
+	end
 end
 
 --[[
@@ -332,9 +346,14 @@ end
     @param    name     string
 ]]
 local function playTrack(stalker, name: string)
+	-- Skip locomotion track playback when using procedural gait —
+	-- the procedural gait system handles Walk/Run/Idle visually.
+	-- Attack/Stunned tracks still play if they exist.
+	if stalker.usingProceduralGait and (name == "Walk" or name == "Run" or name == "Idle") then
+		return
+	end
 	local track = stalker.tracks[name]
 	if not track then
-		warn("[DeerService] No track found for", name, "on", stalker.key)
 		return
 	end
 	-- Don't restart if already playing (avoids stutter on looping tracks
@@ -457,10 +476,10 @@ local function spawnStalker(key: string)
 
 	buildAnimationTracks(stalker)
 
-	-- Note: Procedural gait is disabled for the Deer because we now have
-	-- proper KeyframeSequence-based animations registered via
-	-- KeyframeSequenceProvider that handle all joint movement.
-	-- Using both would conflict as they both set Motor6D.Transform.
+	-- Procedural gait is enabled as a FALLBACK inside buildAnimationTracks
+	-- when KeyframeSequence registration fails (production). When baked
+	-- animations load successfully, usingProceduralGait stays false and
+	-- gaitJoints is not set, so applyProceduralGait is a no-op.
 
 	stalkers[key] = stalker
 
