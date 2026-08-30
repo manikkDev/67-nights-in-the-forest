@@ -2,10 +2,12 @@
 
 ## Build & Verify
 
-- **Lobby place**: `rojo build default.project.json --output build.rbxl`
-- **Game place**: `rojo build game.project.json --output game.rbxl`
+- **Compile-check lobby scripts**: `rojo build default.project.json --output build.rbxl`
+- **Compile-check game scripts**: `rojo build game.project.json --output game.rbxl`
 - Run from the repo root: `D:\Roblox Studio Games\67 nights in the forest`
-- Studio assets (ServerStorage.Assets) are NOT synced by Rojo — they live only in the .rbxl place file. Inspect them at runtime via the Roblox Studio MCP tools, not the filesystem.
+- **NEVER publish the generated `build.rbxl` or `game.rbxl`.** The Rojo project files do not map the manually stored Workspace maps or `ServerStorage.Assets`, so generated builds contain scripts but omit essential place content.
+- Publish only from the real lobby/game Studio documents after connecting each document to its matching Rojo project and syncing scripts into it.
+- Studio assets (`ServerStorage.Assets`) and manually placed Workspace content are not synced by Rojo. Inspect and preserve them in the real place documents.
 
 ## Two-Place Architecture
 
@@ -13,8 +15,8 @@
 
 The experience uses two places under the same experience:
 
-- **Lobby place** (start place, ID `84560195693908`): `build.rbxl`. Contains the lobby map, teleporters, party formation UI. No game systems run here.
-- **Game place** (sub-place, ID set in `Constants.GAME_PLACE_ID`): `game.rbxl`. Contains the forest map, campfire, all game systems. Each party gets a reserved server of this place.
+- **Lobby place** (start place, ID `84560195693908`): real Studio place document containing the lobby map, teleporters, and party formation UI. No game systems run here.
+- **Game place** (ID `106278588126757`): real Studio place document containing the forest map, campfire, and Studio-only assets. Each party gets a reserved server of this place.
 
 ### ServerRole detection (`src/shared/ServerRole.luau`)
 
@@ -26,10 +28,10 @@ The experience uses two places under the same experience:
 
 ### Studio testing
 
-- **Lobby place** (`build.rbxl`): playtest shows lobby UI, teleporters, party formation. No fog, no game UI.
-- **Game place** (`game.rbxl`): playtest with `StudioTest.ForceGameMode = true` skips lobby and starts the game directly.
-- To test the game place in Studio: edit `src/shared/RunConfig.luau`, set `StudioTest.Enabled = true` and `StudioTest.ForceGameMode = true`, then playtest `game.rbxl`.
-- Real teleport testing requires publishing both places.
+- **Lobby Studio document**: playtest shows lobby UI, teleporters, and party formation. No fog or game UI.
+- **Game Studio document**: playtest with `StudioTest.ForceGameMode = true` skips the lobby and starts the game directly.
+- To test the game place, connect its Studio document to `game.project.json`, enable the required Studio flags temporarily, and playtest that document.
+- Real teleport testing requires publishing both real Studio place documents.
 
 ### What's gated
 
@@ -61,11 +63,12 @@ On the game place, there is no intro screen. `GameStateController` auto-marks as
 
 ### Creator Dashboard setup (required for production)
 
-1. Create a new sub-place under the experience on the Creator Dashboard
-2. Note the Place ID and set it as `Constants.GAME_PLACE_ID` in `src/shared/Constants.luau`
-3. Publish `game.rbxl` to the new sub-place
-4. Set the sub-place Access Control so players can't join directly (only via teleport)
-5. Publish `build.rbxl` to the start place
+1. Create or restore the game sub-place under the experience.
+2. Confirm the Place IDs in `src/shared/Constants.luau`.
+3. Open the real game place in Studio, connect `game.project.json`, sync scripts, verify `Base-map` and `ServerStorage.Assets` still exist, then publish that Studio document.
+4. Set the sub-place access so players enter through lobby teleportation.
+5. Open the real lobby place in Studio, connect `default.project.json`, sync scripts, verify `lobby-map` still exists, then publish that Studio document.
+6. Never use Rojo-generated compile-check files as publish sources.
 
 ## Weapon Tool Creation (Spear / Axe / future weapons)
 
