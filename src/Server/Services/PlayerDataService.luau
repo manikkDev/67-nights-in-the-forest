@@ -33,6 +33,7 @@ local ProfileService = require(ServerScriptService.ServerPackages.ProfileService
 local ProfileTemplate = require(script.Parent.Parent.Data.ProfileTemplate)
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local PlayerDataService = Knit.CreateService({
@@ -283,23 +284,25 @@ end
 
 -- // INITIALIZATION // --
 
-Players.PlayerAdded:Connect(function(player)
-	task.spawn(loadProfile, player)
-end)
+if ServerRole.IsGameServer() then
+	Players.PlayerAdded:Connect(function(player)
+		task.spawn(loadProfile, player)
+	end)
 
-Players.PlayerRemoving:Connect(function(player)
-	releaseProfile(player)
-end)
+	Players.PlayerRemoving:Connect(function(player)
+		releaseProfile(player)
+	end)
 
-for _, player in ipairs(Players:GetPlayers()) do
-	task.spawn(loadProfile, player)
-end
-
-game:BindToClose(function()
-	for player, profile in pairs(profiles) do
-		profile:Release()
-		profiles[player] = nil
+	for _, player in ipairs(Players:GetPlayers()) do
+		task.spawn(loadProfile, player)
 	end
-end)
+
+	game:BindToClose(function()
+		for player, profile in pairs(profiles) do
+			profile:Release()
+			profiles[player] = nil
+		end
+	end)
+end
 
 return PlayerDataService

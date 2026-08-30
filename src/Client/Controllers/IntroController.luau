@@ -182,16 +182,29 @@ local function lockCamera()
 end
 
 local function unlockCamera()
-	local camera = Workspace.CurrentCamera
-	if not camera then
+	local function restore(): boolean
+		local camera = Workspace.CurrentCamera
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if not camera or not humanoid then
+			return false
+		end
+		camera.CameraSubject = humanoid
+		camera.CameraType = Enum.CameraType.Custom
+		return true
+	end
+	if restore() then
 		return
 	end
-	camera.CameraType = Enum.CameraType.Custom
-	local character = player.Character
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if humanoid then
-		camera.CameraSubject = humanoid
-	end
+	task.spawn(function()
+		local deadline = os.clock() + 10
+		repeat
+			if restore() then
+				return
+			end
+			task.wait(0.1)
+		until os.clock() >= deadline
+	end)
 end
 
 local function formatCountdown(seconds: number): string
