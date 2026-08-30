@@ -157,6 +157,11 @@ local function isMouseOverGui(): boolean
 	local objects = playerGui:GetGuiObjectsAtPosition(mouse.X, mouse.Y)
 	for _, gui in ipairs(objects) do
 		if gui:IsA("GuiObject") and gui.Visible then
+			-- Exclude our own hover label so it doesn't block interactions.
+			local screenGui = gui:FindFirstAncestorOfClass("ScreenGui")
+			if screenGui and screenGui.Name == "CarryHoverLabel" then
+				continue
+			end
 			return true
 		end
 	end
