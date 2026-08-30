@@ -157,9 +157,9 @@ local function isMouseOverGui(): boolean
 	local objects = playerGui:GetGuiObjectsAtPosition(mouse.X, mouse.Y)
 	for _, gui in ipairs(objects) do
 		if gui:IsA("GuiObject") and gui.Visible then
-			-- Exclude our own hover label so it doesn't block interactions.
-			local screenGui = gui:FindFirstAncestorOfClass("ScreenGui")
-			if screenGui and screenGui.Name == "CarryHoverLabel" then
+			-- Exclude our own hover BillboardGui so it doesn't block interactions.
+			local layer = gui:FindFirstAncestorOfClass("BillboardGui")
+			if layer and layer.Name == "CarryHoverLabel" then
 				continue
 			end
 			return true
@@ -492,7 +492,7 @@ local function startDrag(model: Model, resourceName: string): boolean
 	draggingResourceName = resourceName
 
 	local targetName = "DragTarget_" .. tostring(localPlayer.UserId)
-	local target = workspace:WaitForChild(targetName, 2)
+	local target = workspace:WaitForChild(targetName, 8)
 	if target and target:IsA("BasePart") then
 		dragTarget = target
 		updateDragTarget()
