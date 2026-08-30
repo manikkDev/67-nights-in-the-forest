@@ -886,75 +886,80 @@ function IntroController:KnitStart()
 	gameStateController = Knit.GetController("GameStateController")
 	local matchFlow = Knit.GetService("MatchFlowService")
 
-	-- The intro/lobby UI only runs on the lobby place.
-	-- On the game place, this controller does nothing.
-	if not ServerRole.IsLobby() then
-		return
-	end
+	local isLobby = ServerRole.IsLobby()
 
-	-- Title screen PLAY button dismisses it and lets the player roam the lobby.
-	if titleScreen then
-		local play = titleScreen:FindFirstChild("PlayButton")
-		if play then
-			play.MouseButton1Click:Connect(function()
-				hideTitleScreen(true)
+	-- On the game place, we still need the Day 1 intro card.
+	-- The lobby-specific UI (title screen, create party, countdown, story)
+	-- is only set up on the lobby place.
+	if isLobby then
+		-- Title screen PLAY button dismisses it and lets the player roam the lobby.
+		if titleScreen then
+			local play = titleScreen:FindFirstChild("PlayButton")
+			if play then
+				play.MouseButton1Click:Connect(function()
+					hideTitleScreen(true)
+				end)
+			end
+		end
+
+		if createButton then
+			createButton.MouseButton1Click:Connect(function()
+				if flowState == "Waiting" and sessionSnapshot and sessionSnapshot.isHost == true then
+					matchFlow.RequestStart:Fire()
+				end
+			end)
+		end
+
+		local function requestLeave()
+			if flowState == "Waiting" or flowState == "Countdown" then
+				matchFlow.RequestLeave:Fire()
+			end
+		end
+		if leaveButton then
+			leaveButton.MouseButton1Click:Connect(requestLeave)
+		end
+		if createPartyFrame then
+			local close = createPartyFrame:FindFirstChild("CloseButton")
+			if close and close:IsA("TextButton") then
+				close.MouseButton1Click:Connect(requestLeave)
+			end
+		end
+
+		for i, btn in ipairs(sizeButtons) do
+			btn.MouseButton1Click:Connect(function()
+				if flowState ~= "Waiting" or not sessionSnapshot or sessionSnapshot.isHost ~= true then
+					return
+				end
+				selectedSize = i
+				updateSizeButtons()
+				matchFlow.RequestSetCapacity:Fire(i)
 			end)
 		end
 	end
 
-	if createButton then
-		createButton.MouseButton1Click:Connect(function()
-			if flowState == "Waiting" and sessionSnapshot and sessionSnapshot.isHost == true then
-				matchFlow.RequestStart:Fire()
-			end
-		end)
-	end
-
-	local function requestLeave()
-		if flowState == "Waiting" or flowState == "Countdown" then
-			matchFlow.RequestLeave:Fire()
-		end
-	end
-	if leaveButton then
-		leaveButton.MouseButton1Click:Connect(requestLeave)
-	end
-	if createPartyFrame then
-		local close = createPartyFrame:FindFirstChild("CloseButton")
-		if close and close:IsA("TextButton") then
-			close.MouseButton1Click:Connect(requestLeave)
-		end
-	end
-
-	for i, btn in ipairs(sizeButtons) do
-		btn.MouseButton1Click:Connect(function()
-			if flowState ~= "Waiting" or not sessionSnapshot or sessionSnapshot.isHost ~= true then
-				return
-			end
-			selectedSize = i
-			updateSizeButtons()
-			matchFlow.RequestSetCapacity:Fire(i)
-		end)
-	end
-
+	-- Connect FlowStateChanged on BOTH places so the Day 1 card
+	-- shows on the game place after teleport.
 	matchFlow.FlowStateChanged:Connect(function(state: string)
 		if state == flowState then
 			return
 		end
 		-- Title screen is only for the Lobby; dismiss it once the game flow advances.
-		if titleScreen then
+		if titleScreen and isLobby then
 			if titleScreen.Visible and state ~= "Lobby" then
 				hideTitleScreen()
 			end
 		end
 		flowState = state
 		if state == "Lobby" then
-			resetForLobby()
+			if isLobby then
+				resetForLobby()
+			end
 		elseif state == "Waiting" then
-			showCreateParty()
+			if isLobby then showCreateParty() end
 		elseif state == "Countdown" then
-			showCountdown()
+			if isLobby then showCountdown() end
 		elseif state == "Story" then
-			showStory()
+			if isLobby then showStory() end
 		elseif state == "Day1" then
 			showDayCard()
 		elseif state == "InGame" then
@@ -962,44 +967,46 @@ function IntroController:KnitStart()
 		end
 	end)
 
-	matchFlow.Countdown:Connect(function(payload)
-		if typeof(payload) == "table" and typeof(payload.endsAt) == "number" then
-			countdownEndsAt = payload.endsAt
-		end
-	end)
-
-	matchFlow.SessionChanged:Connect(function(snapshot)
-		if typeof(snapshot) ~= "table" then
-			return
-		end
-		if snapshot.state == "Lobby" then
-			sessionSnapshot = nil
-		else
-			renderSession(snapshot)
-		end
-	end)
-
-	matchFlow:GetSnapshot():andThen(function(snapshot)
-		if typeof(snapshot) ~= "table" then
-			return
-		end
-		if snapshot.state ~= "Lobby" then
-			flowState = snapshot.state
-			renderSession(snapshot)
-			if snapshot.state == "Waiting" then
-				showCreateParty()
-			elseif snapshot.state == "Countdown" then
-				countdownEndsAt = snapshot.endsAt
-				showCreateParty()
-				showCountdown()
+	if isLobby then
+		matchFlow.Countdown:Connect(function(payload)
+			if typeof(payload) == "table" and typeof(payload.endsAt) == "number" then
+				countdownEndsAt = payload.endsAt
 			end
-		end
-	end)
+		end)
 
-	-- If the player is still in the Lobby, show the title screen immediately.
-	-- Skip if the game has already advanced past Lobby (e.g. test mode).
-	if flowState == "Lobby" then
-		showTitleScreen()
+		matchFlow.SessionChanged:Connect(function(snapshot)
+			if typeof(snapshot) ~= "table" then
+				return
+			end
+			if snapshot.state == "Lobby" then
+				sessionSnapshot = nil
+			else
+				renderSession(snapshot)
+			end
+		end)
+
+		matchFlow:GetSnapshot():andThen(function(snapshot)
+			if typeof(snapshot) ~= "table" then
+				return
+			end
+			if snapshot.state ~= "Lobby" then
+				flowState = snapshot.state
+				renderSession(snapshot)
+				if snapshot.state == "Waiting" then
+					showCreateParty()
+				elseif snapshot.state == "Countdown" then
+					countdownEndsAt = snapshot.endsAt
+					showCreateParty()
+					showCountdown()
+				end
+			end
+		end)
+
+		-- If the player is still in the Lobby, show the title screen immediately.
+		-- Skip if the game has already advanced past Lobby (e.g. test mode).
+		if flowState == "Lobby" then
+			showTitleScreen()
+		end
 	end
 
 end

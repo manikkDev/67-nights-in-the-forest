@@ -121,6 +121,7 @@ local SAFE_ZONE_LINE_OFF_TRANSPARENCY = 1
 local SAFE_ZONE_BROADCAST_THRESHOLD = 0.5
 local LOG_SCAN_INTERVAL = 0.2
 local LOG_SCAN_RADIUS = 14
+local COOK_TIME = 10 -- seconds for raw meat to cook on the campfire
 
 -- | State Management | --
 local worldService: any = nil
@@ -576,9 +577,52 @@ local function cookRawMeat(model: Model)
 	model:Destroy()
 end
 
+-- Track models currently cooking: { [Model] = { startTime = number, light = PointLight } }
+local cookingMeat: { [Model]: { startTime: number, light: PointLight } } = {}
+
+--[[
+    @summary  Add a visual cooking effect (small glow) to a raw meat model.
+    @param    model  Model
+    @returns  PointLight
+]]
+local function addCookingEffect(model: Model): PointLight
+	local primary = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+	if not primary then
+		return nil :: any
+	end
+	local existing = primary:FindFirstChild("CookingLight")
+	if existing and existing:IsA("PointLight") then
+		return existing
+	end
+	local light = Instance.new("PointLight")
+	light.Name = "CookingLight"
+	light.Color = Color3.fromRGB(255, 180, 80)
+	light.Brightness = 2
+	light.Range = 6
+	light.Shadows = false
+	light.Parent = primary
+	return light
+end
+
+--[[
+    @summary  Remove the cooking visual effect from a model.
+    @param    model  Model
+]]
+local function removeCookingEffect(model: Model)
+	local primary = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart", true)
+	if primary then
+		local light = primary:FindFirstChild("CookingLight")
+		if light then
+			light:Destroy()
+		end
+	end
+end
+
 --[[
     @summary  Scan the area around the campfire for loose Log models and
               consume them as fuel, or cook RawMeat drops.
+              Raw meat takes COOK_TIME seconds to cook — it stays as a
+              physical drop with a cooking glow until the timer expires.
 ]]
 local function scanForLogFuel()
 	if not campfirePart or not inventoryService or not worldService then
@@ -596,6 +640,7 @@ local function scanForLogFuel()
 
 	local parts = workspace:GetPartBoundsInRadius(campfirePart.Position, LOG_SCAN_RADIUS, params)
 	local consumedThisScan = {}
+	local seenModels: { [Model]: boolean } = {}
 	for _, part in ipairs(parts) do
 		if not part:IsA("BasePart") then
 			continue
@@ -605,9 +650,10 @@ local function scanForLogFuel()
 		if not model then
 			continue
 		end
-		if consumedThisScan[model] then
+		if consumedThisScan[model] or seenModels[model] then
 			continue
 		end
+		seenModels[model] = true
 
 		local resourceName = model:GetAttribute("Resource")
 			or model:GetAttribute("PickupResource")
@@ -630,7 +676,33 @@ local function scanForLogFuel()
 			model:Destroy()
 		elseif resourceName == "RawMeat" then
 			consumedThisScan[model] = true
-			cookRawMeat(model)
+			if not isLit or fuel <= 0 then
+				continue
+			end
+			-- Start or continue cooking the meat.
+			local entry = cookingMeat[model]
+			if not entry then
+				-- Begin cooking: mark start time and add visual effect.
+				local light = addCookingEffect(model)
+				cookingMeat[model] = { startTime = os.clock(), light = light }
+			else
+				-- Already cooking — check if enough time has elapsed.
+				if os.clock() - entry.startTime >= COOK_TIME then
+					cookingMeat[model] = nil
+					removeCookingEffect(model)
+					cookRawMeat(model)
+				end
+			end
+		end
+	end
+
+	-- Remove cooking effect from meat that is no longer near the campfire.
+	for model, entry in pairs(cookingMeat) do
+		if not seenModels[model] or not model.Parent then
+			cookingMeat[model] = nil
+			if model.Parent then
+				removeCookingEffect(model)
+			end
 		end
 	end
 end

@@ -457,11 +457,6 @@ local function buildAnimationTracks(stalker)
 	stalker.usingProceduralGait = false
 	stalker.usingCustomTracks = false
 	local humanoid = stalker.humanoid
-	local animator = humanoid:FindFirstChildOfClass("Animator")
-	if not animator then
-		animator = Instance.new("Animator")
-		animator.Parent = humanoid
-	end
 
 	-- PRIMARY PATH: custom KeyframeSequence player.
 	-- Reads the authored KeyframeSequence pose data directly and applies
@@ -472,6 +467,16 @@ local function buildAnimationTracks(stalker)
 			stalker.tracks[name] = ct
 		end
 		stalker.usingCustomTracks = true
+		-- CRITICAL: Destroy any existing Animator so it doesn't reset
+		-- Motor6D.Transform to identity every frame (which causes T-pose).
+		-- The Animator evaluates all Motor6Ds and resets Transform when
+		-- no native AnimationTracks are playing, overwriting our custom
+		-- track player's transform writes. The Humanoid works fine
+		-- without an Animator for :MoveTo() and movement.
+		local existingAnimator = humanoid:FindFirstChildOfClass("Animator")
+		if existingAnimator then
+			existingAnimator:Destroy()
+		end
 		print(("[DeerService] %s using custom KeyframeSequence player (%d tracks)"):format(
 			stalker.key, #customTracks))
 		return
@@ -479,6 +484,11 @@ local function buildAnimationTracks(stalker)
 
 	-- FALLBACK: For stalkers with no KeyframeSequences (e.g. Ram Monster),
 	-- try the native AnimationTrack system with default R6 animations.
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
 	registerKeyframeAnims(stalker.model)
 
 	local function loadTrack(id: string, looped: boolean): AnimationTrack?

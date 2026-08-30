@@ -94,8 +94,18 @@ function GameStateController:KnitStart()
 		:format(tostring(isGamePlace), tostring(ServerRole.IsGameServer()), tostring(ServerRole.IsLobby())))
 
 	if isGamePlace then
-		print("[GameStateController] Game place detected — marking in-game immediately")
-		GameStateController:MarkIntroComplete()
+		-- On the game place, wait for the Day 1 intro card to finish
+		-- before unlocking gameplay. MatchFlowService fires "InGame"
+		-- after DAY1_HOLD_SECONDS, and IntroController calls
+		-- MarkIntroComplete() after the card fades.
+		-- Safety net: auto-mark after 15s in case the signal is missed.
+		print("[GameStateController] Game place detected — waiting for Day 1 intro")
+		task.delay(15, function()
+			if not isInGame then
+				warn("[GameStateController] Safety net: auto-marking in-game after 15s timeout")
+				GameStateController:MarkIntroComplete()
+			end
+		end)
 	else
 		-- Lobby place: wait for the intro card to finish.
 		-- The IntroController calls MarkIntroComplete() after the Day 1 card fades.
@@ -111,14 +121,11 @@ function GameStateController:KnitStart()
 				isInGame = false
 			end
 		elseif state == "InGame" then
-			flowState = "Day1"
-			-- Safety net on the lobby place: unlock if the intro hasn't fired yet.
-			if not isInGame and not isGamePlace then
-				task.delay(3, function()
-					if not isInGame and flowState == "Day1" then
-						GameStateController:MarkIntroComplete()
-					end
-				end)
+			flowState = "InGame"
+			-- Unlock gameplay if the intro hasn't already done so.
+			-- This works on BOTH places (lobby safety net + game place).
+			if not isInGame then
+				GameStateController:MarkIntroComplete()
 			end
 		end
 	end)

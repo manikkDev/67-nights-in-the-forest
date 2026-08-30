@@ -1019,8 +1019,12 @@ local function stopDrag(player: Player)
 				if isJunk then
 					-- Junk items: unanchor after drag so they fall to the ground
 					desc.Anchored = false
-				elseif entry.originalAnchored[desc] ~= nil then
-					desc.Anchored = entry.originalAnchored[desc]
+				else
+					-- Always unanchor after drag so the item falls to the ground
+					-- via gravity. Restoring the original Anchored state would
+					-- re-anchor items that spawn anchored (e.g. forage items),
+					-- leaving them stuck in mid-air at the release position.
+					desc.Anchored = false
 				end
 			end
 		end
