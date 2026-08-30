@@ -5,10 +5,10 @@ local Config = {
 	SafeZoneRadiusByLevel = { 30, 45, 60, 80, 100, 130 },
 	-- Caves far from campfire, progressively harder to find by rescue order
 	CaveRings = {
-		Dino = { Min = 400, Max = 500 },
-		Kraken = { Min = 550, Max = 650 },
-		Squid = { Min = 700, Max = 800 },
-		Koala = { Min = 850, Max = 950 },
+		Dino = { Min = 245, Max = 295 },
+		Kraken = { Min = 480, Max = 545 },
+		Squid = { Min = 650, Max = 725 },
+		Koala = { Min = 770, Max = 845 },
 	},
 	Boundary = {
 		Height = 220,

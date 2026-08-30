@@ -735,22 +735,9 @@ local function setupCampfire()
 		end
 	end
 
-	-- Add Wood ProximityPrompt so players can press E to feed wood from inventory
-	local existingPrompt = campfirePart:FindFirstChildWhichIsA("ProximityPrompt")
-	if not existingPrompt then
-		local prompt = Instance.new("ProximityPrompt")
-		prompt.Name = "FeedCampfirePrompt"
-		prompt.ActionText = "Add Wood"
-		prompt.ObjectText = "Campfire"
-		prompt.KeyboardKeyCode = Enum.KeyCode.E
-		prompt.GamepadKeyCode = Enum.KeyCode.ButtonY
-		prompt.HoldDuration = 0
-		prompt.MaxActivationDistance = FEED_RANGE
-		prompt.RequiresLineOfSight = false
-		prompt.Parent = campfirePart
-		prompt.Triggered:Connect(function(player)
-			CampfireService:_FeedCampfire(player, 1)
-		end)
+	local feedPrompt = campfirePart:FindFirstChild("FeedCampfirePrompt")
+	if feedPrompt then
+		feedPrompt:Destroy()
 	end
 
 	-- Remove any old safe zone visuals (disc or previous dots) before creating fresh dots

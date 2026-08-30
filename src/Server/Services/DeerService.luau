@@ -95,7 +95,7 @@ local STALKER_DEFS = {
 	Deer = {
 		ModelName = "Deer",
 		BaseSpeed = 14,
-		AttackDamage = 25,
+		AttackDamage = 18,
 		UsesFlashlightStun = true,
 	},
 	RamMonster = {
@@ -115,6 +115,206 @@ local spawnService: any = nil
 local playerLifeService: any = nil
 local worldProgressionService: any = nil
 local stalkers: { [string]: any } = {}
+
+-- // CUSTOM KEYFRAME SEQUENCE PLAYER // --
+-- Production fallback: RegisterKeyframeSequence only works in Studio.
+-- In published servers, we parse the KeyframeSequence data directly and
+-- apply Motor6D.Transform manually on Heartbeat. This replicates what
+-- the Roblox animation system does internally.
+
+--[[
+	@summary  Recursively collect poses from a Keyframe, preserving
+	          the parent-child hierarchy.
+	@param    parent  Instance (Keyframe or Pose)
+	@param    out     table to populate
+]]
+local function _collectPoses(parent, out)
+	for _, child in ipairs(parent:GetChildren()) do
+		if child:IsA("Pose") then
+			out[child.Name] = child.CFrame
+			_collectPoses(child, out)
+		end
+	end
+end
+
+--[[
+	@summary  Parse a KeyframeSequence into a sorted list of
+	          { time = number, poses = { [name] = CFrame } }
+	@param    kfs  KeyframeSequence
+	@returns  { { time: number, poses: { [string]: CFrame } } }
+]]
+local function parseKeyframeSequence(kfs)
+	local keyframes = {}
+	for _, kf in ipairs(kfs:GetChildren()) do
+		if kf:IsA("Keyframe") then
+			local poses = {}
+			_collectPoses(kf, poses)
+			table.insert(keyframes, { time = kf.Time, poses = poses })
+		end
+	end
+	table.sort(keyframes, function(a, b) return a.time < b.time end)
+	return keyframes
+end
+
+--[[
+	@summary  Build a map of Motor6D name -> Motor6D instance for a model.
+	@param    model  Model
+	@returns  { [string]: Motor6D }
+]]
+local function buildMotorMap(model)
+	local map = {}
+	for _, d in ipairs(model:GetDescendants()) do
+		if d:IsA("Motor6D") and d.Part1 then
+			map[d.Part1.Name] = d
+		end
+	end
+	return map
+end
+
+--[[
+	@summary  Build custom animation tracks from KeyframeSequences.
+	          Each track mimics the AnimationTrack interface (IsPlaying,
+	          Play, Stop, Length, Priority, Looped) so existing code that
+	          uses stalker.tracks[name] works seamlessly.
+	@param    model  Model
+	@returns  { [string]: table }  map of track name -> custom track
+]]
+local function buildCustomTracks(model)
+	local kfFolder = model:FindFirstChild("KeyframeSequences")
+	if not kfFolder then return {} end
+
+	local motorMap = buildMotorMap(model)
+	local tracks = {}
+
+	local nonLooped = { Jumpscare = true, StunnedStart = true, StunnedEnd = true, Attack = true, Scared = true }
+	local priorities = {
+		Attack = Enum.AnimationPriority.Action4,
+		Jumpscare = Enum.AnimationPriority.Action4,
+		Scared = Enum.AnimationPriority.Action4,
+		StunnedStart = Enum.AnimationPriority.Action4,
+		StunnedLoop = Enum.AnimationPriority.Action4,
+		StunnedEnd = Enum.AnimationPriority.Action4,
+		Walk = Enum.AnimationPriority.Action2,
+		Run = Enum.AnimationPriority.Action2,
+		Idle = Enum.AnimationPriority.Idle,
+	}
+
+	for _, kfs in ipairs(kfFolder:GetChildren()) do
+		if kfs:IsA("KeyframeSequence") then
+			local keyframes = parseKeyframeSequence(kfs)
+			if #keyframes > 0 then
+				local ct = {
+					name = kfs.Name,
+					keyframes = keyframes,
+					length = kfs.Length,
+					Looped = not nonLooped[kfs.Name],
+					Priority = priorities[kfs.Name] or Enum.AnimationPriority.Core,
+					Length = kfs.Length,
+					playhead = 0,
+					_isPlaying = false,
+					motorMap = motorMap,
+					isCustom = true,
+				}
+
+				-- AnimationTrack-compatible interface
+				function ct:GetPlaying()
+					return self._isPlaying
+				end
+				function ct:Play(fadeTime)
+					if self._isPlaying then return end
+					self._isPlaying = true
+					self.playhead = 0
+				end
+				function ct:Stop(fadeTime)
+					if not self._isPlaying then return end
+					self._isPlaying = false
+					self.playhead = 0
+					-- Reset transforms for poses in this track
+					if #self.keyframes > 0 then
+						for poseName, _ in pairs(self.keyframes[1].poses) do
+							local motor = self.motorMap[poseName]
+							if motor then
+								motor.Transform = CFrame.identity
+							end
+						end
+					end
+				end
+
+				-- Metatable to make IsPlaying work as a property
+				setmetatable(ct, {
+					__index = function(t, k)
+						if k == "IsPlaying" then return t._isPlaying end
+						return rawget(t, k)
+					end,
+					__newindex = function(t, k, v)
+						if k == "IsPlaying" then t._isPlaying = v else rawset(t, k, v) end
+					end,
+				})
+
+				tracks[kfs.Name] = ct
+			end
+		end
+	end
+
+	return tracks
+end
+
+--[[
+	@summary  Advance a custom track's playhead and apply interpolated
+	          Motor6D.Transform values. Only applies to motors that exist
+	          in the model.
+	@param    track  table (custom track)
+	@param    dt     number
+]]
+local function tickCustomTrack(track, dt)
+	if not track._isPlaying or #track.keyframes == 0 then return end
+
+	track.playhead = track.playhead + dt
+
+	-- Handle end of track
+	if track.playhead >= track.length then
+		if track.Looped then
+			track.playhead = track.playhead % track.length
+		else
+			track.playhead = track.length
+			track._isPlaying = false
+			-- Reset transforms for this track's poses
+			local lastKf = track.keyframes[#track.keyframes]
+			for poseName, _ in pairs(lastKf.poses) do
+				local motor = track.motorMap[poseName]
+				if motor then
+					motor.Transform = CFrame.identity
+				end
+			end
+			return
+		end
+	end
+
+	-- Find surrounding keyframes
+	local kfs = track.keyframes
+	local prevKf = kfs[1]
+	local nextKf = kfs[#kfs]
+	for i = 1, #kfs - 1 do
+		if kfs[i].time <= track.playhead and kfs[i + 1].time > track.playhead then
+			prevKf = kfs[i]
+			nextKf = kfs[i + 1]
+			break
+		end
+	end
+
+	-- Interpolate and apply
+	local span = nextKf.time - prevKf.time
+	local alpha = if span > 0 then (track.playhead - prevKf.time) / span else 0
+	alpha = math.clamp(alpha, 0, 1)
+
+	for poseName, prevCf in pairs(prevKf.poses) do
+		local nextCf = nextKf.poses[poseName] or prevCf
+		local motor = track.motorMap[poseName]
+		if motor then
+			motor.Transform = prevCf:Lerp(nextCf, alpha)
+		end
+	end
+end
 local deerSuppressed = false
 local activeStalkerKey: string? = nil  -- which stalker is active tonight ("Deer" or "RamMonster")
 local lastPhase: string? = nil
@@ -315,10 +515,28 @@ local function buildAnimationTracks(stalker)
 		stalker.tracks.Idle = loadTrack(DEFAULT_R6_IDLE_ID, true)
 	end
 
-	-- If no baked animations loaded (production: RegisterKeyframeSequence
-	-- fails) AND the default R6 tracks also failed to load, fall back to
-	-- procedural gait so the deer doesn't T-pose.
-	if not loadedAnyBaked and (not stalker.tracks.Walk or not stalker.tracks.Walk.IsPlaying) then
+	-- If no baked AnimationTracks loaded (production: RegisterKeyframeSequence
+	-- fails), fall back to the custom KeyframeSequence player which reads
+	-- the KeyframeSequence data directly and applies Motor6D.Transform.
+	-- This is the PRIMARY production fallback — it plays the full authored
+	-- animations (Walk, Run, Idle, Attack, Stunned*) without needing
+	-- RegisterKeyframeSequence or published asset IDs.
+	if not loadedAnyBaked then
+		local customTracks = buildCustomTracks(stalker.model)
+		if next(customTracks) then
+			-- Merge custom tracks into stalker.tracks so all existing code
+			-- that uses stalker.tracks[name].IsPlaying / :Play() / :Stop()
+			-- works seamlessly with the AnimationTrack-compatible interface.
+			for name, ct in pairs(customTracks) do
+				stalker.tracks[name] = ct
+			end
+			stalker.usingCustomTracks = true
+			print(("[DeerService] %s using custom KeyframeSequence player (%d tracks)"):format(
+				stalker.key, #customTracks))
+			return
+		end
+
+		-- Last-resort fallback: procedural gait (only legs/arms swing)
 		stalker.usingProceduralGait = true
 		stalker.gaitJoints = _collectGaitJoints(stalker.model)
 		stalker.gaitPhase = 0
@@ -329,6 +547,8 @@ end
 
 --[[
     @summary  Stop every currently-playing track on a stalker.
+              Handles both AnimationTrack and custom tracks (both have
+              IsPlaying and Stop()).
     @param    stalker  table
 ]]
 local function stopAllTracks(stalker)
@@ -341,7 +561,8 @@ end
 
 --[[
     @summary  Play a named track if it exists, without interrupting
-              itself if already playing.
+              itself if already playing. Works with both AnimationTrack
+              and custom KeyframeSequence tracks.
     @param    stalker  table
     @param    name     string
 ]]
@@ -352,6 +573,7 @@ local function playTrack(stalker, name: string)
 	if stalker.usingProceduralGait and (name == "Walk" or name == "Run" or name == "Idle") then
 		return
 	end
+
 	local track = stalker.tracks[name]
 	if not track then
 		return
@@ -460,6 +682,12 @@ local function spawnStalker(key: string)
 		retreatUntil = 0,
 		nextDecisionTime = 0,
 		pursuitStartTime = nil,
+		-- Animation state
+		tracks = {},
+		usingCustomTracks = false,
+		usingProceduralGait = false,
+		gaitJoints = nil,
+		gaitPhase = 0,
 		-- Pathfinding state
 		waypoints = nil,
 		waypointIndex = 1,
@@ -1226,6 +1454,15 @@ local function onHeartbeat(dt: number)
 			updateStalkerState(stalker)
 		end
 		runStalkerBehavior(stalker)
+
+		-- Tick custom KeyframeSequence tracks (production fallback)
+		if stalker.usingCustomTracks then
+			for _, t in pairs(stalker.tracks) do
+				if t.isCustom and t._isPlaying then
+					tickCustomTrack(t, dt)
+				end
+			end
+		end
 
 		-- Apply procedural gait for custom-rig stalkers (Deer)
 		if stalker.gaitJoints then

@@ -49,8 +49,8 @@ local EYE_DANGER_COLOR = Color3.fromRGB(220, 40, 40)
 local screenGui: ScreenGui? = nil
 local banner: TextLabel? = nil
 local bannerThread: thread? = nil
-local eyeLeft: ImageLabel? = nil
-local eyeRight: ImageLabel? = nil
+local eyeLeft: Frame? = nil
+local eyeRight: Frame? = nil
 local eyeContainer: Frame? = nil
 local screamCorrection: ColorCorrectionEffect? = nil
 local damageCorrection: ColorCorrectionEffect? = nil
@@ -99,28 +99,32 @@ local function ensureGui()
 	container.Visible = false
 	container.Parent = gui
 
-	-- Left eye
-	local leftEye = Instance.new("ImageLabel")
+	-- Left eye (Frame + UICorner — no external asset dependency)
+	local leftEye = Instance.new("Frame")
 	leftEye.Name = "EyeLeft"
 	leftEye.AnchorPoint = Vector2.new(1, 0.5)
 	leftEye.Position = UDim2.new(0.45, 0, 0.5, 0)
 	leftEye.Size = UDim2.new(0, 70, 0, 70)
-	leftEye.BackgroundTransparency = 1
-	leftEye.Image = "rbxassetid://277232280" -- generic eye/circle icon
-	leftEye.ImageColor3 = EYE_BASE_COLOR
-	leftEye.ScaleType = Enum.ScaleType.Fit
+	leftEye.BackgroundColor3 = EYE_BASE_COLOR
+	leftEye.BackgroundTransparency = 0
+	leftEye.BorderSizePixel = 0
+	local leftCorner = Instance.new("UICorner")
+	leftCorner.CornerRadius = UDim.new(0.5, 0)
+	leftCorner.Parent = leftEye
 	leftEye.Parent = container
 
 	-- Right eye
-	local rightEye = Instance.new("ImageLabel")
+	local rightEye = Instance.new("Frame")
 	rightEye.Name = "EyeRight"
 	rightEye.AnchorPoint = Vector2.new(0, 0.5)
 	rightEye.Position = UDim2.new(0.55, 0, 0.5, 0)
 	rightEye.Size = UDim2.new(0, 70, 0, 70)
-	rightEye.BackgroundTransparency = 1
-	rightEye.Image = "rbxassetid://277232280"
-	rightEye.ImageColor3 = EYE_BASE_COLOR
-	rightEye.ScaleType = Enum.ScaleType.Fit
+	rightEye.BackgroundColor3 = EYE_BASE_COLOR
+	rightEye.BackgroundTransparency = 0
+	rightEye.BorderSizePixel = 0
+	local rightCorner = Instance.new("UICorner")
+	rightCorner.CornerRadius = UDim.new(0.5, 0)
+	rightCorner.Parent = rightEye
 	rightEye.Parent = container
 
 	screenGui = gui
@@ -178,8 +182,8 @@ local function updateEyeMeter(meter: number)
 
 	eyeContainer.Visible = true
 	local color = EYE_BASE_COLOR:Lerp(EYE_DANGER_COLOR, meter)
-	eyeLeft.ImageColor3 = color
-	eyeRight.ImageColor3 = color
+	eyeLeft.BackgroundColor3 = color
+	eyeRight.BackgroundColor3 = color
 end
 
 --[[

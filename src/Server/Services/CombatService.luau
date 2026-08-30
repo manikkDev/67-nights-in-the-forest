@@ -64,6 +64,38 @@ local attackCooldowns: { [Player]: number } = {}
 
 -- // FUNCTIONS // --
 
+local function buildProceduralSpear(): Tool
+	local tool = Instance.new("Tool")
+	tool.Name = SPEAR_TOOL_NAME
+	tool.RequiresHandle = true
+	tool.Grip = CFrame.new(0, -1.8, 0)
+
+	local handle = Instance.new("Part")
+	handle.Name = "Handle"
+	handle.Size = Vector3.new(0.28, 5, 0.28)
+	handle.Color = Color3.fromRGB(112, 72, 38)
+	handle.Material = Enum.Material.Wood
+	handle.CanCollide = false
+	handle.Massless = true
+	handle.Parent = tool
+
+	local tip = Instance.new("WedgePart")
+	tip.Name = "SpearTip"
+	tip.Size = Vector3.new(0.65, 1.4, 0.4)
+	tip.Color = Color3.fromRGB(175, 180, 190)
+	tip.Material = Enum.Material.Metal
+	tip.CanCollide = false
+	tip.Massless = true
+	tip.CFrame = handle.CFrame * CFrame.new(0, 3.1, 0) * CFrame.Angles(0, 0, math.rad(90))
+	tip.Parent = tool
+
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = handle
+	weld.Part1 = tip
+	weld.Parent = handle
+	return tool
+end
+
 --[[
     @summary  Build a wearable Spear Tool by cloning the Spear model
               and welding its parts onto a chosen Handle part.
@@ -72,8 +104,8 @@ local attackCooldowns: { [Player]: number } = {}
 local function buildSpearTool(): Tool?
 	local source = ITEMS_PATH and ITEMS_PATH:FindFirstChild("Spear")
 	if not source then
-		warn("[CombatService] Spear model not found in Assets Items")
-		return nil
+		warn("[CombatService] Spear model not found in Assets Items; using fallback")
+		return buildProceduralSpear()
 	end
 
 	local clone = source:Clone()
@@ -88,9 +120,9 @@ local function buildSpearTool(): Tool?
 	local originalShaft = handleModel and handleModel:FindFirstChild("Handle")
 	local shaft = handleModel and handleModel:FindFirstChild("Grip")
 	if not shaft or not shaft:IsA("BasePart") then
-		warn("[CombatService] Spear hand grip not found")
+		warn("[CombatService] Spear hand grip not found; using fallback")
 		clone:Destroy()
-		return nil
+		return buildProceduralSpear()
 	end
 	if originalShaft and originalShaft:IsA("BasePart") then
 		originalShaft.Name = "Shaft"

@@ -60,7 +60,7 @@ local OWL_MODEL_NAME = "Owl"
 local DORMANT_HOLDING_POSITION = Vector3.new(0, -500, 0)
 local DECISION_INTERVAL = 0.15
 local CONTACT_RANGE = 5
-local CONTACT_COOLDOWN = 1.0
+local CONTACT_COOLDOWN = 1.5
 local PURSUIT_ACCEL_PER_SEC = 0.5
 local PURSUIT_MAX_BONUS_SPEED = 18
 local BASE_CHASE_SPEED = 20
@@ -752,7 +752,8 @@ local function runOwlBehavior(dt: number)
 			owl.lastContactTime = now
 			local targetPlayer = owl.target :: Player?
 			if targetPlayer and playerLifeService and playerLifeService:IsAlive(targetPlayer) then
-				local damage = 25 + (timeService and timeService:GetCycleIndex() or 1) * 2
+				local cycleIndex = timeService and timeService:GetCycleIndex() or 1
+				local damage = 12 + math.min(cycleIndex, 40) * 0.4
 				playerLifeService:ApplyDamage(targetPlayer, damage, "Owl")
 				broadcastToAll(OwlService.Client.OwlContact, owl.rootPart.Position)
 			end

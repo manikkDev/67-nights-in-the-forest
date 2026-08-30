@@ -28,6 +28,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Constants = require(ReplicatedStorage.Shared.Constants)
+local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 
 -- | Objects | --
@@ -62,11 +63,13 @@ local EAT_HUNGER_RESTORE = {
 	RawMeat = RAW_MEAT_HUNGER_RESTORE,
 	CookedMeat = COOKED_MEAT_HUNGER_RESTORE,
 }
+local EAT_HEALTH_RESTORE = RunConfig.ConsumableHeal
 
 -- | State Management | --
 local worldService: any = nil
 local inventoryService: any = nil
 local hungerService: any = nil
+local playerLifeService: any = nil
 local treePivots: { CFrame } = {}
 local groundPart: BasePart? = nil
 local groundBounds: { minX: number, maxX: number, minZ: number, maxZ: number }? = nil
@@ -146,7 +149,7 @@ end
               bounds so forage can appear anywhere, not only near trees.
     @returns  Vector3?
 ]]
-local function randomMapPosition(): Vector3?
+local function _randomMapPosition(): Vector3?
 	if not groundBounds then
 		return nil
 	end
@@ -424,6 +427,10 @@ function ForageService.Client:RequestEat(player: Player, resourceName: string): 
 	if hungerService then
 		hungerService:RestoreHunger(player, restoreAmount)
 	end
+	local healthRestore = EAT_HEALTH_RESTORE[resourceName] or 0
+	if playerLifeService and healthRestore > 0 then
+		playerLifeService:RestoreHealth(player, healthRestore)
+	end
 	return true
 end
 
@@ -434,6 +441,7 @@ function ForageService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	inventoryService = Knit.GetService("InventoryService")
 	hungerService = Knit.GetService("HungerService")
+	playerLifeService = Knit.GetService("PlayerLifeService")
 
 	collectTreePivots()
 	task.delay(1, spawnInitialForage)

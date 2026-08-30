@@ -39,6 +39,12 @@ local Config = {
 
 	StartingHealth = 100,
 	StartingHunger = 100,
+	ConsumableHeal = {
+		Berries = 5,
+		Mushrooms = 6,
+		RawMeat = 3,
+		CookedMeat = 15,
+	},
 
 	BaseMultiplier = 1,
 	MaxMultiplier = 9,

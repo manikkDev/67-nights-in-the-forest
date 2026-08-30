@@ -1135,11 +1135,7 @@ local function hookTool(tool: Tool)
 		task.defer(showBag)
 	end)
 	tool.Unequipped:Connect(function()
-		task.defer(function()
-			if not hasCarriedItems then
-				hideBag()
-			end
-		end)
+		task.defer(hideBag)
 	end)
 end
 
@@ -1186,7 +1182,7 @@ local function watchBagTool()
 		character.ChildRemoved:Connect(function(child)
 			if child.Name == BAG_TOOL_NAME and child:IsA("Tool") then
 				task.defer(function()
-					if not hasCarriedItems and not character:FindFirstChild(BAG_TOOL_NAME) then
+					if not character:FindFirstChild(BAG_TOOL_NAME) then
 						hideBag()
 					end
 				end)
@@ -1242,7 +1238,7 @@ function InventoryController:KnitStart()
 			updateDisplay(resources, capacity)
 			local character = localPlayer.Character
 			local bagEquipped = character and character:FindFirstChild(BAG_TOOL_NAME) ~= nil
-			if hasCarriedItems or bagEquipped then
+			if bagEquipped then
 				showBag()
 			elseif isOpen then
 				hideBag()
@@ -1253,8 +1249,10 @@ function InventoryController:KnitStart()
 			if typeof(snapshot) == "table" then
 				updateDisplay(snapshot.resources, snapshot.capacity)
 				local character = localPlayer.Character
-				if hasCarriedItems or character and character:FindFirstChild(BAG_TOOL_NAME) then
+				if character and character:FindFirstChild(BAG_TOOL_NAME) then
 					showBag()
+				elseif isOpen then
+					hideBag()
 				end
 			end
 		end):catch(function(err)

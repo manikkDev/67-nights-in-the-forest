@@ -304,6 +304,22 @@ function PlayerLifeService:IsAlive(player: Player): boolean
 	return lifeStates[player] == "Alive"
 end
 
+function PlayerLifeService:RestoreHealth(player: Player, amount: number): number
+	if typeof(amount) ~= "number" or amount <= 0 or amount ~= amount or lifeStates[player] ~= "Alive" then
+		return 0
+	end
+	if not runStateService:IsActive() or not runStateService:IsMember(player) then
+		return 0
+	end
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if not humanoid or humanoid.Health <= 0 then
+		return 0
+	end
+	local restored = math.min(amount, humanoid.MaxHealth - humanoid.Health)
+	humanoid.Health += restored
+	return restored
+end
+
 function PlayerLifeService:ApplyDamage(player: Player, amount: number, source: string?): { [string]: any }
 	if typeof(amount) ~= "number" or amount <= 0 or amount ~= amount then
 		return { applied = 0, downed = false }

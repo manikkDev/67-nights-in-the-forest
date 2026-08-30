@@ -410,6 +410,7 @@ local function buildCaves()
 			bounds = bounds,
 			minDistance = ring.Min,
 			maxDistance = ring.Max,
+			maxRadius = WorldProgressionConfig.GetAccessRadius(definition.RequiredCampfireLevel) - 20,
 			footprint = WorldProgressionConfig.Placement.CaveFootprint,
 			clearanceRadius = WorldProgressionConfig.Placement.CaveSpacing,
 			seed = seedBase + WorldPlacement.Hash(rescueId) + index,
