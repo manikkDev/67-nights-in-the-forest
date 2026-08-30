@@ -114,6 +114,20 @@ end
     @param    cost    table
     @returns  boolean
 ]]
+-- Forward declaration: updateTableCounters is defined later but
+-- deductCost (below) needs to call it when shared totals change.
+local updateTableCounters
+
+--[[
+    @summary  Return whether the player owns every cost in a recipe.
+              WoodenSheet and Scrap are SHARED run totals (produced by
+              the shredder), so they are checked against the shared pool.
+              All other resources are checked against the player's
+              personal inventory.
+    @param    player  Player
+    @param    cost    table
+    @returns  boolean
+]]
 local function canAfford(player: Player, cost: { [string]: number }): boolean
 	local data = playerDataService and playerDataService:GetData(player)
 	if not data or not data.Resources then
@@ -468,7 +482,7 @@ end
     @summary  Update the wooden sheet and scrap counter TextLabels
               on the table to show the shared run shredded totals.
 ]]
-local function updateTableCounters()
+function updateTableCounters()
 	if woodenSheetCounter and woodenSheetCounter.Parent then
 		woodenSheetCounter.Text = tostring(totalWoodenSheetShredded)
 	end
