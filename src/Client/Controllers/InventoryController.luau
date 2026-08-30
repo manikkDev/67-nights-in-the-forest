@@ -1222,11 +1222,47 @@ function InventoryController:KnitStart()
 
 		inventoryService.ResourcesChanged:Connect(function(resources, capacity)
 			updateDisplay(resources, capacity)
+			-- Auto-show bag panel when player has items, even if bag tool
+			-- is not equipped or doesn't exist (asset missing fallback).
+			if typeof(resources) == "table" then
+				local hasItems = false
+				for _, count in pairs(resources) do
+					if typeof(count) == "number" and count > 0 then
+						hasItems = true
+						break
+					end
+				end
+				if hasItems and not isOpen then
+					showBag()
+				elseif not hasItems and isOpen then
+					-- Don't auto-hide if the bag tool is equipped — the player
+					-- chose to have it open. Only auto-hide if no items AND
+					-- bag is not equipped.
+					local character = localPlayer.Character
+					local hasBagEquipped = character and character:FindFirstChild(BAG_TOOL_NAME) ~= nil
+					if not hasBagEquipped then
+						hideBag()
+					end
+				end
+			end
 		end)
 
 		inventoryService:GetSnapshot():andThen(function(snapshot)
 			if typeof(snapshot) == "table" then
 				updateDisplay(snapshot.resources, snapshot.capacity)
+				-- Trigger the same auto-show logic for the initial snapshot
+				if typeof(snapshot.resources) == "table" then
+					local hasItems = false
+					for _, count in pairs(snapshot.resources) do
+						if typeof(count) == "number" and count > 0 then
+							hasItems = true
+							break
+						end
+					end
+					if hasItems then
+						showBag()
+					end
+				end
 			end
 		end):catch(function(err)
 			warn("[InventoryController] Initial snapshot failed:", err)

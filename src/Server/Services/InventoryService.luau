@@ -1366,10 +1366,24 @@ end
     @returns  Tool?
 ]]
 local function buildCarryBagTool(): Tool?
-	local source = ITEMS_PATH:FindFirstChild(CARRY_BAG_NAME)
+	local source = ITEMS_PATH and ITEMS_PATH:FindFirstChild(CARRY_BAG_NAME)
 	if not source or not source:IsA("BasePart") then
-		warn("[InventoryService] carry-bag asset not found in Assets Items")
-		return nil
+		warn("[InventoryService] carry-bag asset not found — using invisible fallback tool")
+		-- Fallback: create a simple invisible Tool so the bag is always given.
+		local fallbackTool = Instance.new("Tool")
+		fallbackTool.Name = CARRY_BAG_TOOL_NAME
+		fallbackTool.RequiresHandle = true
+		fallbackTool.CanBeDropped = false
+		local fallbackHandle = Instance.new("Part")
+		fallbackHandle.Name = "Handle"
+		fallbackHandle.Size = Vector3.new(0.5, 0.5, 0.5)
+		fallbackHandle.Transparency = 1
+		fallbackHandle.CanCollide = false
+		fallbackHandle.CanQuery = false
+		fallbackHandle.CanTouch = false
+		fallbackHandle.Massless = true
+		fallbackHandle.Parent = fallbackTool
+		return fallbackTool
 	end
 
 	local tool = Instance.new("Tool")
@@ -1507,10 +1521,31 @@ function InventoryService:KnitStart()
 	end
 
 	bagTemplate = buildCarryBagTool()
-	flashlightTemplate = ITEMS_PATH:FindFirstChild(FLASHLIGHT_TOOL_NAME)
+	if bagTemplate then
+		print("[InventoryService] Carry Bag tool built successfully")
+	else
+		warn("[InventoryService] Carry Bag tool FAILED to build — hover/drag will still work but no visual bag")
+	end
+
+	flashlightTemplate = ITEMS_PATH and ITEMS_PATH:FindFirstChild(FLASHLIGHT_TOOL_NAME)
 	if flashlightTemplate and not flashlightTemplate:IsA("Tool") then
 		warn("[InventoryService] Flashlight asset is not a Tool, got:", flashlightTemplate.ClassName)
 		flashlightTemplate = nil
+	end
+	if not flashlightTemplate then
+		warn("[InventoryService] Flashlight asset not found — using invisible fallback")
+		flashlightTemplate = Instance.new("Tool")
+		flashlightTemplate.Name = FLASHLIGHT_TOOL_NAME
+		flashlightTemplate.RequiresHandle = true
+		local fh = Instance.new("Part")
+		fh.Name = "Handle"
+		fh.Size = Vector3.new(0.3, 0.3, 1)
+		fh.Transparency = 1
+		fh.CanCollide = false
+		fh.CanQuery = false
+		fh.CanTouch = false
+		fh.Massless = true
+		fh.Parent = flashlightTemplate
 	end
 
 	playerDataService.ProfileLoaded:Connect(function(player: Player)

@@ -609,6 +609,23 @@ function HarvestService:KnitStart()
 	spawnService = Knit.GetService("SpawnService")
 
 	axeTemplate = buildAxeTool()
+	if axeTemplate then
+		print("[HarvestService] Axe tool built successfully")
+	else
+		warn("[HarvestService] Axe tool FAILED to build — using invisible fallback")
+		axeTemplate = Instance.new("Tool")
+		axeTemplate.Name = AXE_TOOL_NAME
+		axeTemplate.RequiresHandle = true
+		local fh = Instance.new("Part")
+		fh.Name = "Handle"
+		fh.Size = Vector3.new(0.3, 0.3, 1)
+		fh.Transparency = 1
+		fh.CanCollide = false
+		fh.CanQuery = false
+		fh.CanTouch = false
+		fh.Massless = true
+		fh.Parent = axeTemplate
+	end
 	publishAxeAnimation()
 	registerAllTrees()
 

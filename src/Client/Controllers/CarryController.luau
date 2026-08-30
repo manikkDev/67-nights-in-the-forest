@@ -382,11 +382,6 @@ local function updateHover()
 		if draggingBodyPlayer then
 			setHover(draggingModel, draggingBodyPlayer.DisplayName, "Release [LMB]")
 		elseif draggingResourceName then
-			if not isHoldingCarryBag() then
-				stopDrag()
-				clearHover()
-				return
-			end
 			setHover(draggingModel, draggingResourceName, "Release [LMB]")
 		end
 		updateDragTarget()
@@ -407,13 +402,13 @@ local function updateHover()
 		setHover(body, bodyPlayer.DisplayName, "[LMB] Lift / Drag Body")
 		return
 	end
-	if not isHoldingCarryBag() then
-		clearHover()
-		return
-	end
 	local model, resourceName = findPickupModel(instance)
 	if model and resourceName then
-		setHover(model, resourceName, "[LMB] Drag | [F] Pickup")
+		if isInRange(model) then
+			setHover(model, resourceName, "[LMB] Drag | [F] Pickup")
+		else
+			setHover(model, resourceName, "Too far — get closer")
+		end
 	else
 		clearHover()
 	end
@@ -562,17 +557,14 @@ local function onInputBegan(input: InputObject, gameProcessed: boolean)
 			startBodyDrag(body, bodyPlayer)
 			return
 		end
-		if isHoldingCarryBag() then
-			local model, resourceName = findPickupModel(instance)
-			if model and resourceName then startDrag(model, resourceName) end
+		local model, resourceName = findPickupModel(instance)
+		if model and resourceName then
+			startDrag(model, resourceName)
 		end
 		return
 	end
 
-	-- F key pickup/drop-one remains inventory-only.
-	if not isHoldingCarryBag() then
-		return
-	end
+	-- F key pickup/drop-one — server validates capacity.
 	if input.KeyCode ~= PICKUP_KEY then
 		return
 	end
