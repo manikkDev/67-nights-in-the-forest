@@ -15,7 +15,7 @@
 
     In Studio, the role is determined by the StudioTest.ForceGameMode flag
     so you can test either place without publishing.  In production, the
-    role is determined by PrivateServerId and PlaceId.
+    role is determined by PlaceId and the DataModel attribute.
 ]]
 
 local RunService = game:GetService("RunService")
@@ -24,6 +24,8 @@ local Constants = require(script.Parent.Constants)
 
 local ServerRole = {}
 
+local isServer = RunService:IsServer()
+
 -- One-shot diagnostic log so we can see exactly how role detection resolved.
 local detectionLogged = false
 local function logDetection(source: string, result: boolean)
@@ -31,7 +33,15 @@ local function logDetection(source: string, result: boolean)
 		return
 	end
 	detectionLogged = true
-	print(("[ServerRole] %s -> IsGameServer=%s | PlaceId=%d GAME_PLACE_ID=%d LOBBY_PLACE_ID=%d | attr=%s | PrivateServerId=%s OwnerId=%d | IsStudio=%s")
+	-- Only access PrivateServerId/Owner on the server — these properties
+	-- warn on the client.
+	local psId = "n/a"
+	local psOwner = "n/a"
+	if isServer then
+		psId = game.PrivateServerId ~= "" and "non-empty" or "empty"
+		psOwner = tostring(game.PrivateServerOwnerId)
+	end
+	print(("[ServerRole] %s -> IsGameServer=%s | PlaceId=%d GAME_PLACE_ID=%d LOBBY_PLACE_ID=%d | attr=%s | PrivateServerId=%s OwnerId=%s | IsStudio=%s | IsServer=%s")
 		:format(
 			source,
 			tostring(result),
@@ -39,9 +49,10 @@ local function logDetection(source: string, result: boolean)
 			Constants.GAME_PLACE_ID,
 			Constants.LOBBY_PLACE_ID,
 			tostring(game:GetAttribute("ServerRole")),
-			game.PrivateServerId ~= "" and "non-empty" or "empty",
-			game.PrivateServerOwnerId,
-			tostring(RunService:IsStudio())
+			psId,
+			psOwner,
+			tostring(RunService:IsStudio()),
+			tostring(isServer)
 		))
 end
 
@@ -97,9 +108,15 @@ function ServerRole.IsGameServer(): boolean
 	end
 	-- A reserved game server has a non-empty PrivateServerId with no owner.
 	-- Public servers (lobby) have an empty PrivateServerId.
-	local result = game.PrivateServerId ~= "" and game.PrivateServerOwnerId == 0
-	logDetection("PrivateServerId fallback", result)
-	return result
+	-- This check only runs on the server (client doesn't have these props).
+	if isServer then
+		local result = game.PrivateServerId ~= "" and game.PrivateServerOwnerId == 0
+		logDetection("PrivateServerId fallback", result)
+		return result
+	end
+	-- On the client with no attribute/PlaceId match, assume not game server.
+	logDetection("client fallback", false)
+	return false
 end
 
 return ServerRole

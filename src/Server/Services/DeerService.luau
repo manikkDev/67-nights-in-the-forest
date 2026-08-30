@@ -166,6 +166,11 @@ end
 	@param    model  Model
 ]]
 local function registerKeyframeAnims(model: Model)
+	-- RegisterKeyframeSequence ONLY works in Studio. In a published game it
+	-- throws "RegisterKeyframeSequence can only be called in Studio", which
+	-- crashes the entire DeerService. We wrap it in a pcall and silently fall
+	-- back to the default R6 walk/idle/run animation IDs (defined below in
+	-- buildAnimationTracks) when running in production.
 	local KSSP = game:GetService("KeyframeSequenceProvider")
 	local kfFolder = model:FindFirstChild("KeyframeSequences")
 	if not kfFolder then return end
@@ -179,16 +184,22 @@ local function registerKeyframeAnims(model: Model)
 
 	for _, kfs in ipairs(kfFolder:GetChildren()) do
 		if kfs:IsA("KeyframeSequence") then
-			-- RegisterKeyframeSequence returns a hash (not a numeric asset ID).
-			-- It must be used as-is without the "rbxassetid://" prefix.
-			local assetId = KSSP:RegisterKeyframeSequence(kfs)
-			local animObj = animFolder:FindFirstChild(kfs.Name)
-			if not animObj then
-				animObj = Instance.new("Animation")
-				animObj.Name = kfs.Name
-				animObj.Parent = animFolder
+			-- Try to register the KeyframeSequence. In production this will
+			-- fail and we fall back to default animation IDs.
+			local ok, assetId = pcall(function()
+				return KSSP:RegisterKeyframeSequence(kfs)
+			end)
+			if ok and typeof(assetId) == "string" and assetId ~= "" then
+				local animObj = animFolder:FindFirstChild(kfs.Name)
+				if not animObj then
+					animObj = Instance.new("Animation")
+					animObj.Name = kfs.Name
+					animObj.Parent = animFolder
+				end
+				animObj.AnimationId = assetId
+			else
+				warn("[DeerService] RegisterKeyframeSequence failed for", kfs.Name, "— using default animations instead")
 			end
-			animObj.AnimationId = assetId
 		end
 	end
 end
