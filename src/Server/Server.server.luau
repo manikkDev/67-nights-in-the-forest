@@ -17,12 +17,6 @@
 -- | Services | --
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
-local Players = game:GetService("Players")
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
-
-if ServerRole.IsGameServer() then
-	Players.CharacterAutoLoads = false
-end
 
 -- | Early Sanitization | --
 -- The packaged "crafting-table" asset in Workspace ships with nested

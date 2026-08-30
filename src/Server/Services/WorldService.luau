@@ -265,21 +265,6 @@ local function createCampfire(map: Model, ground: CFrame): Part
 	part.Size = CAMPFIRE_SIZE
 	part.CFrame = ground
 	part.Parent = map
-
-	-- Create a permanent SpawnLocation at the campfire so that character
-	-- loads always have a valid spawn pad.  This eliminates the spawn
-	-- race where Roblox loads the character before a SpawnLocation exists.
-	local spawn = Instance.new("SpawnLocation")
-	spawn.Name = "CampfireSpawn"
-	spawn.Size = Vector3.new(6, 1, 6)
-	spawn.CFrame = ground * CFrame.new(0, -3, 0)
-	spawn.Anchored = true
-	spawn.CanCollide = false
-	spawn.Transparency = 1
-	spawn.Neutral = true
-	spawn.Duration = 0
-	spawn.Parent = workspace
-
 	return part
 end
 
@@ -353,7 +338,7 @@ local function placeBonfire(map: Model, ground: CFrame): Model?
 		warn("[WorldService] Cannot create Bonfire — ITEMS_PATH is nil")
 		return nil
 	end
-	local source = ITEMS_PATH and ITEMS_PATH:FindFirstChild("Bonfire")
+	local source = ITEMS_PATH:FindFirstChild("Bonfire")
 	if not source then
 		warn("[WorldService] Bonfire model not found in Assets Items")
 		return nil

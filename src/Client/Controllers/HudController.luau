@@ -20,7 +20,6 @@
 -- | Services | --
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -53,11 +52,6 @@ local stroke: UIStroke? = nil
 local currentDayNumber = 1
 local gameStateController: any = nil
 local labelsEnabled = false
-local dayRevealGui: ScreenGui? = nil
-local dayRevealBackdrop: Frame? = nil
-local dayRevealTitle: TextLabel? = nil
-local dayRevealSubtitle: TextLabel? = nil
-local dayRevealStarted = false
 
 -- // FUNCTIONS // --
 
@@ -148,53 +142,6 @@ local function createPhaseUi()
 	textLabel.ZIndex = 3
 	textLabel.Parent = bannerFrame
 	phaseText = textLabel
-
-	local revealGui = Instance.new("ScreenGui")
-	revealGui.Name = "DayOneReveal"
-	revealGui.ResetOnSpawn = false
-	revealGui.IgnoreGuiInset = true
-	revealGui.DisplayOrder = 90
-	revealGui.Enabled = true
-	revealGui.Parent = playerGui
-	dayRevealGui = revealGui
-
-	local revealBackdrop = Instance.new("Frame")
-	revealBackdrop.Name = "Backdrop"
-	revealBackdrop.Size = UDim2.fromScale(1, 1)
-	revealBackdrop.BackgroundColor3 = Color3.fromRGB(5, 7, 9)
-	revealBackdrop.BorderSizePixel = 0
-	revealBackdrop.Parent = revealGui
-	dayRevealBackdrop = revealBackdrop
-
-	local revealTitle = Instance.new("TextLabel")
-	revealTitle.Name = "Title"
-	revealTitle.AnchorPoint = Vector2.new(0.5, 0.5)
-	revealTitle.Position = UDim2.fromScale(0.5, 0.47)
-	revealTitle.Size = UDim2.new(0.8, 0, 0, 70)
-	revealTitle.BackgroundTransparency = 1
-	revealTitle.Font = Enum.Font.GothamBlack
-	revealTitle.Text = "DAY 1"
-	revealTitle.TextColor3 = Color3.fromRGB(245, 225, 180)
-	revealTitle.TextSize = 52
-	revealTitle.TextTransparency = 1
-	revealTitle.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-	revealTitle.TextStrokeTransparency = 0.25
-	revealTitle.Parent = revealBackdrop
-	dayRevealTitle = revealTitle
-
-	local revealSubtitle = Instance.new("TextLabel")
-	revealSubtitle.Name = "Subtitle"
-	revealSubtitle.AnchorPoint = Vector2.new(0.5, 0)
-	revealSubtitle.Position = UDim2.fromScale(0.5, 0.54)
-	revealSubtitle.Size = UDim2.new(0.8, 0, 0, 28)
-	revealSubtitle.BackgroundTransparency = 1
-	revealSubtitle.Font = Enum.Font.GothamBold
-	revealSubtitle.Text = "THE FIRST NIGHT AWAITS"
-	revealSubtitle.TextColor3 = Color3.fromRGB(175, 180, 185)
-	revealSubtitle.TextSize = 16
-	revealSubtitle.TextTransparency = 1
-	revealSubtitle.Parent = revealBackdrop
-	dayRevealSubtitle = revealSubtitle
 end
 
 --[[
@@ -227,45 +174,6 @@ local function showNight()
 	updateBanner("Night", currentDayNumber)
 end
 
-local function playDayOneReveal()
-	if dayRevealStarted or not dayRevealGui or not dayRevealBackdrop or not dayRevealTitle or not dayRevealSubtitle then
-		return
-	end
-	dayRevealStarted = true
-	dayRevealGui.Enabled = true
-	dayRevealBackdrop.BackgroundTransparency = 0
-	dayRevealTitle.TextTransparency = 1
-	dayRevealSubtitle.TextTransparency = 1
-	TweenService:Create(dayRevealTitle, TweenInfo.new(0.65, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-		TextTransparency = 0,
-		Position = UDim2.fromScale(0.5, 0.45),
-	}):Play()
-	TweenService:Create(dayRevealSubtitle, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		TextTransparency = 0,
-	}):Play()
-	task.delay(1.8, function()
-		if not dayRevealGui or not dayRevealBackdrop or not dayRevealTitle or not dayRevealSubtitle then
-			return
-		end
-		TweenService:Create(dayRevealTitle, TweenInfo.new(1.25, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
-			TextTransparency = 1,
-			Position = UDim2.fromScale(0.5, 0.42),
-		}):Play()
-		TweenService:Create(dayRevealSubtitle, TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-			TextTransparency = 1,
-		}):Play()
-		local fade = TweenService:Create(dayRevealBackdrop, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
-			BackgroundTransparency = 1,
-		})
-		fade:Play()
-		fade.Completed:Once(function()
-			if dayRevealGui then
-				dayRevealGui.Enabled = false
-			end
-		end)
-	end)
-end
-
 -- // INITIALIZATION // --
 
 function HudController:KnitInit()
@@ -278,7 +186,6 @@ function HudController:KnitStart()
 	gameStateController = Knit.GetController("GameStateController")
 	local timeService = Knit.GetService("TimeService")
 	local runStateService = Knit.GetService("RunStateService")
-	local spawnService = Knit.GetService("SpawnService")
 
 	local function enableLabels()
 		labelsEnabled = true
@@ -295,15 +202,6 @@ function HudController:KnitStart()
 			end)
 		end
 	end
-
-	spawnService.PlayerSpawned:Connect(function()
-		playDayOneReveal()
-	end)
-	task.delay(4, function()
-		if not dayRevealStarted and Players.LocalPlayer.Character then
-			playDayOneReveal()
-		end
-	end)
 
 	timeService.DayStarted:Connect(function()
 		if labelsEnabled then
@@ -327,9 +225,7 @@ function HudController:KnitStart()
 	end)
 
 	timeService:GetProgress():andThen(function(progress)
-		if typeof(progress) == "table" and typeof(progress.displayedDay) == "number"
-			and progress.displayedDay > currentDayNumber
-		then
+		if typeof(progress) == "table" and typeof(progress.displayedDay) == "number" then
 			currentDayNumber = progress.displayedDay
 		end
 	end)
@@ -352,13 +248,8 @@ function HudController:KnitStart()
 		if typeof(payload) == "table" and payload.phase == "Lobby" then
 			labelsEnabled = false
 			currentDayNumber = 1
-			dayRevealStarted = false
 			if phaseGui then
 				phaseGui.Enabled = false
-			end
-			if dayRevealGui and dayRevealBackdrop then
-				dayRevealGui.Enabled = true
-				dayRevealBackdrop.BackgroundTransparency = 0
 			end
 		end
 	end)
