@@ -612,6 +612,8 @@ function CarryController:KnitStart()
 	lifeService = Knit.GetService("PlayerLifeService")
 	gameStateController = Knit.GetController("GameStateController")
 
+	print("[CarryController] KnitStart — IsGameServer:", ServerRole.IsGameServer(), "IsLobby:", ServerRole.IsLobby())
+
 	lifeService.LifeStateChanged:Connect(function(payload)
 		if typeof(payload) ~= "table" then return end
 		if draggingBodyPlayer and (payload.userId == draggingBodyPlayer.UserId or payload.userId == localPlayer.UserId) then

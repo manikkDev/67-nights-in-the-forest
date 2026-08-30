@@ -144,7 +144,8 @@ local function giveAxe(player: Player)
 	if not axeTemplate then
 		return
 	end
-	if spawnService and not spawnService:IsPlayerSpawned(player) then
+	-- On the game place, always give the axe. On the lobby, require spawn first.
+	if ServerRole.IsLobby() and spawnService and not spawnService:IsPlayerSpawned(player) then
 		return
 	end
 

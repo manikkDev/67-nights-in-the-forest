@@ -1415,7 +1415,8 @@ local function giveFlashlight(player: Player)
 	if not flashlightTemplate then
 		return
 	end
-	if spawnService and not spawnService:IsPlayerSpawned(player) then
+	-- On the game place, always give the flashlight. On the lobby, require spawn first.
+	if ServerRole.IsLobby() and spawnService and not spawnService:IsPlayerSpawned(player) then
 		return
 	end
 
@@ -1434,7 +1435,8 @@ local function giveCarryBag(player: Player)
 	if not bagTemplate then
 		return
 	end
-	if spawnService and not spawnService:IsPlayerSpawned(player) then
+	-- On the game place, always give the bag. On the lobby, require spawn first.
+	if ServerRole.IsLobby() and spawnService and not spawnService:IsPlayerSpawned(player) then
 		return
 	end
 

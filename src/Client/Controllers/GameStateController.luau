@@ -11,6 +11,9 @@
     Day 1 intro card finishes, so HUD/tools stay gated through waiting
     and the teleport fade.
 
+    On the game place (not lobby), there is no intro screen, so the
+    controller auto-marks as in-game immediately and never resets.
+
     @exports
     - GameStateController.GameStarted  -> Signal
     - GameStateController:IsInGame()   -> boolean
@@ -39,6 +42,9 @@ export type FlowState = "Lobby" | "Waiting" | "Countdown" | "Story" | "Day1" | "
 local flowState: FlowState = "Lobby"
 local isInGame = false
 local gameStartedSignal: any = nil
+-- On the game place, the player is always in the game. This flag prevents
+-- any FlowStateChanged = "Lobby" signal from resetting isInGame to false.
+local isGamePlace = false
 
 -- // FUNCTIONS // --
 
@@ -55,7 +61,8 @@ function GameStateController:GetState(): FlowState
 end
 
 --[[
-    @summary  Unlock gameplay after the Day 1 card fades out.
+    @summary  Unlock gameplay after the Day 1 intro fades out (lobby place),
+              or immediately on the game place.
 ]]
 function GameStateController:MarkIntroComplete()
 	if isInGame then
@@ -63,6 +70,7 @@ function GameStateController:MarkIntroComplete()
 	end
 	flowState = "InGame"
 	isInGame = true
+	print("[GameStateController] MarkIntroComplete — isInGame now true")
 	if gameStartedSignal then
 		gameStartedSignal:Fire()
 	end
@@ -78,31 +86,34 @@ end
 function GameStateController:KnitStart()
 	local matchFlow = Knit.GetService("MatchFlowService")
 
-	-- On the game place (not lobby), there is no intro screen.
-	-- Auto-mark as in-game after a short delay to unlock all gameplay
-	-- (hover, drag, F-key, axe chopping, combat, flashlight, etc.).
-	-- This is a safety net in case the server's FlowStateChanged signal
-	-- is missed or delayed during the teleport transition.
-	if not ServerRole.IsLobby() then
-		print("[GameStateController] Game place detected — auto-completing intro in 2s")
-		task.delay(2, function()
-			if not isInGame then
-				print("[GameStateController] Auto-completing intro (game place safety net)")
-				GameStateController:MarkIntroComplete()
-			end
-		end)
+	-- Detect whether we're on the game place (not lobby).
+	-- On the game place, there is no intro screen and no lobby state.
+	-- The player is always in the game, so we mark as in-game immediately.
+	isGamePlace = ServerRole.IsGameServer() and not ServerRole.IsLobby()
+	print(("[GameStateController] KnitStart — isGamePlace=%s IsGameServer=%s IsLobby=%s")
+		:format(tostring(isGamePlace), tostring(ServerRole.IsGameServer()), tostring(ServerRole.IsLobby())))
+
+	if isGamePlace then
+		print("[GameStateController] Game place detected — marking in-game immediately")
+		GameStateController:MarkIntroComplete()
+	else
+		-- Lobby place: wait for the intro card to finish.
+		-- The IntroController calls MarkIntroComplete() after the Day 1 card fades.
+		-- Also listen for the server's FlowStateChanged as a safety net.
 	end
 
 	matchFlow.FlowStateChanged:Connect(function(state: string)
 		if state == "Lobby" or state == "Waiting" or state == "Countdown" or state == "Story" or state == "Day1" then
 			flowState = state
-			if state == "Lobby" then
+			-- Only reset isInGame on the LOBBY place. On the game place,
+			-- the player is always in the game and should never go back to lobby.
+			if state == "Lobby" and not isGamePlace then
 				isInGame = false
 			end
 		elseif state == "InGame" then
 			flowState = "Day1"
-			-- Safety net: only unlock if this same run is still awaiting its intro.
-			if not isInGame then
+			-- Safety net on the lobby place: unlock if the intro hasn't fired yet.
+			if not isInGame and not isGamePlace then
 				task.delay(3, function()
 					if not isInGame and flowState == "Day1" then
 						GameStateController:MarkIntroComplete()

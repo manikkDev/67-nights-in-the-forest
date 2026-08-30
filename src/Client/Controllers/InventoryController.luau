@@ -1012,6 +1012,7 @@ local function showBag()
 		return
 	end
 	if not bagPanel then
+		warn("[InventoryController] showBag — bagPanel is nil")
 		return
 	end
 	if isOpen then
@@ -1215,6 +1216,7 @@ function InventoryController:KnitStart()
 	local inventoryService = Knit.GetService("InventoryService")
 
 	local function onGameStarted()
+		print("[InventoryController] onGameStarted — wiring interactions and watching bag tool")
 		wireInteractions()
 		watchBagTool()
 
