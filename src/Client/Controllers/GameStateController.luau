@@ -26,6 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages.Signal)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local GameStateController = Knit.CreateController({
@@ -76,6 +77,21 @@ end
 
 function GameStateController:KnitStart()
 	local matchFlow = Knit.GetService("MatchFlowService")
+
+	-- On the game place (not lobby), there is no intro screen.
+	-- Auto-mark as in-game after a short delay to unlock all gameplay
+	-- (hover, drag, F-key, axe chopping, combat, flashlight, etc.).
+	-- This is a safety net in case the server's FlowStateChanged signal
+	-- is missed or delayed during the teleport transition.
+	if not ServerRole.IsLobby() then
+		print("[GameStateController] Game place detected — auto-completing intro in 2s")
+		task.delay(2, function()
+			if not isInGame then
+				print("[GameStateController] Auto-completing intro (game place safety net)")
+				GameStateController:MarkIntroComplete()
+			end
+		end)
+	end
 
 	matchFlow.FlowStateChanged:Connect(function(state: string)
 		if state == "Lobby" or state == "Waiting" or state == "Countdown" or state == "Story" or state == "Day1" then

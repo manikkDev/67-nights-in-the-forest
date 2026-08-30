@@ -38,6 +38,26 @@ The experience uses two places under the same experience:
 - **4 controllers** also gate `KnitInit` (HungerController, InventoryController, HudController, CampSafetyController) because they create UI there
 - **Shared services** (MatchFlowService, SessionRoutingService, SpawnService, PlayerDataService) run on both places with conditional behavior
 - **IntroController** only runs on the lobby place (inverse gate: returns early if NOT lobby)
+- **GameStateController** auto-marks as in-game after 2s on the game place (not lobby). This unlocks all gameplay interactions (hover, drag, F-key, axe chopping, combat, flashlight, inventory). On the lobby, it waits for the IntroController to call `MarkIntroComplete()`.
+
+### GameStateController — IsInGame() gate
+
+Many controllers gate gameplay on `GameStateController:IsInGame()`:
+
+- CarryController (hover, drag, F-key pickup/drop)
+- HarvestController (axe tree chopping)
+- CombatController (Spear attack)
+- FlashlightController (flashlight toggle)
+- InventoryController (bag panel show, wireInteractions)
+- HudController (HUD labels)
+- HungerController (hunger UI)
+- CampSafetyController (camp safety)
+- CampfireController (campfire UI)
+- ProceduralAnimController (breathing animation)
+
+On the lobby place, `IsInGame()` becomes true when `IntroController` calls `MarkIntroComplete()` after the Day 1 intro card fades.
+
+On the game place, there is no intro screen. `GameStateController` auto-marks as in-game after 2 seconds as a safety net, in case the server's `FlowStateChanged = "InGame"` signal is missed during the teleport transition.
 
 ### Creator Dashboard setup (required for production)
 
