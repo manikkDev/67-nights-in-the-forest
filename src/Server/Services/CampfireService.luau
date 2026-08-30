@@ -556,11 +556,8 @@ local function cookRawMeat(model: Model)
 		return
 	end
 
+	-- Try to give the cooked meat directly to the original owner's inventory.
 	local owner = getEligibleDropOwner(model)
-	if not owner then
-		return
-	end
-
 	if owner then
 		local added = inventoryService:AddResource(owner, "CookedMeat", 1)
 		if added > 0 then
@@ -569,6 +566,7 @@ local function cookRawMeat(model: Model)
 		end
 	end
 
+	-- No owner or inventory full — spawn a cooked meat drop in the world.
 	local cooked = inventoryService:BuildDropModel("CookedMeat")
 	if cooked then
 		cooked:PivotTo(model:GetPivot())
@@ -620,7 +618,9 @@ local function scanForLogFuel()
 		if inventoryService:IsModelDragged(model) then
 			continue
 		end
-		if not getEligibleDropOwner(model) then
+		-- Wood/Coal require a valid owner (player dropped it). RawMeat
+		-- can be cooked regardless of who dropped it (e.g. animal loot).
+		if resourceName ~= "RawMeat" and not getEligibleDropOwner(model) then
 			continue
 		end
 

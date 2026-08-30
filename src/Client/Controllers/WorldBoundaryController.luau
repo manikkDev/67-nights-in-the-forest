@@ -12,7 +12,6 @@
     the boundary edge.
 ]]
 
-local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -33,7 +32,6 @@ local accessRadius = WorldProgressionConfig.GetAccessRadius(1)
 local warningGui: ScreenGui? = nil
 local warningFrame: Frame? = nil
 local warningLabel: TextLabel? = nil
-local proximityEffect: ColorCorrectionEffect? = nil
 local updateTimer = 0
 local warningVisible = false
 
@@ -79,18 +77,11 @@ local function ensureWarning()
 	label.Text = "The fog is too dense. Upgrade the campfire to clear a path."
 	label.Parent = frame
 
-	local effect = Instance.new("ColorCorrectionEffect")
-	effect.Name = "BoundaryFogCorrection"
-	effect.Brightness = 0
-	effect.Contrast = 0
-	effect.Saturation = 0
-	effect.TintColor = Color3.new(1, 1, 1)
-	effect.Parent = Lighting
+	-- No ColorCorrectionEffect — removed the ugly overlay filter.
 
 	warningGui = gui
 	warningFrame = frame
 	warningLabel = label
-	proximityEffect = effect
 end
 
 local function setWarning(visible: boolean)
@@ -99,19 +90,13 @@ local function setWarning(visible: boolean)
 	end
 	warningVisible = visible
 	ensureWarning()
-	if not warningFrame or not warningLabel or not proximityEffect then
+	if not warningFrame or not warningLabel then
 		return
 	end
 	warningFrame.Visible = true
 	local stroke = warningFrame:FindFirstChildOfClass("UIStroke")
 	TweenService:Create(warningFrame, TweenInfo.new(0.35), { BackgroundTransparency = if visible then 0.08 else 1 }):Play()
 	TweenService:Create(warningLabel, TweenInfo.new(0.35), { TextTransparency = if visible then 0 else 1 }):Play()
-	TweenService:Create(proximityEffect, TweenInfo.new(0.45), {
-		Brightness = if visible then -0.07 else 0,
-		Contrast = if visible then 0.1 else 0,
-		Saturation = if visible then -0.25 else 0,
-		TintColor = if visible then Color3.fromRGB(195, 205, 215) else Color3.new(1, 1, 1),
-	}):Play()
 	if stroke then
 		TweenService:Create(stroke, TweenInfo.new(0.35), { Transparency = if visible then 0.3 else 1 }):Play()
 	end

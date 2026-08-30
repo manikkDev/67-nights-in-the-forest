@@ -443,15 +443,19 @@ local DEFAULT_R6_IDLE_ID = "rbxassetid://180435571"
 local DEFAULT_R6_RUN_ID = "rbxassetid://180426354"
 
 --[[
-    @summary  Load a stalker's baked Animations folder into AnimationTracks,
-              falling back to the default R15 walk/idle/run set for a
-              stalker with no baked Animations folder (Ram Monster shares
-              the Deer's stalker logic but ships no baked animations).
+    @summary  Build animation tracks for a stalker. ALWAYS uses the custom
+              KeyframeSequence player when KeyframeSequences are available,
+              because the native AnimationTrack system is unreliable for
+              custom rigs with non-standard Motor6D names (the registered
+              hash IDs don't always drive the correct joints). The custom
+              player reads pose data directly and applies Motor6D.Transform,
+              which works identically in Studio and production.
     @param    stalker  table
 ]]
 local function buildAnimationTracks(stalker)
 	stalker.tracks = {}
 	stalker.usingProceduralGait = false
+	stalker.usingCustomTracks = false
 	local humanoid = stalker.humanoid
 	local animator = humanoid:FindFirstChildOfClass("Animator")
 	if not animator then
@@ -459,7 +463,22 @@ local function buildAnimationTracks(stalker)
 		animator.Parent = humanoid
 	end
 
-	-- Register KeyframeSequences FIRST so the Animations folder has valid local IDs
+	-- PRIMARY PATH: custom KeyframeSequence player.
+	-- Reads the authored KeyframeSequence pose data directly and applies
+	-- Motor6D.Transform on Heartbeat. Works in Studio AND production.
+	local customTracks = buildCustomTracks(stalker.model)
+	if next(customTracks) then
+		for name, ct in pairs(customTracks) do
+			stalker.tracks[name] = ct
+		end
+		stalker.usingCustomTracks = true
+		print(("[DeerService] %s using custom KeyframeSequence player (%d tracks)"):format(
+			stalker.key, #customTracks))
+		return
+	end
+
+	-- FALLBACK: For stalkers with no KeyframeSequences (e.g. Ram Monster),
+	-- try the native AnimationTrack system with default R6 animations.
 	registerKeyframeAnims(stalker.model)
 
 	local function loadTrack(id: string, looped: boolean): AnimationTrack?
@@ -475,7 +494,6 @@ local function buildAnimationTracks(stalker)
 		return track
 	end
 
-	local loadedAnyBaked = false
 	local animFolder = stalker.model:FindFirstChild("Animations")
 	if animFolder then
 		for _, animInstance in ipairs(animFolder:GetChildren()) do
@@ -484,12 +502,10 @@ local function buildAnimationTracks(stalker)
 					return animator:LoadAnimation(animInstance)
 				end)
 				if ok and track then
-					loadedAnyBaked = true
 					track.Looped = animInstance.Name ~= "Jumpscare"
 						and animInstance.Name ~= "StunnedStart"
 						and animInstance.Name ~= "StunnedEnd"
 						and animInstance.Name ~= "Attack"
-					-- Set explicit priorities so Attack/Stunned override Walk/Run
 					if animInstance.Name == "Attack" or animInstance.Name == "Jumpscare" or animInstance.Name == "Scared" then
 						track.Priority = Enum.AnimationPriority.Action4
 					elseif animInstance.Name:match("^Stunned") then
@@ -515,28 +531,8 @@ local function buildAnimationTracks(stalker)
 		stalker.tracks.Idle = loadTrack(DEFAULT_R6_IDLE_ID, true)
 	end
 
-	-- If no baked AnimationTracks loaded (production: RegisterKeyframeSequence
-	-- fails), fall back to the custom KeyframeSequence player which reads
-	-- the KeyframeSequence data directly and applies Motor6D.Transform.
-	-- This is the PRIMARY production fallback — it plays the full authored
-	-- animations (Walk, Run, Idle, Attack, Stunned*) without needing
-	-- RegisterKeyframeSequence or published asset IDs.
-	if not loadedAnyBaked then
-		local customTracks = buildCustomTracks(stalker.model)
-		if next(customTracks) then
-			-- Merge custom tracks into stalker.tracks so all existing code
-			-- that uses stalker.tracks[name].IsPlaying / :Play() / :Stop()
-			-- works seamlessly with the AnimationTrack-compatible interface.
-			for name, ct in pairs(customTracks) do
-				stalker.tracks[name] = ct
-			end
-			stalker.usingCustomTracks = true
-			print(("[DeerService] %s using custom KeyframeSequence player (%d tracks)"):format(
-				stalker.key, #customTracks))
-			return
-		end
-
-		-- Last-resort fallback: procedural gait (only legs/arms swing)
+	-- Last-resort: procedural gait (only legs/arms swing)
+	if not stalker.tracks.Walk then
 		stalker.usingProceduralGait = true
 		stalker.gaitJoints = _collectGaitJoints(stalker.model)
 		stalker.gaitPhase = 0

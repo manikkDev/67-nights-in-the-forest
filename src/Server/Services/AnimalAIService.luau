@@ -393,6 +393,11 @@ local function grantLoot(record, player: Player)
 				for _ = 1, amount do
 					local drop = inventoryService:BuildDropModel(entry.Resource)
 					if drop then
+						-- Mark the drop with the killer so the campfire can
+						-- cook RawMeat drops (cookRawMeat checks DroppedBy).
+						if player then
+							drop:SetAttribute("DroppedBy", player.UserId)
+						end
 						local pos = record.model:GetPivot().Position
 						local offset = Vector3.new((math.random() - 0.5) * 5, 2, (math.random() - 0.5) * 5)
 						drop:PivotTo(CFrame.new(pos + offset))
@@ -488,13 +493,43 @@ local function killNpc(record, attacker: Player?)
 
 	if record.humanoid then
 		record.humanoid.WalkSpeed = 0
+		-- Disable the default R6 death (which breaks joints and shatters
+		-- the model). We do a smooth fade-out instead.
 		pcall(function()
-			record.humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics, true)
+			record.humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
 		end)
-		record.humanoid.Health = 0
+		pcall(function()
+			record.humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+		end)
+		-- Set health to 0 AFTER disabling the Dead state so the humanoid
+		-- stops AI but doesn't trigger the joint-break death animation.
+		record.humanoid.Health = 0.001
 	end
 
 	CombatTargetRegistry.Unregister(record.model)
+
+	-- Smooth fade-out: tween all BasePart Transparency to 1, then destroy.
+	local parts = {}
+	for _, desc in ipairs(record.model:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			table.insert(parts, desc)
+		end
+	end
+	task.spawn(function()
+		local fadeTime = 1.5
+		local steps = 15
+		local stepDelay = fadeTime / steps
+		for i = 1, steps do
+			local alpha = i / steps
+			for _, part in ipairs(parts) do
+				if part.Parent then
+					part.Transparency = alpha
+				end
+			end
+			task.wait(stepDelay)
+		end
+	end)
+
 	Debris:AddItem(record.model, DEATH_FADE_DELAY)
 	task.delay(DEATH_FADE_DELAY, function()
 		activeNpcs[record.model] = nil

@@ -25,7 +25,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local Lighting = game:GetService("Lighting")
 local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
@@ -41,18 +40,16 @@ local CampSafetyController = Knit.CreateController({
 local CHECK_INTERVAL = 0.25
 local SAFE_TWEEN_INFO = TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 local UNSAFE_TWEEN_INFO = TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
-local SAFE_BRIGHTNESS = 0.12
-local SAFE_TINT = Color3.fromRGB(255, 245, 235)
-local UNSAFE_BRIGHTNESS = -0.05
-local UNSAFE_SATURATION = 0
-local UNSAFE_TINT = Color3.fromRGB(255, 255, 255)
+
+-- No ColorCorrection overlay — the "old movie" filter was ugly.
+-- Night visibility is handled by the NightVisibilityLight (PointLight
+-- on the character) and the server-side Lighting properties.
 
 local NIGHT_VISIBILITY_COLOR = Color3.fromRGB(200, 210, 230)
-local NIGHT_VISIBILITY_BRIGHTNESS = 0.5
-local NIGHT_VISIBILITY_RANGE = 38
+local NIGHT_VISIBILITY_BRIGHTNESS = 0.8
+local NIGHT_VISIBILITY_RANGE = 50
 
 -- | State Management | --
-local colorCorrection: ColorCorrectionEffect? = nil
 local warningGui: ScreenGui? = nil
 local warningLabel: TextLabel? = nil
 local worldService: any = nil
@@ -65,7 +62,6 @@ local safeZoneRadius = 0
 local isNight = false
 local isFireActive = false
 local currentState: "day" | "safeNight" | "unsafeNight" | "fireOut" = "day"
-local currentCcTween: Tween? = nil
 local currentWarningTween: Tween? = nil
 local checkTimer = 0
 local heartbeatConnection: RBXScriptConnection? = nil
@@ -74,26 +70,6 @@ local gameStartedConnection: RBXScriptConnection? = nil
 local visibilityLightConnection: RBXScriptConnection? = nil
 
 -- // FUNCTIONS // --
-
---[[
-    @summary  Create (or reuse) the ColorCorrectionEffect used for the
-              unsafe-at-night darkening.
-    @returns  ColorCorrectionEffect
-]]
-local function ensureColorCorrection(): ColorCorrectionEffect
-	local existing = Lighting:FindFirstChild("SafetyColorCorrection")
-	if existing and existing:IsA("ColorCorrectionEffect") then
-		return existing
-	end
-
-	local effect = Instance.new("ColorCorrectionEffect")
-	effect.Name = "SafetyColorCorrection"
-	effect.Brightness = 0
-	effect.Saturation = 0
-	effect.TintColor = Color3.fromRGB(255, 255, 255)
-	effect.Parent = Lighting
-	return effect
-end
 
 --[[
     @summary  Create the "You are unsafe" warning label.
@@ -137,10 +113,6 @@ end
     @summary  Cancel any running tweens so state changes don't fight each other.
 ]]
 local function cancelVisualTweens()
-	if currentCcTween then
-		currentCcTween:Cancel()
-		currentCcTween = nil
-	end
 	if currentWarningTween then
 		currentWarningTween:Cancel()
 		currentWarningTween = nil
@@ -187,7 +159,7 @@ end
     @summary  Tween the screen and warning to the appropriate visual state.
 ]]
 local function updateVisuals(state: "day" | "safeNight" | "unsafeNight" | "fireOut")
-	if not colorCorrection or not warningLabel then
+	if not warningLabel then
 		return
 	end
 	if currentState == state then
@@ -197,38 +169,29 @@ local function updateVisuals(state: "day" | "safeNight" | "unsafeNight" | "fireO
 	currentState = state
 	cancelVisualTweens()
 
-	local ccTarget = {}
 	local warningTrans = 1
 	local warningText = nil
 	local tweenInfo = SAFE_TWEEN_INFO
 
 	if state == "safeNight" then
-		ccTarget = { Brightness = SAFE_BRIGHTNESS, Saturation = 0, TintColor = SAFE_TINT }
 		warningTrans = 1
 		tweenInfo = SAFE_TWEEN_INFO
 		setVisibilityLight(true)
 	elseif state == "unsafeNight" then
-		ccTarget = { Brightness = UNSAFE_BRIGHTNESS, Saturation = UNSAFE_SATURATION, TintColor = UNSAFE_TINT }
 		warningText = "You are far from the firelight..."
 		warningTrans = 0
 		tweenInfo = UNSAFE_TWEEN_INFO
 		setVisibilityLight(true)
 	elseif state == "fireOut" then
-		ccTarget = { Brightness = UNSAFE_BRIGHTNESS, Saturation = UNSAFE_SATURATION, TintColor = UNSAFE_TINT }
 		warningText = "The campfire has gone out..."
 		warningTrans = 0
 		tweenInfo = UNSAFE_TWEEN_INFO
 		setVisibilityLight(true)
 	else -- day
-		ccTarget = { Brightness = SAFE_BRIGHTNESS, Saturation = 0, TintColor = SAFE_TINT }
 		warningTrans = 1
 		tweenInfo = SAFE_TWEEN_INFO
 		setVisibilityLight(false)
 	end
-
-	local ccTween = TweenService:Create(colorCorrection, tweenInfo, ccTarget)
-	ccTween:Play()
-	currentCcTween = ccTween
 
 	if warningText then
 		warningLabel.Text = warningText
@@ -301,7 +264,7 @@ end
 
 function CampSafetyController:KnitInit()
 	if not ServerRole.IsGameServer() then return end
-	colorCorrection = ensureColorCorrection()
+	-- No ColorCorrection effect — removed the ugly "old movie" overlay.
 	warningLabel = buildWarningLabel()
 end
 
