@@ -876,17 +876,14 @@ function AnimalAIService:SpawnNpc(speciesKey: string, cframe: CFrame, options: {
 		isRaidCultist = isRaidCultist,
 	}
 
-	-- Sanitize any unauthorized animation assets and scripts from the model.
+	-- Sanitize any unauthorized scripts from raid cultist models.
+	-- NOTE: We do NOT destroy Animation instances — modern Roblox animation
+	-- asset IDs are all > 999999999, so the old threshold was destroying
+	-- every legitimate animation in the model and breaking cultist AI.
 	if isRaidCultist then
 		local doomed: { Instance } = {}
 		for _, desc in ipairs(model:GetDescendants()) do
-			if desc:IsA("Animation") and desc.AnimationId ~= "" then
-				local id = desc.AnimationId
-				local numericId = tonumber(string.match(id, "%d+"))
-				if numericId and numericId > 999999999 then
-					table.insert(doomed, desc)
-				end
-			elseif desc:IsA("BaseScript") or desc:IsA("ModuleScript") then
+			if desc:IsA("BaseScript") or desc:IsA("ModuleScript") then
 				table.insert(doomed, desc)
 			end
 		end
