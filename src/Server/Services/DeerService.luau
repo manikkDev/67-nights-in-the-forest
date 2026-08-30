@@ -34,7 +34,6 @@ local _Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local NpcConfig = require(ReplicatedStorage.Shared.NpcConfig)
 local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 
@@ -45,15 +44,11 @@ local DeerService = Knit.CreateService({
 		StalkerStunned = Knit.CreateSignal(),
 		StalkerContact = Knit.CreateSignal(),
 		StalkerActive = Knit.CreateSignal(),
-		AnimationStateChanged = Knit.CreateSignal(),
 	},
 })
 
 -- | Configuration | --
-local NPC_SOURCE_PATH = ServerStorage:FindFirstChild("Assets") and ServerStorage.Assets:FindFirstChild("Assets Npcs") or nil
-if not NPC_SOURCE_PATH then
-	warn("[DeerService] NPC_SOURCE_PATH not found: ServerStorage.Assets.Assets Npcs")
-end
+local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
 local DORMANT_HOLDING_POSITION = Vector3.new(0, 300, 0)
 local DECISION_INTERVAL = 0.2
 local CONTACT_RANGE = 14
@@ -96,7 +91,7 @@ local STALKER_DEFS = {
 	Deer = {
 		ModelName = "Deer",
 		BaseSpeed = 14,
-		AttackDamage = 18,
+		AttackDamage = 55,
 		UsesFlashlightStun = true,
 	},
 	RamMonster = {
@@ -110,212 +105,11 @@ local STALKER_DEFS = {
 -- | State Management | --
 local worldService: any = nil
 local timeService: any = nil
-local runStateService: any = nil
 local campfireService: any = nil
 local spawnService: any = nil
 local playerLifeService: any = nil
 local worldProgressionService: any = nil
 local stalkers: { [string]: any } = {}
-
--- // CUSTOM KEYFRAME SEQUENCE PLAYER // --
--- Production fallback: RegisterKeyframeSequence only works in Studio.
--- In published servers, we parse the KeyframeSequence data directly and
--- apply Motor6D.Transform manually on Heartbeat. This replicates what
--- the Roblox animation system does internally.
-
---[[
-	@summary  Recursively collect poses from a Keyframe, preserving
-	          the parent-child hierarchy.
-	@param    parent  Instance (Keyframe or Pose)
-	@param    out     table to populate
-]]
-local function _collectPoses(parent, out)
-	for _, child in ipairs(parent:GetChildren()) do
-		if child:IsA("Pose") then
-			out[child.Name] = child.CFrame
-			_collectPoses(child, out)
-		end
-	end
-end
-
---[[
-	@summary  Parse a KeyframeSequence into a sorted list of
-	          { time = number, poses = { [name] = CFrame } }
-	@param    kfs  KeyframeSequence
-	@returns  { { time: number, poses: { [string]: CFrame } } }
-]]
-local function parseKeyframeSequence(kfs)
-	local keyframes = {}
-	for _, kf in ipairs(kfs:GetChildren()) do
-		if kf:IsA("Keyframe") then
-			local poses = {}
-			_collectPoses(kf, poses)
-			table.insert(keyframes, { time = kf.Time, poses = poses })
-		end
-	end
-	table.sort(keyframes, function(a, b) return a.time < b.time end)
-	return keyframes
-end
-
---[[
-	@summary  Build a map of Motor6D name -> Motor6D instance for a model.
-	@param    model  Model
-	@returns  { [string]: Motor6D }
-]]
-local function buildMotorMap(model)
-	local map = {}
-	for _, d in ipairs(model:GetDescendants()) do
-		if d:IsA("Motor6D") and d.Part1 then
-			map[d.Part1.Name] = d
-		end
-	end
-	return map
-end
-
---[[
-	@summary  Build custom animation tracks from KeyframeSequences.
-	          Each track mimics the AnimationTrack interface (IsPlaying,
-	          Play, Stop, Length, Priority, Looped) so existing code that
-	          uses stalker.tracks[name] works seamlessly.
-	@param    model  Model
-	@returns  { [string]: table }  map of track name -> custom track
-]]
-local function buildCustomTracks(model)
-	local kfFolder = model:FindFirstChild("KeyframeSequences")
-	if not kfFolder then return {} end
-
-	local motorMap = buildMotorMap(model)
-	local tracks = {}
-
-	local nonLooped = { Jumpscare = true, StunnedStart = true, StunnedEnd = true, Attack = true, Scared = true }
-	local priorities = {
-		Attack = Enum.AnimationPriority.Action4,
-		Jumpscare = Enum.AnimationPriority.Action4,
-		Scared = Enum.AnimationPriority.Action4,
-		StunnedStart = Enum.AnimationPriority.Action4,
-		StunnedLoop = Enum.AnimationPriority.Action4,
-		StunnedEnd = Enum.AnimationPriority.Action4,
-		Walk = Enum.AnimationPriority.Action2,
-		Run = Enum.AnimationPriority.Action2,
-		Idle = Enum.AnimationPriority.Idle,
-	}
-
-	for _, kfs in ipairs(kfFolder:GetChildren()) do
-		if kfs:IsA("KeyframeSequence") then
-			local keyframes = parseKeyframeSequence(kfs)
-			if #keyframes > 0 then
-				local ct = {
-					name = kfs.Name,
-					keyframes = keyframes,
-					length = kfs.Length,
-					Looped = not nonLooped[kfs.Name],
-					Priority = priorities[kfs.Name] or Enum.AnimationPriority.Core,
-					Length = kfs.Length,
-					playhead = 0,
-					_isPlaying = false,
-					motorMap = motorMap,
-					isCustom = true,
-				}
-
-				-- AnimationTrack-compatible interface
-				function ct:GetPlaying()
-					return self._isPlaying
-				end
-				function ct:Play(fadeTime)
-					if self._isPlaying then return end
-					self._isPlaying = true
-					self.playhead = 0
-				end
-				function ct:Stop(fadeTime)
-					if not self._isPlaying then return end
-					self._isPlaying = false
-					self.playhead = 0
-					-- Reset transforms for poses in this track
-					if #self.keyframes > 0 then
-						for poseName, _ in pairs(self.keyframes[1].poses) do
-							local motor = self.motorMap[poseName]
-							if motor then
-								motor.Transform = CFrame.identity
-							end
-						end
-					end
-				end
-
-				-- Metatable to make IsPlaying work as a property
-				setmetatable(ct, {
-					__index = function(t, k)
-						if k == "IsPlaying" then return t._isPlaying end
-						return rawget(t, k)
-					end,
-					__newindex = function(t, k, v)
-						if k == "IsPlaying" then t._isPlaying = v else rawset(t, k, v) end
-					end,
-				})
-
-				tracks[kfs.Name] = ct
-			end
-		end
-	end
-
-	return tracks
-end
-
---[[
-	@summary  Advance a custom track's playhead and apply interpolated
-	          Motor6D.Transform values. Only applies to motors that exist
-	          in the model.
-	@param    track  table (custom track)
-	@param    dt     number
-]]
-local function tickCustomTrack(track, dt)
-	if not track._isPlaying or #track.keyframes == 0 then return end
-
-	track.playhead = track.playhead + dt
-
-	-- Handle end of track
-	if track.playhead >= track.length then
-		if track.Looped then
-			track.playhead = track.playhead % track.length
-		else
-			track.playhead = track.length
-			track._isPlaying = false
-			-- Reset transforms for this track's poses
-			local lastKf = track.keyframes[#track.keyframes]
-			for poseName, _ in pairs(lastKf.poses) do
-				local motor = track.motorMap[poseName]
-				if motor then
-					motor.Transform = CFrame.identity
-				end
-			end
-			return
-		end
-	end
-
-	-- Find surrounding keyframes
-	local kfs = track.keyframes
-	local prevKf = kfs[1]
-	local nextKf = kfs[#kfs]
-	for i = 1, #kfs - 1 do
-		if kfs[i].time <= track.playhead and kfs[i + 1].time > track.playhead then
-			prevKf = kfs[i]
-			nextKf = kfs[i + 1]
-			break
-		end
-	end
-
-	-- Interpolate and apply
-	local span = nextKf.time - prevKf.time
-	local alpha = if span > 0 then (track.playhead - prevKf.time) / span else 0
-	alpha = math.clamp(alpha, 0, 1)
-
-	for poseName, prevCf in pairs(prevKf.poses) do
-		local nextCf = nextKf.poses[poseName] or prevCf
-		local motor = track.motorMap[poseName]
-		if motor then
-			motor.Transform = prevCf:Lerp(nextCf, alpha)
-		end
-	end
-end
 local deerSuppressed = false
 local activeStalkerKey: string? = nil  -- which stalker is active tonight ("Deer" or "RamMonster")
 local lastPhase: string? = nil
@@ -327,10 +121,7 @@ local lastPhase: string? = nil
     @param    signal  KnitSignal
 ]]
 local function broadcastToAll(signal, ...)
-	if not runStateService or not runStateService:IsActive() then
-		return
-	end
-	for _, player in ipairs(runStateService:GetMembers()) do
+	for _, player in ipairs(Players:GetPlayers()) do
 		signal:Fire(player, ...)
 	end
 end
@@ -370,11 +161,6 @@ end
 	@param    model  Model
 ]]
 local function registerKeyframeAnims(model: Model)
-	-- RegisterKeyframeSequence ONLY works in Studio. In a published game it
-	-- throws "RegisterKeyframeSequence can only be called in Studio", which
-	-- crashes the entire DeerService. We wrap it in a pcall and silently fall
-	-- back to the default R6 walk/idle/run animation IDs (defined below in
-	-- buildAnimationTracks) when running in production.
 	local KSSP = game:GetService("KeyframeSequenceProvider")
 	local kfFolder = model:FindFirstChild("KeyframeSequences")
 	if not kfFolder then return end
@@ -388,22 +174,16 @@ local function registerKeyframeAnims(model: Model)
 
 	for _, kfs in ipairs(kfFolder:GetChildren()) do
 		if kfs:IsA("KeyframeSequence") then
-			-- Try to register the KeyframeSequence. In production this will
-			-- fail and we fall back to default animation IDs.
-			local ok, assetId = pcall(function()
-				return KSSP:RegisterKeyframeSequence(kfs)
-			end)
-			if ok and typeof(assetId) == "string" and assetId ~= "" then
-				local animObj = animFolder:FindFirstChild(kfs.Name)
-				if not animObj then
-					animObj = Instance.new("Animation")
-					animObj.Name = kfs.Name
-					animObj.Parent = animFolder
-				end
-				animObj.AnimationId = assetId
-			else
-				warn("[DeerService] RegisterKeyframeSequence failed for", kfs.Name, "— using default animations instead")
+			-- RegisterKeyframeSequence returns a hash (not a numeric asset ID).
+			-- It must be used as-is without the "rbxassetid://" prefix.
+			local assetId = KSSP:RegisterKeyframeSequence(kfs)
+			local animObj = animFolder:FindFirstChild(kfs.Name)
+			if not animObj then
+				animObj = Instance.new("Animation")
+				animObj.Name = kfs.Name
+				animObj.Parent = animFolder
 			end
+			animObj.AnimationId = assetId
 		end
 	end
 end
@@ -444,52 +224,22 @@ local DEFAULT_R6_IDLE_ID = "rbxassetid://180435571"
 local DEFAULT_R6_RUN_ID = "rbxassetid://180426354"
 
 --[[
-    @summary  Build animation tracks for a stalker. ALWAYS uses the custom
-              KeyframeSequence player when KeyframeSequences are available,
-              because the native AnimationTrack system is unreliable for
-              custom rigs with non-standard Motor6D names (the registered
-              hash IDs don't always drive the correct joints). The custom
-              player reads pose data directly and applies Motor6D.Transform,
-              which works identically in Studio and production.
+    @summary  Load a stalker's baked Animations folder into AnimationTracks,
+              falling back to the default R15 walk/idle/run set for a
+              stalker with no baked Animations folder (Ram Monster shares
+              the Deer's stalker logic but ships no baked animations).
     @param    stalker  table
 ]]
 local function buildAnimationTracks(stalker)
 	stalker.tracks = {}
-	stalker.usingProceduralGait = false
-	stalker.usingCustomTracks = false
 	local humanoid = stalker.humanoid
-
-	-- PRIMARY PATH: custom KeyframeSequence player.
-	-- Reads the authored KeyframeSequence pose data directly and applies
-	-- Motor6D.Transform on Heartbeat. Works in Studio AND production.
-	local customTracks = buildCustomTracks(stalker.model)
-	if next(customTracks) then
-		for name, ct in pairs(customTracks) do
-			stalker.tracks[name] = ct
-		end
-		stalker.usingCustomTracks = true
-		-- CRITICAL: Destroy any existing Animator so it doesn't reset
-		-- Motor6D.Transform to identity every frame (which causes T-pose).
-		-- The Animator evaluates all Motor6Ds and resets Transform when
-		-- no native AnimationTracks are playing, overwriting our custom
-		-- track player's transform writes. The Humanoid works fine
-		-- without an Animator for :MoveTo() and movement.
-		local existingAnimator = humanoid:FindFirstChildOfClass("Animator")
-		if existingAnimator then
-			existingAnimator:Destroy()
-		end
-		print(("[DeerService] %s using custom KeyframeSequence player (%d tracks)"):format(
-			stalker.key, #customTracks))
-		return
-	end
-
-	-- FALLBACK: For stalkers with no KeyframeSequences (e.g. Ram Monster),
-	-- try the native AnimationTrack system with default R6 animations.
 	local animator = humanoid:FindFirstChildOfClass("Animator")
 	if not animator then
 		animator = Instance.new("Animator")
 		animator.Parent = humanoid
 	end
+
+	-- Register KeyframeSequences FIRST so the Animations folder has valid local IDs
 	registerKeyframeAnims(stalker.model)
 
 	local function loadTrack(id: string, looped: boolean): AnimationTrack?
@@ -517,6 +267,7 @@ local function buildAnimationTracks(stalker)
 						and animInstance.Name ~= "StunnedStart"
 						and animInstance.Name ~= "StunnedEnd"
 						and animInstance.Name ~= "Attack"
+					-- Set explicit priorities so Attack/Stunned override Walk/Run
 					if animInstance.Name == "Attack" or animInstance.Name == "Jumpscare" or animInstance.Name == "Scared" then
 						track.Priority = Enum.AnimationPriority.Action4
 					elseif animInstance.Name:match("^Stunned") then
@@ -541,21 +292,10 @@ local function buildAnimationTracks(stalker)
 	if not stalker.tracks.Idle then
 		stalker.tracks.Idle = loadTrack(DEFAULT_R6_IDLE_ID, true)
 	end
-
-	-- Last-resort: procedural gait (only legs/arms swing)
-	if not stalker.tracks.Walk then
-		stalker.usingProceduralGait = true
-		stalker.gaitJoints = _collectGaitJoints(stalker.model)
-		stalker.gaitPhase = 0
-		print(("[DeerService] %s using procedural gait fallback (%d joints)"):format(
-			stalker.key, #stalker.gaitJoints))
-	end
 end
 
 --[[
     @summary  Stop every currently-playing track on a stalker.
-              Handles both AnimationTrack and custom tracks (both have
-              IsPlaying and Stop()).
     @param    stalker  table
 ]]
 local function stopAllTracks(stalker)
@@ -564,29 +304,18 @@ local function stopAllTracks(stalker)
 			track:Stop(0)
 		end
 	end
-	-- Notify clients to stop all custom tracks
-	if stalker.usingCustomTracks then
-		broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StopAll")
-	end
 end
 
 --[[
     @summary  Play a named track if it exists, without interrupting
-              itself if already playing. Works with both AnimationTrack
-              and custom KeyframeSequence tracks.
+              itself if already playing.
     @param    stalker  table
     @param    name     string
 ]]
 local function playTrack(stalker, name: string)
-	-- Skip locomotion track playback when using procedural gait —
-	-- the procedural gait system handles Walk/Run/Idle visually.
-	-- Attack/Stunned tracks still play if they exist.
-	if stalker.usingProceduralGait and (name == "Walk" or name == "Run" or name == "Idle") then
-		return
-	end
-
 	local track = stalker.tracks[name]
 	if not track then
+		warn("[DeerService] No track found for", name, "on", stalker.key)
 		return
 	end
 	-- Don't restart if already playing (avoids stutter on looping tracks
@@ -600,13 +329,6 @@ local function playTrack(stalker, name: string)
 		end
 	end
 	track:Play(0.15)
-
-	-- Notify clients of the animation state change so they can run
-	-- their own custom KeyframeSequence player locally (Motor6D.Transform
-	-- does not replicate from server to clients).
-	if stalker.usingCustomTracks then
-		broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, name)
-	end
 end
 
 --[[
@@ -700,12 +422,6 @@ local function spawnStalker(key: string)
 		retreatUntil = 0,
 		nextDecisionTime = 0,
 		pursuitStartTime = nil,
-		-- Animation state
-		tracks = {},
-		usingCustomTracks = false,
-		usingProceduralGait = false,
-		gaitJoints = nil,
-		gaitPhase = 0,
 		-- Pathfinding state
 		waypoints = nil,
 		waypointIndex = 1,
@@ -722,10 +438,10 @@ local function spawnStalker(key: string)
 
 	buildAnimationTracks(stalker)
 
-	-- Procedural gait is enabled as a FALLBACK inside buildAnimationTracks
-	-- when KeyframeSequence registration fails (production). When baked
-	-- animations load successfully, usingProceduralGait stays false and
-	-- gaitJoints is not set, so applyProceduralGait is a no-op.
+	-- Note: Procedural gait is disabled for the Deer because we now have
+	-- proper KeyframeSequence-based animations registered via
+	-- KeyframeSequenceProvider that handle all joint movement.
+	-- Using both would conflict as they both set Motor6D.Transform.
 
 	stalkers[key] = stalker
 
@@ -747,10 +463,7 @@ local function findHuntableTarget(fromPosition: Vector3): (Player?, Vector3?)
 	local nearest: Player? = nil
 	local nearestPos: Vector3? = nil
 	local nearestDist = math.huge
-	for _, player in ipairs(runStateService:GetMembers()) do
-		if not runStateService:IsActive() or not runStateService:IsMember(player) then
-			continue
-		end
+	for _, player in ipairs(Players:GetPlayers()) do
 		if spawnService and not spawnService:IsPlayerSpawned(player) then
 			continue
 		end
@@ -807,9 +520,6 @@ local function updateStalkerState(stalker)
 				local endTrack = stalker.tracks["StunnedEnd"]
 				if endTrack then
 					endTrack:Play(0.1)
-					if stalker.usingCustomTracks then
-						broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StunnedEnd")
-					end
 				end
 				-- Set the lockout ONCE when stun first expires
 				stalker.postStunLockout = now + 0.3
@@ -1222,18 +932,12 @@ local function runStalkerBehavior(stalker)
 			local attackTrack = stalker.tracks["Attack"]
 			if attackTrack and attackTrack.IsPlaying then
 				attackTrack:Stop(0)
-				if stalker.usingCustomTracks then
-					broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StopAttack")
-				end
 			end
 			if startTrack and startTrack.IsPlaying then
 				-- Let StunnedStart finish, then switch to StunnedLoop in next tick
 			elseif loopTrack and not loopTrack.IsPlaying then
 				if startTrack then startTrack:Stop(0) end
 				loopTrack:Play(0.1)
-				if stalker.usingCustomTracks then
-					broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StunnedLoop")
-				end
 			end
 		end
 		return
@@ -1302,9 +1006,6 @@ local function runStalkerBehavior(stalker)
 				local attackTrack = stalker.tracks.Attack
 				if attackTrack then
 					attackTrack:Play(0.1)
-					if stalker.usingCustomTracks then
-						broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "Attack")
-					end
 				end
 				broadcastToAll(DeerService.Client.StalkerContact, stalker.rootPart.Position, stalker.key)
 			end
@@ -1417,9 +1118,6 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 						-- Let StunnedStart finish naturally
 					else
 						loopTrack:Play(0.1)
-						if stalker.usingCustomTracks then
-							broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StunnedLoop")
-						end
 					end
 				end
 				return true
@@ -1457,16 +1155,10 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 			local startTrack = stalker.tracks["StunnedStart"]
 			if startTrack then
 				startTrack:Play(0.1)
-				if stalker.usingCustomTracks then
-					broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StunnedStart")
-				end
 			else
 				local loopTrack = stalker.tracks["StunnedLoop"]
 				if loopTrack then
 					loopTrack:Play(0.1)
-					if stalker.usingCustomTracks then
-						broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StunnedLoop")
-					end
 				else
 					warn("[DeerService] No stunned animations found for", stalker.key)
 				end
@@ -1494,15 +1186,6 @@ local function onHeartbeat(dt: number)
 		end
 		runStalkerBehavior(stalker)
 
-		-- Tick custom KeyframeSequence tracks (production fallback)
-		if stalker.usingCustomTracks then
-			for _, t in pairs(stalker.tracks) do
-				if t.isCustom and t._isPlaying then
-					tickCustomTrack(t, dt)
-				end
-			end
-		end
-
 		-- Apply procedural gait for custom-rig stalkers (Deer)
 		if stalker.gaitJoints then
 			local vel = stalker.rootPart.AssemblyLinearVelocity
@@ -1515,10 +1198,8 @@ end
 -- // INITIALIZATION // --
 
 function DeerService:KnitStart()
-	if not ServerRole.IsGameServer() then return end
 	worldService = Knit.GetService("WorldService")
 	timeService = Knit.GetService("TimeService")
-	runStateService = Knit.GetService("RunStateService")
 	campfireService = Knit.GetService("CampfireService")
 	spawnService = Knit.GetService("SpawnService")
 	playerLifeService = Knit.GetService("PlayerLifeService")

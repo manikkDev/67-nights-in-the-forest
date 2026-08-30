@@ -123,22 +123,20 @@ local function playSwingAnimation()
 		return
 	end
 
-	if cachedAnimTrack then
+	-- If we have a cached track and it still belongs to this animator, reuse it
+	if cachedAnimTrack and cachedAnimTrack.Parent == animator then
 		cachedAnimTrack:Play()
 		return
 	end
 
+	-- Build a fresh Animation instance and load it
 	local animInstance = Instance.new("Animation")
 	animInstance.AnimationId = swingAnimationId
-	local ok, track = pcall(function()
-		return animator:LoadAnimation(animInstance)
-	end)
-	if ok and track then
-		cachedAnimTrack = track
+
+	cachedAnimTrack = animator:LoadAnimation(animInstance)
+	if cachedAnimTrack then
 		cachedAnimTrack.Priority = Enum.AnimationPriority.Action
 		cachedAnimTrack:Play()
-	else
-		warn("[HarvestController] Failed to load axe animation")
 	end
 end
 

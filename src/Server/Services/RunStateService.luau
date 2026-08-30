@@ -38,7 +38,6 @@ local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 local WorldPlacement = require(script.Parent.Parent.WorldPlacement)
@@ -62,7 +61,10 @@ RunStateService.RunCleaned = Signal.new()
 
 -- | Configuration | --
 local RUNTIME_FOLDER_NAME = "Runtime"
-local RUN_SCOPED_PROFILE_KEYS = { "Resources", "Inventory", "Base", "Rescue", "Stats", "Campfire" }
+-- "Resources" and "Inventory" are NOT run-scoped — the player's bag
+-- contents persist across runs and rejoins, matching the reference
+-- game where collected items stay in your inventory.
+local RUN_SCOPED_PROFILE_KEYS = { "Base", "Rescue", "Stats", "Campfire" }
 
 -- | State Management | --
 local playerDataService: any = nil
@@ -74,11 +76,8 @@ local animalAIService: any = nil
 local runId = ""
 local phase: RunPhase = "Lobby"
 local runStartedAt = 0
-local partyId = ""
-local hostUserId = 0
 local initialPartySize = 0
 local members: { [Player]: boolean } = {}
-local memberRecords: { [number]: { userId: number, name: string, username: string } } = {}
 local multiplierSources: { [string]: number } = {}
 local runtimeFolder: Folder? = nil
 local cleanupCallbacks: { () -> () } = {}
@@ -96,10 +95,12 @@ local function freshRunTable(key: string): { [string]: any }
 	if key == "Resources" then
 		return {
 			Wood = 0,
+			Scrap = 0,
 			Coal = 0,
 			Berries = 0,
 			Mushrooms = 0,
 			RawMeat = 0,
+			RabbitMeat = 0,
 			CookedMeat = 0,
 			OwlFeather = 0,
 			CultistGem = 0,
@@ -188,29 +189,12 @@ end
     @summary  Broadcast the current lifecycle phase to every member.
     @param    payload  table?  -- optional extra state for clients
 ]]
-local function buildMemberSnapshot(): { { userId: number, name: string, username: string } }
-	local result = {}
-	for _, record in pairs(memberRecords) do
-		table.insert(result, table.clone(record))
-	end
-	table.sort(result, function(a, b)
-		return a.userId < b.userId
-	end)
-	return result
-end
-
 local function broadcastPhase(payload: { [string]: any }?)
-	local data = table.clone(payload or {})
+	local data = payload or {}
 	data.phase = phase
 	data.runId = runId
-	data.partyId = partyId
-	data.hostUserId = hostUserId
-	data.initialPartySize = initialPartySize
-	data.members = buildMemberSnapshot()
-	for player in pairs(members) do
-		if player.Parent == Players then
-			RunStateService.Client.RunPhaseChanged:Fire(player, data)
-		end
+	for _, player in ipairs(Players:GetPlayers()) do
+		RunStateService.Client.RunPhaseChanged:Fire(player, data)
 	end
 	RunStateService.PhaseChanged:Fire(phase, data)
 end
@@ -225,24 +209,20 @@ function RunStateService:GetRunId(): string
 	return runId
 end
 
-function RunStateService:GetPartyId(): string
-	return partyId
-end
-
-function RunStateService:GetHostUserId(): number
-	return hostUserId
-end
-
-function RunStateService:GetInitialPartySize(): number
-	return initialPartySize
-end
-
 --[[
     @summary  Return the current lifecycle phase.
     @returns  RunPhase
 ]]
 function RunStateService:GetPhase(): RunPhase
 	return phase
+end
+
+--[[
+    @summary  Return the fixed initial party size for difficulty scaling.
+    @returns  number
+]]
+function RunStateService:GetInitialPartySize(): number
+	return initialPartySize
 end
 
 --[[
@@ -324,13 +304,11 @@ function RunStateService:AddMultiplierSource(key: string, amount: number)
 	multiplierSources[key] = math.max(0, math.floor(amount))
 
 	local multiplier = self:GetMultiplier()
-	for player in pairs(members) do
-		if player.Parent == Players then
-			RunStateService.Client.MultiplierChanged:Fire(player, {
-				multiplier = multiplier,
-				sources = table.clone(multiplierSources),
-			})
-		end
+	for _, player in ipairs(Players:GetPlayers()) do
+		RunStateService.Client.MultiplierChanged:Fire(player, {
+			multiplier = multiplier,
+			sources = table.clone(multiplierSources),
+		})
 	end
 end
 
@@ -375,27 +353,11 @@ end
     @summary  Add a player to the live run without restarting it.
     @param    player  Player
 ]]
-function RunStateService:AddMember(player: Player): boolean
-	if phase == "Lobby" or phase == "Ended" or not player or player.Parent ~= Players then
-		return false
-	end
-	if not memberRecords[player.UserId] then
-		return false
+function RunStateService:AddMember(player: Player)
+	if phase == "Lobby" or phase == "Ended" then
+		return
 	end
 	members[player] = true
-	return true
-end
-
---[[
-    @summary  Remove a player from the live run without ending it for others.
-    @desc    Used by EndingService when a player individually returns to the
-             lobby. The member record is preserved so the run still knows who
-             was originally part of the party, but the player no longer
-             receives run-scoped broadcasts or counts as a participant.
-    @param   player  Player
-]]
-function RunStateService:RemoveMember(player: Player)
-	members[player] = nil
 end
 
 --[[
@@ -403,76 +365,31 @@ end
     @param    participants  { Player }
     @returns  string?  -- the new run identifier, or nil when refused
 ]]
-function RunStateService:StartRun(participants: { Player }, metadata: { [string]: any }?): string?
+function RunStateService:StartRun(participants: { Player }): string?
 	if phase == "Active" or phase == "Starting" or phase == "Ending" then
-		warn("[RunStateService] StartRun rejected — phase is", phase)
 		return nil
 	end
-	if #participants == 0 then
-		warn("[RunStateService] StartRun rejected — 0 participants")
+	if #participants == 0 or not playerDataService then
 		return nil
 	end
-	if #participants > 5 then
-		warn("[RunStateService] StartRun rejected — too many participants:", #participants)
-		return nil
-	end
-	if not playerDataService then
-		warn("[RunStateService] StartRun rejected — playerDataService is nil")
-		return nil
-	end
-	local seenUserIds = {}
 	for _, player in ipairs(participants) do
-		if not player.Parent then
-			warn("[RunStateService] StartRun rejected — player has no Parent:", player.Name)
+		if not player.Parent or not playerDataService:GetData(player) then
 			return nil
 		end
-		if not playerDataService:GetData(player) then
-			warn("[RunStateService] StartRun rejected — no profile data for:", player.Name)
-			return nil
-		end
-		if seenUserIds[player.UserId] then
-			warn("[RunStateService] StartRun rejected — duplicate userId:", player.UserId)
-			return nil
-		end
-		seenUserIds[player.UserId] = true
-	end
-
-	local requestedPartyId = metadata and metadata.partyId
-	local requestedHostId = metadata and metadata.hostUserId
-	local requestedInitialSize = metadata and metadata.initialPartySize
-	if requestedPartyId ~= nil and (typeof(requestedPartyId) ~= "string" or #requestedPartyId < 8) then
-		warn("[RunStateService] StartRun rejected — invalid partyId in metadata")
-		return nil
-	end
-	if requestedHostId ~= nil and typeof(requestedHostId) ~= "number" then
-		warn("[RunStateService] StartRun rejected — invalid hostUserId in metadata")
-		return nil
-	end
-	if requestedInitialSize ~= nil and (typeof(requestedInitialSize) ~= "number" or requestedInitialSize < #participants or requestedInitialSize > 5) then
-		warn("[RunStateService] StartRun rejected — invalid initialPartySize:", requestedInitialSize, "participants:", #participants)
-		return nil
 	end
 
 	runId = HttpService:GenerateGUID(false)
-	partyId = requestedPartyId or runId
-	hostUserId = if requestedHostId and seenUserIds[requestedHostId] then requestedHostId else participants[1].UserId
-	initialPartySize = requestedInitialSize or #participants
 	WorldPlacement.Reset()
 	phase = "Starting"
 	runStartedAt = os.clock()
+	initialPartySize = #participants
 	members = {}
-	memberRecords = {}
 	multiplierSources = {}
 	cleanupCallbacks = {}
 
 	for _, player in ipairs(participants) do
 		if player.Parent then
 			members[player] = true
-			memberRecords[player.UserId] = {
-				userId = player.UserId,
-				name = player.DisplayName,
-				username = player.Name,
-			}
 			resetPlayerRunData(player)
 		end
 	end
@@ -491,7 +408,6 @@ function RunStateService:StartRun(participants: { Player }, metadata: { [string]
 	phase = "Active"
 	broadcastPhase({ startedAt = runStartedAt })
 
-	print("[RunStateService] StartRun succeeded — runId:", runId, "partyId:", partyId, "members:", #participants)
 	return runId
 end
 
@@ -556,11 +472,7 @@ function RunStateService:CleanupRun(reason: string)
 		timeService:ResetMatch()
 	end
 
-	local currentMembers = {}
 	for player in pairs(members) do
-		table.insert(currentMembers, player)
-	end
-	for _, player in ipairs(currentMembers) do
 		if player.Parent then
 			resetPlayerRunData(player)
 			if spawnService then
@@ -569,17 +481,14 @@ function RunStateService:CleanupRun(reason: string)
 		end
 	end
 
-	phase = "Lobby"
-	broadcastPhase({ reason = reason })
-
 	members = {}
-	memberRecords = {}
 	multiplierSources = {}
 	runStartedAt = 0
-	runId = ""
-	partyId = ""
-	hostUserId = 0
 	initialPartySize = 0
+	runId = ""
+	phase = "Lobby"
+
+	broadcastPhase({ reason = reason })
 	RunStateService.RunCleaned:Fire(reason)
 end
 
@@ -589,21 +498,11 @@ end
     @returns  table
 ]]
 function RunStateService.Client:GetSnapshot(player: Player): { [string]: any }
-	if members[player] ~= true then
-		return {
-			phase = "Lobby",
-			isMember = false,
-			goalDay = RunConfig.GoalDay,
-		}
-	end
 	return {
 		runId = runId,
-		partyId = partyId,
-		hostUserId = hostUserId,
-		initialPartySize = initialPartySize,
-		members = buildMemberSnapshot(),
 		phase = phase,
-		isMember = true,
+		isMember = members[player] == true,
+		initialPartySize = initialPartySize,
 		multiplier = RunStateService:GetMultiplier(),
 		sources = table.clone(multiplierSources),
 		goalDay = RunConfig.GoalDay,
@@ -614,11 +513,7 @@ end
 -- // INITIALIZATION // --
 
 function RunStateService:KnitStart()
-	-- playerDataService is needed on both lobby and game for StartRun validation.
 	playerDataService = Knit.GetService("PlayerDataService")
-
-	-- Game-only wiring: time service, spawn, campfire, AI, etc.
-	if not ServerRole.IsGameServer() then return end
 	timeService = Knit.GetService("TimeService")
 	spawnService = Knit.GetService("SpawnService")
 	campfireService = Knit.GetService("CampfireService")

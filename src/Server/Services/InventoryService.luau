@@ -34,7 +34,6 @@ local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
@@ -54,22 +53,22 @@ local InventoryService = Knit.CreateService({
 InventoryService.ServerResourcesChanged = Signal.new()
 
 -- | Configuration | --
-local BASE_CAPACITY = 40
-local BAG_CAPACITY_BONUS = 40
-local ITEMS_PATH = ServerStorage:FindFirstChild("Assets") and ServerStorage.Assets:FindFirstChild(Constants.ITEMS_PATH) or nil
-if not ITEMS_PATH then
-	warn("[InventoryService] ITEMS_PATH not found: ServerStorage.Assets." .. tostring(Constants.ITEMS_PATH))
-end
+local BASE_CAPACITY = 999999 -- TEMP: infinite capacity for testing, revert to 40 when done
+local BAG_CAPACITY_BONUS = 0 -- TEMP: folded into base, revert to 40 when done
+local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local CARRY_BAG_NAME = "carry-bag"
 local CARRY_BAG_TOOL_NAME = "Carry Bag"
 local FLASHLIGHT_TOOL_NAME = "Flashlight"
 local RESOURCE_NAMES = {
 	"Wood",
+	"WoodenSheet",
+	"Scrap",
 	"Coal",
 	"Berries",
 	"Mushrooms",
 	"RawMeat",
 	"CookedMeat",
+	"RabbitMeat",
 	"OwlFeather",
 	"CultistGem",
 	"Bandage",
@@ -86,10 +85,7 @@ local PICKUP_RANGE = 12
 local DROP_SPACING = 2.2
 local DROP_LIFETIME = 300
 
-local DRAG_MAX_HORIZONTAL_DISTANCE = 20
-local DRAG_MIN_HEIGHT_FROM_ROOT = -3
-local DRAG_MAX_HEIGHT_FROM_ROOT = 3
-local DRAG_CLEANUP_TOLERANCE = 4
+local DRAG_MAX_DISTANCE = 50
 
 -- How close a dragged junk item must be released to the shredder to grind.
 local GRIND_DROP_RANGE = 14
@@ -97,10 +93,13 @@ local GRIND_DROP_RANGE = 14
 -- Map resources to the asset name in ITEMS_PATH.  Mushrooms use their own asset builder.
 local DROP_ASSETS: { [string]: string? } = {
 	Wood = "Log",
+	WoodenSheet = nil :: string?,
 	Coal = "Coal",
+	Scrap = "Coal",
 	Berries = "Carrot",
 	RawMeat = "rabbit-meat",
 	CookedMeat = "wolf-meat",
+	RabbitMeat = "rabbit-meat",
 	OwlFeather = nil :: string?,
 	CultistGem = "cultist gem",
 	Bandage = "Bandage",
@@ -334,10 +333,12 @@ function InventoryService:GrindJunk(player: Player, junkId: string): number
 	if not config then
 		return 0
 	end
-	if not self:ConsumeResource(player, junkId, 1) then
+	local consumed = self:ConsumeResource(player, junkId, 1)
+	if not consumed then
 		return 0
 	end
-	return config.ScrapYield
+	local added = self:AddResource(player, "Scrap", config.ScrapYield)
+	return added
 end
 
 -- // PICKUP / DROP // --
@@ -381,7 +382,7 @@ end
 ]]
 local function getMushroomSource(): Model?
 	if not mushroomSource then
-		mushroomSource = ITEMS_PATH and ITEMS_PATH:FindFirstChild(MUSHROOM_ASSET_NAME)
+		mushroomSource = ITEMS_PATH:FindFirstChild(MUSHROOM_ASSET_NAME)
 		if mushroomSource then
 			mushroomBaseOffset = computeMushroomBaseOffset(mushroomSource)
 		end
@@ -572,12 +573,10 @@ local function buildJunkModel(itemId: string): Model
 		if source:IsA("Model") then
 			local clone = source:Clone()
 			clone.Name = itemId .. "Pickup"
+			-- Disable all scripts inside the cloned asset (e.g. RadioScript)
 			for _, desc in ipairs(clone:GetDescendants()) do
-				if desc:IsA("BaseScript") or desc:IsA("ModuleScript")
-					or desc:IsA("PackageLink") or desc:IsA("TextureConfiguration")
-					or (desc:IsA("Sound") and desc.SoundId == "rbxassetid://6160151677")
-				then
-					desc:Destroy()
+				if desc:IsA("Script") or desc:IsA("LocalScript") or desc:IsA("ModuleScript") then
+					desc.Disabled = true
 				end
 			end
 			if not clone.PrimaryPart then
@@ -629,7 +628,7 @@ local function buildDropModel(resourceName: string): Model
 		model = buildJunkModel(resourceName)
 	else
 		local assetName = DROP_ASSETS[resourceName]
-		local source = assetName and ITEMS_PATH and ITEMS_PATH:FindFirstChild(assetName)
+		local source = assetName and ITEMS_PATH:FindFirstChild(assetName)
 		if source and source:IsA("Model") then
 			model = source:Clone()
 			if not model.PrimaryPart then
@@ -993,21 +992,29 @@ local function stopDrag(player: Player)
 		if grinderPos and (config or isWood) then
 			local dist = (model:GetPivot().Position - grinderPos).Magnitude
 			if dist <= GRIND_DROP_RANGE then
+				-- Grant the output FIRST.  If the player is at carry
+				-- capacity AddResource returns 0, and destroying the
+				-- model anyway would silently delete their item for
+				-- nothing — so in that case we let it fall instead.
 				local outputResource = if isWood then "WoodenSheet" else "Scrap"
 				local outputAmount = if isWood then 1 else config.ScrapYield
-				model:Destroy()
-				dragging[player] = nil
-				draggedBy[model] = nil
-				grinderService:StartGrindAnimation()
-				grinderService:StopGrindAnimation()
-				grinderService.Client.GrinderProcessed:Fire(player, {
-					position = grinderPos,
-					scrapAmount = outputAmount,
-					junkId = if isWood then "WoodenSheet" else resourceName,
-				})
-				local craftingService = Knit.GetService("CraftingService")
-				craftingService:AddShreddedTotal(outputResource, outputAmount)
-				return
+				local added = InventoryService:AddResource(player, outputResource, outputAmount)
+				if added > 0 then
+					model:Destroy()
+					dragging[player] = nil
+					draggedBy[model] = nil
+					grinderService:StartGrindAnimation()
+					grinderService:StopGrindAnimation()
+					grinderService.Client.GrinderProcessed:Fire(player, {
+						position = grinderPos,
+						scrapAmount = added,
+						junkId = if isWood then "WoodenSheet" else resourceName,
+					})
+					local craftingService = Knit.GetService("CraftingService")
+					craftingService:AddShreddedTotal(outputResource, added)
+					return
+				end
+				warn(("[InventoryService] %s could not grind %s: inventory full"):format(player.Name, resourceName))
 			end
 		end
 
@@ -1019,12 +1026,8 @@ local function stopDrag(player: Player)
 				if isJunk then
 					-- Junk items: unanchor after drag so they fall to the ground
 					desc.Anchored = false
-				else
-					-- Always unanchor after drag so the item falls to the ground
-					-- via gravity. Restoring the original Anchored state would
-					-- re-anchor items that spawn anchored (e.g. forage items),
-					-- leaving them stuck in mid-air at the release position.
-					desc.Anchored = false
+				elseif entry.originalAnchored[desc] ~= nil then
+					desc.Anchored = entry.originalAnchored[desc]
 				end
 			end
 		end
@@ -1161,34 +1164,6 @@ local function tryStartDrag(player: Player, model: Model): boolean
 	return true
 end
 
-local function constrainDragPosition(rootPosition: Vector3, requestedPosition: Vector3): Vector3
-	local horizontalOffset = Vector3.new(
-		requestedPosition.X - rootPosition.X,
-		0,
-		requestedPosition.Z - rootPosition.Z
-	)
-	if horizontalOffset.Magnitude > DRAG_MAX_HORIZONTAL_DISTANCE then
-		horizontalOffset = horizontalOffset.Unit * DRAG_MAX_HORIZONTAL_DISTANCE
-	end
-	return Vector3.new(
-		rootPosition.X + horizontalOffset.X,
-		math.clamp(
-			requestedPosition.Y,
-			rootPosition.Y + DRAG_MIN_HEIGHT_FROM_ROOT,
-			rootPosition.Y + DRAG_MAX_HEIGHT_FROM_ROOT
-		),
-		rootPosition.Z + horizontalOffset.Z
-	)
-end
-
-local function isWithinDragBounds(rootPosition: Vector3, position: Vector3): boolean
-	local horizontalDistance = Vector3.new(position.X - rootPosition.X, 0, position.Z - rootPosition.Z).Magnitude
-	local verticalOffset = position.Y - rootPosition.Y
-	return horizontalDistance <= DRAG_MAX_HORIZONTAL_DISTANCE + DRAG_CLEANUP_TOLERANCE
-		and verticalOffset >= DRAG_MIN_HEIGHT_FROM_ROOT - DRAG_CLEANUP_TOLERANCE
-		and verticalOffset <= DRAG_MAX_HEIGHT_FROM_ROOT + DRAG_CLEANUP_TOLERANCE
-end
-
 --[[
     @summary  Drop any drag whose model, player, or distance has become invalid.
 ]]
@@ -1216,7 +1191,7 @@ local function cleanupDrags()
 			continue
 		end
 
-		if not isWithinDragBounds(hrp.Position, primaryPart.Position) then
+		if (hrp.Position - primaryPart.Position).Magnitude > DRAG_MAX_DISTANCE then
 			table.insert(toStop, player)
 			continue
 		end
@@ -1227,7 +1202,7 @@ local function cleanupDrags()
 			continue
 		end
 
-		if not isWithinDragBounds(hrp.Position, dragTarget.Position) then
+		if (hrp.Position - dragTarget.Position).Magnitude > DRAG_MAX_DISTANCE then
 			table.insert(toStop, player)
 			continue
 		end
@@ -1389,24 +1364,10 @@ end
     @returns  Tool?
 ]]
 local function buildCarryBagTool(): Tool?
-	local source = ITEMS_PATH and ITEMS_PATH:FindFirstChild(CARRY_BAG_NAME)
+	local source = ITEMS_PATH:FindFirstChild(CARRY_BAG_NAME)
 	if not source or not source:IsA("BasePart") then
-		warn("[InventoryService] carry-bag asset not found — using invisible fallback tool")
-		-- Fallback: create a simple invisible Tool so the bag is always given.
-		local fallbackTool = Instance.new("Tool")
-		fallbackTool.Name = CARRY_BAG_TOOL_NAME
-		fallbackTool.RequiresHandle = true
-		fallbackTool.CanBeDropped = false
-		local fallbackHandle = Instance.new("Part")
-		fallbackHandle.Name = "Handle"
-		fallbackHandle.Size = Vector3.new(0.5, 0.5, 0.5)
-		fallbackHandle.Transparency = 1
-		fallbackHandle.CanCollide = false
-		fallbackHandle.CanQuery = false
-		fallbackHandle.CanTouch = false
-		fallbackHandle.Massless = true
-		fallbackHandle.Parent = fallbackTool
-		return fallbackTool
+		warn("[InventoryService] carry-bag asset not found in Assets Items")
+		return nil
 	end
 
 	local tool = Instance.new("Tool")
@@ -1455,8 +1416,7 @@ local function giveFlashlight(player: Player)
 	if not flashlightTemplate then
 		return
 	end
-	-- On the game place, always give the flashlight. On the lobby, require spawn first.
-	if ServerRole.IsLobby() and spawnService and not spawnService:IsPlayerSpawned(player) then
+	if spawnService and not spawnService:IsPlayerSpawned(player) then
 		return
 	end
 
@@ -1475,8 +1435,7 @@ local function giveCarryBag(player: Player)
 	if not bagTemplate then
 		return
 	end
-	-- On the game place, always give the bag. On the lobby, require spawn first.
-	if ServerRole.IsLobby() and spawnService and not spawnService:IsPlayerSpawned(player) then
+	if spawnService and not spawnService:IsPlayerSpawned(player) then
 		return
 	end
 
@@ -1523,7 +1482,6 @@ end
 -- // INITIALIZATION // --
 
 function InventoryService:KnitStart()
-	if not ServerRole.IsGameServer() then return end
 	playerDataService = Knit.GetService("PlayerDataService")
 	worldService = Knit.GetService("WorldService")
 	spawnService = Knit.GetService("SpawnService")
@@ -1544,31 +1502,10 @@ function InventoryService:KnitStart()
 	end
 
 	bagTemplate = buildCarryBagTool()
-	if bagTemplate then
-		print("[InventoryService] Carry Bag tool built successfully")
-	else
-		warn("[InventoryService] Carry Bag tool FAILED to build — hover/drag will still work but no visual bag")
-	end
-
-	flashlightTemplate = ITEMS_PATH and ITEMS_PATH:FindFirstChild(FLASHLIGHT_TOOL_NAME)
+	flashlightTemplate = ITEMS_PATH:FindFirstChild(FLASHLIGHT_TOOL_NAME)
 	if flashlightTemplate and not flashlightTemplate:IsA("Tool") then
 		warn("[InventoryService] Flashlight asset is not a Tool, got:", flashlightTemplate.ClassName)
 		flashlightTemplate = nil
-	end
-	if not flashlightTemplate then
-		warn("[InventoryService] Flashlight asset not found — using invisible fallback")
-		flashlightTemplate = Instance.new("Tool")
-		flashlightTemplate.Name = FLASHLIGHT_TOOL_NAME
-		flashlightTemplate.RequiresHandle = true
-		local fh = Instance.new("Part")
-		fh.Name = "Handle"
-		fh.Size = Vector3.new(0.3, 0.3, 1)
-		fh.Transparency = 1
-		fh.CanCollide = false
-		fh.CanQuery = false
-		fh.CanTouch = false
-		fh.Massless = true
-		fh.Parent = flashlightTemplate
 	end
 
 	playerDataService.ProfileLoaded:Connect(function(player: Player)
@@ -1619,11 +1556,10 @@ function InventoryService:KnitStart()
 		if not hrp or not hrp:IsA("BasePart") then
 			return
 		end
-		if position.X ~= position.X or position.Y ~= position.Y or position.Z ~= position.Z then
+		if (hrp.Position - position).Magnitude > DRAG_MAX_DISTANCE then
 			return
 		end
-		local constrainedPosition = constrainDragPosition(hrp.Position, position)
-		dragTarget.CFrame = CFrame.new(constrainedPosition) * dragTarget.CFrame.Rotation
+		dragTarget.CFrame = CFrame.new(position) * dragTarget.CFrame.Rotation
 	end)
 
 	Players.PlayerRemoving:Connect(stopDrag)

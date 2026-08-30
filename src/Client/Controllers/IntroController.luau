@@ -28,7 +28,6 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
 local IntroAssets = require(ReplicatedStorage.Shared.IntroAssets)
 local Constants = require(ReplicatedStorage.Shared.Constants)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local IntroController = Knit.CreateController({
@@ -182,29 +181,16 @@ local function lockCamera()
 end
 
 local function unlockCamera()
-	local function restore(): boolean
-		local camera = Workspace.CurrentCamera
-		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if not camera or not humanoid then
-			return false
-		end
-		camera.CameraSubject = humanoid
-		camera.CameraType = Enum.CameraType.Custom
-		return true
-	end
-	if restore() then
+	local camera = Workspace.CurrentCamera
+	if not camera then
 		return
 	end
-	task.spawn(function()
-		local deadline = os.clock() + 10
-		repeat
-			if restore() then
-				return
-			end
-			task.wait(0.1)
-		until os.clock() >= deadline
-	end)
+	camera.CameraType = Enum.CameraType.Custom
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		camera.CameraSubject = humanoid
+	end
 end
 
 local function formatCountdown(seconds: number): string
@@ -874,10 +860,6 @@ end
 -- // INITIALIZATION // --
 
 function IntroController:KnitInit()
-	-- Only build lobby UI on the lobby place.
-	if not ServerRole.IsLobby() then
-		return
-	end
 	buildGui()
 	buildTitleScreen()
 end
@@ -886,80 +868,69 @@ function IntroController:KnitStart()
 	gameStateController = Knit.GetController("GameStateController")
 	local matchFlow = Knit.GetService("MatchFlowService")
 
-	local isLobby = ServerRole.IsLobby()
-
-	-- On the game place, we still need the Day 1 intro card.
-	-- The lobby-specific UI (title screen, create party, countdown, story)
-	-- is only set up on the lobby place.
-	if isLobby then
-		-- Title screen PLAY button dismisses it and lets the player roam the lobby.
-		if titleScreen then
-			local play = titleScreen:FindFirstChild("PlayButton")
-			if play then
-				play.MouseButton1Click:Connect(function()
-					hideTitleScreen(true)
-				end)
-			end
-		end
-
-		if createButton then
-			createButton.MouseButton1Click:Connect(function()
-				if flowState == "Waiting" and sessionSnapshot and sessionSnapshot.isHost == true then
-					matchFlow.RequestStart:Fire()
-				end
-			end)
-		end
-
-		local function requestLeave()
-			if flowState == "Waiting" or flowState == "Countdown" then
-				matchFlow.RequestLeave:Fire()
-			end
-		end
-		if leaveButton then
-			leaveButton.MouseButton1Click:Connect(requestLeave)
-		end
-		if createPartyFrame then
-			local close = createPartyFrame:FindFirstChild("CloseButton")
-			if close and close:IsA("TextButton") then
-				close.MouseButton1Click:Connect(requestLeave)
-			end
-		end
-
-		for i, btn in ipairs(sizeButtons) do
-			btn.MouseButton1Click:Connect(function()
-				if flowState ~= "Waiting" or not sessionSnapshot or sessionSnapshot.isHost ~= true then
-					return
-				end
-				selectedSize = i
-				updateSizeButtons()
-				matchFlow.RequestSetCapacity:Fire(i)
+	-- Title screen PLAY button dismisses it and lets the player roam the lobby.
+	if titleScreen then
+		local play = titleScreen:FindFirstChild("PlayButton")
+		if play then
+			play.MouseButton1Click:Connect(function()
+				hideTitleScreen(true)
 			end)
 		end
 	end
 
-	-- Connect FlowStateChanged on BOTH places so the Day 1 card
-	-- shows on the game place after teleport.
+	if createButton then
+		createButton.MouseButton1Click:Connect(function()
+			if flowState == "Waiting" and sessionSnapshot and sessionSnapshot.isHost == true then
+				matchFlow.RequestStart:Fire()
+			end
+		end)
+	end
+
+	local function requestLeave()
+		if flowState == "Waiting" or flowState == "Countdown" then
+			matchFlow.RequestLeave:Fire()
+		end
+	end
+	if leaveButton then
+		leaveButton.MouseButton1Click:Connect(requestLeave)
+	end
+	if createPartyFrame then
+		local close = createPartyFrame:FindFirstChild("CloseButton")
+		if close and close:IsA("TextButton") then
+			close.MouseButton1Click:Connect(requestLeave)
+		end
+	end
+
+	for i, btn in ipairs(sizeButtons) do
+		btn.MouseButton1Click:Connect(function()
+			if flowState ~= "Waiting" or not sessionSnapshot or sessionSnapshot.isHost ~= true then
+				return
+			end
+			selectedSize = i
+			updateSizeButtons()
+			matchFlow.RequestSetCapacity:Fire(i)
+		end)
+	end
+
 	matchFlow.FlowStateChanged:Connect(function(state: string)
 		if state == flowState then
 			return
 		end
 		-- Title screen is only for the Lobby; dismiss it once the game flow advances.
-		if titleScreen and isLobby then
+		if titleScreen then
 			if titleScreen.Visible and state ~= "Lobby" then
 				hideTitleScreen()
 			end
 		end
 		flowState = state
 		if state == "Lobby" then
-			if isLobby then
-				resetForLobby()
-			end
+			resetForLobby()
 		elseif state == "Waiting" then
-			if isLobby then showCreateParty() end
+			showCreateParty()
 		elseif state == "Countdown" then
-			if isLobby then showCountdown() end
+			showCountdown()
 		elseif state == "Story" then
-			if isLobby then showStory() end
+			showStory()
 		elseif state == "Day1" then
 			showDayCard()
 		elseif state == "InGame" then
@@ -967,46 +938,44 @@ function IntroController:KnitStart()
 		end
 	end)
 
-	if isLobby then
-		matchFlow.Countdown:Connect(function(payload)
-			if typeof(payload) == "table" and typeof(payload.endsAt) == "number" then
-				countdownEndsAt = payload.endsAt
-			end
-		end)
-
-		matchFlow.SessionChanged:Connect(function(snapshot)
-			if typeof(snapshot) ~= "table" then
-				return
-			end
-			if snapshot.state == "Lobby" then
-				sessionSnapshot = nil
-			else
-				renderSession(snapshot)
-			end
-		end)
-
-		matchFlow:GetSnapshot():andThen(function(snapshot)
-			if typeof(snapshot) ~= "table" then
-				return
-			end
-			if snapshot.state ~= "Lobby" then
-				flowState = snapshot.state
-				renderSession(snapshot)
-				if snapshot.state == "Waiting" then
-					showCreateParty()
-				elseif snapshot.state == "Countdown" then
-					countdownEndsAt = snapshot.endsAt
-					showCreateParty()
-					showCountdown()
-				end
-			end
-		end)
-
-		-- If the player is still in the Lobby, show the title screen immediately.
-		-- Skip if the game has already advanced past Lobby (e.g. test mode).
-		if flowState == "Lobby" then
-			showTitleScreen()
+	matchFlow.Countdown:Connect(function(payload)
+		if typeof(payload) == "table" and typeof(payload.endsAt) == "number" then
+			countdownEndsAt = payload.endsAt
 		end
+	end)
+
+	matchFlow.SessionChanged:Connect(function(snapshot)
+		if typeof(snapshot) ~= "table" then
+			return
+		end
+		if snapshot.state == "Lobby" then
+			sessionSnapshot = nil
+		else
+			renderSession(snapshot)
+		end
+	end)
+
+	matchFlow:GetSnapshot():andThen(function(snapshot)
+		if typeof(snapshot) ~= "table" then
+			return
+		end
+		if snapshot.state ~= "Lobby" then
+			flowState = snapshot.state
+			renderSession(snapshot)
+			if snapshot.state == "Waiting" then
+				showCreateParty()
+			elseif snapshot.state == "Countdown" then
+				countdownEndsAt = snapshot.endsAt
+				showCreateParty()
+				showCountdown()
+			end
+		end
+	end)
+
+	-- If the player is still in the Lobby, show the title screen immediately.
+	-- Skip if the game has already advanced past Lobby (e.g. test mode).
+	if flowState == "Lobby" then
+		showTitleScreen()
 	end
 
 end

@@ -11,9 +11,6 @@
     Day 1 intro card finishes, so HUD/tools stay gated through waiting
     and the teleport fade.
 
-    On the game place (not lobby), there is no intro screen, so the
-    controller auto-marks as in-game immediately and never resets.
-
     @exports
     - GameStateController.GameStarted  -> Signal
     - GameStateController:IsInGame()   -> boolean
@@ -29,7 +26,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages.Signal)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local GameStateController = Knit.CreateController({
@@ -42,9 +38,6 @@ export type FlowState = "Lobby" | "Waiting" | "Countdown" | "Story" | "Day1" | "
 local flowState: FlowState = "Lobby"
 local isInGame = false
 local gameStartedSignal: any = nil
--- On the game place, the player is always in the game. This flag prevents
--- any FlowStateChanged = "Lobby" signal from resetting isInGame to false.
-local isGamePlace = false
 
 -- // FUNCTIONS // --
 
@@ -61,8 +54,7 @@ function GameStateController:GetState(): FlowState
 end
 
 --[[
-    @summary  Unlock gameplay after the Day 1 intro fades out (lobby place),
-              or immediately on the game place.
+    @summary  Unlock gameplay after the Day 1 card fades out.
 ]]
 function GameStateController:MarkIntroComplete()
 	if isInGame then
@@ -70,7 +62,6 @@ function GameStateController:MarkIntroComplete()
 	end
 	flowState = "InGame"
 	isInGame = true
-	print("[GameStateController] MarkIntroComplete — isInGame now true")
 	if gameStartedSignal then
 		gameStartedSignal:Fire()
 	end
@@ -86,46 +77,21 @@ end
 function GameStateController:KnitStart()
 	local matchFlow = Knit.GetService("MatchFlowService")
 
-	-- Detect whether we're on the game place (not lobby).
-	-- On the game place, there is no intro screen and no lobby state.
-	-- The player is always in the game, so we mark as in-game immediately.
-	isGamePlace = ServerRole.IsGameServer() and not ServerRole.IsLobby()
-	print(("[GameStateController] KnitStart — isGamePlace=%s IsGameServer=%s IsLobby=%s")
-		:format(tostring(isGamePlace), tostring(ServerRole.IsGameServer()), tostring(ServerRole.IsLobby())))
-
-	if isGamePlace then
-		-- On the game place, wait for the Day 1 intro card to finish
-		-- before unlocking gameplay. MatchFlowService fires "InGame"
-		-- after DAY1_HOLD_SECONDS, and IntroController calls
-		-- MarkIntroComplete() after the card fades.
-		-- Safety net: auto-mark after 15s in case the signal is missed.
-		print("[GameStateController] Game place detected — waiting for Day 1 intro")
-		task.delay(15, function()
-			if not isInGame then
-				warn("[GameStateController] Safety net: auto-marking in-game after 15s timeout")
-				GameStateController:MarkIntroComplete()
-			end
-		end)
-	else
-		-- Lobby place: wait for the intro card to finish.
-		-- The IntroController calls MarkIntroComplete() after the Day 1 card fades.
-		-- Also listen for the server's FlowStateChanged as a safety net.
-	end
-
 	matchFlow.FlowStateChanged:Connect(function(state: string)
 		if state == "Lobby" or state == "Waiting" or state == "Countdown" or state == "Story" or state == "Day1" then
 			flowState = state
-			-- Only reset isInGame on the LOBBY place. On the game place,
-			-- the player is always in the game and should never go back to lobby.
-			if state == "Lobby" and not isGamePlace then
+			if state == "Lobby" then
 				isInGame = false
 			end
 		elseif state == "InGame" then
-			flowState = "InGame"
-			-- Unlock gameplay if the intro hasn't already done so.
-			-- This works on BOTH places (lobby safety net + game place).
+			flowState = "Day1"
+			-- Safety net: only unlock if this same run is still awaiting its intro.
 			if not isInGame then
-				GameStateController:MarkIntroComplete()
+				task.delay(3, function()
+					if not isInGame and flowState == "Day1" then
+						GameStateController:MarkIntroComplete()
+					end
+				end)
 			end
 		end
 	end)

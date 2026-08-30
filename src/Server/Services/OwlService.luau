@@ -35,7 +35,6 @@ local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 
 -- | Objects | --
@@ -52,15 +51,12 @@ local OwlService = Knit.CreateService({
 })
 
 -- | Configuration | --
-local NPC_SOURCE_PATH = ServerStorage:FindFirstChild("Assets") and ServerStorage.Assets:FindFirstChild("Assets Npcs") or nil
-if not NPC_SOURCE_PATH then
-	warn("[OwlService] NPC_SOURCE_PATH not found: ServerStorage.Assets.Assets Npcs")
-end
+local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
 local OWL_MODEL_NAME = "Owl"
 local DORMANT_HOLDING_POSITION = Vector3.new(0, -500, 0)
 local DECISION_INTERVAL = 0.15
 local CONTACT_RANGE = 5
-local CONTACT_COOLDOWN = 1.5
+local CONTACT_COOLDOWN = 1.0
 local PURSUIT_ACCEL_PER_SEC = 0.5
 local PURSUIT_MAX_BONUS_SPEED = 18
 local BASE_CHASE_SPEED = 20
@@ -92,7 +88,6 @@ local DEFAULT_R15_IDLE_ID = "rbxassetid://507766388"
 -- | State Management | --
 local worldService: any = nil
 local timeService: any = nil
-local runStateService: any = nil
 local campfireService: any = nil
 local spawnService: any = nil
 local animalAIService: any = nil
@@ -114,10 +109,7 @@ local wolfSummoned = false
     @param    signal  KnitSignal
 ]]
 local function broadcastToAll(signal, ...)
-	if not runStateService or not runStateService:IsActive() then
-		return
-	end
-	for _, player in ipairs(runStateService:GetMembers()) do
+	for _, player in ipairs(Players:GetPlayers()) do
 		signal:Fire(player, ...)
 	end
 end
@@ -227,9 +219,9 @@ local function spawnOwl()
 		return
 	end
 
-	local template = NPC_SOURCE_PATH and NPC_SOURCE_PATH:FindFirstChild(OWL_MODEL_NAME)
+	local template = NPC_SOURCE_PATH:FindFirstChild(OWL_MODEL_NAME)
 	if not template or not template:IsA("Model") then
-		warn("[OwlService] Missing Owl template")
+		warn("[OwlService] Missing Owl template in", NPC_SOURCE_PATH:GetFullName())
 		return
 	end
 
@@ -281,12 +273,9 @@ end
     @returns  Vector3?
 ]]
 local function pickLandingPosition(): Vector3?
-	local players = runStateService:GetMembers()
+	local players = Players:GetPlayers()
 	local valid = {}
 	for _, player in ipairs(players) do
-		if not runStateService:IsActive() or not runStateService:IsMember(player) then
-			continue
-		end
 		if spawnService and not spawnService:IsPlayerSpawned(player) then
 			continue
 		end
@@ -494,10 +483,7 @@ local function updateDetection(dt: number)
 	end
 
 	local anyMoving = false
-	for _, player in ipairs(runStateService:GetMembers()) do
-		if not runStateService:IsActive() or not runStateService:IsMember(player) then
-			continue
-		end
+	for _, player in ipairs(Players:GetPlayers()) do
 		if spawnService and not spawnService:IsPlayerSpawned(player) then
 			continue
 		end
@@ -532,10 +518,7 @@ local function updateDetection(dt: number)
 		local target
 		-- Find the nearest moving player to chase
 		local nearestDist = math.huge
-		for _, player in ipairs(runStateService:GetMembers()) do
-			if not runStateService:IsActive() or not runStateService:IsMember(player) then
-				continue
-			end
+		for _, player in ipairs(Players:GetPlayers()) do
 			if spawnService and not spawnService:IsPlayerSpawned(player) then
 				continue
 			end
@@ -570,10 +553,7 @@ end
 local function findHuntableTarget(fromPosition: Vector3): Player?
 	local nearest: Player? = nil
 	local nearestDist = math.huge
-	for _, player in ipairs(runStateService:GetMembers()) do
-		if not runStateService:IsActive() or not runStateService:IsMember(player) then
-			continue
-		end
+	for _, player in ipairs(Players:GetPlayers()) do
 		if spawnService and not spawnService:IsPlayerSpawned(player) then
 			continue
 		end
@@ -752,8 +732,7 @@ local function runOwlBehavior(dt: number)
 			owl.lastContactTime = now
 			local targetPlayer = owl.target :: Player?
 			if targetPlayer and playerLifeService and playerLifeService:IsAlive(targetPlayer) then
-				local cycleIndex = timeService and timeService:GetCycleIndex() or 1
-				local damage = 12 + math.min(cycleIndex, 40) * 0.4
+				local damage = 25 + (timeService and timeService:GetCycleIndex() or 1) * 2
 				playerLifeService:ApplyDamage(targetPlayer, damage, "Owl")
 				broadcastToAll(OwlService.Client.OwlContact, owl.rootPart.Position)
 			end
@@ -897,10 +876,8 @@ end
 -- // INITIALIZATION // --
 
 function OwlService:KnitStart()
-	if not ServerRole.IsGameServer() then return end
 	worldService = Knit.GetService("WorldService")
 	timeService = Knit.GetService("TimeService")
-	runStateService = Knit.GetService("RunStateService")
 	campfireService = Knit.GetService("CampfireService")
 	spawnService = Knit.GetService("SpawnService")
 	animalAIService = Knit.GetService("AnimalAIService")

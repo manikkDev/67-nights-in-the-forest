@@ -3,7 +3,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 local WorldPlacement = require(script.Parent.Parent.WorldPlacement)
 
@@ -25,10 +24,7 @@ local checkTimer = 0
 
 local function broadcastExpansion(level: number)
 	WorldProgressionService.Client.AccessRadius:Set(accessRadius)
-	if not runStateService or not runStateService:IsActive() then
-		return
-	end
-	for _, player in ipairs(runStateService:GetMembers()) do
+	for _, player in ipairs(Players:GetPlayers()) do
 		WorldProgressionService.Client.BoundaryExpanded:Fire(player, level, accessRadius)
 	end
 end
@@ -326,7 +322,6 @@ function WorldProgressionService.Client:GetState(_player: Player): { level: numb
 end
 
 function WorldProgressionService:KnitStart()
-	if not ServerRole.IsGameServer() then return end
 	runStateService = Knit.GetService("RunStateService")
 	worldService = Knit.GetService("WorldService")
 	campfireService = Knit.GetService("CampfireService")

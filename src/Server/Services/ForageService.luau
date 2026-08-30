@@ -26,9 +26,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Constants = require(ReplicatedStorage.Shared.Constants)
-local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 
 -- | Objects | --
@@ -38,10 +36,7 @@ local ForageService = Knit.CreateService({
 })
 
 -- | Configuration | --
-local ITEMS_PATH = ServerStorage:FindFirstChild("Assets") and ServerStorage.Assets:FindFirstChild(Constants.ITEMS_PATH) or nil
-if not ITEMS_PATH then
-	warn("[ForageService] ITEMS_PATH not found: ServerStorage.Assets." .. tostring(Constants.ITEMS_PATH))
-end
+local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local TREE_MODEL_NAMES = { "Tree", "bigtree", "GiantTree" }
 local BERRY_TARGET_COUNT = 35
 local MUSHROOM_TARGET_COUNT = 25
@@ -56,20 +51,20 @@ local MUSHROOM_SUBMERGE_MAX = 0.15
 local BERRY_HUNGER_RESTORE = 12
 local MUSHROOM_HUNGER_RESTORE = 10
 local RAW_MEAT_HUNGER_RESTORE = 15
+local RABBIT_MEAT_HUNGER_RESTORE = 18
 local COOKED_MEAT_HUNGER_RESTORE = 30
 local EAT_HUNGER_RESTORE = {
 	Berries = BERRY_HUNGER_RESTORE,
 	Mushrooms = MUSHROOM_HUNGER_RESTORE,
 	RawMeat = RAW_MEAT_HUNGER_RESTORE,
+	RabbitMeat = RABBIT_MEAT_HUNGER_RESTORE,
 	CookedMeat = COOKED_MEAT_HUNGER_RESTORE,
 }
-local EAT_HEALTH_RESTORE = RunConfig.ConsumableHeal
 
 -- | State Management | --
 local worldService: any = nil
 local inventoryService: any = nil
 local hungerService: any = nil
-local playerLifeService: any = nil
 local treePivots: { CFrame } = {}
 local groundPart: BasePart? = nil
 local groundBounds: { minX: number, maxX: number, minZ: number, maxZ: number }? = nil
@@ -113,8 +108,6 @@ local function collectTreePivots()
 		return
 	end
 
-	print("[ForageService] Forest ready — collecting tree pivots")
-
 	-- Remove edit-mode preview forage items before spawning real ones.
 	local preview = baseMap:FindFirstChild("ForagePreview")
 	if preview then
@@ -130,7 +123,6 @@ local function collectTreePivots()
 		end
 	end
 
-	print(("[ForageService] Found %d tree pivots"):format(#treePivots))
 end
 
 --[[
@@ -268,15 +260,11 @@ local function spawnForagePickup(resourceName: string, unlockLevel: number?)
 		task.delay(2, spawnForagePickup, resourceName, level)
 		return
 	end
-	if not ITEMS_PATH then
-		warn("[ForageService] Cannot spawn forage — ITEMS_PATH is nil")
-		return
-	end
 
 	local model: Model
 	local cframe: CFrame
 	if resourceName == "Berries" then
-		local source = ITEMS_PATH and ITEMS_PATH:FindFirstChild("Carrot")
+		local source = ITEMS_PATH:FindFirstChild("Carrot")
 		if not source then
 			warn("[ForageService] Carrot mesh not found in Assets Items")
 			return
@@ -301,7 +289,6 @@ local function spawnForagePickup(resourceName: string, unlockLevel: number?)
 
 	model.Parent = baseMap
 	activePickups += 1
-	print(("[ForageService] Spawned %s pickup at %s (total: %d)"):format(resourceName, tostring(position), activePickups))
 end
 
 --[[
@@ -356,12 +343,10 @@ end
 ]]
 local function spawnInitialForage()
 	if #treePivots == 0 then
-		print("[ForageService] Waiting for tree pivots before spawning forage...")
 		task.delay(2, spawnInitialForage)
 		return
 	end
 
-	print(("[ForageService] Spawning initial forage — %d tree pivots found"):format(#treePivots))
 	local levelCount = #WorldProgressionConfig.AccessRadiusByLevel
 	for index = 1, BERRY_TARGET_COUNT do
 		local unlockLevel = if index <= math.ceil(BERRY_TARGET_COUNT * 0.4) then 1 else ((index - 1) % levelCount) + 1
@@ -371,7 +356,7 @@ local function spawnInitialForage()
 		local unlockLevel = if index <= math.ceil(MUSHROOM_TARGET_COUNT * 0.4) then 1 else ((index - 1) % levelCount) + 1
 		spawnForagePickup("Mushrooms", unlockLevel)
 	end
-	print(("[ForageService] Initial forage spawn complete — %d active pickups"):format(activePickups))
+
 end
 
 -- // CLIENT REMOTES // --
@@ -427,21 +412,15 @@ function ForageService.Client:RequestEat(player: Player, resourceName: string): 
 	if hungerService then
 		hungerService:RestoreHunger(player, restoreAmount)
 	end
-	local healthRestore = EAT_HEALTH_RESTORE[resourceName] or 0
-	if playerLifeService and healthRestore > 0 then
-		playerLifeService:RestoreHealth(player, healthRestore)
-	end
 	return true
 end
 
 -- // INITIALIZATION // --
 
 function ForageService:KnitStart()
-	if not ServerRole.IsGameServer() then return end
 	worldService = Knit.GetService("WorldService")
 	inventoryService = Knit.GetService("InventoryService")
 	hungerService = Knit.GetService("HungerService")
-	playerLifeService = Knit.GetService("PlayerLifeService")
 
 	collectTreePivots()
 	task.delay(1, spawnInitialForage)

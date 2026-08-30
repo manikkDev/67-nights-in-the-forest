@@ -61,10 +61,7 @@ local GIANT_WOOD_DROP_MIN = 10
 local GIANT_WOOD_DROP_MAX = 15
 local PICKUP_RANGE = 12
 local LOG_LIFETIME = 300
-local ITEMS_PATH = ServerStorage:FindFirstChild("Assets") and ServerStorage.Assets:FindFirstChild(Constants.ITEMS_PATH) or nil
-if not ITEMS_PATH then
-	warn("[HarvestService] ITEMS_PATH not found: ServerStorage.Assets." .. tostring(Constants.ITEMS_PATH))
-end
+local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local TREE_MODEL_NAMES = { "Tree", "bigtree", "GiantTree" }
 local AXE_TOOL_NAME = "Axe"
 
@@ -88,7 +85,7 @@ local chopCooldowns: { [Player]: number } = {}
     @returns  Tool?
 ]]
 local function buildAxeTool(): Tool?
-	local animModel = ITEMS_PATH and ITEMS_PATH:FindFirstChild("AxeAnimations")
+	local animModel = ITEMS_PATH:FindFirstChild("AxeAnimations")
 	if not animModel then
 		warn("[HarvestService] AxeAnimations model not found in Assets Items")
 		return nil
@@ -147,8 +144,7 @@ local function giveAxe(player: Player)
 	if not axeTemplate then
 		return
 	end
-	-- On the game place, always give the axe. On the lobby, require spawn first.
-	if ServerRole.IsLobby() and spawnService and not spawnService:IsPlayerSpawned(player) then
+	if spawnService and not spawnService:IsPlayerSpawned(player) then
 		return
 	end
 
@@ -201,7 +197,7 @@ end
     @param    treeName    string   -- name of the tree model ("Tree", "bigtree", "GiantTree")
 ]]
 local function spawnWoodDrops(position: Vector3, baseMap: Model, treeName: string)
-	local source = ITEMS_PATH and ITEMS_PATH:FindFirstChild("Log")
+	local source = ITEMS_PATH:FindFirstChild("Log")
 	if not source then
 		warn("[HarvestService] Log model not found in Assets Items")
 		return
@@ -609,23 +605,6 @@ function HarvestService:KnitStart()
 	spawnService = Knit.GetService("SpawnService")
 
 	axeTemplate = buildAxeTool()
-	if axeTemplate then
-		print("[HarvestService] Axe tool built successfully")
-	else
-		warn("[HarvestService] Axe tool FAILED to build — using invisible fallback")
-		axeTemplate = Instance.new("Tool")
-		axeTemplate.Name = AXE_TOOL_NAME
-		axeTemplate.RequiresHandle = true
-		local fh = Instance.new("Part")
-		fh.Name = "Handle"
-		fh.Size = Vector3.new(0.3, 0.3, 1)
-		fh.Transparency = 1
-		fh.CanCollide = false
-		fh.CanQuery = false
-		fh.CanTouch = false
-		fh.Massless = true
-		fh.Parent = axeTemplate
-	end
 	publishAxeAnimation()
 	registerAllTrees()
 

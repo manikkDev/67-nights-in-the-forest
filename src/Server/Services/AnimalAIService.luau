@@ -34,10 +34,8 @@ local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local NpcConfig = require(ReplicatedStorage.Shared.NpcConfig)
-local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 
@@ -54,10 +52,7 @@ local AnimalAIService = Knit.CreateService({
 AnimalAIService.NpcDiedServer = Signal.new()
 
 -- | Configuration | --
-local NPC_SOURCE_PATH = ServerStorage:FindFirstChild("Assets") and ServerStorage.Assets:FindFirstChild("Assets Npcs") or nil
-if not NPC_SOURCE_PATH then
-	warn("[AnimalAIService] NPC_SOURCE_PATH not found: ServerStorage.Assets.Assets Npcs")
-end
+local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
 local DECISION_INTERVAL = 0.25
 local MIN_SPAWN_DIST = 20
 local MAX_SPAWN_DIST = 60
@@ -364,16 +359,9 @@ end
     @param    signal  KnitSignal
 ]]
 local function broadcastToAll(signal, ...)
-	if not runStateService or not runStateService:IsActive() then
-		return
-	end
-	for _, player in ipairs(runStateService:GetMembers()) do
+	for _, player in ipairs(Players:GetPlayers()) do
 		signal:Fire(player, ...)
 	end
-end
-
-local function scaledCount(baseCount: number): number
-	return RunConfig.ScaleEnemyCount(baseCount, runStateService and runStateService:GetInitialPartySize() or 1)
 end
 
 --[[
@@ -388,16 +376,11 @@ local function grantLoot(record, player: Player)
 	for _, entry in ipairs(record.config.Loot or {}) do
 		if math.random() <= entry.Chance then
 			local amount = math.random(entry.Min, entry.Max)
-			if entry.Resource == "RawMeat" or entry.Resource == "CultistGem" then
+			if entry.Resource == "RabbitMeat" or entry.Resource == "CultistGem" then
 				-- Spawn as a physical world drop so the player can pick it up.
 				for _ = 1, amount do
 					local drop = inventoryService:BuildDropModel(entry.Resource)
 					if drop then
-						-- Mark the drop with the killer so the campfire can
-						-- cook RawMeat drops (cookRawMeat checks DroppedBy).
-						if player then
-							drop:SetAttribute("DroppedBy", player.UserId)
-						end
 						local pos = record.model:GetPivot().Position
 						local offset = Vector3.new((math.random() - 0.5) * 5, 2, (math.random() - 0.5) * 5)
 						drop:PivotTo(CFrame.new(pos + offset))
@@ -493,43 +476,13 @@ local function killNpc(record, attacker: Player?)
 
 	if record.humanoid then
 		record.humanoid.WalkSpeed = 0
-		-- Disable the default R6 death (which breaks joints and shatters
-		-- the model). We do a smooth fade-out instead.
 		pcall(function()
-			record.humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
+			record.humanoid:SetStateEnabled(Enum.HumanoidStateType.Physics, true)
 		end)
-		pcall(function()
-			record.humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-		end)
-		-- Set health to 0 AFTER disabling the Dead state so the humanoid
-		-- stops AI but doesn't trigger the joint-break death animation.
-		record.humanoid.Health = 0.001
+		record.humanoid.Health = 0
 	end
 
 	CombatTargetRegistry.Unregister(record.model)
-
-	-- Smooth fade-out: tween all BasePart Transparency to 1, then destroy.
-	local parts = {}
-	for _, desc in ipairs(record.model:GetDescendants()) do
-		if desc:IsA("BasePart") then
-			table.insert(parts, desc)
-		end
-	end
-	task.spawn(function()
-		local fadeTime = 1.5
-		local steps = 15
-		local stepDelay = fadeTime / steps
-		for i = 1, steps do
-			local alpha = i / steps
-			for _, part in ipairs(parts) do
-				if part.Parent then
-					part.Transparency = alpha
-				end
-			end
-			task.wait(stepDelay)
-		end
-	end)
-
 	Debris:AddItem(record.model, DEATH_FADE_DELAY)
 	task.delay(DEATH_FADE_DELAY, function()
 		activeNpcs[record.model] = nil
@@ -554,11 +507,10 @@ local function applyDamageToRecord(record, amount: number, attacker: Player?): (
 		return false, true
 	end
 	record.health -= amount
-	record.humanoid.Health = math.max(record.health, 0)
 	flashHit(record.model)
 
-	local maxHealth = record.maxHealth or record.config.MaxHealth
-	local healthRatio = math.clamp(record.health / math.max(maxHealth, 1), 0, 1)
+	local maxHealth = record.config.MaxHealth
+	local healthRatio = math.clamp(record.health / maxHealth, 0, 1)
 	local position = record.rootPart.Position
 	broadcastToAll(AnimalAIService.Client.NpcHealthChanged, record.model, healthRatio, amount, position, record.key)
 
@@ -578,10 +530,7 @@ end
 local function findNearestPlayer(position: Vector3, range: number): (Player?, number?)
 	local nearest: Player? = nil
 	local nearestDist: number? = nil
-	for _, player in ipairs(runStateService:GetMembers()) do
-		if not runStateService:IsActive() or not runStateService:IsMember(player) then
-			continue
-		end
+	for _, player in ipairs(Players:GetPlayers()) do
 		if spawnService and not spawnService:IsPlayerSpawned(player) then
 			continue
 		end
@@ -826,7 +775,7 @@ local function runStateBehavior(record, dt: number)
 				if record.tracks and record.tracks.Attack then
 					record.tracks.Attack:Play()
 				end
-				playerLifeService:ApplyDamage(targetPlayer, config.AttackDamage, record.key)
+				playerLifeService:ApplyDamage(targetPlayer, config.AttackDamage, record.speciesKey)
 				broadcastToAll(AnimalAIService.Client.NpcAttacked, record.rootPart.Position)
 			end
 		end
@@ -876,7 +825,7 @@ function AnimalAIService:SpawnNpc(speciesKey: string, cframe: CFrame, options: {
 		return nil
 	end
 
-	local template = NPC_SOURCE_PATH and NPC_SOURCE_PATH:FindFirstChild(config.ModelName)
+	local template = NPC_SOURCE_PATH:FindFirstChild(config.ModelName)
 	if not template or not template:IsA("Model") then
 		warn("[AnimalAIService] Missing NPC template", config.ModelName)
 		return nil
@@ -884,6 +833,7 @@ function AnimalAIService:SpawnNpc(speciesKey: string, cframe: CFrame, options: {
 
 	local model = template:Clone()
 	model:PivotTo(cframe)
+	model.Parent = workspace
 
 	local humanoid = model:FindFirstChildOfClass("Humanoid") or model:FindFirstChild("NPC")
 	local rootPart = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("HRP")
@@ -893,10 +843,7 @@ function AnimalAIService:SpawnNpc(speciesKey: string, cframe: CFrame, options: {
 		return nil
 	end
 
-	local scaledHealth = if config.MaxHealth > 0
-		then RunConfig.ScaleEnemyHealth(config.MaxHealth, runStateService and runStateService:GetInitialPartySize() or 1)
-		else 0
-	humanoid.MaxHealth = math.max(scaledHealth, 1)
+	humanoid.MaxHealth = math.max(config.MaxHealth, 1)
 	humanoid.Health = humanoid.MaxHealth
 	humanoid.WalkSpeed = config.WalkSpeed
 
@@ -910,26 +857,31 @@ function AnimalAIService:SpawnNpc(speciesKey: string, cframe: CFrame, options: {
 		key = speciesKey,
 		state = "Patrol",
 		target = nil,
-		health = scaledHealth,
-		maxHealth = scaledHealth,
+		health = config.MaxHealth,
 		spawnPosition = cframe.Position,
 		gaitPhase = 0,
 		isDead = false,
 		isRaidCultist = isRaidCultist,
 	}
 
-	local doomed: { Instance } = {}
-	for _, desc in ipairs(model:GetDescendants()) do
-		if desc:IsA("BaseScript") or desc:IsA("ModuleScript")
-			or desc:IsA("PackageLink") or desc:IsA("TextureConfiguration")
-		then
-			table.insert(doomed, desc)
+	-- Sanitize any unauthorized animation assets and scripts from the model.
+	if isRaidCultist then
+		local doomed: { Instance } = {}
+		for _, desc in ipairs(model:GetDescendants()) do
+			if desc:IsA("Animation") and desc.AnimationId ~= "" then
+				local id = desc.AnimationId
+				local numericId = tonumber(string.match(id, "%d+"))
+				if numericId and numericId > 999999999 then
+					table.insert(doomed, desc)
+				end
+			elseif desc:IsA("BaseScript") or desc:IsA("ModuleScript") then
+				table.insert(doomed, desc)
+			end
+		end
+		for _, inst in ipairs(doomed) do
+			inst:Destroy()
 		end
 	end
-	for _, inst in ipairs(doomed) do
-		inst:Destroy()
-	end
-	model.Parent = workspace
 
 	buildAnimationTracks(record)
 	activeNpcs[model] = record
@@ -997,7 +949,7 @@ local function spawnWolfPack(dayNumber: number)
 		return
 	end
 
-	local packSize = scaledCount(math.clamp(WOLF_BASE_COUNT + math.floor(dayNumber / WOLF_DAY_SCALING), WOLF_BASE_COUNT, 8))
+	local packSize = math.clamp(WOLF_BASE_COUNT + math.floor(dayNumber / WOLF_DAY_SCALING), WOLF_BASE_COUNT, 8)
 	for i = 1, packSize do
 		local offset = Vector3.new((math.random() - 0.5) * 12, 0, (math.random() - 0.5) * 12)
 		local cframe = groundedCFrame(center + offset)
@@ -1031,7 +983,7 @@ spawnPersistentPopulation = function()
 	end
 
 	-- Bunnies: spawn at all levels, far from campfire, scattered
-	for _ = 1, scaledCount(PERSISTENT_TARGET_COUNTS.Bunny) do
+	for _ = 1, PERSISTENT_TARGET_COUNTS.Bunny do
 		local position = pickSpawnPosition(BUNNY_MIN_SPAWN_DIST, BUNNY_MAX_SPAWN_DIST)
 		if position then
 			AnimalAIService:SpawnNpc("Bunny", groundedCFrame(position))
@@ -1040,7 +992,7 @@ spawnPersistentPopulation = function()
 
 	-- Wolves: only spawn at level 2+
 	if currentLevel >= 2 then
-		for _ = 1, scaledCount(PERSISTENT_TARGET_COUNTS.WolfModel) do
+		for _ = 1, PERSISTENT_TARGET_COUNTS.WolfModel do
 			local wolfPosition = pickSpawnPosition(WOLF_MIN_SPAWN_DIST, WOLF_MAX_SPAWN_DIST)
 			if wolfPosition then
 				AnimalAIService:SpawnNpc("WolfModel", groundedCFrame(wolfPosition))
@@ -1050,7 +1002,7 @@ spawnPersistentPopulation = function()
 
 	-- Bears: only spawn at level 3+
 	if currentLevel >= 3 then
-		for _ = 1, scaledCount(PERSISTENT_TARGET_COUNTS.Bear) do
+		for _ = 1, PERSISTENT_TARGET_COUNTS.Bear do
 			local bearPosition = pickSpawnPosition(BEAR_MIN_SPAWN_DIST, BEAR_MAX_SPAWN_DIST)
 			if bearPosition then
 				AnimalAIService:SpawnNpc("Bear", groundedCFrame(bearPosition))
@@ -1086,7 +1038,7 @@ local function checkPersistentRespawn(dt: number)
 			continue
 		end
 		local current = speciesCounts[speciesKey] or 0
-		if current < scaledCount(targetCount) then
+		if current < targetCount then
 			local position
 			if speciesKey == "Bear" then
 				position = pickSpawnPosition(BEAR_MIN_SPAWN_DIST, BEAR_MAX_SPAWN_DIST)
@@ -1134,7 +1086,6 @@ end
 -- // INITIALIZATION // --
 
 function AnimalAIService:KnitStart()
-	if not ServerRole.IsGameServer() then return end
 	worldService = Knit.GetService("WorldService")
 	timeService = Knit.GetService("TimeService")
 	spawnService = Knit.GetService("SpawnService")

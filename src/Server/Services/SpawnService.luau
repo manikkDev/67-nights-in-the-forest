@@ -23,7 +23,6 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 local Constants = require(ReplicatedStorage.Shared.Constants)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local SpawnService = Knit.CreateService({
@@ -102,15 +101,7 @@ function SpawnService:SpawnPlayer(player: Player, slot: number?, partySize: numb
 	if spawnedPlayers[player] then
 		return true
 	end
-	if spawningPlayers[player] then
-		return false
-	end
-	if not runStateService then
-		warn("[SpawnService] SpawnPlayer rejected — runStateService is nil for", player.Name)
-		return false
-	end
-	if not runStateService:IsMember(player) then
-		warn("[SpawnService] SpawnPlayer rejected — player is not a run member:", player.Name)
+	if spawningPlayers[player] or not runStateService or not runStateService:IsMember(player) then
 		return false
 	end
 	spawningPlayers[player] = true
@@ -118,19 +109,13 @@ function SpawnService:SpawnPlayer(player: Player, slot: number?, partySize: numb
 	local campfireCFrame = worldService and worldService:GetCampfireCFrame()
 	if not campfireCFrame then
 		spawningPlayers[player] = nil
-		warn("[SpawnService] Campfire CFrame not available — cannot spawn", player.Name)
+		warn("[SpawnService] Campfire CFrame not available")
 		return false
 	end
 	local character = loadFreshCharacter(player)
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-	if not rootPart or not rootPart:IsA("BasePart") then
+	if not rootPart or not rootPart:IsA("BasePart") or not runStateService:IsMember(player) then
 		spawningPlayers[player] = nil
-		warn("[SpawnService] Character load failed for", player.Name)
-		return false
-	end
-	if not runStateService:IsMember(player) then
-		spawningPlayers[player] = nil
-		warn("[SpawnService] Player lost membership during spawn:", player.Name)
 		return false
 	end
 
@@ -149,7 +134,6 @@ function SpawnService:SpawnPlayer(player: Player, slot: number?, partySize: numb
 	spawnedPlayers[player] = true
 	SpawnService.Client.PlayerSpawned:Fire(player)
 	SpawnService.PlayerSpawned:Fire(player)
-	print("[SpawnService] Player spawned at campfire:", player.Name, "slot", index, "of", count)
 	return true
 end
 
@@ -158,10 +142,8 @@ function SpawnService:SpawnParty(participants: { Player }): boolean
 	local expected = #participants
 	for index, player in ipairs(participants) do
 		task.spawn(function()
-			local ok = self:SpawnPlayer(player, index, expected)
-			if ok then
-				completed += 1
-			end
+			self:SpawnPlayer(player, index, expected)
+			completed += 1
 		end)
 	end
 	local deadline = os.clock() + CHARACTER_TIMEOUT + 2
@@ -299,22 +281,17 @@ function SpawnService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	matchFlowService = Knit.GetService("MatchFlowService")
 	runStateService = Knit.GetService("RunStateService")
+	wireTeleporters()
 
-	if ServerRole.IsLobby() then
-		-- Lobby place: wire teleporters for party formation.
-		wireTeleporters()
-	else
-		-- Game place: auto-spawn players when the run starts (Studio shortcut).
-		if RunConfig.IsTestEnabled("SkipLobby") or RunConfig.IsTestEnabled("ForceGameMode") then
-			task.delay(1, function()
-				for _, player in ipairs(Players:GetPlayers()) do
-					task.spawn(autoSpawnPlayer, player)
-				end
-			end)
-			Players.PlayerAdded:Connect(function(player)
+	if RunConfig.IsTestEnabled("SkipLobby") then
+		task.delay(1, function()
+			for _, player in ipairs(Players:GetPlayers()) do
 				task.spawn(autoSpawnPlayer, player)
-			end)
-		end
+			end
+		end)
+		Players.PlayerAdded:Connect(function(player)
+			task.spawn(autoSpawnPlayer, player)
+		end)
 	end
 end
 

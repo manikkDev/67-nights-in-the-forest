@@ -19,7 +19,7 @@
 ]]
 
 return {
-	DataVersion = 4,
+	DataVersion = 2,
 
 	Records = {
 		HighestDay = 0,
@@ -48,10 +48,12 @@ return {
 
 	Resources = {
 		Wood = 0,
+		Scrap = 0,
 		Coal = 0,
 		Berries = 0,
 		Mushrooms = 0,
 		RawMeat = 0,
+		RabbitMeat = 0,
 		CookedMeat = 0,
 		OwlFeather = 0,
 		CultistGem = 0,

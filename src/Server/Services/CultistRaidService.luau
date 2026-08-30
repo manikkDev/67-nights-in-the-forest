@@ -32,8 +32,6 @@ local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
-local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 
 -- | Objects | --
 local CultistRaidService = Knit.CreateService({
@@ -60,7 +58,6 @@ local CULTIST_MODEL_KEYS = { "Cultist", "Cultist2" }
 -- | State Management | --
 local timeService: any = nil
 local worldService: any = nil
-local runStateService: any = nil
 local animalAIService: any = nil
 local campfireService: any = nil
 local deerService: any = nil
@@ -81,10 +78,7 @@ local preNightWarningFired = false
     @param    signal  KnitSignal
 ]]
 local function broadcastToAll(signal, ...)
-	if not runStateService or not runStateService:IsActive() then
-		return
-	end
-	for _, player in ipairs(runStateService:GetMembers()) do
+	for _, player in ipairs(Players:GetPlayers()) do
 		signal:Fire(player, ...)
 	end
 end
@@ -183,11 +177,7 @@ local function startRaid(dayNumber: number)
 	raidDayNumber = dayNumber
 	cleanupScheduled = false
 	preNightWarningFired = false
-	local count = math.clamp(
-		RunConfig.ScaleEnemyCount(computeRaidSize(dayNumber), runStateService:GetInitialPartySize()),
-		1,
-		MAX_RAID_SIZE
-	)
+	local count = computeRaidSize(dayNumber)
 
 	-- Suppress the Deer stalker during cultist raids so only cultists
 	-- are present as hostile NPCs.
@@ -310,46 +300,17 @@ local function onHeartbeat(dt: number)
 	end
 end
 
-local function resetRaidState(destroyModels: boolean)
-	if destroyModels then
-		for _, model in ipairs(raidCultists) do
-			if model.Parent then
-				model:Destroy()
-			end
-		end
-	end
-	raidCultists = {}
-	raidActive = false
-	raidDayNumber = 0
-	cleanupScheduled = false
-	raidTotalCount = 0
-	raidTotalMaxHealth = 0
-	lastStatusUpdate = 0
-	preNightWarningFired = false
-	lastPhase = "Day"
-	if deerService then
-		deerService:SuppressDeer(false)
-	end
-end
-
 -- // INITIALIZATION // --
 
 function CultistRaidService:KnitStart()
-	if not ServerRole.IsGameServer() then return end
 	timeService = Knit.GetService("TimeService")
 	worldService = Knit.GetService("WorldService")
-	runStateService = Knit.GetService("RunStateService")
 	animalAIService = Knit.GetService("AnimalAIService")
 	campfireService = Knit.GetService("CampfireService")
 	deerService = Knit.GetService("DeerService")
 
-	runStateService.RunStarted:Connect(function()
-		resetRaidState(true)
-	end)
-	runStateService.RunCleaned:Connect(function()
-		resetRaidState(true)
-	end)
 	RunService.Heartbeat:Connect(onHeartbeat)
+
 end
 
 return CultistRaidService

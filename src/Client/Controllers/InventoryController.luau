@@ -89,6 +89,8 @@ local TWEEN_CAPACITY = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDire
 local EDIBLE_RESOURCES = { Berries = true, Mushrooms = true, RawMeat = true, CookedMeat = true }
 local ROW_ORDER = {
 	"Wood",
+	"WoodenSheet",
+	"Scrap",
 	"Coal",
 	"Berries",
 	"Mushrooms",
@@ -171,8 +173,6 @@ local tooltipCount: TextLabel? = nil
 local tooltipDesc: TextLabel? = nil
 
 local isOpen = false
-local hasCarriedItems = false
-local hookedBagTools: { [Tool]: boolean } = setmetatable({}, { __mode = "k" })
 local useHover = UserInputService.MouseEnabled and not UserInputService.TouchEnabled
 local gameStateController: any = nil
 
@@ -648,11 +648,11 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	-- Name + count block in the centre.
 	local textContainer = Instance.new("Frame")
 	textContainer.Name = "TextContainer"
-	textContainer.Size = UDim2.new(1, -(ICON_SIZE + ACTION_BUTTON_WIDTH * 2 + ACTION_GAP + 16), 1, 0)
+	textContainer.Size = UDim2.new(1, -(ICON_SIZE + ACTION_BUTTON_WIDTH * 2 + ACTION_GAP + 12), 1, 0)
 	textContainer.Position = UDim2.new(0, ICON_SIZE + 10, 0, 0)
 	textContainer.BackgroundTransparency = 1
 	textContainer.BorderSizePixel = 0
-	textContainer.ClipsDescendants = false
+	textContainer.ClipsDescendants = true
 	textContainer.Parent = row
 
 	local nameLabel = Instance.new("TextLabel")
@@ -673,8 +673,8 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 
 	local countLabel = Instance.new("TextLabel")
 	countLabel.Name = "Count"
-	countLabel.Size = UDim2.new(1, 0, 0, 20)
-	countLabel.Position = UDim2.new(0, 0, 0, 20)
+	countLabel.Size = UDim2.new(1, 0, 0, 16)
+	countLabel.Position = UDim2.new(0, 0, 0, 22)
 	countLabel.BackgroundTransparency = 1
 	countLabel.Text = "0"
 	countLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
@@ -966,7 +966,7 @@ local function updateDisplay(resources: { [string]: number }?, capacity: number?
 		if count ~= entry.lastCount then
 			entry.lastCount = count
 			local originalSize = entry.countLabel.TextSize
-			entry.countLabel.TextSize = 16
+			entry.countLabel.TextSize = 18
 			TweenService:Create(entry.countLabel, TWEEN_COUNT_POP, { TextSize = originalSize }):Play()
 		end
 
@@ -1001,7 +1001,6 @@ local function updateDisplay(resources: { [string]: number }?, capacity: number?
 		end
 	end
 
-	hasCarriedItems = total > 0
 	updateCapacity(total, capacity or 5)
 end
 
@@ -1015,11 +1014,7 @@ local function showBag()
 	if not bagPanel then
 		return
 	end
-	-- Idempotent: if already open, just ensure the GUI is enabled
 	if isOpen then
-		if bagGui then
-			bagGui.Enabled = true
-		end
 		return
 	end
 	isOpen = true
@@ -1127,16 +1122,8 @@ end
     @summary  Attach equip/unequip listeners to a Carry Bag tool.
 ]]
 local function hookTool(tool: Tool)
-	if hookedBagTools[tool] then
-		return
-	end
-	hookedBagTools[tool] = true
-	tool.Equipped:Connect(function()
-		task.defer(showBag)
-	end)
-	tool.Unequipped:Connect(function()
-		task.defer(hideBag)
-	end)
+	tool.Equipped:Connect(showBag)
+	tool.Unequipped:Connect(hideBag)
 end
 
 --[[
@@ -1166,51 +1153,48 @@ end
     @summary  Watch for the bag tool appearing or being equipped.
 ]]
 local function watchBagTool()
-	local backpack = localPlayer:WaitForChild("Backpack")
-	local function registerBag(child: Instance)
-		if child.Name == BAG_TOOL_NAME and child:IsA("Tool") then
-			hookTool(child)
-		end
-	end
-	local function watchCharacter(character: Model)
-		character.ChildAdded:Connect(function(child)
-			registerBag(child)
-			if child.Name == BAG_TOOL_NAME and child:IsA("Tool") then
-				showBag()
-			end
-		end)
-		character.ChildRemoved:Connect(function(child)
-			if child.Name == BAG_TOOL_NAME and child:IsA("Tool") then
-				task.defer(function()
-					if not character:FindFirstChild(BAG_TOOL_NAME) then
-						hideBag()
-					end
-				end)
-			end
-		end)
-		for _, child in ipairs(character:GetChildren()) do
-			registerBag(child)
-		end
-		local held = character:FindFirstChild(BAG_TOOL_NAME)
-		if held and held:IsA("Tool") then
+	local tool = findBagTool()
+	if tool then
+		hookTool(tool)
+		if tool.Parent == localPlayer.Character then
 			showBag()
 		end
 	end
 
-	backpack.ChildAdded:Connect(registerBag)
-	for _, child in ipairs(backpack:GetChildren()) do
-		registerBag(child)
+	local backpack = localPlayer:WaitForChild("Backpack")
+	if not backpack then
+		return
 	end
+	local function onChildAdded(child: Instance)
+		if child.Name == BAG_TOOL_NAME and child:IsA("Tool") then
+			hookTool(child)
+		end
+	end
+
+	backpack.ChildAdded:Connect(onChildAdded)
+
+	local function onCharacterAdded(character: Model)
+		local held = character:WaitForChild(BAG_TOOL_NAME, 5)
+		if held and held:IsA("Tool") then
+			hookTool(held)
+			showBag()
+		end
+		character.ChildRemoved:Connect(function(child)
+			if child.Name == BAG_TOOL_NAME and child:IsA("Tool") then
+				hideBag()
+			end
+		end)
+	end
+
 	if localPlayer.Character then
-		watchCharacter(localPlayer.Character)
+		onCharacterAdded(localPlayer.Character)
 	end
-	localPlayer.CharacterAdded:Connect(watchCharacter)
+	localPlayer.CharacterAdded:Connect(onCharacterAdded)
 end
 
 -- // INITIALIZATION // --
 
 function InventoryController:KnitInit()
-	if not ServerRole.IsGameServer() then return end
 	local playerGui = localPlayer:WaitForChild("PlayerGui")
 	if not playerGui then
 		warn("[InventoryController] PlayerGui not found")
@@ -1225,35 +1209,21 @@ function InventoryController:KnitInit()
 end
 
 function InventoryController:KnitStart()
-	if not ServerRole.IsGameServer() then return end
+	if ServerRole.IsLobby() then return end
 	gameStateController = Knit.GetController("GameStateController")
 	local inventoryService = Knit.GetService("InventoryService")
 
 	local function onGameStarted()
-		print("[InventoryController] onGameStarted — wiring interactions and watching bag tool")
 		wireInteractions()
 		watchBagTool()
 
 		inventoryService.ResourcesChanged:Connect(function(resources, capacity)
 			updateDisplay(resources, capacity)
-			local character = localPlayer.Character
-			local bagEquipped = character and character:FindFirstChild(BAG_TOOL_NAME) ~= nil
-			if bagEquipped then
-				showBag()
-			elseif isOpen then
-				hideBag()
-			end
 		end)
 
 		inventoryService:GetSnapshot():andThen(function(snapshot)
 			if typeof(snapshot) == "table" then
 				updateDisplay(snapshot.resources, snapshot.capacity)
-				local character = localPlayer.Character
-				if character and character:FindFirstChild(BAG_TOOL_NAME) then
-					showBag()
-				elseif isOpen then
-					hideBag()
-				end
 			end
 		end):catch(function(err)
 			warn("[InventoryController] Initial snapshot failed:", err)

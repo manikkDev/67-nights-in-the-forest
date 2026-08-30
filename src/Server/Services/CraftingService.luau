@@ -106,24 +106,6 @@ end
 
 --[[
     @summary  Return whether the player owns every cost in a recipe.
-              WoodenSheet and Scrap are SHARED run totals (produced by
-              the shredder), so they are checked against the shared pool.
-              All other resources are checked against the player's
-              personal inventory.
-    @param    player  Player
-    @param    cost    table
-    @returns  boolean
-]]
--- Forward declaration: updateTableCounters is defined later but
--- deductCost (below) needs to call it when shared totals change.
-local updateTableCounters
-
---[[
-    @summary  Return whether the player owns every cost in a recipe.
-              WoodenSheet and Scrap are SHARED run totals (produced by
-              the shredder), so they are checked against the shared pool.
-              All other resources are checked against the player's
-              personal inventory.
     @param    player  Player
     @param    cost    table
     @returns  boolean
@@ -134,15 +116,7 @@ local function canAfford(player: Player, cost: { [string]: number }): boolean
 		return false
 	end
 	for resourceName, amount in pairs(cost) do
-		local available
-		if resourceName == "WoodenSheet" then
-			available = totalWoodenSheetShredded
-		elseif resourceName == "Scrap" then
-			available = totalScrapShredded
-		else
-			available = data.Resources[resourceName] or 0
-		end
-		if available < amount then
+		if (data.Resources[resourceName] or 0) < amount then
 			return false
 		end
 	end
@@ -151,40 +125,19 @@ end
 
 --[[
     @summary  Deduct a fully validated recipe cost without yielding.
-              WoodenSheet and Scrap are deducted from the SHARED run
-              totals (and the bench counter is updated). All other
-              resources are deducted from the player's personal inventory.
     @param    player  Player
     @param    cost    table
 ]]
 local function deductCost(player: Player, cost: { [string]: number })
-	-- First deduct shared resources (WoodenSheet, Scrap)
-	local sharedDeducted = false
-	for resourceName, amount in pairs(cost) do
-		if resourceName == "WoodenSheet" then
-			totalWoodenSheetShredded = math.max(0, totalWoodenSheetShredded - amount)
-			sharedDeducted = true
-		elseif resourceName == "Scrap" then
-			totalScrapShredded = math.max(0, totalScrapShredded - amount)
-			sharedDeducted = true
-		end
-	end
-	if sharedDeducted then
-		updateTableCounters()
-	end
-
-	-- Then deduct personal resources
 	playerDataService:UpdateData(player, function(data)
 		for resourceName, amount in pairs(cost) do
-			if resourceName ~= "WoodenSheet" and resourceName ~= "Scrap" then
-				data.Resources[resourceName] -= amount
-				if data.Inventory and data.Inventory.PickupOrder then
-					for _ = 1, amount do
-						for index = #data.Inventory.PickupOrder, 1, -1 do
-							if data.Inventory.PickupOrder[index] == resourceName then
-								table.remove(data.Inventory.PickupOrder, index)
-								break
-							end
+			data.Resources[resourceName] -= amount
+			if data.Inventory and data.Inventory.PickupOrder then
+				for _ = 1, amount do
+					for index = #data.Inventory.PickupOrder, 1, -1 do
+						if data.Inventory.PickupOrder[index] == resourceName then
+							table.remove(data.Inventory.PickupOrder, index)
+							break
 						end
 					end
 				end
@@ -217,10 +170,6 @@ local function broadcastState()
 		tier = benchTier,
 		recipeCounts = table.clone(recipeCounts),
 		unlocks = table.clone(unlocks),
-		-- Include shared shredded totals so all teammates see the
-		-- same WoodenSheet/Scrap counts in the crafting UI.
-		sharedWoodenSheet = totalWoodenSheetShredded,
-		sharedScrap = totalScrapShredded,
 	}
 	for _, player in ipairs(runStateService:GetMembers()) do
 		CraftingService.Client.CraftingStateChanged:Fire(player, snapshot)
@@ -244,6 +193,7 @@ local function sanitizeBench(model: Model)
 			or descendant:IsA("ModuleScript")
 			or descendant:IsA("PackageLink")
 			or descendant:IsA("TextureConfiguration")
+			or descendant:IsA("Sound")
 			or className == "Package"
 			or className == "Configuration"
 			or (descendant:IsA("Sound") and descendant.SoundId == "rbxassetid://6160151677")
@@ -481,7 +431,7 @@ end
     @summary  Update the wooden sheet and scrap counter TextLabels
               on the table to show the shared run shredded totals.
 ]]
-function updateTableCounters()
+local function updateTableCounters()
 	if woodenSheetCounter and woodenSheetCounter.Parent then
 		woodenSheetCounter.Text = tostring(totalWoodenSheetShredded)
 	end
@@ -632,8 +582,7 @@ local function placeBench()
 		isManualBench = true
 	else
 		-- No manual bench: try the ServerStorage source.
-		local assets = ServerStorage:FindFirstChild("Assets")
-		local mapsItems = assets and assets:FindFirstChild("Assets maps items")
+		local mapsItems = ServerStorage.Assets:FindFirstChild("Assets maps items")
 		local source = mapsItems and mapsItems:FindFirstChild("crafting-table")
 		if source and source:IsA("Model") then
 			local sourceModel = source :: Model
@@ -738,7 +687,6 @@ function CraftingService:AddShreddedTotal(resource: string, amount: number)
 		return
 	end
 	updateTableCounters()
-	broadcastState()
 end
 
 --[[
@@ -780,20 +728,9 @@ function CraftingService.Client:GetBenchState(player: Player): { [string]: any }
 		return { tier = 1, resources = {}, recipeCounts = {}, unlocks = {}, isNearBench = false }
 	end
 	local data = playerDataService and playerDataService:GetData(player)
-	-- Build a merged resource table: personal inventory + shared
-	-- WoodenSheet/Scrap totals (so the client UI shows the shared
-	-- shredded amounts that crafting actually consumes from).
-	local resources = {}
-	if data and data.Resources then
-		for k, v in pairs(data.Resources) do
-			resources[k] = v
-		end
-	end
-	resources.WoodenSheet = totalWoodenSheetShredded
-	resources.Scrap = totalScrapShredded
 	return {
 		tier = benchTier,
-		resources = resources,
+		resources = if data then table.clone(data.Resources) else {},
 		recipeCounts = table.clone(recipeCounts),
 		unlocks = table.clone(unlocks),
 		isNearBench = isNearBench(player),
@@ -831,11 +768,6 @@ function CraftingService.Client:RequestCraft(player: Player, recipeId: string): 
 	local now = os.clock()
 	if craftCooldowns[player] and now - craftCooldowns[player] < CRAFT_COOLDOWN then
 		return { ok = false, code = "RATE_LIMITED" }
-	end
-	if recipe.OutputKind == "Item"
-		and inventoryService:GetTotalCarried(player) >= inventoryService:GetCapacity(player)
-	then
-		return { ok = false, code = "INVENTORY_FULL" }
 	end
 	if not canAfford(player, recipe.Cost) then
 		return { ok = false, code = "INSUFFICIENT_RESOURCES" }

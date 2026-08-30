@@ -30,7 +30,6 @@ local Players = game:GetService("Players")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
 
@@ -141,8 +140,8 @@ end
 ]]
 local function anchorAndSanitize(model: Model, blade: BasePart?)
 	for _, desc in ipairs(model:GetDescendants()) do
-		if desc:IsA("BaseScript") or desc:IsA("ModuleScript") then
-			desc:Destroy()
+		if desc:IsA("Script") or desc:IsA("LocalScript") or desc:IsA("ModuleScript") then
+			desc.Disabled = true
 		elseif desc:IsA("PackageLink") or desc:IsA("TextureConfiguration") then
 			desc:Destroy()
 		elseif desc:IsA("Sound") then
@@ -234,8 +233,7 @@ end
     @returns  Model?
 ]]
 local function buildShredderModel(): Model?
-	local assets = ServerStorage:FindFirstChild("Assets")
-	local itemsPath = assets and assets:FindFirstChild(Constants.ITEMS_PATH)
+	local itemsPath = ServerStorage.Assets:FindFirstChild(Constants.ITEMS_PATH)
 	if not itemsPath then
 		warn("[GrinderService] Assets Items folder not found in ServerStorage")
 		return nil
@@ -285,8 +283,8 @@ end
 ]]
 local function findOwner(model: Model): Player?
 	local droppedBy = model:GetAttribute("DroppedBy")
-	if droppedBy and runStateService then
-		for _, player in ipairs(runStateService:GetMembers()) do
+	if droppedBy then
+		for _, player in ipairs(Players:GetPlayers()) do
 			if player.UserId == droppedBy then
 				return player
 			end
@@ -319,33 +317,50 @@ local function autoGrindTouched(model: Model)
 
 	local player = findOwner(model)
 	if not player then
-		touchCooldowns[model] = nil
 		return
 	end
 	if not runStateService:IsActive() or not runStateService:IsMember(player) then
-		touchCooldowns[model] = nil
 		return
 	end
 	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 	if not humanoid or humanoid.Health <= 0 then
-		touchCooldowns[model] = nil
 		return
 	end
 
+	local inventoryService = Knit.GetService("InventoryService")
 	local craftingService = Knit.GetService("CraftingService")
 
-	local outputResource = if isWood then "WoodenSheet" else "Scrap"
-	local outputAmount = if isWood then 1 else JunkItemConfig[resourceName].ScrapYield
-	model:Destroy()
-	touchCooldowns[model] = nil
-	GrinderService:StartGrindAnimation()
-	GrinderService.Client.GrinderProcessed:Fire(player, {
-		position = grinderPosition,
-		scrapAmount = outputAmount,
-		junkId = if isWood then "WoodenSheet" else resourceName,
-	})
-	GrinderService:StopGrindAnimation()
-	craftingService:AddShreddedTotal(outputResource, outputAmount)
+	if isWood then
+		-- Wood -> WoodenSheet (1 wood = 1 wooden sheet).
+		local added = inventoryService:AddResource(player, "WoodenSheet", 1)
+		if added > 0 then
+			model:Destroy()
+			touchCooldowns[model] = nil
+			GrinderService:StartGrindAnimation()
+			GrinderService.Client.GrinderProcessed:Fire(player, {
+				position = grinderPosition,
+				scrapAmount = added,
+				junkId = "WoodenSheet",
+			})
+			GrinderService:StopGrindAnimation()
+			craftingService:AddShreddedTotal("WoodenSheet", added)
+		end
+	else
+		local config = JunkItemConfig[resourceName]
+		local added = inventoryService:AddResource(player, "Scrap", config.ScrapYield)
+		if added > 0 then
+			model:Destroy()
+			touchCooldowns[model] = nil
+			GrinderService:StartGrindAnimation()
+			GrinderService.Client.GrinderProcessed:Fire(player, {
+				position = grinderPosition,
+				scrapAmount = added,
+				junkId = resourceName,
+			})
+			GrinderService:StopGrindAnimation()
+			craftingService:AddShreddedTotal("Scrap", added)
+		end
+	end
 end
 
 --[[
@@ -600,22 +615,12 @@ function GrinderService.Client:GrindAll(player: Player): number
 		return 0
 	end
 	local total = 0
-	for junkId, config in pairs(JunkItemConfig) do
+	for junkId, _ in pairs(JunkItemConfig) do
 		local count = inventoryService:GetResourceCount(player, junkId)
-		if count > 0 and inventoryService:ConsumeResource(player, junkId, count) then
-			total += count * config.ScrapYield
+		for _ = 1, count do
+			local added = processGrind(player, junkId)
+			total += added
 		end
-	end
-	if total > 0 then
-		cooldowns[player] = os.clock()
-		GrinderService:StartGrindAnimation()
-		GrinderService.Client.GrinderProcessed:Fire(player, {
-			position = grinderPosition,
-			scrapAmount = total,
-			junkId = "AllJunk",
-		})
-		GrinderService:StopGrindAnimation()
-		Knit.GetService("CraftingService"):AddShreddedTotal("Scrap", total)
 	end
 	return total
 end
@@ -623,7 +628,6 @@ end
 -- // INITIALIZATION // --
 
 function GrinderService:KnitStart()
-	if not ServerRole.IsGameServer() then return end
 	runStateService = Knit.GetService("RunStateService")
 	inventoryService = Knit.GetService("InventoryService")
 

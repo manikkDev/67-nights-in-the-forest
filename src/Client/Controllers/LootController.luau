@@ -27,7 +27,6 @@ local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local LootController = Knit.CreateController({
@@ -50,6 +49,7 @@ local ITEM_COLORS = {
 	Mushrooms = Color3.fromRGB(210, 110, 95),
 	RawMeat = Color3.fromRGB(200, 100, 100),
 	CookedMeat = Color3.fromRGB(215, 160, 80),
+	RabbitMeat = Color3.fromRGB(200, 100, 100),
 	Spear = Color3.fromRGB(170, 170, 180),
 }
 
@@ -64,6 +64,7 @@ local ITEM_DESCRIPTIONS = {
 	Mushrooms = "Restores a small amount of hunger.",
 	RawMeat = "Cook it at the campfire to restore more hunger.",
 	CookedMeat = "A filling meal that restores lots of hunger.",
+	RabbitMeat = "Fresh rabbit meat. Cook it at the campfire.",
 	Spear = "A melee weapon for combat against enemies.",
 }
 
@@ -400,7 +401,6 @@ end
 -- // INITIALIZATION // --
 
 function LootController:KnitStart()
-	if not ServerRole.IsGameServer() then return end
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "LootGui"
 	gui.ResetOnSpawn = false

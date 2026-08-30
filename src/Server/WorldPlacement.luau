@@ -148,7 +148,6 @@ function WorldPlacement.FindPosition(options: {
 	bounds: Bounds,
 	minDistance: number,
 	maxDistance: number,
-	maxRadius: number?,
 	footprint: Vector3,
 	clearanceRadius: number,
 	seed: number,
@@ -172,10 +171,6 @@ function WorldPlacement.FindPosition(options: {
 		local position = options.center + Vector3.new(math.cos(angle) * distance, 0, math.sin(angle) * distance)
 		local halfX = options.footprint.X * 0.5
 		local halfZ = options.footprint.Z * 0.5
-		local footprintRadius = math.sqrt(halfX * halfX + halfZ * halfZ)
-		if options.maxRadius and flatDistance(position, options.center) + footprintRadius > options.maxRadius then
-			continue
-		end
 		if position.X - halfX < options.bounds.minX
 			or position.X + halfX > options.bounds.maxX
 			or position.Z - halfZ < options.bounds.minZ

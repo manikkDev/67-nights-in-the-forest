@@ -28,7 +28,6 @@ local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local HungerService = Knit.CreateService({
@@ -49,7 +48,6 @@ local BROADCAST_INTERVAL = 1
 local playerDataService: any = nil
 local spawnService: any = nil
 local playerLifeService: any = nil
-local runStateService: any = nil
 local broadcastTimer = 0
 
 -- // FUNCTIONS // --
@@ -137,10 +135,7 @@ end
     @param    dt  number  -- delta time in seconds
 ]]
 local function onHeartbeat(dt: number)
-	if not runStateService or not runStateService:IsActive() then
-		return
-	end
-	for _, player in ipairs(runStateService:GetMembers()) do
+	for _, player in ipairs(Players:GetPlayers()) do
 		tickPlayer(player, dt)
 	end
 
@@ -153,7 +148,7 @@ local function onHeartbeat(dt: number)
 	if not playerDataService then
 		return
 	end
-	for _, player in ipairs(runStateService:GetMembers()) do
+	for _, player in ipairs(Players:GetPlayers()) do
 		if spawnService and not spawnService:IsPlayerSpawned(player) then
 			continue
 		end
@@ -167,11 +162,9 @@ end
 -- // INITIALIZATION // --
 
 function HungerService:KnitStart()
-	if not ServerRole.IsGameServer() then return end
 	playerDataService = Knit.GetService("PlayerDataService")
 	spawnService = Knit.GetService("SpawnService")
 	playerLifeService = Knit.GetService("PlayerLifeService")
-	runStateService = Knit.GetService("RunStateService")
 	RunService.Heartbeat:Connect(onHeartbeat)
 
 	local function fireInitialHunger(player: Player)

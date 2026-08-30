@@ -158,8 +158,7 @@ local function cloneTemplate(definition): Model?
 	end
 
 	local categoryName = if definition.TemplateCategory == "Items" then "Assets Items" else "Assets maps items"
-	local assets = ServerStorage:FindFirstChild("Assets")
-	local category = assets and assets:FindFirstChild(categoryName)
+	local category = ServerStorage.Assets:FindFirstChild(categoryName)
 	local source = category and category:FindFirstChild(definition.TemplateName)
 	if not source then
 		return nil

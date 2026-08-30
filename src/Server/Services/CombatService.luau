@@ -31,7 +31,6 @@ local CollectionService = game:GetService("CollectionService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 
@@ -44,10 +43,7 @@ local CombatService = Knit.CreateService({
 })
 
 -- | Configuration | --
-local ITEMS_PATH = ServerStorage:FindFirstChild("Assets") and ServerStorage.Assets:FindFirstChild(Constants.ITEMS_PATH) or nil
-if not ITEMS_PATH then
-	warn("[CombatService] ITEMS_PATH not found: ServerStorage.Assets." .. tostring(Constants.ITEMS_PATH))
-end
+local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local AXE_TOOL_NAME = "Axe"
 local SPEAR_TOOL_NAME = "Spear"
 local ATTACK_RANGE = 8
@@ -58,43 +54,10 @@ local WEAPON_COOLDOWN = { Axe = 0.6, Spear = 0.9 }
 -- | State Management | --
 local harvestService: any = nil
 local spawnService: any = nil
-local runStateService: any = nil
 local spearTemplate: Tool? = nil
 local attackCooldowns: { [Player]: number } = {}
 
 -- // FUNCTIONS // --
-
-local function buildProceduralSpear(): Tool
-	local tool = Instance.new("Tool")
-	tool.Name = SPEAR_TOOL_NAME
-	tool.RequiresHandle = true
-	tool.Grip = CFrame.new(0, -1.8, 0)
-
-	local handle = Instance.new("Part")
-	handle.Name = "Handle"
-	handle.Size = Vector3.new(0.28, 5, 0.28)
-	handle.Color = Color3.fromRGB(112, 72, 38)
-	handle.Material = Enum.Material.Wood
-	handle.CanCollide = false
-	handle.Massless = true
-	handle.Parent = tool
-
-	local tip = Instance.new("WedgePart")
-	tip.Name = "SpearTip"
-	tip.Size = Vector3.new(0.65, 1.4, 0.4)
-	tip.Color = Color3.fromRGB(175, 180, 190)
-	tip.Material = Enum.Material.Metal
-	tip.CanCollide = false
-	tip.Massless = true
-	tip.CFrame = handle.CFrame * CFrame.new(0, 3.1, 0) * CFrame.Angles(0, 0, math.rad(90))
-	tip.Parent = tool
-
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = handle
-	weld.Part1 = tip
-	weld.Parent = handle
-	return tool
-end
 
 --[[
     @summary  Build a wearable Spear Tool by cloning the Spear model
@@ -102,27 +65,20 @@ end
     @returns  Tool?
 ]]
 local function buildSpearTool(): Tool?
-	local source = ITEMS_PATH and ITEMS_PATH:FindFirstChild("Spear")
+	local source = ITEMS_PATH:FindFirstChild("Spear")
 	if not source then
-		warn("[CombatService] Spear model not found in Assets Items; using fallback")
-		return buildProceduralSpear()
+		warn("[CombatService] Spear model not found in Assets Items")
+		return nil
 	end
 
 	local clone = source:Clone()
-	for _, descendant in ipairs(clone:GetDescendants()) do
-		if descendant:IsA("BaseScript") or descendant:IsA("ModuleScript")
-			or descendant:IsA("PackageLink") or descendant:IsA("TextureConfiguration")
-		then
-			descendant:Destroy()
-		end
-	end
 	local handleModel = clone:FindFirstChild("handle")
 	local originalShaft = handleModel and handleModel:FindFirstChild("Handle")
 	local shaft = handleModel and handleModel:FindFirstChild("Grip")
 	if not shaft or not shaft:IsA("BasePart") then
-		warn("[CombatService] Spear hand grip not found; using fallback")
+		warn("[CombatService] Spear hand grip not found")
 		clone:Destroy()
-		return buildProceduralSpear()
+		return nil
 	end
 	if originalShaft and originalShaft:IsA("BasePart") then
 		originalShaft.Name = "Shaft"
@@ -186,10 +142,7 @@ end
     @param    signal  KnitSignal
 ]]
 local function broadcastToAll(signal, ...)
-	if not runStateService or not runStateService:IsActive() then
-		return
-	end
-	for _, player in ipairs(runStateService:GetMembers()) do
+	for _, player in ipairs(Players:GetPlayers()) do
 		signal:Fire(player, ...)
 	end
 end
@@ -298,10 +251,8 @@ end
 -- // INITIALIZATION // --
 
 function CombatService:KnitStart()
-	if not ServerRole.IsGameServer() then return end
 	harvestService = Knit.GetService("HarvestService")
 	spawnService = Knit.GetService("SpawnService")
-	runStateService = Knit.GetService("RunStateService")
 
 	spearTemplate = buildSpearTool()
 end

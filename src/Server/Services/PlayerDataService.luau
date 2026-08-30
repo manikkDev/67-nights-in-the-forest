@@ -33,7 +33,6 @@ local ProfileService = require(ServerScriptService.ServerPackages.ProfileService
 local ProfileTemplate = require(script.Parent.Parent.Data.ProfileTemplate)
 local Constants = require(ReplicatedStorage.Shared.Constants)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local PlayerDataService = Knit.CreateService({
@@ -202,20 +201,6 @@ local function migrateProfile(data: { [string]: any })
 		end
 		data.DataVersion = 3
 	end
-
-	if (data.DataVersion or 1) < 4 then
-		data.Resources = data.Resources or {}
-		data.Resources.RawMeat = (data.Resources.RawMeat or 0) + (data.Resources.RabbitMeat or 0)
-		data.Resources.RabbitMeat = nil
-		if typeof(data.Inventory) == "table" and typeof(data.Inventory.PickupOrder) == "table" then
-			for index, resourceName in ipairs(data.Inventory.PickupOrder) do
-				if resourceName == "RabbitMeat" then
-					data.Inventory.PickupOrder[index] = "RawMeat"
-				end
-			end
-		end
-		data.DataVersion = 4
-	end
 end
 
 --[[
@@ -284,25 +269,23 @@ end
 
 -- // INITIALIZATION // --
 
-if ServerRole.IsGameServer() then
-	Players.PlayerAdded:Connect(function(player)
-		task.spawn(loadProfile, player)
-	end)
+Players.PlayerAdded:Connect(function(player)
+	task.spawn(loadProfile, player)
+end)
 
-	Players.PlayerRemoving:Connect(function(player)
-		releaseProfile(player)
-	end)
+Players.PlayerRemoving:Connect(function(player)
+	releaseProfile(player)
+end)
 
-	for _, player in ipairs(Players:GetPlayers()) do
-		task.spawn(loadProfile, player)
-	end
-
-	game:BindToClose(function()
-		for player, profile in pairs(profiles) do
-			profile:Release()
-			profiles[player] = nil
-		end
-	end)
+for _, player in ipairs(Players:GetPlayers()) do
+	task.spawn(loadProfile, player)
 end
+
+game:BindToClose(function()
+	for player, profile in pairs(profiles) do
+		profile:Release()
+		profiles[player] = nil
+	end
+end)
 
 return PlayerDataService

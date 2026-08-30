@@ -50,13 +50,13 @@ local TimeService = Knit.CreateService({
 local DAY_START_CLOCK = RunConfig.DayStartClock
 local DAY_END_CLOCK = RunConfig.DayEndClock
 local DAY_AMBIENT = Color3.fromRGB(128, 128, 128)
-local NIGHT_AMBIENT = Color3.fromRGB(45, 48, 58)
+local NIGHT_AMBIENT = Color3.fromRGB(20, 22, 32)
 local DAY_OUTDOOR_AMBIENT = Color3.fromRGB(128, 128, 128)
-local NIGHT_OUTDOOR_AMBIENT = Color3.fromRGB(35, 38, 48)
+local NIGHT_OUTDOOR_AMBIENT = Color3.fromRGB(12, 14, 20)
 local DAY_BRIGHTNESS = 1
-local NIGHT_BRIGHTNESS = 0.6
+local NIGHT_BRIGHTNESS = 0.35
 local DAY_FOG_END = 100000
-local NIGHT_FOG_END = 400
+local NIGHT_FOG_END = 80
 local TWEEN_DURATION = 8
 
 -- | State Management | --
@@ -353,15 +353,10 @@ end
 
 -- // INITIALIZATION // --
 
-function TimeService:KnitStart()
-	if not ServerRole.IsGameServer() then
-		return
-	end
-	Lighting.ClockTime = DAY_START_CLOCK
-	Lighting.Ambient = DAY_AMBIENT
-	Lighting.OutdoorAmbient = DAY_OUTDOOR_AMBIENT
-	Lighting.Brightness = DAY_BRIGHTNESS
-	Lighting.FogEnd = DAY_FOG_END
-end
+Lighting.ClockTime = DAY_START_CLOCK
+Lighting.Ambient = DAY_AMBIENT
+Lighting.OutdoorAmbient = DAY_OUTDOOR_AMBIENT
+Lighting.Brightness = DAY_BRIGHTNESS
+Lighting.FogEnd = DAY_FOG_END
 
 return TimeService

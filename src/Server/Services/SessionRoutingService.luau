@@ -27,7 +27,6 @@ local HttpService = game:GetService("HttpService")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local Constants = require(ReplicatedStorage.Shared.Constants)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local SessionRoutingService = Knit.CreateService({
@@ -156,13 +155,7 @@ end
 
 -- | Routing | --
 function SessionRoutingService:IsReservedRunServer(): boolean
-	-- In Studio, never treat the server as a reserved run server because
-	-- players don't arrive via teleport (no TeleportData).  The LocalPartyReady
-	-- path handles Studio testing instead.
-	if RunService:IsStudio() then
-		return false
-	end
-	return ServerRole.IsGameServer()
+	return not RunService:IsStudio() and game.PrivateServerId ~= "" and game.PrivateServerOwnerId == 0
 end
 
 function SessionRoutingService:RouteParty(partyId: string, hostUserId: number, players: { Player }): boolean
@@ -218,11 +211,10 @@ function SessionRoutingService:RouteParty(partyId: string, hostUserId: number, p
 	end
 
 	local reserveOk, accessCode = pcall(function()
-		return TeleportService:ReserveServerAsync(Constants.GAME_PLACE_ID)
+		return TeleportService:ReserveServerAsync(game.PlaceId)
 	end)
 	if not reserveOk or typeof(accessCode) ~= "string" then
 		warn("[SessionRoutingService] Could not reserve run server:", accessCode)
-		SessionRoutingService.PartyTeleportFailed:Fire(partyId, livePlayers, "reserve failed")
 		return false
 	end
 
@@ -234,7 +226,7 @@ function SessionRoutingService:RouteParty(partyId: string, hostUserId: number, p
 	options.ReservedServerAccessCode = accessCode
 	options:SetTeleportData(metadata)
 	local teleportOk, teleportError = pcall(function()
-		TeleportService:TeleportAsync(Constants.GAME_PLACE_ID, livePlayers, options)
+		TeleportService:TeleportAsync(game.PlaceId, livePlayers, options)
 	end)
 	if not teleportOk then
 		for _, player in ipairs(livePlayers) do
@@ -244,7 +236,6 @@ function SessionRoutingService:RouteParty(partyId: string, hostUserId: number, p
 		SessionRoutingService.PartyTeleportFailed:Fire(partyId, livePlayers, tostring(teleportError))
 		return false
 	end
-	print("[SessionRoutingService] Party teleported to game place", Constants.GAME_PLACE_ID, "with", #livePlayers, "players")
 	return true
 end
 
@@ -261,53 +252,39 @@ local function registerDestinationPlayer(player: Player)
 	end
 	local joinData = player:GetJoinData()
 	local metadata = joinData and joinData.TeleportData
-	print("[SessionRoutingService] Player arrived at game place:", player.Name, "has metadata:", metadata ~= nil)
-	if not validMetadata(metadata) then
-		print("[SessionRoutingService] Metadata invalid for", player.Name)
-		rejectArrival(player, "invalid party metadata")
-		return
-	end
-	if not isExpected(metadata, player.UserId) then
-		print("[SessionRoutingService] Player", player.Name, "not in expected user IDs")
+	if not validMetadata(metadata) or not isExpected(metadata, player.UserId) then
 		rejectArrival(player, "invalid party metadata")
 		return
 	end
 	if destinationMetadata and not metadataMatches(destinationMetadata, metadata) then
-		print("[SessionRoutingService] Metadata mismatch for", player.Name)
 		rejectArrival(player, "party metadata mismatch")
 		return
 	end
 	destinationMetadata = destinationMetadata or metadata
 	destinationPlayers[player.UserId] = player
-	print("[SessionRoutingService] Registered", player.Name, "— party", metadata.partyId, "—", #metadata.expectedUserIds, "expected")
 	SessionRoutingService:ConsumeReconnectTicket(metadata.partyId, player.UserId)
 end
 
 local function assembleDestination()
-	print("[SessionRoutingService] assembleDestination started — waiting up to", DESTINATION_WAIT, "seconds")
 	local deadline = os.clock() + DESTINATION_WAIT
 	while not destinationStarted and os.clock() < deadline do
 		local metadata = destinationMetadata
 		if metadata then
 			local allReady = true
-			local readyCount = 0
 			for _, userId in ipairs(metadata.expectedUserIds) do
 				local player = destinationPlayers[userId]
 				if not player or player.Parent ~= Players or not playerDataService or not playerDataService:GetData(player) then
 					allReady = false
-				else
-					readyCount += 1
+					break
 				end
 			end
 			if allReady then
-				print("[SessionRoutingService] All", #metadata.expectedUserIds, "players ready — breaking wait")
 				break
 			end
 		end
 		task.wait(0.25)
 	end
 	if destinationStarted or not destinationMetadata then
-		print("[SessionRoutingService] assembleDestination exit — started:", destinationStarted, "metadata:", destinationMetadata ~= nil)
 		return
 	end
 	local participants = {}
@@ -318,24 +295,9 @@ local function assembleDestination()
 		end
 	end
 	if #participants == 0 then
-		-- Safety net: if we timed out with at least one connected player who
-		-- has valid metadata but profile data isn't loaded yet, start the run
-		-- anyway with whoever IS present. This prevents a total deadlock.
-		print("[SessionRoutingService] No fully-ready participants — checking for safety-net")
-		for _, userId in ipairs(destinationMetadata.expectedUserIds) do
-			local player = destinationPlayers[userId]
-			if player and player.Parent == Players then
-				table.insert(participants, player)
-			end
-		end
-		if #participants == 0 then
-			print("[SessionRoutingService] No players present at all — aborting")
-			return
-		end
-		print("[SessionRoutingService] Safety-net: starting run with", #participants, "players (profiles may still be loading)")
+		return
 	end
 	destinationStarted = true
-	print("[SessionRoutingService] Destination ready! Firing DestinationReady with", #participants, "participants")
 	SessionRoutingService.DestinationReady:Fire(participants, destinationMetadata)
 end
 
@@ -353,17 +315,12 @@ function SessionRoutingService:KnitStart()
 		SessionRoutingService.PartyTeleportFailed:Fire(partyId, { player }, ("%s: %s"):format(result.Name, message))
 	end)
 
-	local isReserved = self:IsReservedRunServer()
-	print("[SessionRoutingService] KnitStart — IsReservedRunServer:", isReserved, "IsGameServer:", ServerRole.IsGameServer(), "PlaceId:", game.PlaceId)
-	if isReserved then
-		print("[SessionRoutingService] Wiring destination assembly (reserved server)")
+	if self:IsReservedRunServer() then
 		Players.PlayerAdded:Connect(registerDestinationPlayer)
 		for _, player in ipairs(Players:GetPlayers()) do
 			registerDestinationPlayer(player)
 		end
 		task.spawn(assembleDestination)
-	else
-		print("[SessionRoutingService] Not a reserved run server — skipping destination assembly")
 	end
 end
 

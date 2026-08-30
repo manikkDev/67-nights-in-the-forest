@@ -78,19 +78,11 @@ end
     @returns  BillboardGui, Frame
 ]]
 local function createHealthBar(model: Model, isRaidCultist: boolean?): (BillboardGui, Frame, Frame)
-	local anchor = model:FindFirstChild("Head", true)
-		or model:FindFirstChild("HumanoidRootPart", true)
-		or model:FindFirstChild("HRP", true)
-		or model.PrimaryPart
-		or model:FindFirstChildWhichIsA("BasePart", true)
-	assert(anchor and anchor:IsA("BasePart"), "NPC health bar requires a BasePart")
-	local modelCFrame, modelSize = model:GetBoundingBox()
-	local topOffset = math.max(BAR_OFFSET.Y, modelCFrame.Position.Y + modelSize.Y * 0.5 - anchor.Position.Y + 0.8)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "NpcHealthBar"
-	gui.Adornee = anchor
-	gui.Size = UDim2.fromOffset(180, if isRaidCultist then 32 else 18)
-	gui.StudsOffsetWorldSpace = Vector3.new(0, topOffset, 0)
+	gui.Adornee = model
+	gui.Size = UDim2.fromScale(BAR_WIDTH / 3, if isRaidCultist then BAR_HEIGHT + 0.5 else BAR_HEIGHT)
+	gui.StudsOffsetWorldSpace = BAR_OFFSET
 	gui.AlwaysOnTop = true
 	gui.LightInfluence = 0
 	gui.MaxDistance = 120

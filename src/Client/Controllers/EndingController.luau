@@ -17,7 +17,6 @@ local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local EndingController = Knit.CreateController({
@@ -55,13 +54,7 @@ local multiplierLabel: TextLabel? = nil
 local cardContainer: Frame? = nil
 local statCards: { { frame: Frame, value: TextLabel, label: TextLabel } } = {}
 local returnButton: TextButton? = nil
-local replayButton: TextButton? = nil
-local replayStatusLabel: TextLabel? = nil
 local isVictory = false
-local canReplay = false
-local localUserId = 0
-local replayVoted = false
-local replaySnapshot: { [string]: any }? = nil
 
 -- // FUNCTIONS // --
 
@@ -90,9 +83,9 @@ local function buildStatCard(parent: Instance, index: number)
 
 	local card = Instance.new("Frame")
 	card.Name = "StatCard" .. tostring(index)
-	card.AnchorPoint = Vector2.new(0, 0)
+	card.AnchorPoint = Vector2.new(0, 0.5)
 	card.Size = UDim2.fromOffset(CARD_WIDTH, CARD_HEIGHT)
-	card.Position = UDim2.fromScale(0.5, 0)
+	card.Position = UDim2.fromScale(0.5, 0.5)
 		+ UDim2.fromOffset(startX + col * (CARD_WIDTH + CARD_GAP), row * (CARD_HEIGHT + CARD_GAP))
 	card.BackgroundColor3 = CARD_BG
 	card.BackgroundTransparency = 1
@@ -202,14 +195,14 @@ local function buildUi()
 	container.Parent = backdropFrame
 
 	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 8)
+	layout.Padding = UDim.new(0, 0)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.Parent = container
 
 	local padding = Instance.new("UIPadding")
 	padding.PaddingTop = UDim.new(0, 0)
-	padding.PaddingBottom = UDim.new(0, 16)
+	padding.PaddingBottom = UDim.new(0, 0)
 	padding.PaddingLeft = UDim.new(0, 0)
 	padding.PaddingRight = UDim.new(0, 0)
 	padding.Parent = container
@@ -303,76 +296,18 @@ local function buildUi()
 	-- === Stat cards container ===
 	local cardsFrame = Instance.new("Frame")
 	cardsFrame.Name = "StatCards"
-	cardsFrame.Size = UDim2.new(1, 0, 0, 298)
-	cardsFrame.AutomaticSize = Enum.AutomaticSize.None
+	cardsFrame.Size = UDim2.new(1, 0, 0, 0)
+	cardsFrame.AutomaticSize = Enum.AutomaticSize.Y
 	cardsFrame.BackgroundTransparency = 1
 	cardsFrame.LayoutOrder = 5
 	cardsFrame.Parent = container
 	cardContainer = cardsFrame
 
-	-- Build 6 stat cards
-	for i = 1, 6 do
+	-- Build 8 stat cards
+	for i = 1, 8 do
 		local card = buildStatCard(cardsFrame, i)
 		table.insert(statCards, card)
 	end
-
-	-- === Replay vote status label (defeat only) ===
-	local replayStatus = Instance.new("TextLabel")
-	replayStatus.Name = "ReplayStatus"
-	replayStatus.Size = UDim2.new(1, 0, 0, 20)
-	replayStatus.BackgroundTransparency = 1
-	replayStatus.Font = Enum.Font.GothamBold
-	replayStatus.Text = ""
-	replayStatus.TextColor3 = Color3.fromRGB(180, 180, 185)
-	replayStatus.TextTransparency = 1
-	replayStatus.TextSize = 14
-	replayStatus.LayoutOrder = 6
-	replayStatus.Parent = container
-	replayStatusLabel = replayStatus
-
-	-- === Replay vote button (defeat only) ===
-	local replay = Instance.new("TextButton")
-	replay.Name = "ReplayButton"
-	replay.Size = UDim2.fromOffset(220, 44)
-	replay.BackgroundColor3 = Color3.fromRGB(40, 70, 50)
-	replay.BackgroundTransparency = 1
-	replay.BorderSizePixel = 0
-	replay.Font = Enum.Font.GothamBold
-	replay.Text = "Vote to Replay"
-	replay.TextColor3 = Color3.fromRGB(230, 235, 230)
-	replay.TextTransparency = 1
-	replay.TextSize = 16
-	replay.LayoutOrder = 7
-	replay.Parent = container
-	replayButton = replay
-
-	local replayCorner = Instance.new("UICorner")
-	replayCorner.CornerRadius = UDim.new(0, 22)
-	replayCorner.Parent = replay
-
-	local replayStroke = Instance.new("UIStroke")
-	replayStroke.Color = Color3.fromRGB(80, 130, 95)
-	replayStroke.Thickness = 1
-	replayStroke.Transparency = 1
-	replayStroke.Parent = replay
-
-	replay.MouseEnter:Connect(function()
-		if replayVoted then return end
-		TweenService:Create(replay, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {
-			BackgroundColor3 = Color3.fromRGB(52, 88, 64),
-		}):Play()
-	end)
-	replay.MouseLeave:Connect(function()
-		if replayVoted then return end
-		TweenService:Create(replay, TweenInfo.new(0.15, Enum.EasingStyle.Quad), {
-			BackgroundColor3 = Color3.fromRGB(40, 70, 50),
-		}):Play()
-	end)
-	replay.Activated:Connect(function()
-		if endingService and not replayVoted then
-			endingService:RequestReplayVote()
-		end
-	end)
 
 	-- === Return button ===
 	local button = Instance.new("TextButton")
@@ -386,7 +321,7 @@ local function buildUi()
 	button.TextColor3 = BUTTON_TEXT
 	button.TextTransparency = 1
 	button.TextSize = 16
-	button.LayoutOrder = 8
+	button.LayoutOrder = 6
 	button.Parent = container
 	returnButton = button
 
@@ -413,7 +348,7 @@ local function buildUi()
 	end)
 	button.Activated:Connect(function()
 		if endingService then
-			endingService:RequestEarlyReturn()
+			endingService.RequestEarlyReturn:Fire()
 		end
 	end)
 end
@@ -449,7 +384,7 @@ local function resetUi()
 		if card.stroke then
 			card.stroke.Transparency = 1
 		end
-		card.frame.Position = UDim2.fromScale(0.5, 0)
+		card.frame.Position = UDim2.fromScale(0.5, 0.5)
 			+ UDim2.fromOffset(
 				((tonumber(string.sub(card.frame.Name, 8)) or 1) - 1) % CARDS_PER_ROW * (CARD_WIDTH + CARD_GAP) - (CARDS_PER_ROW * CARD_WIDTH + (CARDS_PER_ROW - 1) * CARD_GAP) / 2,
 				math.floor(((tonumber(string.sub(card.frame.Name, 8)) or 1) - 1) / CARDS_PER_ROW) * (CARD_HEIGHT + CARD_GAP) + 15
@@ -463,19 +398,6 @@ local function resetUi()
 			stroke.Transparency = 1
 		end
 	end
-	if replayButton then
-		replayButton.BackgroundTransparency = 1
-		replayButton.TextTransparency = 1
-		local stroke = replayButton:FindFirstChildOfClass("UIStroke")
-		if stroke then
-			stroke.Transparency = 1
-		end
-		replayButton.Visible = false
-	end
-	if replayStatusLabel then
-		replayStatusLabel.TextTransparency = 1
-		replayStatusLabel.Visible = false
-	end
 end
 
 --[[
@@ -488,8 +410,6 @@ local function showEnding(payload)
 		return
 	end
 	isVictory = payload.victory == true
-	canReplay = payload.canReplay == true
-	replayVoted = false
 	gui.Enabled = true
 	resetUi()
 
@@ -524,13 +444,6 @@ local function showEnding(payload)
 	-- Set button text
 	if returnButton then
 		returnButton.Text = if isVictory then "Continue" else "Return to Lobby"
-	end
-	-- Replay button only shows on team defeat
-	if replayButton then
-		replayButton.Visible = canReplay
-	end
-	if replayStatusLabel then
-		replayStatusLabel.Visible = canReplay
 	end
 
 	-- === Animation choreography ===
@@ -606,7 +519,9 @@ local function showResults(result)
 		{ value = string.format("%d / %d", result.displayedDay or 1, result.goalDay or 67), label = "Days Survived" },
 		{ value = formatTime(result.elapsedSeconds or 0), label = "Run Time" },
 		{ value = string.format("%d / 4", result.childrenRescued or 0), label = "Children Rescued" },
+		{ value = tostring(result.structuresBuilt or 0), label = "Structures Built" },
 		{ value = tostring(result.treesChopped or 0), label = "Trees Chopped" },
+		{ value = tostring(result.wolvesKilled or 0), label = "Wolves Defeated" },
 		{ value = tostring(result.cultistsKilled or 0), label = "Cultists Defeated" },
 		{ value = string.format("%d / %d", result.revives or 0, result.downs or 0), label = "Revives / Downs" },
 	}
@@ -623,7 +538,7 @@ local function showResults(result)
 			local row = math.floor((i - 1) / CARDS_PER_ROW)
 			local totalWidth = CARDS_PER_ROW * CARD_WIDTH + (CARDS_PER_ROW - 1) * CARD_GAP
 			local startX = -totalWidth / 2
-			local restPos = UDim2.fromScale(0.5, 0)
+			local restPos = UDim2.fromScale(0.5, 0.5)
 				+ UDim2.fromOffset(startX + col * (CARD_WIDTH + CARD_GAP), row * (CARD_HEIGHT + CARD_GAP))
 
 			-- Start position: 15px below resting
@@ -649,33 +564,8 @@ local function showResults(result)
 		end
 	end
 
-	-- 5. Replay button + status fade in after all cards (defeat only)
-	if canReplay then
-		task.delay(1.1 + #stats * 0.08 + 0.2, function()
-			if not gui or not gui.Enabled then return end
-			if replayStatusLabel then
-				TweenService:Create(replayStatusLabel, TweenInfo.new(0.4, Enum.EasingStyle.Quad), {
-					TextTransparency = 0,
-				}):Play()
-			end
-		end)
-		task.delay(1.1 + #stats * 0.08 + 0.35, function()
-			if not gui or not gui.Enabled then return end
-			if replayButton and replayButton.Visible then
-				TweenService:Create(replayButton, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-					BackgroundTransparency = 0,
-					TextTransparency = 0,
-				}):Play()
-				local stroke = replayButton:FindFirstChildOfClass("UIStroke")
-				if stroke then
-					TweenService:Create(stroke, TweenInfo.new(0.5), { Transparency = 0.2 }):Play()
-				end
-			end
-		end)
-	end
-
-	-- 6. Return button fades in last
-	task.delay(1.1 + #stats * 0.08 + 0.5, function()
+	-- 5. Return button fades in after all cards
+	task.delay(1.1 + #stats * 0.08 + 0.3, function()
 		if not gui or not gui.Enabled then return end
 		if returnButton then
 			TweenService:Create(returnButton, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -690,44 +580,11 @@ local function showResults(result)
 	end)
 end
 
---[[
-    @summary  Update the replay vote button and status from server snapshot.
-    @param    snapshot  table  -- { active, deadline, yesUserIds, pendingUserIds, hostUserId }
-]]
-local function updateReplayVoteUi(snapshot: { [string]: any })
-	if typeof(snapshot) ~= "table" then return end
-	replaySnapshot = snapshot
-	if not canReplay or not replayButton or not replayStatusLabel then return end
-
-	local yesCount = #snapshot.yesUserIds
-	local pendingCount = #snapshot.pendingUserIds
-	local totalCount = yesCount + pendingCount
-
-	if snapshot.active ~= true then
-		replayButton.Visible = false
-		replayStatusLabel.Text = "Replay vote closed"
-		return
-	end
-
-	replayStatusLabel.Text = string.format("Replay vote: %d / %d  (waiting on %d)",
-		yesCount, totalCount, pendingCount)
-
-	if replayVoted then
-		replayButton.Text = "Voted — waiting for team"
-		replayButton.AutoButtonColor = false
-	else
-		replayButton.Text = "Vote to Replay"
-		replayButton.AutoButtonColor = true
-	end
-end
-
 -- // INITIALIZATION // --
 
 function EndingController:KnitStart()
-	if not ServerRole.IsGameServer() then return end
 	endingService = Knit.GetService("EndingService")
 	runStateService = Knit.GetService("RunStateService")
-	localUserId = Players.LocalPlayer.UserId
 	buildUi()
 	endingService.EndingStarted:Connect(function(payload)
 		if typeof(payload) == "table" then
@@ -738,39 +595,6 @@ function EndingController:KnitStart()
 		if typeof(result) == "table" then
 			showResults(result)
 		end
-	end)
-	endingService.ReplayVoteChanged:Connect(function(snapshot)
-		if typeof(snapshot) == "table" then
-			-- Track whether the local player has voted yes
-			replayVoted = false
-			for _, userId in ipairs(snapshot.yesUserIds or {}) do
-				if userId == localUserId then
-					replayVoted = true
-					break
-				end
-			end
-			updateReplayVoteUi(snapshot)
-		end
-	end)
-	endingService.ReplayVoteResolved:Connect(function(payload)
-		if typeof(payload) ~= "table" then return end
-		local outcome = payload.outcome or "unknown"
-		if replayStatusLabel then
-			if outcome == "replay" then
-				replayStatusLabel.Text = "Replay starting..."
-			elseif outcome == "timeout" then
-				replayStatusLabel.Text = "Vote timed out"
-			elseif outcome == "cancelled" then
-				replayStatusLabel.Text = "Vote cancelled by host"
-			end
-		end
-		if replayButton then
-			replayButton.Visible = false
-		end
-	end)
-	endingService.IndividualReturnAck:Connect(function(payload)
-		-- Server acknowledged the individual return; the RunPhaseChanged
-		-- Lobby handler below will fade the UI out for this player.
 	end)
 	runStateService.RunPhaseChanged:Connect(function(payload)
 		if typeof(payload) == "table" and payload.phase == "Lobby" and gui then

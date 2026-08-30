@@ -22,7 +22,6 @@ local HttpService = game:GetService("HttpService")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Constants = require(ReplicatedStorage.Shared.Constants)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local MatchFlowService = Knit.CreateService({
@@ -217,44 +216,25 @@ end
 
 -- | Run Start | --
 local function startRun(participants: { Player }, metadata: { [string]: any }, session: Session?): boolean
-	print("[MatchFlowService] startRun called with", #participants, "participants, has session:", session ~= nil)
 	local startedRunId = runStateService and runStateService:StartRun(participants, metadata) or nil
 	if not startedRunId then
-		warn("[MatchFlowService] StartRun returned nil, session:", session ~= nil)
 		if session then
 			session.routing = false
 			setState(session, "Waiting")
 		end
 		return false
 	end
-	print("[MatchFlowService] StartRun returned runId:", startedRunId)
 
 	if session then
 		for _, player in ipairs(participants) do
 			sessionsByPlayer[player] = session
 		end
 	end
-	if not spawnService then
-		warn("[MatchFlowService] spawnService is nil — cannot spawn players")
-		runStateService:CleanupRun("SPAWN_SERVICE_MISSING")
-		return false
-	end
-	print("[MatchFlowService] Calling SpawnParty for", #participants, "players")
-	local spawnOk = spawnService:SpawnParty(participants)
-	print("[MatchFlowService] SpawnParty returned:", spawnOk)
-	if not spawnOk then
-		runStateService:CleanupRun("SPAWN_FAILED")
-		if session then
-			session.routing = false
-			setState(session, "Waiting")
-		end
-		return false
+	if spawnService then
+		spawnService:SpawnParty(participants)
 	end
 	if timeService then
-		print("[MatchFlowService] Calling TimeService:StartMatch")
 		timeService:StartMatch()
-	else
-		warn("[MatchFlowService] timeService is nil — cannot start clock")
 	end
 
 	if session then
@@ -263,7 +243,6 @@ local function startRun(participants: { Player }, metadata: { [string]: any }, s
 		for _, player in ipairs(participants) do
 			MatchFlowService.Client.FlowStateChanged:Fire(player, "Day1")
 		end
-		print("[MatchFlowService] Fired FlowStateChanged=Day1 to", #participants, "players")
 	end
 	task.delay(DAY1_HOLD_SECONDS, function()
 		if not runStateService or not runStateService:IsCurrentRun(startedRunId) then
@@ -277,7 +256,6 @@ local function startRun(participants: { Player }, metadata: { [string]: any }, s
 					MatchFlowService.Client.FlowStateChanged:Fire(player, "InGame")
 				end
 			end
-			print("[MatchFlowService] Fired FlowStateChanged=InGame to remaining players")
 		end
 	end)
 	return true
@@ -298,11 +276,9 @@ local function beginStory(session: Session)
 			return
 		end
 		session.routing = true
-		print("[MatchFlowService] Routing party", session.partyId, "with", #participants, "players")
 		local accepted = sessionRoutingService
 			and sessionRoutingService:RouteParty(session.partyId, session.host.UserId, participants)
 		if not accepted then
-			warn("[MatchFlowService] RouteParty returned false for party", session.partyId)
 			session.routing = false
 			setState(session, "Waiting")
 		end
@@ -319,10 +295,6 @@ end
 
 function MatchFlowService:EnterWaiting(player: Player, queueId: string)
 	if not player or player.Parent ~= Players or not isQueueId(queueId) then
-		return
-	end
-	-- Party formation only happens on the lobby place.
-	if not ServerRole.IsLobby() then
 		return
 	end
 	local existing = sessionsByPlayer[player]
@@ -370,47 +342,6 @@ function MatchFlowService:GetState(player: Player): FlowState
 	return if session then session.state else "Lobby"
 end
 
---[[
-    @summary  Restart a run for the same party after a unanimous replay vote.
-    @desc    Used by EndingService when every remaining member votes to replay.
-             The party metadata (party id, host, initial size) is preserved so
-             difficulty scaling and host rights remain consistent.
-    @param   participants  { Player }  -- remaining members who voted yes
-    @param   metadata      table       -- { partyId, hostUserId, initialPartySize }
-]]
-function MatchFlowService:StartRunForReplay(participants: { Player }, metadata: { [string]: any }): boolean
-	if not runStateService or #participants == 0 then
-		return false
-	end
-	local startedRunId = runStateService:StartRun(participants, metadata)
-	if not startedRunId then
-		return false
-	end
-	if spawnService and not spawnService:SpawnParty(participants) then
-		runStateService:CleanupRun("REPLAY_SPAWN_FAILED")
-		return false
-	end
-	if timeService then
-		timeService:StartMatch()
-	end
-	for _, player in ipairs(participants) do
-		if player.Parent == Players and runStateService:IsMember(player) then
-			MatchFlowService.Client.FlowStateChanged:Fire(player, "Day1")
-		end
-	end
-	task.delay(DAY1_HOLD_SECONDS, function()
-		if not runStateService:IsCurrentRun(startedRunId) then
-			return
-		end
-		for _, player in ipairs(participants) do
-			if player.Parent == Players and runStateService:IsMember(player) then
-				MatchFlowService.Client.FlowStateChanged:Fire(player, "InGame")
-			end
-		end
-	end)
-	return true
-end
-
 function MatchFlowService.Client:GetSnapshot(player: Player): { [string]: any }
 	local session = sessionsByPlayer[player]
 	return if session then snapshotFor(session, player) else { state = "Lobby" }
@@ -439,56 +370,52 @@ function MatchFlowService:KnitStart()
 	runStateService = Knit.GetService("RunStateService")
 	sessionRoutingService = Knit.GetService("SessionRoutingService")
 
-	-- Party formation handlers only run on the lobby place.
-	if ServerRole.IsLobby() then
-		self.Client.RequestSetCapacity:Connect(function(player: Player, requested: any)
-			if rateLimited(player) or typeof(requested) ~= "number" then
-				return
-			end
-			local session = sessionsByPlayer[player]
-			local capacity = math.floor(requested)
-			if not session or session.host ~= player or session.state ~= "Waiting"
-				or capacity < MIN_PARTY or capacity > MAX_PARTY or capacity < #rosterFor(session)
-			then
-				return
-			end
-			session.capacity = capacity
-			broadcastSession(session)
-		end)
+	self.Client.RequestSetCapacity:Connect(function(player: Player, requested: any)
+		if rateLimited(player) or typeof(requested) ~= "number" then
+			return
+		end
+		local session = sessionsByPlayer[player]
+		local capacity = math.floor(requested)
+		if not session or session.host ~= player or session.state ~= "Waiting"
+			or capacity < MIN_PARTY or capacity > MAX_PARTY or capacity < #rosterFor(session)
+		then
+			return
+		end
+		session.capacity = capacity
+		broadcastSession(session)
+	end)
 
-		self.Client.RequestLeave:Connect(function(player: Player)
-			if not rateLimited(player) then
-				removePlayerFromSession(player, true)
-			end
-		end)
+	self.Client.RequestLeave:Connect(function(player: Player)
+		if not rateLimited(player) then
+			removePlayerFromSession(player, true)
+		end
+	end)
 
-		self.Client.RequestStart:Connect(function(player: Player)
-			if rateLimited(player) then
-				return
-			end
-			local session = sessionsByPlayer[player]
-			if not session or session.host ~= player or session.state ~= "Waiting" or session.routing then
-				return
-			end
-			local count = #rosterFor(session)
-			if count < MIN_PARTY or count > session.capacity then
-				return
-			end
-			session.state = "Countdown"
-			session.endsAt = getServerNow() + COUNTDOWN_SECONDS
-			session.duration = COUNTDOWN_SECONDS
-			scheduleTimer(session)
-			fireToSession(session, MatchFlowService.Client.FlowStateChanged, "Countdown")
-			fireToSession(session, MatchFlowService.Client.Countdown, {
-				endsAt = session.endsAt,
-				duration = session.duration,
-			})
-			broadcastSession(session)
-		end)
-	end
+	self.Client.RequestStart:Connect(function(player: Player)
+		if rateLimited(player) then
+			return
+		end
+		local session = sessionsByPlayer[player]
+		if not session or session.host ~= player or session.state ~= "Waiting" or session.routing then
+			return
+		end
+		local count = #rosterFor(session)
+		if count < MIN_PARTY or count > session.capacity then
+			return
+		end
+		session.state = "Countdown"
+		session.endsAt = getServerNow() + COUNTDOWN_SECONDS
+		session.duration = COUNTDOWN_SECONDS
+		scheduleTimer(session)
+		fireToSession(session, MatchFlowService.Client.FlowStateChanged, "Countdown")
+		fireToSession(session, MatchFlowService.Client.Countdown, {
+			endsAt = session.endsAt,
+			duration = session.duration,
+		})
+		broadcastSession(session)
+	end)
 
 	sessionRoutingService.LocalPartyReady:Connect(function(participants, metadata)
-		print("[MatchFlowService] LocalPartyReady fired with", #participants, "participants")
 		local session = sessionsByQueue[metadata.queueId or ""]
 		if not session then
 			for _, candidate in pairs(sessionsByQueue) do
@@ -502,12 +429,10 @@ function MatchFlowService:KnitStart()
 	end)
 
 	sessionRoutingService.DestinationReady:Connect(function(participants, metadata)
-		print("[MatchFlowService] DestinationReady fired with", #participants, "participants, partyId:", metadata and metadata.partyId or "nil")
 		startRun(participants, metadata, nil)
 	end)
 
-	sessionRoutingService.PartyTeleportFailed:Connect(function(partyId, players, reason)
-		warn("[MatchFlowService] Party teleport failed:", partyId, reason)
+	sessionRoutingService.PartyTeleportFailed:Connect(function(partyId)
 		for _, session in pairs(sessionsByQueue) do
 			if session.partyId == partyId and session.state == "Story" then
 				session.routing = false
