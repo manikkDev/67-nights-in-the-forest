@@ -32,6 +32,12 @@
       }
     },
 
+    "Players": {
+      "$properties": {
+        "CharacterAutoLoads": false
+      }
+    },
+
     "Workspace": {
       "$properties": {
         "FilteringEnabled": true,
