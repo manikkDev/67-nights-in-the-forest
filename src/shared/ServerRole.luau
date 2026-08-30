@@ -61,10 +61,6 @@ end
     @returns  boolean
 ]]
 function ServerRole.IsLobby(): boolean
-	-- In Studio with SkipLobby, the server acts as both lobby AND game.
-	if RunService:IsStudio() and RunConfig.IsTestEnabled("SkipLobby") then
-		return true
-	end
 	return not ServerRole.IsGameServer()
 end
 

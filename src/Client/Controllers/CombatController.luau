@@ -178,19 +178,22 @@ local function playSpearSwing()
 		return
 	end
 
-	-- Reuse cached track if it still belongs to this animator.
-	if cachedSpearTrack and cachedSpearTrack.Parent == animator then
+	if cachedSpearTrack then
 		cachedSpearTrack:Play()
 		return
 	end
 
 	local animInstance = Instance.new("Animation")
 	animInstance.AnimationId = spearAnimId
-
-	cachedSpearTrack = animator:LoadAnimation(animInstance)
-	if cachedSpearTrack then
+	local ok, track = pcall(function()
+		return animator:LoadAnimation(animInstance)
+	end)
+	if ok and track then
+		cachedSpearTrack = track
 		cachedSpearTrack.Priority = Enum.AnimationPriority.Action
 		cachedSpearTrack:Play()
+	else
+		warn("[CombatController] Failed to load spear animation")
 	end
 end
 

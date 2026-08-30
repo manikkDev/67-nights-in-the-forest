@@ -227,9 +227,9 @@ local function spawnOwl()
 		return
 	end
 
-	local template = NPC_SOURCE_PATH:FindFirstChild(OWL_MODEL_NAME)
+	local template = NPC_SOURCE_PATH and NPC_SOURCE_PATH:FindFirstChild(OWL_MODEL_NAME)
 	if not template or not template:IsA("Model") then
-		warn("[OwlService] Missing Owl template in", NPC_SOURCE_PATH:GetFullName())
+		warn("[OwlService] Missing Owl template")
 		return
 	end
 

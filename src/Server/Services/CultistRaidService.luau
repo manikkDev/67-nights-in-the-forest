@@ -33,6 +33,7 @@ local RunService = game:GetService("RunService")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
+local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 
 -- | Objects | --
 local CultistRaidService = Knit.CreateService({
@@ -182,7 +183,11 @@ local function startRaid(dayNumber: number)
 	raidDayNumber = dayNumber
 	cleanupScheduled = false
 	preNightWarningFired = false
-	local count = computeRaidSize(dayNumber)
+	local count = math.clamp(
+		RunConfig.ScaleEnemyCount(computeRaidSize(dayNumber), runStateService:GetInitialPartySize()),
+		1,
+		MAX_RAID_SIZE
+	)
 
 	-- Suppress the Deer stalker during cultist raids so only cultists
 	-- are present as hostile NPCs.
@@ -305,6 +310,28 @@ local function onHeartbeat(dt: number)
 	end
 end
 
+local function resetRaidState(destroyModels: boolean)
+	if destroyModels then
+		for _, model in ipairs(raidCultists) do
+			if model.Parent then
+				model:Destroy()
+			end
+		end
+	end
+	raidCultists = {}
+	raidActive = false
+	raidDayNumber = 0
+	cleanupScheduled = false
+	raidTotalCount = 0
+	raidTotalMaxHealth = 0
+	lastStatusUpdate = 0
+	preNightWarningFired = false
+	lastPhase = "Day"
+	if deerService then
+		deerService:SuppressDeer(false)
+	end
+end
+
 -- // INITIALIZATION // --
 
 function CultistRaidService:KnitStart()
@@ -316,8 +343,13 @@ function CultistRaidService:KnitStart()
 	campfireService = Knit.GetService("CampfireService")
 	deerService = Knit.GetService("DeerService")
 
+	runStateService.RunStarted:Connect(function()
+		resetRaidState(true)
+	end)
+	runStateService.RunCleaned:Connect(function()
+		resetRaidState(true)
+	end)
 	RunService.Heartbeat:Connect(onHeartbeat)
-
 end
 
 return CultistRaidService

@@ -244,7 +244,6 @@ local function sanitizeBench(model: Model)
 			or descendant:IsA("ModuleScript")
 			or descendant:IsA("PackageLink")
 			or descendant:IsA("TextureConfiguration")
-			or descendant:IsA("Sound")
 			or className == "Package"
 			or className == "Configuration"
 			or (descendant:IsA("Sound") and descendant.SoundId == "rbxassetid://6160151677")
@@ -739,6 +738,7 @@ function CraftingService:AddShreddedTotal(resource: string, amount: number)
 		return
 	end
 	updateTableCounters()
+	broadcastState()
 end
 
 --[[
@@ -831,6 +831,11 @@ function CraftingService.Client:RequestCraft(player: Player, recipeId: string): 
 	local now = os.clock()
 	if craftCooldowns[player] and now - craftCooldowns[player] < CRAFT_COOLDOWN then
 		return { ok = false, code = "RATE_LIMITED" }
+	end
+	if recipe.OutputKind == "Item"
+		and inventoryService:GetTotalCarried(player) >= inventoryService:GetCapacity(player)
+	then
+		return { ok = false, code = "INVENTORY_FULL" }
 	end
 	if not canAfford(player, recipe.Cost) then
 		return { ok = false, code = "INSUFFICIENT_RESOURCES" }

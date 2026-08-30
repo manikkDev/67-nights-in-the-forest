@@ -271,21 +271,25 @@ local function createChild(definition, caveCFrame: CFrame): Model?
 	child:SetAttribute("ChildId", definition.Id)
 	child:SetAttribute("RescueState", "Locked")
 	for _, descendant in ipairs(child:GetDescendants()) do
-		if descendant:IsA("BaseScript") or descendant:IsA("ModuleScript") then
+		if descendant:IsA("BaseScript") or descendant:IsA("ModuleScript")
+			or descendant:IsA("PackageLink") or descendant:IsA("TextureConfiguration")
+		then
 			descendant:Destroy()
 		elseif descendant:IsA("BasePart") then
 			descendant.CanCollide = false
+			descendant.Massless = true
 		end
 	end
 	styleChildVariant(child, definition)
 	child.Parent = cavesFolder
 	child:PivotTo(caveCFrame * CFrame.new(0, 3, -7))
 	-- Search recursively for HumanoidRootPart (may not be a direct child)
-	local rootPart = child:FindFirstChild("HumanoidRootPart")
+	local rootPart = child:FindFirstChild("HumanoidRootPart", true)
 	if not rootPart then
 		rootPart = child:FindFirstChildWhichIsA("BasePart", true)
 	end
 	if rootPart and rootPart:IsA("BasePart") then
+		child.PrimaryPart = rootPart
 		rootPart.Anchored = true
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.Name = "RescueChildPrompt"
@@ -549,7 +553,8 @@ local function onNpcDied(model: Model)
 	end
 	record.guards[model] = nil
 	for guard in pairs(record.guards) do
-		if guard.Parent then
+		local humanoid = guard.Parent and guard:FindFirstChildOfClass("Humanoid")
+		if humanoid and humanoid.Health > 0 then
 			return
 		end
 		record.guards[guard] = nil
@@ -1095,6 +1100,7 @@ local function settleAtCamp(record)
 		-- Set walk speed and register for wandering.
 		local humanoid = child:FindFirstChildOfClass("Humanoid")
 		if humanoid then
+			humanoid.PlatformStand = false
 			humanoid.WalkSpeed = KID_WALK_SPEED
 		end
 		wanderingKids[child] = {
@@ -1311,7 +1317,7 @@ function RescueService:TryCarryChild(player: Player, caveId: string): boolean
 	local character = player.Character
 	local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
 	-- Search recursively for the child's root part
-	local childRoot = record.child:FindFirstChild("HumanoidRootPart")
+	local childRoot = record.child:FindFirstChild("HumanoidRootPart", true)
 	if not childRoot then
 		childRoot = record.child:FindFirstChildWhichIsA("BasePart", true)
 	end
@@ -1330,6 +1336,10 @@ function RescueService:TryCarryChild(player: Player, caveId: string): boolean
 	end
 
 	childRoot.Anchored = false
+	local childHumanoid = record.child:FindFirstChildOfClass("Humanoid")
+	if childHumanoid then
+		childHumanoid.PlatformStand = true
+	end
 	record.child:PivotTo(playerRoot.CFrame * CFrame.new(0, 0, 2.4))
 	local weld = Instance.new("WeldConstraint")
 	weld.Name = "ChildCarryWeld"
@@ -1370,7 +1380,11 @@ function RescueService:DropCarriedChild(player: Player)
 	local character = player.Character
 	local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	local childRoot = record.child and record.child:FindFirstChild("HumanoidRootPart")
+	local childRoot = record.child and record.child:FindFirstChild("HumanoidRootPart", true)
+	local childHumanoid = record.child and record.child:FindFirstChildOfClass("Humanoid")
+	if childHumanoid then
+		childHumanoid.PlatformStand = false
+	end
 	if humanoid and record.originalWalkSpeed then
 		humanoid.WalkSpeed = record.originalWalkSpeed
 	end

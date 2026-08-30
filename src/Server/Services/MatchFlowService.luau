@@ -234,12 +234,21 @@ local function startRun(participants: { Player }, metadata: { [string]: any }, s
 			sessionsByPlayer[player] = session
 		end
 	end
-	if spawnService then
-		print("[MatchFlowService] Calling SpawnParty for", #participants, "players")
-		local spawnOk = spawnService:SpawnParty(participants)
-		print("[MatchFlowService] SpawnParty returned:", spawnOk)
-	else
+	if not spawnService then
 		warn("[MatchFlowService] spawnService is nil — cannot spawn players")
+		runStateService:CleanupRun("SPAWN_SERVICE_MISSING")
+		return false
+	end
+	print("[MatchFlowService] Calling SpawnParty for", #participants, "players")
+	local spawnOk = spawnService:SpawnParty(participants)
+	print("[MatchFlowService] SpawnParty returned:", spawnOk)
+	if not spawnOk then
+		runStateService:CleanupRun("SPAWN_FAILED")
+		if session then
+			session.routing = false
+			setState(session, "Waiting")
+		end
+		return false
 	end
 	if timeService then
 		print("[MatchFlowService] Calling TimeService:StartMatch")
@@ -377,8 +386,9 @@ function MatchFlowService:StartRunForReplay(participants: { Player }, metadata: 
 	if not startedRunId then
 		return false
 	end
-	if spawnService then
-		spawnService:SpawnParty(participants)
+	if spawnService and not spawnService:SpawnParty(participants) then
+		runStateService:CleanupRun("REPLAY_SPAWN_FAILED")
+		return false
 	end
 	if timeService then
 		timeService:StartMatch()

@@ -48,7 +48,6 @@ return {
 
 	Resources = {
 		Wood = 0,
-		Scrap = 0,
 		Coal = 0,
 		Berries = 0,
 		Mushrooms = 0,

@@ -43,7 +43,12 @@ local PICKUP_KEY = Enum.KeyCode.F
 local PICKUP_RANGE = 12
 local PICKUP_COOLDOWN = 0.2
 local RAY_LENGTH = 128
-local DRAG_MAX_DISTANCE = 50 -- matches server-side DRAG_MAX_DISTANCE
+local ITEM_DRAG_MAX_HORIZONTAL_DISTANCE = 20
+local BODY_DRAG_MAX_HORIZONTAL_DISTANCE = 24
+local DRAG_MIN_HEIGHT_FROM_ROOT = -3
+local DRAG_MAX_HEIGHT_FROM_ROOT = 14
+local DRAG_MIN_CAMERA_DEPTH = 6
+local DRAG_MAX_CAMERA_DEPTH = 40
 local HOVER_EMISSIVE = Color3.fromRGB(160, 220, 255)
 local BAG_TOOL_NAME = "Carry Bag"
 
@@ -63,6 +68,7 @@ local draggingModel: Model? = nil
 local draggingResourceName: string? = nil
 local draggingBodyPlayer: Player? = nil
 local dragTarget: BasePart? = nil
+local dragCameraDepth: number? = nil
 local lastDragTargetSent = 0
 
 -- | Helpers | --
@@ -327,92 +333,47 @@ local function stopDrag()
 	draggingResourceName = nil
 	draggingBodyPlayer = nil
 	dragTarget = nil
+	dragCameraDepth = nil
 end
 
 --[[
     @summary  Move the invisible drag target to the current mouse position in 3D space.
-    @desc     When the ray hits a surface, the target moves to that point.
-              When the ray hits nothing (sky), the target is projected onto
-              a horizontal plane at the item's current height so moving the
-              mouse up/down lifts/lowers the item instead of sending it
-              farther away. The target is clamped to DRAG_MAX_DISTANCE
-              from the player and to a reasonable vertical range.
 ]]
-local DRAG_VERTICAL_MIN = -2 -- below player feet
-local DRAG_VERTICAL_MAX = 15 -- above player head
-
 local function updateDragTarget()
-	if not dragTarget or not dragTarget.Parent then
+	if not dragTarget or not dragTarget.Parent or not dragCameraDepth then
 		return
 	end
 
 	local camera = workspace.CurrentCamera
-	if not camera then
-		return
-	end
-
 	local character = localPlayer.Character
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-	if not rootPart or not rootPart:IsA("BasePart") then
+	if not camera or not rootPart or not rootPart:IsA("BasePart") then
 		return
 	end
 
 	local mousePos = UserInputService:GetMouseLocation()
 	local ray = camera:ViewportPointToRay(mousePos.X, mousePos.Y, 0)
-
-	local raycastParams = RaycastParams.new()
-	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-	local filterList: {Instance} = {}
-	if dragTarget then
-		table.insert(filterList, dragTarget)
-	end
-	if draggingModel then
-		table.insert(filterList, draggingModel)
-	end
-	if character then
-		table.insert(filterList, character)
-	end
-	raycastParams.FilterDescendantsInstances = filterList
-
-	local result = workspace:Raycast(ray.Origin, ray.Direction * RAY_LENGTH, raycastParams)
-	local targetPos: Vector3
-	if result then
-		targetPos = result.Position
-	else
-		-- Ray hit nothing (sky). Project onto a horizontal plane at the
-		-- item's current height so the mouse lifts/lowers the item
-		-- vertically instead of sending it farther away.
-		local itemHeight = draggingModel and draggingModel:GetPivot().Y or rootPart.Position.Y
-		local planeY = math.clamp(itemHeight, rootPart.Position.Y + DRAG_VERTICAL_MIN, rootPart.Position.Y + DRAG_VERTICAL_MAX)
-		-- Intersect the camera ray with the horizontal plane at planeY
-		local rayDir = ray.Direction.Unit
-		if math.abs(rayDir.Y) > 0.001 then
-			local t = (planeY - ray.Origin.Y) / rayDir.Y
-			if t > 0 then
-				targetPos = ray.Origin + rayDir * t
-			else
-				targetPos = ray.Origin + rayDir * 30
-			end
-		else
-			-- Ray is horizontal — place 30 studs ahead at item height
-			targetPos = ray.Origin + rayDir * 30
-			targetPos = Vector3.new(targetPos.X, planeY, targetPos.Z)
-		end
+	local rayDirection = ray.Direction.Unit
+	local planeNormal = camera.CFrame.LookVector
+	local denominator = rayDirection:Dot(planeNormal)
+	if denominator <= 0.01 then
+		return
 	end
 
-	-- Clamp to DRAG_MAX_DISTANCE from the player's root part
-	local offset = targetPos - rootPart.Position
-	local dist = offset.Magnitude
-	if dist > DRAG_MAX_DISTANCE then
-		targetPos = rootPart.Position + (offset / dist) * DRAG_MAX_DISTANCE
-	end
+	local planePoint = camera.CFrame.Position + planeNormal * dragCameraDepth
+	local distanceAlongRay = (planePoint - ray.Origin):Dot(planeNormal) / denominator
+	local targetPos = ray.Origin + rayDirection * math.max(distanceAlongRay, DRAG_MIN_CAMERA_DEPTH)
 
-	-- Clamp vertical range relative to the player
-	local playerY = rootPart.Position.Y
+	local rootPosition = rootPart.Position
+	local horizontalOffset = Vector3.new(targetPos.X - rootPosition.X, 0, targetPos.Z - rootPosition.Z)
+	local maxHorizontalDistance = if draggingBodyPlayer then BODY_DRAG_MAX_HORIZONTAL_DISTANCE else ITEM_DRAG_MAX_HORIZONTAL_DISTANCE
+	if horizontalOffset.Magnitude > maxHorizontalDistance then
+		horizontalOffset = horizontalOffset.Unit * maxHorizontalDistance
+	end
 	targetPos = Vector3.new(
-		targetPos.X,
-		math.clamp(targetPos.Y, playerY + DRAG_VERTICAL_MIN, playerY + DRAG_VERTICAL_MAX),
-		targetPos.Z
+		rootPosition.X + horizontalOffset.X,
+		math.clamp(targetPos.Y, rootPosition.Y + DRAG_MIN_HEIGHT_FROM_ROOT, rootPosition.Y + DRAG_MAX_HEIGHT_FROM_ROOT),
+		rootPosition.Z + horizontalOffset.Z
 	)
 
 	local now = os.clock()
@@ -561,6 +522,16 @@ local function startDrag(model: Model, resourceName: string): boolean
 	local target = workspace:WaitForChild(targetName, 8)
 	if target and target:IsA("BasePart") then
 		dragTarget = target
+		local camera = workspace.CurrentCamera
+		if not camera then
+			stopDrag()
+			return false
+		end
+		dragCameraDepth = math.clamp(
+			(model:GetPivot().Position - camera.CFrame.Position):Dot(camera.CFrame.LookVector),
+			DRAG_MIN_CAMERA_DEPTH,
+			DRAG_MAX_CAMERA_DEPTH
+		)
 		updateDragTarget()
 	else
 		stopDrag()
@@ -580,9 +551,19 @@ local function startBodyDrag(model: Model, targetPlayer: Player): boolean
 	draggingModel = model
 	draggingBodyPlayer = targetPlayer
 	draggingResourceName = nil
-	local target = workspace:WaitForChild("BodyDragTarget_" .. tostring(localPlayer.UserId), 2)
+	local target = workspace:WaitForChild("BodyDragTarget_" .. tostring(localPlayer.UserId), 8)
 	if target and target:IsA("BasePart") then
 		dragTarget = target
+		local camera = workspace.CurrentCamera
+		if not camera then
+			stopDrag()
+			return false
+		end
+		dragCameraDepth = math.clamp(
+			(model:GetPivot().Position - camera.CFrame.Position):Dot(camera.CFrame.LookVector),
+			DRAG_MIN_CAMERA_DEPTH,
+			DRAG_MAX_CAMERA_DEPTH
+		)
 		updateDragTarget()
 		return true
 	end

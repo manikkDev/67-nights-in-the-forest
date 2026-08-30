@@ -273,7 +273,7 @@ local function spawnForagePickup(resourceName: string, unlockLevel: number?)
 	local model: Model
 	local cframe: CFrame
 	if resourceName == "Berries" then
-		local source = ITEMS_PATH:FindFirstChild("Carrot")
+		local source = ITEMS_PATH and ITEMS_PATH:FindFirstChild("Carrot")
 		if not source then
 			warn("[ForageService] Carrot mesh not found in Assets Items")
 			return

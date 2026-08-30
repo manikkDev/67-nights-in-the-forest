@@ -96,7 +96,6 @@ local function freshRunTable(key: string): { [string]: any }
 	if key == "Resources" then
 		return {
 			Wood = 0,
-			Scrap = 0,
 			Coal = 0,
 			Berries = 0,
 			Mushrooms = 0,
@@ -557,7 +556,11 @@ function RunStateService:CleanupRun(reason: string)
 		timeService:ResetMatch()
 	end
 
+	local currentMembers = {}
 	for player in pairs(members) do
+		table.insert(currentMembers, player)
+	end
+	for _, player in ipairs(currentMembers) do
 		if player.Parent then
 			resetPlayerRunData(player)
 			if spawnService then

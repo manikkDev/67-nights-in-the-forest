@@ -90,9 +90,9 @@ local function buildStatCard(parent: Instance, index: number)
 
 	local card = Instance.new("Frame")
 	card.Name = "StatCard" .. tostring(index)
-	card.AnchorPoint = Vector2.new(0, 0.5)
+	card.AnchorPoint = Vector2.new(0, 0)
 	card.Size = UDim2.fromOffset(CARD_WIDTH, CARD_HEIGHT)
-	card.Position = UDim2.fromScale(0.5, 0.5)
+	card.Position = UDim2.fromScale(0.5, 0)
 		+ UDim2.fromOffset(startX + col * (CARD_WIDTH + CARD_GAP), row * (CARD_HEIGHT + CARD_GAP))
 	card.BackgroundColor3 = CARD_BG
 	card.BackgroundTransparency = 1
@@ -202,14 +202,14 @@ local function buildUi()
 	container.Parent = backdropFrame
 
 	local layout = Instance.new("UIListLayout")
-	layout.Padding = UDim.new(0, 0)
+	layout.Padding = UDim.new(0, 8)
 	layout.SortOrder = Enum.SortOrder.LayoutOrder
 	layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	layout.Parent = container
 
 	local padding = Instance.new("UIPadding")
 	padding.PaddingTop = UDim.new(0, 0)
-	padding.PaddingBottom = UDim.new(0, 0)
+	padding.PaddingBottom = UDim.new(0, 16)
 	padding.PaddingLeft = UDim.new(0, 0)
 	padding.PaddingRight = UDim.new(0, 0)
 	padding.Parent = container
@@ -303,15 +303,15 @@ local function buildUi()
 	-- === Stat cards container ===
 	local cardsFrame = Instance.new("Frame")
 	cardsFrame.Name = "StatCards"
-	cardsFrame.Size = UDim2.new(1, 0, 0, 0)
-	cardsFrame.AutomaticSize = Enum.AutomaticSize.Y
+	cardsFrame.Size = UDim2.new(1, 0, 0, 298)
+	cardsFrame.AutomaticSize = Enum.AutomaticSize.None
 	cardsFrame.BackgroundTransparency = 1
 	cardsFrame.LayoutOrder = 5
 	cardsFrame.Parent = container
 	cardContainer = cardsFrame
 
-	-- Build 8 stat cards
-	for i = 1, 8 do
+	-- Build 6 stat cards
+	for i = 1, 6 do
 		local card = buildStatCard(cardsFrame, i)
 		table.insert(statCards, card)
 	end
@@ -449,7 +449,7 @@ local function resetUi()
 		if card.stroke then
 			card.stroke.Transparency = 1
 		end
-		card.frame.Position = UDim2.fromScale(0.5, 0.5)
+		card.frame.Position = UDim2.fromScale(0.5, 0)
 			+ UDim2.fromOffset(
 				((tonumber(string.sub(card.frame.Name, 8)) or 1) - 1) % CARDS_PER_ROW * (CARD_WIDTH + CARD_GAP) - (CARDS_PER_ROW * CARD_WIDTH + (CARDS_PER_ROW - 1) * CARD_GAP) / 2,
 				math.floor(((tonumber(string.sub(card.frame.Name, 8)) or 1) - 1) / CARDS_PER_ROW) * (CARD_HEIGHT + CARD_GAP) + 15
@@ -606,9 +606,7 @@ local function showResults(result)
 		{ value = string.format("%d / %d", result.displayedDay or 1, result.goalDay or 67), label = "Days Survived" },
 		{ value = formatTime(result.elapsedSeconds or 0), label = "Run Time" },
 		{ value = string.format("%d / 4", result.childrenRescued or 0), label = "Children Rescued" },
-		{ value = tostring(result.structuresBuilt or 0), label = "Structures Built" },
 		{ value = tostring(result.treesChopped or 0), label = "Trees Chopped" },
-		{ value = tostring(result.wolvesKilled or 0), label = "Wolves Defeated" },
 		{ value = tostring(result.cultistsKilled or 0), label = "Cultists Defeated" },
 		{ value = string.format("%d / %d", result.revives or 0, result.downs or 0), label = "Revives / Downs" },
 	}
@@ -625,7 +623,7 @@ local function showResults(result)
 			local row = math.floor((i - 1) / CARDS_PER_ROW)
 			local totalWidth = CARDS_PER_ROW * CARD_WIDTH + (CARDS_PER_ROW - 1) * CARD_GAP
 			local startX = -totalWidth / 2
-			local restPos = UDim2.fromScale(0.5, 0.5)
+			local restPos = UDim2.fromScale(0.5, 0)
 				+ UDim2.fromOffset(startX + col * (CARD_WIDTH + CARD_GAP), row * (CARD_HEIGHT + CARD_GAP))
 
 			-- Start position: 15px below resting

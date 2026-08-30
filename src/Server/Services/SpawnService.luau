@@ -121,8 +121,23 @@ function SpawnService:SpawnPlayer(player: Player, slot: number?, partySize: numb
 		warn("[SpawnService] Campfire CFrame not available — cannot spawn", player.Name)
 		return false
 	end
+	local count = math.max(1, partySize or 1)
+	local index = math.clamp(slot or 1, 1, count)
+	local angle = ((index - 1) / count) * math.pi * 2
+	local target = campfireCFrame * CFrame.new(math.cos(angle) * SPAWN_RADIUS, SPAWN_HEIGHT, math.sin(angle) * SPAWN_RADIUS)
+
+	-- Use the permanent campfire SpawnLocation created by WorldService.
+	-- This eliminates the spawn race where the character loads before a
+	-- SpawnLocation has replicated to the client.
+	local campfireSpawn = workspace:FindFirstChild("CampfireSpawn")
+	if campfireSpawn and campfireSpawn:IsA("SpawnLocation") then
+		campfireSpawn.CFrame = target * CFrame.new(0, -3, 0)
+		player.RespawnLocation = campfireSpawn
+	end
+
 	local character = loadFreshCharacter(player)
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+	player.RespawnLocation = nil
 	if not rootPart or not rootPart:IsA("BasePart") then
 		spawningPlayers[player] = nil
 		warn("[SpawnService] Character load failed for", player.Name)
@@ -134,10 +149,6 @@ function SpawnService:SpawnPlayer(player: Player, slot: number?, partySize: numb
 		return false
 	end
 
-	local count = math.max(1, partySize or 1)
-	local index = math.clamp(slot or 1, 1, count)
-	local angle = ((index - 1) / count) * math.pi * 2
-	local target = campfireCFrame * CFrame.new(math.cos(angle) * SPAWN_RADIUS, SPAWN_HEIGHT, math.sin(angle) * SPAWN_RADIUS)
 	rootPart.Anchored = false
 	character:PivotTo(target)
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -268,8 +279,20 @@ end
 
 -- | Studio Shortcut | --
 local function autoSpawnPlayer(player: Player)
-	if not RunConfig.IsTestEnabled("SkipLobby") or spawnedPlayers[player] then
+	if not (RunConfig.IsTestEnabled("SkipLobby") or RunConfig.IsTestEnabled("ForceGameMode")) or spawnedPlayers[player] then
 		return
+	end
+	-- Wait for profile data to be available before attempting StartRun
+	-- to avoid noisy "no profile data" rejection warnings.
+	local playerDataService = Knit.GetService("PlayerDataService")
+	for _ = 1, 60 do
+		if not player.Parent then
+			return
+		end
+		if playerDataService and playerDataService:GetData(player) then
+			break
+		end
+		task.wait(0.25)
 	end
 	for _ = 1, 30 do
 		if not player.Parent then

@@ -65,8 +65,6 @@ local CARRY_BAG_TOOL_NAME = "Carry Bag"
 local FLASHLIGHT_TOOL_NAME = "Flashlight"
 local RESOURCE_NAMES = {
 	"Wood",
-	"WoodenSheet",
-	"Scrap",
 	"Coal",
 	"Berries",
 	"Mushrooms",
@@ -88,7 +86,10 @@ local PICKUP_RANGE = 12
 local DROP_SPACING = 2.2
 local DROP_LIFETIME = 300
 
-local DRAG_MAX_DISTANCE = 50
+local DRAG_MAX_HORIZONTAL_DISTANCE = 20
+local DRAG_MIN_HEIGHT_FROM_ROOT = -3
+local DRAG_MAX_HEIGHT_FROM_ROOT = 14
+local DRAG_CLEANUP_TOLERANCE = 4
 
 -- How close a dragged junk item must be released to the shredder to grind.
 local GRIND_DROP_RANGE = 14
@@ -96,9 +97,7 @@ local GRIND_DROP_RANGE = 14
 -- Map resources to the asset name in ITEMS_PATH.  Mushrooms use their own asset builder.
 local DROP_ASSETS: { [string]: string? } = {
 	Wood = "Log",
-	WoodenSheet = nil :: string?,
 	Coal = "Coal",
-	Scrap = "Coal",
 	Berries = "Carrot",
 	RawMeat = "rabbit-meat",
 	CookedMeat = "wolf-meat",
@@ -335,12 +334,10 @@ function InventoryService:GrindJunk(player: Player, junkId: string): number
 	if not config then
 		return 0
 	end
-	local consumed = self:ConsumeResource(player, junkId, 1)
-	if not consumed then
+	if not self:ConsumeResource(player, junkId, 1) then
 		return 0
 	end
-	local added = self:AddResource(player, "Scrap", config.ScrapYield)
-	return added
+	return config.ScrapYield
 end
 
 -- // PICKUP / DROP // --
@@ -384,7 +381,7 @@ end
 ]]
 local function getMushroomSource(): Model?
 	if not mushroomSource then
-		mushroomSource = ITEMS_PATH:FindFirstChild(MUSHROOM_ASSET_NAME)
+		mushroomSource = ITEMS_PATH and ITEMS_PATH:FindFirstChild(MUSHROOM_ASSET_NAME)
 		if mushroomSource then
 			mushroomBaseOffset = computeMushroomBaseOffset(mushroomSource)
 		end
@@ -575,10 +572,12 @@ local function buildJunkModel(itemId: string): Model
 		if source:IsA("Model") then
 			local clone = source:Clone()
 			clone.Name = itemId .. "Pickup"
-			-- Disable all scripts inside the cloned asset (e.g. RadioScript)
 			for _, desc in ipairs(clone:GetDescendants()) do
-				if desc:IsA("Script") or desc:IsA("LocalScript") or desc:IsA("ModuleScript") then
-					desc.Disabled = true
+				if desc:IsA("BaseScript") or desc:IsA("ModuleScript")
+					or desc:IsA("PackageLink") or desc:IsA("TextureConfiguration")
+					or (desc:IsA("Sound") and desc.SoundId == "rbxassetid://6160151677")
+				then
+					desc:Destroy()
 				end
 			end
 			if not clone.PrimaryPart then
@@ -630,7 +629,7 @@ local function buildDropModel(resourceName: string): Model
 		model = buildJunkModel(resourceName)
 	else
 		local assetName = DROP_ASSETS[resourceName]
-		local source = assetName and ITEMS_PATH:FindFirstChild(assetName)
+		local source = assetName and ITEMS_PATH and ITEMS_PATH:FindFirstChild(assetName)
 		if source and source:IsA("Model") then
 			model = source:Clone()
 			if not model.PrimaryPart then
@@ -994,29 +993,21 @@ local function stopDrag(player: Player)
 		if grinderPos and (config or isWood) then
 			local dist = (model:GetPivot().Position - grinderPos).Magnitude
 			if dist <= GRIND_DROP_RANGE then
-				-- Grant the output FIRST.  If the player is at carry
-				-- capacity AddResource returns 0, and destroying the
-				-- model anyway would silently delete their item for
-				-- nothing — so in that case we let it fall instead.
 				local outputResource = if isWood then "WoodenSheet" else "Scrap"
 				local outputAmount = if isWood then 1 else config.ScrapYield
-				local added = InventoryService:AddResource(player, outputResource, outputAmount)
-				if added > 0 then
-					model:Destroy()
-					dragging[player] = nil
-					draggedBy[model] = nil
-					grinderService:StartGrindAnimation()
-					grinderService:StopGrindAnimation()
-					grinderService.Client.GrinderProcessed:Fire(player, {
-						position = grinderPos,
-						scrapAmount = added,
-						junkId = if isWood then "WoodenSheet" else resourceName,
-					})
-					local craftingService = Knit.GetService("CraftingService")
-					craftingService:AddShreddedTotal(outputResource, added)
-					return
-				end
-				warn(("[InventoryService] %s could not grind %s: inventory full"):format(player.Name, resourceName))
+				model:Destroy()
+				dragging[player] = nil
+				draggedBy[model] = nil
+				grinderService:StartGrindAnimation()
+				grinderService:StopGrindAnimation()
+				grinderService.Client.GrinderProcessed:Fire(player, {
+					position = grinderPos,
+					scrapAmount = outputAmount,
+					junkId = if isWood then "WoodenSheet" else resourceName,
+				})
+				local craftingService = Knit.GetService("CraftingService")
+				craftingService:AddShreddedTotal(outputResource, outputAmount)
+				return
 			end
 		end
 
@@ -1166,6 +1157,34 @@ local function tryStartDrag(player: Player, model: Model): boolean
 	return true
 end
 
+local function constrainDragPosition(rootPosition: Vector3, requestedPosition: Vector3): Vector3
+	local horizontalOffset = Vector3.new(
+		requestedPosition.X - rootPosition.X,
+		0,
+		requestedPosition.Z - rootPosition.Z
+	)
+	if horizontalOffset.Magnitude > DRAG_MAX_HORIZONTAL_DISTANCE then
+		horizontalOffset = horizontalOffset.Unit * DRAG_MAX_HORIZONTAL_DISTANCE
+	end
+	return Vector3.new(
+		rootPosition.X + horizontalOffset.X,
+		math.clamp(
+			requestedPosition.Y,
+			rootPosition.Y + DRAG_MIN_HEIGHT_FROM_ROOT,
+			rootPosition.Y + DRAG_MAX_HEIGHT_FROM_ROOT
+		),
+		rootPosition.Z + horizontalOffset.Z
+	)
+end
+
+local function isWithinDragBounds(rootPosition: Vector3, position: Vector3): boolean
+	local horizontalDistance = Vector3.new(position.X - rootPosition.X, 0, position.Z - rootPosition.Z).Magnitude
+	local verticalOffset = position.Y - rootPosition.Y
+	return horizontalDistance <= DRAG_MAX_HORIZONTAL_DISTANCE + DRAG_CLEANUP_TOLERANCE
+		and verticalOffset >= DRAG_MIN_HEIGHT_FROM_ROOT - DRAG_CLEANUP_TOLERANCE
+		and verticalOffset <= DRAG_MAX_HEIGHT_FROM_ROOT + DRAG_CLEANUP_TOLERANCE
+end
+
 --[[
     @summary  Drop any drag whose model, player, or distance has become invalid.
 ]]
@@ -1193,7 +1212,7 @@ local function cleanupDrags()
 			continue
 		end
 
-		if (hrp.Position - primaryPart.Position).Magnitude > DRAG_MAX_DISTANCE then
+		if not isWithinDragBounds(hrp.Position, primaryPart.Position) then
 			table.insert(toStop, player)
 			continue
 		end
@@ -1204,7 +1223,7 @@ local function cleanupDrags()
 			continue
 		end
 
-		if (hrp.Position - dragTarget.Position).Magnitude > DRAG_MAX_DISTANCE then
+		if not isWithinDragBounds(hrp.Position, dragTarget.Position) then
 			table.insert(toStop, player)
 			continue
 		end
@@ -1596,10 +1615,11 @@ function InventoryService:KnitStart()
 		if not hrp or not hrp:IsA("BasePart") then
 			return
 		end
-		if (hrp.Position - position).Magnitude > DRAG_MAX_DISTANCE then
+		if position.X ~= position.X or position.Y ~= position.Y or position.Z ~= position.Z then
 			return
 		end
-		dragTarget.CFrame = CFrame.new(position) * dragTarget.CFrame.Rotation
+		local constrainedPosition = constrainDragPosition(hrp.Position, position)
+		dragTarget.CFrame = CFrame.new(constrainedPosition) * dragTarget.CFrame.Rotation
 	end)
 
 	Players.PlayerRemoving:Connect(stopDrag)

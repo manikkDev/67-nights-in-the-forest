@@ -130,6 +130,7 @@ return {
 		LoseAggroRange = 70,
 		ActiveDuring = "Always",
 		BakedAttackAnimName = "Attack",
+		StatsKey = "CultistsKilled",
 		Loot = {
 			{ Resource = "Wood", Min = 1, Max = 2, Chance = 0.5 },
 			{ Resource = "CultistGem", Min = 1, Max = 1, Chance = 1.0 },
@@ -149,6 +150,7 @@ return {
 		LoseAggroRange = 70,
 		ActiveDuring = "Always",
 		BakedAttackAnimName = "Attack",
+		StatsKey = "CultistsKilled",
 		Loot = {
 			{ Resource = "Wood", Min = 1, Max = 2, Chance = 0.5 },
 			{ Resource = "CultistGem", Min = 1, Max = 1, Chance = 1.0 },

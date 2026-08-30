@@ -88,6 +88,7 @@ local inventoryService: any = nil
 local worldService: any = nil
 local rescueService: any = nil
 local combatService: any = nil
+local craftingService: any = nil
 local openedChests: { [string]: boolean } = {}
 local openedCaveChests: { [Player]: { [string]: boolean } } = {}
 local cooldowns: { [Player]: number } = {}
@@ -269,6 +270,14 @@ local function animateChestOpen(chest: Model)
 	end)
 end
 
+local function grantResource(player: Player, resourceName: string, amount: number): number
+	if resourceName == "Scrap" or resourceName == "WoodenSheet" then
+		craftingService:AddShreddedTotal(resourceName, amount)
+		return amount
+	end
+	return inventoryService:AddResource(player, resourceName, amount)
+end
+
 --[[
     @summary  Grant a rolled chest reward to a player.
     @param    player  Player
@@ -295,7 +304,7 @@ local function grantLoot(player: Player, tier: string): { [string]: number }
 	if lootTable.guaranteed then
 		local guaranteed = lootTable.guaranteed
 		local guaranteedAmount = randomGenerator:NextInteger(guaranteed.min, guaranteed.max)
-		local added = inventoryService:AddResource(player, guaranteed.resource, guaranteedAmount)
+		local added = grantResource(player, guaranteed.resource, guaranteedAmount)
 		if added > 0 then
 			granted[guaranteed.resource] = added
 		end
@@ -305,7 +314,7 @@ local function grantLoot(player: Player, tier: string): { [string]: number }
 	if lootTable.extras then
 		local extra = chooseWeighted(lootTable.extras)
 		local extraAmount = randomGenerator:NextInteger(extra.min, extra.max)
-		local extraAdded = inventoryService:AddResource(player, extra.resource, extraAmount)
+		local extraAdded = grantResource(player, extra.resource, extraAmount)
 		if extraAdded > 0 then
 			granted[extra.resource] = (granted[extra.resource] or 0) + extraAdded
 		end
@@ -518,6 +527,7 @@ function LootService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	rescueService = Knit.GetService("RescueService")
 	combatService = Knit.GetService("CombatService")
+	craftingService = Knit.GetService("CraftingService")
 
 	runStateService.RunStarted:Connect(function(runId)
 		spawnChests()

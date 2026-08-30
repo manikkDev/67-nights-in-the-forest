@@ -238,6 +238,92 @@ local function applyProceduralGait(stalker, dt: number, isMoving: boolean)
 	end
 end
 
+local function buildSequenceClips(stalker)
+	local folder = stalker.model:FindFirstChild("KeyframeSequences")
+	local clips = {}
+	if not folder then
+		return clips
+	end
+	for _, sequence in ipairs(folder:GetChildren()) do
+		if not sequence:IsA("KeyframeSequence") then
+			continue
+		end
+		local frames = {}
+		for _, keyframe in ipairs(sequence:GetKeyframes()) do
+			local poses = {}
+			for _, descendant in ipairs(keyframe:GetDescendants()) do
+				if descendant:IsA("Pose") then
+					poses[descendant.Name] = descendant.CFrame
+				end
+			end
+			table.insert(frames, { time = keyframe.Time, poses = poses })
+		end
+		table.sort(frames, function(a, b)
+			return a.time < b.time
+		end)
+		if #frames > 0 then
+			clips[sequence.Name] = {
+				frames = frames,
+				duration = math.max(frames[#frames].time, 1 / 30),
+				looped = sequence.Loop or (sequence.Name == "Idle" or sequence.Name == "Walk" or sequence.Name == "Run" or sequence.Name == "StunnedLoop"),
+			}
+		end
+	end
+	return clips
+end
+
+local function playSequence(stalker, name: string)
+	local clip = stalker.sequenceClips and stalker.sequenceClips[name]
+	if not clip then
+		return false
+	end
+	if stalker.sequenceName ~= name then
+		stalker.sequenceName = name
+		stalker.sequenceTime = 0
+	end
+	return true
+end
+
+local function stopSequence(stalker)
+	stalker.sequenceName = nil
+	stalker.sequenceTime = 0
+end
+
+local function updateSequence(stalker, dt: number)
+	local name = stalker.sequenceName
+	local clip = name and stalker.sequenceClips and stalker.sequenceClips[name]
+	if not clip then
+		return
+	end
+	local time = (stalker.sequenceTime or 0) + dt
+	if time >= clip.duration then
+		if clip.looped then
+			time %= clip.duration
+		else
+			time = clip.duration
+			stalker.sequenceName = nil
+		end
+	end
+	stalker.sequenceTime = time
+	local frames = clip.frames
+	local left = frames[1]
+	local right = frames[#frames]
+	for index = 2, #frames do
+		if frames[index].time >= time then
+			right = frames[index]
+			left = frames[index - 1]
+			break
+		end
+	end
+	local span = right.time - left.time
+	local alpha = if span > 0 then math.clamp((time - left.time) / span, 0, 1) else 0
+	for _, motor in ipairs(stalker.sequenceMotors) do
+		local from = left.poses[motor.Part1.Name] or CFrame.identity
+		local to = right.poses[motor.Part1.Name] or from
+		motor.Transform = from:Lerp(to, alpha)
+	end
+end
+
 local DEFAULT_R6_WALK_ID = "rbxassetid://180426354"
 local DEFAULT_R6_IDLE_ID = "rbxassetid://180435571"
 local DEFAULT_R6_RUN_ID = "rbxassetid://180426354"
@@ -252,15 +338,21 @@ local DEFAULT_R6_RUN_ID = "rbxassetid://180426354"
 local function buildAnimationTracks(stalker)
 	stalker.tracks = {}
 	stalker.usingProceduralGait = false
+	stalker.sequenceClips = buildSequenceClips(stalker)
+	stalker.sequenceMotors = {}
+	for _, descendant in ipairs(stalker.model:GetDescendants()) do
+		if descendant:IsA("Motor6D") and descendant.Part1 then
+			table.insert(stalker.sequenceMotors, descendant)
+		end
+	end
+	stalker.sequenceName = nil
+	stalker.sequenceTime = 0
 	local humanoid = stalker.humanoid
 	local animator = humanoid:FindFirstChildOfClass("Animator")
 	if not animator then
 		animator = Instance.new("Animator")
 		animator.Parent = humanoid
 	end
-
-	-- Register KeyframeSequences FIRST so the Animations folder has valid local IDs
-	registerKeyframeAnims(stalker.model)
 
 	local function loadTrack(id: string, looped: boolean): AnimationTrack?
 		local anim = Instance.new("Animation")
@@ -279,7 +371,7 @@ local function buildAnimationTracks(stalker)
 	local animFolder = stalker.model:FindFirstChild("Animations")
 	if animFolder then
 		for _, animInstance in ipairs(animFolder:GetChildren()) do
-			if animInstance:IsA("Animation") then
+			if animInstance:IsA("Animation") and animInstance.AnimationId:match("^rbxassetid://%d+$") then
 				local ok, track = pcall(function()
 					return animator:LoadAnimation(animInstance)
 				end)
@@ -318,7 +410,7 @@ local function buildAnimationTracks(stalker)
 	-- If no baked animations loaded (production: RegisterKeyframeSequence
 	-- fails) AND the default R6 tracks also failed to load, fall back to
 	-- procedural gait so the deer doesn't T-pose.
-	if not loadedAnyBaked and (not stalker.tracks.Walk or not stalker.tracks.Walk.IsPlaying) then
+	if not next(stalker.sequenceClips) and not loadedAnyBaked then
 		stalker.usingProceduralGait = true
 		stalker.gaitJoints = _collectGaitJoints(stalker.model)
 		stalker.gaitPhase = 0
@@ -332,6 +424,7 @@ end
     @param    stalker  table
 ]]
 local function stopAllTracks(stalker)
+	stopSequence(stalker)
 	for _, track in pairs(stalker.tracks) do
 		if track.IsPlaying then
 			track:Stop(0)
@@ -346,6 +439,9 @@ end
     @param    name     string
 ]]
 local function playTrack(stalker, name: string)
+	if playSequence(stalker, name) then
+		return
+	end
 	-- Skip locomotion track playback when using procedural gait —
 	-- the procedural gait system handles Walk/Run/Idle visually.
 	-- Attack/Stunned tracks still play if they exist.
@@ -367,6 +463,24 @@ local function playTrack(stalker, name: string)
 		end
 	end
 	track:Play(0.15)
+end
+
+local function isTrackPlaying(stalker, name: string): boolean
+	if stalker.sequenceName == name then
+		return true
+	end
+	local track = stalker.tracks[name]
+	return track ~= nil and track.IsPlaying
+end
+
+local function stopTrack(stalker, name: string)
+	if stalker.sequenceName == name then
+		stopSequence(stalker)
+	end
+	local track = stalker.tracks[name]
+	if track and track.IsPlaying then
+		track:Stop(0.1)
+	end
 end
 
 --[[
@@ -404,7 +518,7 @@ end
 ]]
 local function spawnStalker(key: string)
 	local def = STALKER_DEFS[key]
-	local template = NPC_SOURCE_PATH:FindFirstChild(def.ModelName)
+	local template = NPC_SOURCE_PATH and NPC_SOURCE_PATH:FindFirstChild(def.ModelName)
 	if not template or not template:IsA("Model") then
 		warn("[DeerService] Missing template for", key)
 		return
@@ -558,10 +672,7 @@ local function updateStalkerState(stalker)
 			if not stalker.stunEndPlayed then
 				stalker.stunEndPlayed = true
 				stopAllTracks(stalker)
-				local endTrack = stalker.tracks["StunnedEnd"]
-				if endTrack then
-					endTrack:Play(0.1)
-				end
+				playTrack(stalker, "StunnedEnd")
 				-- Set the lockout ONCE when stun first expires
 				stalker.postStunLockout = now + 0.3
 			end
@@ -967,18 +1078,9 @@ local function runStalkerBehavior(stalker)
 			if not stalker.rootPart.Anchored then
 				stalker.rootPart.Anchored = true
 			end
-			local startTrack = stalker.tracks["StunnedStart"]
-			local loopTrack = stalker.tracks["StunnedLoop"]
-			-- Stop Attack track if it's still playing from a recent contact
-			local attackTrack = stalker.tracks["Attack"]
-			if attackTrack and attackTrack.IsPlaying then
-				attackTrack:Stop(0)
-			end
-			if startTrack and startTrack.IsPlaying then
-				-- Let StunnedStart finish, then switch to StunnedLoop in next tick
-			elseif loopTrack and not loopTrack.IsPlaying then
-				if startTrack then startTrack:Stop(0) end
-				loopTrack:Play(0.1)
+			stopTrack(stalker, "Attack")
+			if not isTrackPlaying(stalker, "StunnedStart") and not isTrackPlaying(stalker, "StunnedLoop") then
+				playTrack(stalker, "StunnedLoop")
 			end
 		end
 		return
@@ -1037,17 +1139,9 @@ local function runStalkerBehavior(stalker)
 			local targetPlayer = stalker.target :: Player?
 			if targetPlayer and playerLifeService and playerLifeService:IsAlive(targetPlayer) then
 				playerLifeService:ApplyDamage(targetPlayer, stalker.def.AttackDamage, stalker.key)
-				-- Stop only Walk/Run (not all tracks) to avoid nuking Attack
-				if stalker.tracks.Walk and stalker.tracks.Walk.IsPlaying then
-					stalker.tracks.Walk:Stop(0.1)
-				end
-				if stalker.tracks.Run and stalker.tracks.Run.IsPlaying then
-					stalker.tracks.Run:Stop(0.1)
-				end
-				local attackTrack = stalker.tracks.Attack
-				if attackTrack then
-					attackTrack:Play(0.1)
-				end
+				stopTrack(stalker, "Walk")
+				stopTrack(stalker, "Run")
+				playTrack(stalker, "Attack")
 				broadcastToAll(DeerService.Client.StalkerContact, stalker.rootPart.Position, stalker.key)
 			end
 		end
@@ -1151,15 +1245,8 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 				local maxRemaining = MAX_CONTINUOUS_STUN - continuousStunTime
 				stalker.stunUntil = now + math.min(refreshDuration, maxRemaining)
 				stalker.stunEndPlayed = false
-				-- Ensure StunnedLoop is playing
-				local loopTrack = stalker.tracks["StunnedLoop"]
-				if loopTrack and not loopTrack.IsPlaying then
-					local startTrack = stalker.tracks["StunnedStart"]
-					if startTrack and startTrack.IsPlaying then
-						-- Let StunnedStart finish naturally
-					else
-						loopTrack:Play(0.1)
-					end
+				if not isTrackPlaying(stalker, "StunnedStart") and not isTrackPlaying(stalker, "StunnedLoop") then
+					playTrack(stalker, "StunnedLoop")
 				end
 				return true
 			end
@@ -1190,19 +1277,9 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 			stalker.pathComputing = false
 			stalker.avoidanceDir = nil
 			stalker.avoidanceUntil = 0
-			-- Stop all tracks immediately so Attack/Run don't override StunnedStart
 			stopAllTracks(stalker)
-			-- Play StunnedStart directly
-			local startTrack = stalker.tracks["StunnedStart"]
-			if startTrack then
-				startTrack:Play(0.1)
-			else
-				local loopTrack = stalker.tracks["StunnedLoop"]
-				if loopTrack then
-					loopTrack:Play(0.1)
-				else
-					warn("[DeerService] No stunned animations found for", stalker.key)
-				end
+			if not playSequence(stalker, "StunnedStart") then
+				playTrack(stalker, "StunnedLoop")
 			end
 
 			print(string.format("[DeerService] STUNNED %s for %.1fs by %s (consecutive: %d)",
@@ -1226,6 +1303,7 @@ local function onHeartbeat(dt: number)
 			updateStalkerState(stalker)
 		end
 		runStalkerBehavior(stalker)
+		updateSequence(stalker, dt)
 
 		-- Apply procedural gait for custom-rig stalkers (Deer)
 		if stalker.gaitJoints then

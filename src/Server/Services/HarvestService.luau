@@ -88,7 +88,7 @@ local chopCooldowns: { [Player]: number } = {}
     @returns  Tool?
 ]]
 local function buildAxeTool(): Tool?
-	local animModel = ITEMS_PATH:FindFirstChild("AxeAnimations")
+	local animModel = ITEMS_PATH and ITEMS_PATH:FindFirstChild("AxeAnimations")
 	if not animModel then
 		warn("[HarvestService] AxeAnimations model not found in Assets Items")
 		return nil
@@ -201,7 +201,7 @@ end
     @param    treeName    string   -- name of the tree model ("Tree", "bigtree", "GiantTree")
 ]]
 local function spawnWoodDrops(position: Vector3, baseMap: Model, treeName: string)
-	local source = ITEMS_PATH:FindFirstChild("Log")
+	local source = ITEMS_PATH and ITEMS_PATH:FindFirstChild("Log")
 	if not source then
 		warn("[HarvestService] Log model not found in Assets Items")
 		return

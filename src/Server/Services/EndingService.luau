@@ -59,6 +59,15 @@ local owlService: any = nil
 local spawnService: any = nil
 local matchFlowService: any = nil
 
+-- Safe thread cancel (task.cancel throws if the thread already completed)
+local function safeCancel(thread: thread?)
+	if thread then
+		pcall(function()
+			task.cancel(thread)
+		end)
+	end
+end
+
 local endingRunId = ""
 local endingReason = ""
 local isVictory = false
@@ -207,7 +216,7 @@ local function onRunEnding(reason: string, data)
 		replayVoteDeadline = workspace:GetServerTimeNow() + RunConfig.ReplayVoteSeconds
 		fireVoteChanged()
 		if replayVoteTask then
-			task.cancel(replayVoteTask)
+			safeCancel(replayVoteTask)
 		end
 		replayVoteTask = task.delay(RunConfig.ReplayVoteSeconds, function()
 			if endingRunId == currentRunId and replayVoteActive then
@@ -224,7 +233,7 @@ local function onRunEnding(reason: string, data)
 		cleanupDelay = math.max(cleanupDelay, RunConfig.ReplayVoteSeconds + 2)
 	end
 	if autoCleanupTask then
-		task.cancel(autoCleanupTask)
+		safeCancel(autoCleanupTask)
 	end
 	autoCleanupTask = task.delay(cleanupDelay, function()
 		if runStateService:GetRunId() == currentRunId and endingRunId == currentRunId then
@@ -248,11 +257,11 @@ local function onRunCleaned()
 	replayVotes = {}
 	replayVoteDeadline = 0
 	if replayVoteTask then
-		task.cancel(replayVoteTask)
+		safeCancel(replayVoteTask)
 		replayVoteTask = nil
 	end
 	if autoCleanupTask then
-		task.cancel(autoCleanupTask)
+		safeCancel(autoCleanupTask)
 		autoCleanupTask = nil
 	end
 end
@@ -268,29 +277,31 @@ local function returnPlayerToLobby(player: Player)
 	if not runStateService:IsMember(player) then
 		return
 	end
-	-- Remove from member set so subsequent broadcasts skip them.
+	local returned = false
+	if not RunService:IsStudio() and Constants.LOBBY_PLACE_ID ~= 0 then
+		returned = pcall(function()
+			TeleportService:TeleportAsync(Constants.LOBBY_PLACE_ID, { player })
+		end)
+	else
+		returned = spawnService:ReturnToLobby(player)
+	end
+	if not returned then
+		EndingService.Client.IndividualReturnAck:Fire(player, { success = false })
+		return
+	end
 	runStateService:RemoveMember(player)
 	replayVotes[player] = nil
 	returnCooldowns[player] = nil
 	voteCooldowns[player] = nil
-	-- In production, teleport the player back to the lobby place.
-	-- In Studio, fall back to the in-place lobby spawn.
-	if not RunService:IsStudio() and Constants.LOBBY_PLACE_ID ~= 0 then
-		pcall(function()
-			TeleportService:TeleportAsync(Constants.LOBBY_PLACE_ID, { player })
-		end)
-	else
-		spawnService:ReturnToLobby(player)
-	end
 	EndingService.Client.IndividualReturnAck:Fire(player, { success = true })
 	-- If nobody remains, clean up the run.
 	if #remainingMembers() == 0 then
 		if autoCleanupTask then
-			task.cancel(autoCleanupTask)
+			safeCancel(autoCleanupTask)
 			autoCleanupTask = nil
 		end
 		if replayVoteTask then
-			task.cancel(replayVoteTask)
+			safeCancel(replayVoteTask)
 			replayVoteTask = nil
 		end
 		runStateService:CleanupRun(endingReason ~= "" and endingReason or "EARLY_RETURN")
@@ -322,11 +333,11 @@ local function evaluateReplayVote()
 	-- Unanimous. Cancel pending tasks and restart the run.
 	replayVoteActive = false
 	if replayVoteTask then
-		task.cancel(replayVoteTask)
+		safeCancel(replayVoteTask)
 		replayVoteTask = nil
 	end
 	if autoCleanupTask then
-		task.cancel(autoCleanupTask)
+		safeCancel(autoCleanupTask)
 		autoCleanupTask = nil
 	end
 	broadcastToMembers(EndingService.Client.ReplayVoteResolved, { outcome = "replay" })
@@ -421,7 +432,7 @@ function EndingService:KnitStart()
 		replayVotes = {}
 		replayVoteDeadline = 0
 		if replayVoteTask then
-			task.cancel(replayVoteTask)
+			safeCancel(replayVoteTask)
 			replayVoteTask = nil
 		end
 		broadcastToMembers(EndingService.Client.ReplayVoteResolved, { outcome = "cancelled" })

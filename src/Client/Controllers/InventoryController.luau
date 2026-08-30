@@ -25,7 +25,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -172,6 +171,8 @@ local tooltipCount: TextLabel? = nil
 local tooltipDesc: TextLabel? = nil
 
 local isOpen = false
+local hasCarriedItems = false
+local hookedBagTools: { [Tool]: boolean } = setmetatable({}, { __mode = "k" })
 local useHover = UserInputService.MouseEnabled and not UserInputService.TouchEnabled
 local gameStateController: any = nil
 
@@ -1000,6 +1001,7 @@ local function updateDisplay(resources: { [string]: number }?, capacity: number?
 		end
 	end
 
+	hasCarriedItems = total > 0
 	updateCapacity(total, capacity or 5)
 end
 
@@ -1125,8 +1127,20 @@ end
     @summary  Attach equip/unequip listeners to a Carry Bag tool.
 ]]
 local function hookTool(tool: Tool)
-	tool.Equipped:Connect(showBag)
-	tool.Unequipped:Connect(hideBag)
+	if hookedBagTools[tool] then
+		return
+	end
+	hookedBagTools[tool] = true
+	tool.Equipped:Connect(function()
+		task.defer(showBag)
+	end)
+	tool.Unequipped:Connect(function()
+		task.defer(function()
+			if not hasCarriedItems then
+				hideBag()
+			end
+		end)
+	end)
 end
 
 --[[
@@ -1156,73 +1170,45 @@ end
     @summary  Watch for the bag tool appearing or being equipped.
 ]]
 local function watchBagTool()
-	local tool = findBagTool()
-	if tool then
-		hookTool(tool)
-		if tool.Parent == localPlayer.Character then
-			showBag()
-		end
-	end
-
 	local backpack = localPlayer:WaitForChild("Backpack")
-	if not backpack then
-		return
-	end
-	local function onChildAdded(child: Instance)
+	local function registerBag(child: Instance)
 		if child.Name == BAG_TOOL_NAME and child:IsA("Tool") then
 			hookTool(child)
 		end
 	end
-
-	backpack.ChildAdded:Connect(onChildAdded)
-
-	local function onCharacterAdded(character: Model)
-		local held = character:WaitForChild(BAG_TOOL_NAME, 5)
-		if held and held:IsA("Tool") then
-			hookTool(held)
-			showBag()
-		end
-		character.ChildRemoved:Connect(function(child)
+	local function watchCharacter(character: Model)
+		character.ChildAdded:Connect(function(child)
+			registerBag(child)
 			if child.Name == BAG_TOOL_NAME and child:IsA("Tool") then
-				hideBag()
+				showBag()
 			end
 		end)
-	end
-
-	if localPlayer.Character then
-		onCharacterAdded(localPlayer.Character)
-	end
-	localPlayer.CharacterAdded:Connect(onCharacterAdded)
-
-	-- Heartbeat poll: detect bag tool equip even if the Equipped event
-	-- was missed (timing issue with late tool creation). Also auto-hide
-	-- when the bag is unequipped and the player has no items.
-	RunService.Heartbeat:Connect(function()
-		if not gameStateController or not gameStateController:IsInGame() then
-			return
+		character.ChildRemoved:Connect(function(child)
+			if child.Name == BAG_TOOL_NAME and child:IsA("Tool") then
+				task.defer(function()
+					if not hasCarriedItems and not character:FindFirstChild(BAG_TOOL_NAME) then
+						hideBag()
+					end
+				end)
+			end
+		end)
+		for _, child in ipairs(character:GetChildren()) do
+			registerBag(child)
 		end
-		local character = localPlayer.Character
-		if not character then return end
-		local hasBagEquipped = character:FindFirstChild(BAG_TOOL_NAME) ~= nil
-		if hasBagEquipped and not isOpen then
+		local held = character:FindFirstChild(BAG_TOOL_NAME)
+		if held and held:IsA("Tool") then
 			showBag()
-		elseif not hasBagEquipped and isOpen then
-			-- Only auto-hide if the player has no items (the bag was
-			-- auto-shown by the equip poll, not by picking up items)
-			local hasItems = false
-			for _, entry in pairs(rowEntries) do
-				local countText = entry.countLabel and entry.countLabel.Text or "0"
-				local count = tonumber(countText:match("%d+")) or 0
-				if count > 0 then
-					hasItems = true
-					break
-				end
-			end
-			if not hasItems then
-				hideBag()
-			end
 		end
-	end)
+	end
+
+	backpack.ChildAdded:Connect(registerBag)
+	for _, child in ipairs(backpack:GetChildren()) do
+		registerBag(child)
+	end
+	if localPlayer.Character then
+		watchCharacter(localPlayer.Character)
+	end
+	localPlayer.CharacterAdded:Connect(watchCharacter)
 end
 
 -- // INITIALIZATION // --
@@ -1254,46 +1240,21 @@ function InventoryController:KnitStart()
 
 		inventoryService.ResourcesChanged:Connect(function(resources, capacity)
 			updateDisplay(resources, capacity)
-			-- Auto-show bag panel when player has items, even if bag tool
-			-- is not equipped or doesn't exist (asset missing fallback).
-			if typeof(resources) == "table" then
-				local hasItems = false
-				for _, count in pairs(resources) do
-					if typeof(count) == "number" and count > 0 then
-						hasItems = true
-						break
-					end
-				end
-				if hasItems and not isOpen then
-					showBag()
-				elseif not hasItems and isOpen then
-					-- Don't auto-hide if the bag tool is equipped — the player
-					-- chose to have it open. Only auto-hide if no items AND
-					-- bag is not equipped.
-					local character = localPlayer.Character
-					local hasBagEquipped = character and character:FindFirstChild(BAG_TOOL_NAME) ~= nil
-					if not hasBagEquipped then
-						hideBag()
-					end
-				end
+			local character = localPlayer.Character
+			local bagEquipped = character and character:FindFirstChild(BAG_TOOL_NAME) ~= nil
+			if hasCarriedItems or bagEquipped then
+				showBag()
+			elseif isOpen then
+				hideBag()
 			end
 		end)
 
 		inventoryService:GetSnapshot():andThen(function(snapshot)
 			if typeof(snapshot) == "table" then
 				updateDisplay(snapshot.resources, snapshot.capacity)
-				-- Trigger the same auto-show logic for the initial snapshot
-				if typeof(snapshot.resources) == "table" then
-					local hasItems = false
-					for _, count in pairs(snapshot.resources) do
-						if typeof(count) == "number" and count > 0 then
-							hasItems = true
-							break
-						end
-					end
-					if hasItems then
-						showBag()
-					end
+				local character = localPlayer.Character
+				if hasCarriedItems or character and character:FindFirstChild(BAG_TOOL_NAME) then
+					showBag()
 				end
 			end
 		end):catch(function(err)

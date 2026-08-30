@@ -70,13 +70,20 @@ local attackCooldowns: { [Player]: number } = {}
     @returns  Tool?
 ]]
 local function buildSpearTool(): Tool?
-	local source = ITEMS_PATH:FindFirstChild("Spear")
+	local source = ITEMS_PATH and ITEMS_PATH:FindFirstChild("Spear")
 	if not source then
 		warn("[CombatService] Spear model not found in Assets Items")
 		return nil
 	end
 
 	local clone = source:Clone()
+	for _, descendant in ipairs(clone:GetDescendants()) do
+		if descendant:IsA("BaseScript") or descendant:IsA("ModuleScript")
+			or descendant:IsA("PackageLink") or descendant:IsA("TextureConfiguration")
+		then
+			descendant:Destroy()
+		end
+	end
 	local handleModel = clone:FindFirstChild("handle")
 	local originalShaft = handleModel and handleModel:FindFirstChild("Handle")
 	local shaft = handleModel and handleModel:FindFirstChild("Grip")

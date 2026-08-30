@@ -319,7 +319,13 @@ local function showWarningBanner(text: string, urgent: boolean?)
 	end
 
 	warningLabel.Text = text
+	warningLabel.TextColor3 = WARNING_COLOR
+	warningBanner.BackgroundColor3 = Color3.fromRGB(60, 12, 12)
 	warningBanner.Visible = true
+	local warningStroke = warningBanner:FindFirstChildOfClass("UIStroke")
+	if warningStroke then
+		warningStroke.Color = WARNING_COLOR
+	end
 
 	-- Fade in
 	TweenService:Create(warningBanner, TweenInfo.new(0.3), {
