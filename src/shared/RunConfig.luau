@@ -26,7 +26,7 @@ local StudioTest = {
 	VerboseFlashlight = true,
 	VerboseStalkers = false,
 	DayDuration = 5, -- TEMP: short day for testing, revert to 15 when done
-	NightDuration = 15, -- TEMP: short night for testing, revert to 15 when done
+	NightDuration = 60, -- TEMP: 60s night for testing, revert to 15 when done
 }
 
 local Config = {
