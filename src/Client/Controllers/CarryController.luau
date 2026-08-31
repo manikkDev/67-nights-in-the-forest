@@ -49,6 +49,11 @@ local DRAG_MIN_HEIGHT_FROM_ROOT = -3
 local DRAG_MAX_HEIGHT_FROM_ROOT = 14
 local DRAG_MIN_CAMERA_DEPTH = 6
 local DRAG_MAX_CAMERA_DEPTH = 40
+-- Hard cap above the actual ground (found via downward raycast).
+-- Must be high enough to lift items into the shredder but prevent
+-- sky-dragging when standing on top of item stacks.
+local DRAG_MAX_HEIGHT_ABOVE_GROUND = 18
+local DRAG_GROUND_RAY_LENGTH = 80
 local HOVER_EMISSIVE = Color3.fromRGB(160, 220, 255)
 local BAG_TOOL_NAME = "Carry Bag"
 
@@ -76,7 +81,7 @@ local lastDragTargetSent = 0
 --[[
     @summary  Return true when the player is holding the Carry Bag tool.
 ]]
-local function isHoldingCarryBag(): boolean
+local function _isHoldingCarryBag(): boolean
 	local character = localPlayer.Character
 	if not character then
 		return false
@@ -370,9 +375,33 @@ local function updateDragTarget()
 	if horizontalOffset.Magnitude > maxHorizontalDistance then
 		horizontalOffset = horizontalOffset.Unit * maxHorizontalDistance
 	end
+
+	-- Find the actual ground level below the player by raycasting downward.
+	-- This prevents the sky-drag bypass when standing on top of item stacks.
+	local groundY = rootPosition.Y
+	local groundRayParams = RaycastParams.new()
+	groundRayParams.FilterType = Enum.RaycastFilterType.Exclude
+	local groundFilter: { Instance } = { character }
+	if draggingModel then
+		table.insert(groundFilter, draggingModel)
+	end
+	groundRayParams.FilterDescendantsInstances = groundFilter
+	local groundRay = workspace:Raycast(
+		rootPosition + Vector3.new(0, 2, 0),
+		Vector3.new(0, -DRAG_GROUND_RAY_LENGTH, 0),
+		groundRayParams
+	)
+	if groundRay then
+		groundY = groundRay.Position.Y
+	end
+
 	targetPos = Vector3.new(
 		rootPosition.X + horizontalOffset.X,
-		math.clamp(targetPos.Y, rootPosition.Y + DRAG_MIN_HEIGHT_FROM_ROOT, rootPosition.Y + DRAG_MAX_HEIGHT_FROM_ROOT),
+		math.clamp(
+			targetPos.Y,
+			math.max(groundY - 1, rootPosition.Y + DRAG_MIN_HEIGHT_FROM_ROOT),
+			math.min(groundY + DRAG_MAX_HEIGHT_ABOVE_GROUND, rootPosition.Y + DRAG_MAX_HEIGHT_FROM_ROOT)
+		),
 		rootPosition.Z + horizontalOffset.Z
 	)
 
@@ -665,11 +694,17 @@ function CarryController:KnitStart()
 
 	lifeService.LifeStateChanged:Connect(function(payload)
 		if typeof(payload) ~= "table" then return end
-		if draggingBodyPlayer and (payload.userId == draggingBodyPlayer.UserId or payload.userId == localPlayer.UserId) then
-			local state = payload.state
-			if payload.userId == draggingBodyPlayer.UserId and state ~= "Downed" and state ~= "Eliminated" then
+		if not draggingBodyPlayer then return end
+		if payload.userId ~= draggingBodyPlayer.UserId and payload.userId ~= localPlayer.UserId then return end
+
+		local state: string = payload.state
+		if payload.userId == draggingBodyPlayer.UserId then
+			if state ~= "Downed" and state ~= "Eliminated" then
 				stopDrag()
-			elseif payload.userId == localPlayer.UserId and state ~= "Alive" then
+			end
+		else
+			-- payload.userId == localPlayer.UserId
+			if state ~= "Alive" then
 				stopDrag()
 			end
 		end

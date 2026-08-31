@@ -1030,12 +1030,9 @@ local function stopDrag(player: Player)
 				if entry.originalCanCollide[desc] ~= nil then
 					desc.CanCollide = entry.originalCanCollide[desc]
 				end
-				if isJunk then
-					-- Junk items: unanchor after drag so they fall to the ground
-					desc.Anchored = false
-				elseif entry.originalAnchored[desc] ~= nil then
-					desc.Anchored = entry.originalAnchored[desc]
-				end
+				-- Always unanchor so the item falls to the ground via
+				-- gravity instead of floating mid-air when released.
+				desc.Anchored = false
 			end
 		end
 
@@ -1043,6 +1040,30 @@ local function stopDrag(player: Player)
 		if primaryPart and primaryPart.Parent then
 			pcall(function()
 				primaryPart:SetNetworkOwner(nil)
+			end)
+			-- Give the part a small downward nudge so the physics
+			-- engine wakes up and actually simulates the fall.
+			primaryPart.AssemblyLinearVelocity = Vector3.new(0, -1, 0)
+		end
+
+		-- Re-anchor parts that were originally anchored after a short
+		-- delay so they settle on the ground first.
+		local hasAnchoredOriginals = false
+		for _, wasAnchored in pairs(entry.originalAnchored) do
+			if wasAnchored then
+				hasAnchoredOriginals = true
+				break
+			end
+		end
+		if hasAnchoredOriginals and model and model.Parent then
+			local capturedOriginalAnchored = entry.originalAnchored
+			task.delay(0.5, function()
+				if not model or not model.Parent then return end
+				for _, desc in ipairs(model:GetDescendants()) do
+					if desc:IsA("BasePart") and capturedOriginalAnchored[desc] == true then
+						desc.Anchored = true
+					end
+				end
 			end)
 		end
 	end
