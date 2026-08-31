@@ -1,18 +1,20 @@
 local Config = {
-	MapRadius = 1000,
-	-- Even distribution: 200 start, then 160-stud steps to reach 1000
-	AccessRadiusByLevel = { 200, 360, 520, 680, 840, 1000 },
+	-- Map is 3200x3200 studs, center at (-75,-7).
+	-- Distance from center to edge midpoint = 1600.
+	MapRadius = 1600,
+	-- Even distribution: 250 start, then ~270-stud steps to reach 1600
+	AccessRadiusByLevel = { 250, 520, 790, 1060, 1330, 1600 },
 	SafeZoneRadiusByLevel = { 30, 45, 60, 80, 100, 130 },
 	-- Caves placed inside the wall at their unlock level
-	-- Dino (Lv2, wall 360): ring 280-340
-	-- Kraken (Lv3, wall 520): ring 430-500
-	-- Squid (Lv4, wall 680): ring 580-650
-	-- Koala (Lv5, wall 840): ring 730-800
+	-- Dino (Lv2, wall 520): ring 380-480
+	-- Kraken (Lv3, wall 790): ring 620-720
+	-- Squid (Lv4, wall 1060): ring 880-980
+	-- Koala (Lv5, wall 1330): ring 1150-1250
 	CaveRings = {
-		Dino = { Min = 280, Max = 340 },
-		Kraken = { Min = 430, Max = 500 },
-		Squid = { Min = 580, Max = 650 },
-		Koala = { Min = 730, Max = 800 },
+		Dino = { Min = 380, Max = 480 },
+		Kraken = { Min = 620, Max = 720 },
+		Squid = { Min = 880, Max = 980 },
+		Koala = { Min = 1150, Max = 1250 },
 	},
 	Boundary = {
 		Height = 220,
