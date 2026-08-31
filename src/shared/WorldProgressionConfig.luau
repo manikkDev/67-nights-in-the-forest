@@ -1,14 +1,18 @@
 local Config = {
 	MapRadius = 1000,
-	-- Levels 1-2 small, level 3+ much bigger jumps to map edge
-	AccessRadiusByLevel = { 200, 350, 600, 780, 900, 1000 },
+	-- Even distribution: 200 start, then 160-stud steps to reach 1000
+	AccessRadiusByLevel = { 200, 360, 520, 680, 840, 1000 },
 	SafeZoneRadiusByLevel = { 30, 45, 60, 80, 100, 130 },
-	-- Caves far from campfire, progressively harder to find by rescue order
+	-- Caves placed inside the wall at their unlock level
+	-- Dino (Lv2, wall 360): ring 280-340
+	-- Kraken (Lv3, wall 520): ring 430-500
+	-- Squid (Lv4, wall 680): ring 580-650
+	-- Koala (Lv5, wall 840): ring 730-800
 	CaveRings = {
-		Dino = { Min = 400, Max = 500 },
-		Kraken = { Min = 550, Max = 650 },
-		Squid = { Min = 700, Max = 800 },
-		Koala = { Min = 850, Max = 950 },
+		Dino = { Min = 280, Max = 340 },
+		Kraken = { Min = 430, Max = 500 },
+		Squid = { Min = 580, Max = 650 },
+		Koala = { Min = 730, Max = 800 },
 	},
 	Boundary = {
 		Height = 220,

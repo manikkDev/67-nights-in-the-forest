@@ -43,9 +43,33 @@ function WorldPlacement.Reserve(position: Vector3, radius: number, category: str
 	})
 end
 
+--[[
+    @summary  Reserve a circular ring at a given radius from center.
+    @desc    Prevents placement within `thickness` studs of the ring
+              radius.  Used to keep buildings/facilities/caves away
+              from where the boundary wall will expand to.
+]]
+function WorldPlacement.ReserveRing(center: Vector3, ringRadius: number, thickness: number, category: string)
+	table.insert(reservations, {
+		position = center,
+		radius = 0,
+		category = category,
+		isRing = true,
+		ringRadius = ringRadius,
+		ringThickness = thickness,
+	})
+end
+
 function WorldPlacement.IsReserved(position: Vector3, radius: number): boolean
+	local flatPos = Vector3.new(position.X, 0, position.Z)
 	for _, reservation in ipairs(reservations) do
-		if flatDistance(position, reservation.position) < radius + reservation.radius then
+		if reservation.isRing then
+			local center = Vector3.new(reservation.position.X, 0, reservation.position.Z)
+			local dist = (flatPos - center).Magnitude
+			if math.abs(dist - reservation.ringRadius) < reservation.ringThickness then
+				return true
+			end
+		elseif flatDistance(position, reservation.position) < radius + reservation.radius then
 			return true
 		end
 	end

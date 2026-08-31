@@ -331,6 +331,15 @@ function WorldProgressionService:KnitStart()
 
 	runStateService.RunStarted:Connect(function()
 		accessRadius = WorldProgressionConfig.GetAccessRadius(campfireService:GetLevel())
+		-- Reserve wall rings at every level so buildings/facilities/caves
+		-- are never placed where the boundary wall will expand to.
+		WorldPlacement.Reset()
+		local campfireCFrame = worldService:GetCampfireCFrame()
+		if campfireCFrame then
+			for _, radius in ipairs(WorldProgressionConfig.AccessRadiusByLevel) do
+				WorldPlacement.ReserveRing(campfireCFrame.Position, radius, 16, "WallRing")
+			end
+		end
 		-- Relocate buildings FIRST so their reservations are in place
 		-- before facilities and caves are placed
 		relocateBuildings()
