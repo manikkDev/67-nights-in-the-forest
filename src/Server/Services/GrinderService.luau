@@ -349,18 +349,17 @@ local function autoGrindTouched(model: Model)
 		end
 	else
 		local config = JunkItemConfig[resourceName]
-		local added = inventoryService:AddResource(player, "Scrap", config.ScrapYield)
-		if added > 0 then
+		if config and runStateService:IsActive() and runStateService:IsMember(player) then
 			model:Destroy()
 			touchCooldowns[model] = nil
 			GrinderService:StartGrindAnimation()
 			GrinderService.Client.GrinderProcessed:Fire(player, {
 				position = grinderPosition,
-				scrapAmount = added,
+				scrapAmount = config.ScrapYield,
 				junkId = resourceName,
 			})
 			GrinderService:StopGrindAnimation()
-			craftingService:AddShreddedTotal("Scrap", added)
+			craftingService:AddShreddedTotal("Scrap", config.ScrapYield)
 		end
 	end
 end

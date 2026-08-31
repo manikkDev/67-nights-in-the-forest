@@ -89,7 +89,6 @@ local TWEEN_CAPACITY = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDire
 local EDIBLE_RESOURCES = { Berries = true, Mushrooms = true, RawMeat = true, CookedMeat = true }
 local ROW_ORDER = {
 	"Wood",
-	"Scrap",
 	"Coal",
 	"Berries",
 	"Mushrooms",
@@ -106,7 +105,6 @@ local ROW_ORDER = {
 }
 local ROW_COLORS = {
 	Wood = Color3.fromRGB(170, 110, 65),
-	Scrap = Color3.fromRGB(150, 155, 165),
 	Coal = Color3.fromRGB(70, 70, 75),
 	Bandage = Color3.fromRGB(235, 235, 225),
 	CultistGem = Color3.fromRGB(175, 90, 210),
@@ -123,7 +121,6 @@ local ROW_COLORS = {
 }
 local ROW_DESCRIPTIONS = {
 	Wood = "Used for building and fueling campfires. Shred at the Shredder for Wooden Sheets.",
-	Scrap = "Salvaged metal used for advanced crafting.",
 	Coal = "Burns far longer than wood in the campfire.",
 	Bandage = "Revives a downed teammate.",
 	CultistGem = "A rare cultist relic used in late crafting.",

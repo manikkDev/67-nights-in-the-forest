@@ -110,10 +110,11 @@ end
 
 --[[
     @summary  Return whether the player owns every cost in a recipe.
-    @desc     WoodenSheet is checked against the shared run total
-              (totalWoodenSheetShredded), not the player's personal
-              inventory, because WoodenSheet is a bench-only resource.
-              All other resources are checked against personal inventory.
+    @desc     WoodenSheet and Scrap are checked against the shared run
+              totals (totalWoodenSheetShredded / totalScrapShredded),
+              not the player's personal inventory, because they are
+              bench-only resources. All other resources are checked
+              against personal inventory.
     @param    player  Player
     @param    cost    table
     @returns  boolean
@@ -128,6 +129,10 @@ local function canAfford(player: Player, cost: { [string]: number }): boolean
 			if totalWoodenSheetShredded < amount then
 				return false
 			end
+		elseif resourceName == "Scrap" then
+			if totalScrapShredded < amount then
+				return false
+			end
 		else
 			if (data.Resources[resourceName] or 0) < amount then
 				return false
@@ -139,26 +144,34 @@ end
 
 --[[
     @summary  Deduct a fully validated recipe cost without yielding.
-    @desc     WoodenSheet is deducted from the shared run total
-              (totalWoodenSheetShredded). All other resources are
-              deducted from the player's personal inventory.
+    @desc     WoodenSheet and Scrap are deducted from the shared run
+              totals. All other resources are deducted from the
+              player's personal inventory.
     @param    player  Player
     @param    cost    table
 ]]
 local function deductCost(player: Player, cost: { [string]: number })
-	local benchDeduct = 0
+	local benchWoodDeduct = 0
+	local benchScrapDeduct = 0
 	for resourceName, amount in pairs(cost) do
 		if resourceName == "WoodenSheet" then
-			benchDeduct += amount
+			benchWoodDeduct += amount
+		elseif resourceName == "Scrap" then
+			benchScrapDeduct += amount
 		end
 	end
-	if benchDeduct > 0 then
-		totalWoodenSheetShredded = math.max(0, totalWoodenSheetShredded - benchDeduct)
+	if benchWoodDeduct > 0 then
+		totalWoodenSheetShredded = math.max(0, totalWoodenSheetShredded - benchWoodDeduct)
+	end
+	if benchScrapDeduct > 0 then
+		totalScrapShredded = math.max(0, totalScrapShredded - benchScrapDeduct)
+	end
+	if benchWoodDeduct > 0 or benchScrapDeduct > 0 then
 		updateTableCounters()
 	end
 	playerDataService:UpdateData(player, function(data)
 		for resourceName, amount in pairs(cost) do
-			if resourceName ~= "WoodenSheet" then
+			if resourceName ~= "WoodenSheet" and resourceName ~= "Scrap" then
 				data.Resources[resourceName] -= amount
 				if data.Inventory and data.Inventory.PickupOrder then
 					for _ = 1, amount do
@@ -758,9 +771,10 @@ function CraftingService.Client:GetBenchState(player: Player): { [string]: any }
 	end
 	local data = playerDataService and playerDataService:GetData(player)
 	local resources = if data then table.clone(data.Resources) else {}
-	-- Override WoodenSheet with the shared run total so the crafting
-	-- UI shows the team's shredded amount, not a personal inventory value.
+	-- Override WoodenSheet and Scrap with the shared run totals so the
+	-- crafting UI shows the team's shredded amounts, not personal inventory.
 	resources.WoodenSheet = totalWoodenSheetShredded
+	resources.Scrap = totalScrapShredded
 	return {
 		tier = benchTier,
 		resources = resources,

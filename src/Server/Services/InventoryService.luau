@@ -89,7 +89,7 @@ local DRAG_MAX_DISTANCE = 50
 
 -- Resources that are bench-only and must never be dropped from the carry bag.
 -- They exist only in the shared crafting totals, not in personal inventory.
-local NO_DROP_RESOURCES = { WoodenSheet = true, SheetMetal = true }
+local NO_DROP_RESOURCES = { WoodenSheet = true, SheetMetal = true, Scrap = true }
 
 -- How close a dragged junk item must be released to the shredder to grind.
 local GRIND_DROP_RANGE = 14
@@ -341,8 +341,9 @@ function InventoryService:GrindJunk(player: Player, junkId: string): number
 	if not consumed then
 		return 0
 	end
-	local added = self:AddResource(player, "Scrap", config.ScrapYield)
-	return added
+	-- Scrap is a bench-only shared resource — do NOT add to personal inventory.
+	-- The caller (GrinderService) adds it to the shared crafting total.
+	return config.ScrapYield
 end
 
 -- // PICKUP / DROP // --
