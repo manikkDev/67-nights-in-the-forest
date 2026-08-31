@@ -182,7 +182,11 @@ local function ensureBoundary()
 	if boundaryFolder and boundaryFolder.Parent then
 		return
 	end
+	print(("[WorldProgressionService] ensureBoundary: creating new folder. Old folder=%s, parts=%d")
+		:format(tostring(boundaryFolder), #boundaryParts))
 	local runtime = runStateService:GetRuntimeFolder()
+	print(("[WorldProgressionService] ensureBoundary: runtime folder=%s")
+		:format(tostring(runtime and runtime:GetFullName() or "nil")))
 	local folder = Instance.new("Folder")
 	folder.Name = "WorldBoundary"
 	folder.Parent = runtime
@@ -226,9 +230,13 @@ local function updateBoundary()
 	local campfireCFrame = worldService:GetCampfireCFrame()
 	local groundY = worldService:GetGroundY()
 	if not campfireCFrame or not groundY then
+		print(("[WorldProgressionService] updateBoundary: EARLY RETURN campfireCFrame=%s groundY=%s")
+			:format(tostring(campfireCFrame), tostring(groundY)))
 		return
 	end
 	local count = #boundaryParts
+	print(("[WorldProgressionService] updateBoundary: accessRadius=%.0f, parts=%d, trims=%d, groundY=%.0f")
+		:format(accessRadius, count, #boundaryTrims, groundY))
 	local height = WorldProgressionConfig.Boundary.Height
 	local center = campfireCFrame.Position
 	-- Square boundary: place segments along the 4 edges of a square
@@ -278,11 +286,16 @@ end
 
 local function setLevel(level: number)
 	local nextRadius = WorldProgressionConfig.GetAccessRadius(level)
+	print(("[WorldProgressionService] setLevel(%d): nextRadius=%.0f, currentAccessRadius=%.0f, boundaryFolder=%s, boundaryParts=%d")
+		:format(level, nextRadius, accessRadius, tostring(boundaryFolder and boundaryFolder.Name or "nil"), #boundaryParts))
 	if nextRadius <= accessRadius then
+		print("[WorldProgressionService] setLevel: SKIPPING (nextRadius <= accessRadius)")
 		return
 	end
 	accessRadius = nextRadius
 	updateBoundary()
+	print(("[WorldProgressionService] setLevel: after updateBoundary, boundaryParts=%d, folder=%s")
+		:format(#boundaryParts, tostring(boundaryFolder and boundaryFolder:GetFullName() or "nil")))
 	broadcastExpansion(level)
 end
 
