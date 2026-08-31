@@ -24,10 +24,12 @@
 
 -- | Services | --
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
+local Constants = require(ReplicatedStorage.Shared.Constants)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
 local WorldPlacement = require(script.Parent.Parent.WorldPlacement)
 
@@ -38,8 +40,8 @@ local TreeScatterService = Knit.CreateService({
 })
 
 -- | Configuration | --
-local SCATTER_TREE_COUNT = 60 -- number of regular trees to scatter
-local SCATTER_BIGTREE_COUNT = 20 -- number of bigtrees to scatter
+local SCATTER_TREE_COUNT = 120 -- number of regular trees to scatter
+local SCATTER_BIGTREE_COUNT = 40 -- number of bigtrees to scatter
 local MIN_DISTANCE = 40 -- minimum distance from campfire
 local TREE_FOOTPRINT = Vector3.new(6, 15, 6)
 local BIGTREE_FOOTPRINT = Vector3.new(10, 20, 10)
@@ -75,32 +77,33 @@ local function isDummyTree(treeModel: Model): boolean
 		end
 	end
 	-- Real trees have multiple parts and/or mesh geometry
-	-- Dummy trees have 1-3 simple parts with no meshes
-	if partCount <= 2 and not hasMesh then
+	-- Dummy trees have 1-5 simple parts with no meshes (block-built)
+	if partCount <= 5 and not hasMesh then
 		return true
 	end
 	return false
 end
 
 --[[
-    @summary  Find one real Tree and one real bigtree template in the Base-map.
+    @summary  Find one real Tree and one real bigtree template.
+    @desc     Loads templates from ServerStorage.Assets["Assets maps items"]
+              so we always have real tree templates regardless of whether
+              the Base-map contains dummy or real trees.
     @returns  Model?, Model? -- treeTemplate, bigtreeTemplate
 ]]
 local function findTreeTemplates(): (Model?, Model?)
-	local baseMap = worldService:GetBaseMap()
-	if not baseMap then
+	local mapsItems = ServerStorage.Assets:FindFirstChild("Assets maps items")
+	if not mapsItems then
+		warn("[TreeScatterService] 'Assets maps items' folder not found in ServerStorage")
 		return nil, nil
 	end
-	local treeTemplate: Model? = nil
-	local bigtreeTemplate: Model? = nil
-	for _, desc in ipairs(baseMap:GetDescendants()) do
-		if desc:IsA("Model") then
-			if desc.Name == "Tree" and not treeTemplate and not isDummyTree(desc) then
-				treeTemplate = desc
-			elseif desc.Name == "bigtree" and not bigtreeTemplate and not isDummyTree(desc) then
-				bigtreeTemplate = desc
-			end
-		end
+	local treeTemplate = mapsItems:FindFirstChild("Tree")
+	local bigtreeTemplate = mapsItems:FindFirstChild("bigtree")
+	if treeTemplate and not treeTemplate:IsA("Model") then
+		treeTemplate = nil
+	end
+	if bigtreeTemplate and not bigtreeTemplate:IsA("Model") then
+		bigtreeTemplate = nil
 	end
 	return treeTemplate, bigtreeTemplate
 end
