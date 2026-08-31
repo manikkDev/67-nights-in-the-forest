@@ -268,7 +268,7 @@ local function beginStory(session: Session)
 	cancelTimer(session)
 	setState(session, "Story")
 	task.delay(STORY_FADE_SECONDS + STORY_HOLD_SECONDS, function()
-		if session.state ~= "Story" or session.routing then
+		if (session.state :: string) ~= "Story" or session.routing then
 			return
 		end
 		local participants = participantsFor(session)

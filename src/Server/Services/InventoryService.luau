@@ -125,7 +125,7 @@ local flashlightTemplate: Tool? = nil
 local mushroomSource: Model? = nil
 local mushroomBaseOffset: number? = nil
 
-local dragging: { [Player]: { model: Model, alignPos: AlignPosition, alignOri: AlignOrientation?, dragTarget: BasePart, dragTargetAttach: Attachment, itemAttach: Attachment, originalCanCollide: { [BasePart]: boolean }, originalAnchored: { [BasePart]: boolean } } } = {}
+local dragging: { [Player]: { model: Model, alignPos: AlignPosition, alignOri: AlignOrientation?, dragTarget: BasePart, dragTargetAttach: Attachment, itemAttach: Attachment, originalCanCollide: { [BasePart]: boolean }, originalAnchored: { [BasePart]: boolean }, noCollisionConstraints: { NoCollisionConstraint } } } = {}
 local draggedBy: { [Model]: Player } = {}
 
 -- // FUNCTIONS // --
@@ -1025,6 +1025,16 @@ local function stopDrag(player: Player)
 			end
 		end
 
+		-- Remove NoCollisionConstraints so the player collides with the
+		-- item again after release.
+		if entry.noCollisionConstraints then
+			for _, ncc in ipairs(entry.noCollisionConstraints) do
+				if ncc and ncc.Parent then
+					ncc:Destroy()
+				end
+			end
+		end
+
 		for _, desc in ipairs(model:GetDescendants()) do
 			if desc:IsA("BasePart") then
 				if entry.originalCanCollide[desc] ~= nil then
@@ -1142,7 +1152,7 @@ local function tryStartDrag(player: Player, model: Model): boolean
 		return false
 	end
 
-	local originalCanCollide: { [BasePart]: boolean } = {}
+local originalCanCollide: { [BasePart]: boolean } = {}
 	local originalAnchored: { [BasePart]: boolean } = {}
 	for _, desc in ipairs(model:GetDescendants()) do
 		if desc:IsA("BasePart") then
@@ -1156,6 +1166,33 @@ local function tryStartDrag(player: Player, model: Model): boolean
 	pcall(function()
 		primaryPart:SetNetworkOwner(player)
 	end)
+
+	-- Create NoCollisionConstraints between the dragged item and the
+	-- player's character so the player can't climb on top of the item
+	-- to escape NPCs or bypass obstacles.  The item still collides
+	-- with everything else (ground, walls, trees, other players).
+	local noCollisionConstraints: { NoCollisionConstraint } = {}
+	local dragCharacter = player.Character
+	if dragCharacter then
+		local charParts = {}
+		for _, charDesc in ipairs(dragCharacter:GetDescendants()) do
+			if charDesc:IsA("BasePart") then
+				table.insert(charParts, charDesc)
+			end
+		end
+		for _, itemPart in ipairs(model:GetDescendants()) do
+			if itemPart:IsA("BasePart") then
+				for _, charPart in ipairs(charParts) do
+					local ncc = Instance.new("NoCollisionConstraint")
+					ncc.Name = "DragNoCollision"
+					ncc.Part0 = itemPart
+					ncc.Part1 = charPart
+					ncc.Parent = itemPart
+					table.insert(noCollisionConstraints, ncc)
+				end
+			end
+		end
+	end
 
 	local dragTarget = Instance.new("Part")
 	dragTarget.Name = "DragTarget_" .. tostring(player.UserId)
@@ -1204,6 +1241,7 @@ local function tryStartDrag(player: Player, model: Model): boolean
 		itemAttach = itemAttach,
 		originalCanCollide = originalCanCollide,
 		originalAnchored = originalAnchored,
+		noCollisionConstraints = noCollisionConstraints,
 	}
 	draggedBy[model] = player
 	return true
