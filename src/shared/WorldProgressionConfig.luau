@@ -17,7 +17,7 @@ local Config = {
 		Koala = { Min = 1150, Max = 1250 },
 	},
 	Boundary = {
-		Height = 220,
+		Height = 500,
 		ServerSegments = 64,
 		DesktopSegments = 48,
 		MobileSegments = 28,

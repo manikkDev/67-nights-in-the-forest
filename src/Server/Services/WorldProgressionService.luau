@@ -19,6 +19,7 @@ local worldService: any = nil
 local campfireService: any = nil
 local boundaryFolder: Folder? = nil
 local boundaryParts: { Part } = {}
+local boundaryTrims: { Part } = {}
 local accessRadius = WorldProgressionConfig.GetAccessRadius(1)
 local checkTimer = 0
 
@@ -187,21 +188,36 @@ local function ensureBoundary()
 	folder.Parent = runtime
 	boundaryFolder = folder
 	table.clear(boundaryParts)
+	table.clear(boundaryTrims)
 	for index = 1, WorldProgressionConfig.Boundary.ServerSegments do
+		-- Main wall part — tall and opaque to block view and movement
 		local part = Instance.new("Part")
 		part.Name = "BoundaryCollider" .. index
 		part.Anchored = true
 		part.CanCollide = true
 		part.CanTouch = false
 		part.CanQuery = false
-		-- Opaque dark wall so players cannot see anything beyond the boundary.
 		part.Transparency = 0
 		part.Material = Enum.Material.SmoothPlastic
-		part.Color = Color3.fromRGB(18, 20, 24)
+		part.Color = Color3.fromRGB(35, 40, 50)
 		part.CastShadow = false
 		part.Reflectance = 0
 		part.Parent = folder
 		table.insert(boundaryParts, part)
+		-- Neon trim at the top — makes the wall visible from far away
+		-- even at night and through atmospheric fog
+		local trim = Instance.new("Part")
+		trim.Name = "BoundaryTrim" .. index
+		trim.Anchored = true
+		trim.CanCollide = false
+		trim.CanTouch = false
+		trim.CanQuery = false
+		trim.Transparency = 0
+		trim.Material = Enum.Material.Neon
+		trim.Color = Color3.fromRGB(90, 100, 130)
+		trim.CastShadow = false
+		trim.Parent = folder
+		table.insert(boundaryTrims, trim)
 	end
 end
 
@@ -249,6 +265,14 @@ local function updateBoundary()
 		position = Vector3.new(position.X, groundY + height * 0.5, position.Z)
 		part.Size = Vector3.new(segmentLength, height, 14)
 		part.CFrame = CFrame.lookAt(position, position + facing)
+		-- Position the neon trim at the top of the wall
+		local trim = boundaryTrims[index]
+		if trim then
+			local trimY = groundY + height - 3
+			local trimPos = Vector3.new(position.X, trimY, position.Z)
+			trim.Size = Vector3.new(segmentLength, 8, 16)
+			trim.CFrame = CFrame.lookAt(trimPos, trimPos + facing)
+		end
 	end
 end
 
