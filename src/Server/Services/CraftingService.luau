@@ -74,6 +74,10 @@ local totalScrapShredded = 0
 
 -- | Private | --
 
+-- Forward declaration so deductCost can call updateTableCounters
+-- before it is defined later in the file.
+local updateTableCounters
+
 --[[
     @summary  Return the world position used for crafting range checks.
     @returns  Vector3?
@@ -456,7 +460,7 @@ end
     @summary  Update the wooden sheet and scrap counter TextLabels
               on the table to show the shared run shredded totals.
 ]]
-local function updateTableCounters()
+updateTableCounters = function()
 	if woodenSheetCounter and woodenSheetCounter.Parent then
 		woodenSheetCounter.Text = tostring(totalWoodenSheetShredded)
 	end
