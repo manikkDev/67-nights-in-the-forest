@@ -1038,11 +1038,34 @@ local function stopDrag(player: Player)
 
 		local primaryPart = model.PrimaryPart
 		if primaryPart and primaryPart.Parent then
+			-- Raycast downward from the item's current position to find
+			-- the ground. Move the item there immediately instead of
+			-- relying on physics simulation (which can leave small/light
+			-- models like mushrooms floating).
+			local itemPos = primaryPart.Position
+			local dropRayParams = RaycastParams.new()
+			dropRayParams.FilterType = Enum.RaycastFilterType.Exclude
+			dropRayParams.FilterDescendantsInstances = { model }
+			local dropRay = workspace:Raycast(
+				itemPos + Vector3.new(0, 2, 0),
+				Vector3.new(0, -60, 0),
+				dropRayParams
+			)
+			if dropRay then
+				-- Place the model so its primary part rests on the ground.
+				local groundY = dropRay.Position.Y
+				local _, size = model:GetBoundingBox()
+				model:PivotTo(CFrame.new(
+					itemPos.X,
+					groundY + size.Y * 0.5,
+					itemPos.Z
+				) * model:GetPivot().Rotation)
+			end
+
 			pcall(function()
 				primaryPart:SetNetworkOwner(nil)
 			end)
-			-- Give the part a small downward nudge so the physics
-			-- engine wakes up and actually simulates the fall.
+			-- Small downward nudge to wake the physics engine.
 			primaryPart.AssemblyLinearVelocity = Vector3.new(0, -1, 0)
 		end
 
@@ -1057,7 +1080,7 @@ local function stopDrag(player: Player)
 		end
 		if hasAnchoredOriginals and model and model.Parent then
 			local capturedOriginalAnchored = entry.originalAnchored
-			task.delay(0.5, function()
+			task.delay(1.0, function()
 				if not model or not model.Parent then return end
 				for _, desc in ipairs(model:GetDescendants()) do
 					if desc:IsA("BasePart") and capturedOriginalAnchored[desc] == true then

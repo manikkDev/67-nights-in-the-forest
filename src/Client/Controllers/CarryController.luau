@@ -50,10 +50,12 @@ local DRAG_MAX_HEIGHT_FROM_ROOT = 14
 local DRAG_MIN_CAMERA_DEPTH = 6
 local DRAG_MAX_CAMERA_DEPTH = 40
 -- Hard cap above the actual ground (found via downward raycast).
--- Must be high enough to lift items into the shredder but prevent
--- sky-dragging when standing on top of item stacks.
-local DRAG_MAX_HEIGHT_ABOVE_GROUND = 18
-local DRAG_GROUND_RAY_LENGTH = 80
+-- Must be high enough to lift items into the shredder (~5 studs tall)
+-- but prevent sky-dragging when standing on top of item stacks.
+local DRAG_MAX_HEIGHT_ABOVE_GROUND = 9
+-- How often (seconds) to refresh the cached ground height.
+-- Raycasting every frame is wasteful; the ground rarely moves.
+local DRAG_GROUND_REFRESH_INTERVAL = 0.4
 local HOVER_EMISSIVE = Color3.fromRGB(160, 220, 255)
 local BAG_TOOL_NAME = "Carry Bag"
 
@@ -75,6 +77,14 @@ local draggingBodyPlayer: Player? = nil
 local dragTarget: BasePart? = nil
 local dragCameraDepth: number? = nil
 local lastDragTargetSent = 0
+
+-- Cached ground height at the player's XZ position. Refreshed
+-- periodically (not every frame) to avoid per-frame raycasts.
+local cachedGroundY: number? = nil
+local lastGroundRefresh = 0
+-- Reusable raycast params for ground detection (avoid per-frame allocation).
+local groundRayParams = RaycastParams.new()
+groundRayParams.FilterType = Enum.RaycastFilterType.Exclude
 
 -- | Helpers | --
 
@@ -339,6 +349,49 @@ local function stopDrag()
 	draggingBodyPlayer = nil
 	dragTarget = nil
 	dragCameraDepth = nil
+	cachedGroundY = nil
+	lastGroundRefresh = 0
+end
+
+--[[
+    @summary  Find the real ground Y at the player's XZ position.
+    @desc     Raycasts straight down from above the player. If the ray
+              hits a pickup-able item (not real ground), continues
+              raycasting from below that item until real ground is found.
+              This prevents standing on item stacks from inflating the
+              ground height, without scanning all workspace descendants.
+    @returns  number  -- the ground Y, or the player's Y as fallback
+]]
+local function findGroundY(rootPosition: Vector3, character: Model): number
+	groundRayParams.FilterDescendantsInstances = { character, draggingModel }
+
+	-- Start raycasting from above the player downward.
+	local originY = rootPosition.Y + 50
+	local rayStart = Vector3.new(rootPosition.X, originY, rootPosition.Z)
+	local rayDir = Vector3.new(0, -130, 0)
+
+	for _ = 1, 5 do
+		local result = workspace:Raycast(rayStart, rayDir, groundRayParams)
+		if not result then
+			break
+		end
+		-- Check if we hit a pickup-able item (not real ground).
+		local model = result.Instance:FindFirstAncestorWhichIsA("Model")
+		if model then
+			local hasResource = model:GetAttribute("Resource")
+				or model:GetAttribute("PickupResource")
+				or model:GetAttribute("ForageResource")
+			if hasResource then
+				-- Skip past this item and raycast again from below it.
+				rayStart = Vector3.new(rootPosition.X, result.Position.Y - 0.5, rootPosition.Z)
+				rayDir = Vector3.new(0, -(originY - result.Position.Y + 80), 0)
+				continue
+			end
+		end
+		-- Hit real ground.
+		return result.Position.Y
+	end
+	return rootPosition.Y
 end
 
 --[[
@@ -346,6 +399,13 @@ end
 ]]
 local function updateDragTarget()
 	if not dragTarget or not dragTarget.Parent or not dragCameraDepth then
+		return
+	end
+
+	-- Throttle: only process at ~30Hz. This is the FIRST check so we
+	-- skip all expensive math and raycasting on the frames we skip.
+	local now = os.clock()
+	if now - lastDragTargetSent < 0.03 then
 		return
 	end
 
@@ -376,24 +436,12 @@ local function updateDragTarget()
 		horizontalOffset = horizontalOffset.Unit * maxHorizontalDistance
 	end
 
-	-- Find the actual ground level below the player by raycasting downward.
-	-- This prevents the sky-drag bypass when standing on top of item stacks.
-	local groundY = rootPosition.Y
-	local groundRayParams = RaycastParams.new()
-	groundRayParams.FilterType = Enum.RaycastFilterType.Exclude
-	local groundFilter: { Instance } = { character }
-	if draggingModel then
-		table.insert(groundFilter, draggingModel)
+	-- Refresh cached ground height periodically (not every frame).
+	if not cachedGroundY or now - lastGroundRefresh >= DRAG_GROUND_REFRESH_INTERVAL then
+		cachedGroundY = findGroundY(rootPosition, character)
+		lastGroundRefresh = now
 	end
-	groundRayParams.FilterDescendantsInstances = groundFilter
-	local groundRay = workspace:Raycast(
-		rootPosition + Vector3.new(0, 2, 0),
-		Vector3.new(0, -DRAG_GROUND_RAY_LENGTH, 0),
-		groundRayParams
-	)
-	if groundRay then
-		groundY = groundRay.Position.Y
-	end
+	local groundY = cachedGroundY or rootPosition.Y
 
 	targetPos = Vector3.new(
 		rootPosition.X + horizontalOffset.X,
@@ -405,10 +453,6 @@ local function updateDragTarget()
 		rootPosition.Z + horizontalOffset.Z
 	)
 
-	local now = os.clock()
-	if now - lastDragTargetSent < 0.03 then
-		return
-	end
 	lastDragTargetSent = now
 
 	if draggingBodyPlayer then
