@@ -106,6 +106,10 @@ end
 
 --[[
     @summary  Return whether the player owns every cost in a recipe.
+    @desc     WoodenSheet is checked against the shared run total
+              (totalWoodenSheetShredded), not the player's personal
+              inventory, because WoodenSheet is a bench-only resource.
+              All other resources are checked against personal inventory.
     @param    player  Player
     @param    cost    table
     @returns  boolean
@@ -116,8 +120,14 @@ local function canAfford(player: Player, cost: { [string]: number }): boolean
 		return false
 	end
 	for resourceName, amount in pairs(cost) do
-		if (data.Resources[resourceName] or 0) < amount then
-			return false
+		if resourceName == "WoodenSheet" then
+			if totalWoodenSheetShredded < amount then
+				return false
+			end
+		else
+			if (data.Resources[resourceName] or 0) < amount then
+				return false
+			end
 		end
 	end
 	return true
@@ -125,19 +135,34 @@ end
 
 --[[
     @summary  Deduct a fully validated recipe cost without yielding.
+    @desc     WoodenSheet is deducted from the shared run total
+              (totalWoodenSheetShredded). All other resources are
+              deducted from the player's personal inventory.
     @param    player  Player
     @param    cost    table
 ]]
 local function deductCost(player: Player, cost: { [string]: number })
+	local benchDeduct = 0
+	for resourceName, amount in pairs(cost) do
+		if resourceName == "WoodenSheet" then
+			benchDeduct += amount
+		end
+	end
+	if benchDeduct > 0 then
+		totalWoodenSheetShredded = math.max(0, totalWoodenSheetShredded - benchDeduct)
+		updateTableCounters()
+	end
 	playerDataService:UpdateData(player, function(data)
 		for resourceName, amount in pairs(cost) do
-			data.Resources[resourceName] -= amount
-			if data.Inventory and data.Inventory.PickupOrder then
-				for _ = 1, amount do
-					for index = #data.Inventory.PickupOrder, 1, -1 do
-						if data.Inventory.PickupOrder[index] == resourceName then
-							table.remove(data.Inventory.PickupOrder, index)
-							break
+			if resourceName ~= "WoodenSheet" then
+				data.Resources[resourceName] -= amount
+				if data.Inventory and data.Inventory.PickupOrder then
+					for _ = 1, amount do
+						for index = #data.Inventory.PickupOrder, 1, -1 do
+							if data.Inventory.PickupOrder[index] == resourceName then
+								table.remove(data.Inventory.PickupOrder, index)
+								break
+							end
 						end
 					end
 				end
@@ -728,9 +753,13 @@ function CraftingService.Client:GetBenchState(player: Player): { [string]: any }
 		return { tier = 1, resources = {}, recipeCounts = {}, unlocks = {}, isNearBench = false }
 	end
 	local data = playerDataService and playerDataService:GetData(player)
+	local resources = if data then table.clone(data.Resources) else {}
+	-- Override WoodenSheet with the shared run total so the crafting
+	-- UI shows the team's shredded amount, not a personal inventory value.
+	resources.WoodenSheet = totalWoodenSheetShredded
 	return {
 		tier = benchTier,
-		resources = if data then table.clone(data.Resources) else {},
+		resources = resources,
 		recipeCounts = table.clone(recipeCounts),
 		unlocks = table.clone(unlocks),
 		isNearBench = isNearBench(player),

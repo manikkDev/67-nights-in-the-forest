@@ -89,7 +89,6 @@ local TWEEN_CAPACITY = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDire
 local EDIBLE_RESOURCES = { Berries = true, Mushrooms = true, RawMeat = true, CookedMeat = true }
 local ROW_ORDER = {
 	"Wood",
-	"WoodenSheet",
 	"Scrap",
 	"Coal",
 	"Berries",
@@ -99,7 +98,6 @@ local ROW_ORDER = {
 	"Bandage",
 	"CultistGem",
 	"Bolt",
-	"SheetMetal",
 	"OldRadio",
 	"BrokenFan",
 	"BrokenMicrowave",
@@ -108,7 +106,6 @@ local ROW_ORDER = {
 }
 local ROW_COLORS = {
 	Wood = Color3.fromRGB(170, 110, 65),
-	WoodenSheet = Color3.fromRGB(200, 175, 120),
 	Scrap = Color3.fromRGB(150, 155, 165),
 	Coal = Color3.fromRGB(70, 70, 75),
 	Bandage = Color3.fromRGB(235, 235, 225),
@@ -118,7 +115,6 @@ local ROW_COLORS = {
 	RawMeat = Color3.fromRGB(200, 100, 100),
 	CookedMeat = Color3.fromRGB(215, 160, 80),
 	Bolt = Color3.fromRGB(140, 140, 145),
-	SheetMetal = Color3.fromRGB(170, 170, 175),
 	OldRadio = Color3.fromRGB(80, 60, 45),
 	BrokenFan = Color3.fromRGB(100, 100, 105),
 	BrokenMicrowave = Color3.fromRGB(220, 220, 215),
@@ -126,8 +122,7 @@ local ROW_COLORS = {
 	MetalChair = Color3.fromRGB(90, 95, 100),
 }
 local ROW_DESCRIPTIONS = {
-	Wood = "Used for building and fueling campfires.",
-	WoodenSheet = "Shredded from wood at the Shredder. Used for advanced crafting.",
+	Wood = "Used for building and fueling campfires. Shred at the Shredder for Wooden Sheets.",
 	Scrap = "Salvaged metal used for advanced crafting.",
 	Coal = "Burns far longer than wood in the campfire.",
 	Bandage = "Revives a downed teammate.",
@@ -137,7 +132,6 @@ local ROW_DESCRIPTIONS = {
 	RawMeat = "Cook it at the campfire to restore more hunger.",
 	CookedMeat = "A filling meal that restores lots of hunger.",
 	Bolt = "Junk. Grind at the Shredder for 1 Scrap.",
-	SheetMetal = "Junk. Grind at the Shredder for 1 Scrap.",
 	OldRadio = "Junk. Grind at the Shredder for 2 Scrap.",
 	BrokenFan = "Junk. Grind at the Shredder for 2 Scrap.",
 	BrokenMicrowave = "Junk. Grind at the Shredder for 3 Scrap.",
@@ -626,8 +620,8 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	-- Count badge overlaid on the icon.
 	local badge = Instance.new("TextLabel")
 	badge.Name = "CountBadge"
-	badge.Size = UDim2.new(0, 22, 0, 16)
-	badge.Position = UDim2.new(1, -16, 1, -14)
+	badge.Size = UDim2.new(0, 28, 0, 16)
+	badge.Position = UDim2.new(1, -20, 1, -14)
 	badge.BackgroundColor3 = Color3.fromRGB(20, 20, 24)
 	badge.BackgroundTransparency = 0.15
 	badge.BorderSizePixel = 0
@@ -635,6 +629,7 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 	badge.TextColor3 = Color3.fromRGB(255, 255, 255)
 	badge.Font = Enum.Font.GothamBold
 	badge.TextSize = 11
+	badge.TextScaled = true
 	badge.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 	badge.TextStrokeTransparency = 0.4
 	badge.TextXAlignment = Enum.TextXAlignment.Center
@@ -965,9 +960,8 @@ local function updateDisplay(resources: { [string]: number }?, capacity: number?
 		-- Count pop animation when a value changes.
 		if count ~= entry.lastCount then
 			entry.lastCount = count
-			local originalSize = entry.countLabel.TextSize
 			entry.countLabel.TextSize = 18
-			TweenService:Create(entry.countLabel, TWEEN_COUNT_POP, { TextSize = originalSize }):Play()
+			TweenService:Create(entry.countLabel, TWEEN_COUNT_POP, { TextSize = 13 }):Play()
 		end
 
 		-- Empty row dimming.

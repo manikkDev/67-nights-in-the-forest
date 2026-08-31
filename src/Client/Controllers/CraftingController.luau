@@ -165,8 +165,7 @@ local function refreshDisplay()
 	end
 	if resourcesLabel then
 		resourcesLabel.Text = string.format(
-			"Wood: %d    Wooden Sheets: %d    Scrap: %d    Cultist Gems: %d",
-			currentState.resources.Wood or 0,
+			"Wooden Sheets: %d    Scrap: %d    Cultist Gems: %d",
 			currentState.resources.WoodenSheet or 0,
 			currentState.resources.Scrap or 0,
 			currentState.resources.CultistGem or 0

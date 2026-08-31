@@ -332,18 +332,20 @@ local function autoGrindTouched(model: Model)
 
 	if isWood then
 		-- Wood -> WoodenSheet (1 wood = 1 wooden sheet).
-		local added = inventoryService:AddResource(player, "WoodenSheet", 1)
-		if added > 0 then
+		-- WoodenSheet is a bench-only shared resource — it is NOT added
+		-- to the player's personal inventory. It only goes to the shared
+		-- crafting total so the whole team can craft from it.
+		if runStateService:IsActive() and runStateService:IsMember(player) then
 			model:Destroy()
 			touchCooldowns[model] = nil
 			GrinderService:StartGrindAnimation()
 			GrinderService.Client.GrinderProcessed:Fire(player, {
 				position = grinderPosition,
-				scrapAmount = added,
+				scrapAmount = 1,
 				junkId = "WoodenSheet",
 			})
 			GrinderService:StopGrindAnimation()
-			craftingService:AddShreddedTotal("WoodenSheet", added)
+			craftingService:AddShreddedTotal("WoodenSheet", 1)
 		end
 	else
 		local config = JunkItemConfig[resourceName]

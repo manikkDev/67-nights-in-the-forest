@@ -87,6 +87,10 @@ local DROP_LIFETIME = 300
 
 local DRAG_MAX_DISTANCE = 50
 
+-- Resources that are bench-only and must never be dropped from the carry bag.
+-- They exist only in the shared crafting totals, not in personal inventory.
+local NO_DROP_RESOURCES = { WoodenSheet = true, SheetMetal = true }
+
 -- How close a dragged junk item must be released to the shredder to grind.
 local GRIND_DROP_RANGE = 14
 
@@ -849,24 +853,26 @@ local function tryDropAll(player: Player): boolean
 	local droppedAny = false
 
 	for _, resourceName in ipairs(RESOURCE_NAMES) do
-		local count = data.Resources[resourceName] or 0
-		if count > 0 then
-			droppedAny = true
-			for i = 1, count do
-				local golden = i * 2.3999632297
-				local radius = math.sqrt(i) * DROP_SPACING
-				local offset = Vector3.new(math.cos(golden) * radius, 0, math.sin(golden) * radius)
-				local position = Vector3.new(origin.X + offset.X, origin.Y, origin.Z + offset.Z)
+		if not NO_DROP_RESOURCES[resourceName] then
+			local count = data.Resources[resourceName] or 0
+			if count > 0 then
+				droppedAny = true
+				for i = 1, count do
+					local golden = i * 2.3999632297
+					local radius = math.sqrt(i) * DROP_SPACING
+					local offset = Vector3.new(math.cos(golden) * radius, 0, math.sin(golden) * radius)
+					local position = Vector3.new(origin.X + offset.X, origin.Y, origin.Z + offset.Z)
 
-				local model = buildDropModel(resourceName); model:SetAttribute("DroppedBy", player.UserId)
-				model:PivotTo(buildDropCFrame(position, resourceName))
-				model.Parent = baseMap
-				Debris:AddItem(model, DROP_LIFETIME)
+					local model = buildDropModel(resourceName); model:SetAttribute("DroppedBy", player.UserId)
+					model:PivotTo(buildDropCFrame(position, resourceName))
+					model.Parent = baseMap
+					Debris:AddItem(model, DROP_LIFETIME)
+				end
+
+				updatePlayerData(player, function(playerData)
+					playerData.Resources[resourceName] = 0
+				end)
 			end
-
-			updatePlayerData(player, function(playerData)
-				playerData.Resources[resourceName] = 0
-			end)
 		end
 	end
 
@@ -927,8 +933,8 @@ local function tryDropOne(player: Player): boolean
 
 	local resourceName = order[1]
 	local count = data.Resources[resourceName] or 0
-	if count <= 0 then
-		-- Stale entry; clean it up and try the next one.
+	if count <= 0 or NO_DROP_RESOURCES[resourceName] then
+		-- Stale or bench-only entry; clean it up and try the next one.
 		updatePlayerData(player, function(playerData)
 			table.remove(playerData.Inventory.PickupOrder, 1)
 		end)
@@ -1272,6 +1278,9 @@ function InventoryService.Client:RequestDrop(player: Player, resourceName: strin
 		return false
 	end
 	if not table.find(RESOURCE_NAMES, resourceName) then
+		return false
+	end
+	if NO_DROP_RESOURCES[resourceName] then
 		return false
 	end
 
