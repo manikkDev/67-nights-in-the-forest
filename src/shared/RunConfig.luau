@@ -25,7 +25,7 @@ local StudioTest = {
 	ForceNight = false,
 	VerboseFlashlight = true,
 	VerboseStalkers = false,
-	DayDuration = 5, -- TEMP: short day for testing, revert to 15 when done
+	DayDuration = 30, -- TEMP: short day for testing, revert to 15 when done
 	NightDuration = 60, -- TEMP: 60s night for testing, revert to 15 when done
 }
 
