@@ -1030,47 +1030,24 @@ local function stopDrag(player: Player)
 				if entry.originalCanCollide[desc] ~= nil then
 					desc.CanCollide = entry.originalCanCollide[desc]
 				end
-				-- Always unanchor so the item falls to the ground via
-				-- gravity instead of floating mid-air when released.
+				-- Unanchor so the item falls naturally via gravity.
 				desc.Anchored = false
 			end
 		end
 
 		local primaryPart = model.PrimaryPart
 		if primaryPart and primaryPart.Parent then
-			-- Raycast downward from the item's current position to find
-			-- the ground. Move the item there immediately instead of
-			-- relying on physics simulation (which can leave small/light
-			-- models like mushrooms floating).
-			local itemPos = primaryPart.Position
-			local dropRayParams = RaycastParams.new()
-			dropRayParams.FilterType = Enum.RaycastFilterType.Exclude
-			dropRayParams.FilterDescendantsInstances = { model }
-			local dropRay = workspace:Raycast(
-				itemPos + Vector3.new(0, 2, 0),
-				Vector3.new(0, -60, 0),
-				dropRayParams
-			)
-			if dropRay then
-				-- Place the model so its primary part rests on the ground.
-				local groundY = dropRay.Position.Y
-				local _, size = model:GetBoundingBox()
-				model:PivotTo(CFrame.new(
-					itemPos.X,
-					groundY + size.Y * 0.5,
-					itemPos.Z
-				) * model:GetPivot().Rotation)
-			end
-
 			pcall(function()
 				primaryPart:SetNetworkOwner(nil)
 			end)
-			-- Small downward nudge to wake the physics engine.
-			primaryPart.AssemblyLinearVelocity = Vector3.new(0, -1, 0)
+			-- Wake up the physics engine with a gentle downward velocity
+			-- so the item starts falling immediately on release.
+			primaryPart.AssemblyLinearVelocity = Vector3.new(0, -5, 0)
+			primaryPart.AssemblyAngularVelocity = Vector3.zero
 		end
 
-		-- Re-anchor parts that were originally anchored after a short
-		-- delay so they settle on the ground first.
+		-- Re-anchor parts that were originally anchored after enough
+		-- time for the item to fall and settle on the ground.
 		local hasAnchoredOriginals = false
 		for _, wasAnchored in pairs(entry.originalAnchored) do
 			if wasAnchored then
@@ -1080,8 +1057,25 @@ local function stopDrag(player: Player)
 		end
 		if hasAnchoredOriginals and model and model.Parent then
 			local capturedOriginalAnchored = entry.originalAnchored
-			task.delay(1.0, function()
+			local capturedPrimary = primaryPart
+			task.delay(2.0, function()
 				if not model or not model.Parent then return end
+				-- Only re-anchor if the item has actually settled (low velocity).
+				if capturedPrimary and capturedPrimary.Parent then
+					local vel = capturedPrimary.AssemblyLinearVelocity
+					if math.abs(vel.Y) > 1 then
+						-- Still falling — wait a bit more and try again.
+						task.delay(1.0, function()
+							if not model or not model.Parent then return end
+							for _, desc in ipairs(model:GetDescendants()) do
+								if desc:IsA("BasePart") and capturedOriginalAnchored[desc] == true then
+									desc.Anchored = true
+								end
+							end
+						end)
+						return
+					end
+				end
 				for _, desc in ipairs(model:GetDescendants()) do
 					if desc:IsA("BasePart") and capturedOriginalAnchored[desc] == true then
 						desc.Anchored = true
