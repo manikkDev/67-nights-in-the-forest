@@ -138,8 +138,10 @@ local function updateProximity(dt: number)
 		setWarning(false)
 		return
 	end
-	local delta = Vector3.new(root.Position.X - campfirePosition.X, 0, root.Position.Z - campfirePosition.Z)
-	setWarning(delta.Magnitude >= accessRadius - 50)
+	-- Square boundary: warn when player is near any edge of the square
+	local dx = math.abs(root.Position.X - campfirePosition.X)
+	local dz = math.abs(root.Position.Z - campfirePosition.Z)
+	setWarning(math.max(dx, dz) >= accessRadius - 50)
 end
 
 function WorldBoundaryController:KnitStart()

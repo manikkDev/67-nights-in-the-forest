@@ -301,7 +301,7 @@ local function buildRadiusCircles()
 	boundaryCircle.ZIndex = 5
 	boundaryCircle.Parent = minimapFrame
 	local boundaryCorner = Instance.new("UICorner")
-	boundaryCorner.CornerRadius = UDim.new(1, 0)
+	boundaryCorner.CornerRadius = UDim.new(0, 0)
 	boundaryCorner.Parent = boundaryCircle
 	local boundaryStroke = Instance.new("UIStroke")
 	boundaryStroke.Color = COLOR.MapBoundary
@@ -1361,7 +1361,7 @@ local function buildBoardMinimap(data: { [string]: any })
 	boundaryCircle.ZIndex = 3
 	boundaryCircle.Parent = innerMinimap
 	local bndCorner = Instance.new("UICorner")
-	bndCorner.CornerRadius = UDim.new(1, 0)
+	bndCorner.CornerRadius = UDim.new(0, 0)
 	bndCorner.Parent = boundaryCircle
 	local bndStroke = Instance.new("UIStroke")
 	bndStroke.Color = COLOR.MapBoundary

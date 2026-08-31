@@ -213,15 +213,42 @@ local function updateBoundary()
 		return
 	end
 	local count = #boundaryParts
-	local segmentLength = 2 * math.pi * accessRadius / count + 12
 	local height = WorldProgressionConfig.Boundary.Height
+	local center = campfireCFrame.Position
+	-- Square boundary: place segments along the 4 edges of a square
+	-- centered on the campfire with half-width = accessRadius.
+	-- This fully encloses the playable area including corners.
+	local halfWidth = accessRadius
+	local segmentsPerSide = math.floor(count / 4)
+	local segmentLength = (halfWidth * 2) / segmentsPerSide + 12
+	local sideOrder = { "East", "South", "West", "North" }
 	for index, part in ipairs(boundaryParts) do
-		local angle = (index - 1) * 2 * math.pi / count
-		local radial = Vector3.new(math.cos(angle), 0, math.sin(angle))
-		local position = campfireCFrame.Position + radial * accessRadius
+		local sideIndex = math.floor((index - 1) / segmentsPerSide)
+		local indexInSide = (index - 1) % segmentsPerSide
+		local t = (indexInSide + 0.5) / segmentsPerSide  -- 0..1 along the side
+		local posAlongSide = -halfWidth + t * halfWidth * 2
+		local position: Vector3
+		local facing: Vector3
+		if sideIndex == 0 then
+			-- East side (positive X): runs from -halfWidth to +halfWidth in Z
+			position = center + Vector3.new(halfWidth, 0, posAlongSide)
+			facing = Vector3.new(-1, 0, 0)
+		elseif sideIndex == 1 then
+			-- South side (positive Z): runs from +halfWidth to -halfWidth in X
+			position = center + Vector3.new(posAlongSide, 0, halfWidth)
+			facing = Vector3.new(0, 0, -1)
+		elseif sideIndex == 2 then
+			-- West side (negative X): runs from +halfWidth to -halfWidth in Z
+			position = center + Vector3.new(-halfWidth, 0, posAlongSide)
+			facing = Vector3.new(1, 0, 0)
+		else
+			-- North side (negative Z): runs from -halfWidth to +halfWidth in X
+			position = center + Vector3.new(posAlongSide, 0, -halfWidth)
+			facing = Vector3.new(0, 0, 1)
+		end
 		position = Vector3.new(position.X, groundY + height * 0.5, position.Z)
 		part.Size = Vector3.new(segmentLength, height, 14)
-		part.CFrame = CFrame.lookAt(position, position - radial)
+		part.CFrame = CFrame.lookAt(position, position + facing)
 	end
 end
 
@@ -257,18 +284,34 @@ local function constrainPlayers(dt: number)
 		if not humanoid or humanoid.Health <= 0 or not root or not root:IsA("BasePart") then
 			continue
 		end
-		local delta = Vector3.new(root.Position.X - center.X, 0, root.Position.Z - center.Z)
-		if delta.Magnitude <= accessRadius + 2 then
+		-- Square boundary check: clamp X and Z independently
+		local dx = root.Position.X - center.X
+		local dz = root.Position.Z - center.Z
+		if math.abs(dx) <= accessRadius + 2 and math.abs(dz) <= accessRadius + 2 then
 			continue
 		end
-		local direction = if delta.Magnitude > 0 then delta.Unit else Vector3.xAxis
-		local safePosition = Vector3.new(center.X, root.Position.Y, center.Z) + direction * limit
-		root.CFrame = CFrame.new(safePosition, safePosition - direction)
+		-- Push player back to the nearest edge of the square
+		local clampedX = math.clamp(dx, -limit, limit)
+		local clampedZ = math.clamp(dz, -limit, limit)
+		local safePosition = Vector3.new(center.X + clampedX, root.Position.Y, center.Z + clampedZ)
+		root.CFrame = CFrame.new(safePosition)
+		-- Kill outward velocity along the violated axis
 		local velocity = root.AssemblyLinearVelocity
-		local outward = velocity:Dot(direction)
-		if outward > 0 then
-			root.AssemblyLinearVelocity = velocity - direction * outward
+		if math.abs(dx) > limit then
+			local sign = dx > 0 and 1 or -1
+			local outward = velocity.X * sign
+			if outward > 0 then
+				velocity = Vector3.new(velocity.X - sign * outward, velocity.Y, velocity.Z)
+			end
 		end
+		if math.abs(dz) > limit then
+			local sign = dz > 0 and 1 or -1
+			local outward = velocity.Z * sign
+			if outward > 0 then
+				velocity = Vector3.new(velocity.X, velocity.Y, velocity.Z - sign * outward)
+			end
+		end
+		root.AssemblyLinearVelocity = velocity
 	end
 end
 
