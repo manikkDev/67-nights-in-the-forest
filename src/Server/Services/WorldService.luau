@@ -135,6 +135,32 @@ function WorldService:GetGroundPart(): BasePart?
 	return nil
 end
 
+--[[
+    @summary  Return the original ground part plus all ExpandedGround tiles.
+    @desc     Used by placement/AI/forage systems so they can raycast
+              and find ground across the full expanded map, not just
+              the original 1536×1536 terrain.
+    @returns  { BasePart }
+]]
+function WorldService:GetAllGroundParts(): { BasePart }
+	local ground = self:GetGroundPart()
+	if not ground then
+		return {}
+	end
+	local parts = { ground }
+	if baseMap then
+		local expandedGround = baseMap:FindFirstChild("ExpandedGround")
+		if expandedGround then
+			for _, tile in ipairs(expandedGround:GetChildren()) do
+				if tile:IsA("BasePart") then
+					table.insert(parts, tile)
+				end
+			end
+		end
+	end
+	return parts
+end
+
 function WorldService:GetGroundBounds(): { minX: number, maxX: number, minZ: number, maxZ: number }?
 	local ground = self:GetGroundPart()
 	if not ground then

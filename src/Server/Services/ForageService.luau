@@ -126,7 +126,10 @@ local function collectTreePivots()
 end
 
 --[[
-    @summary  Return the Y coordinate of the base-map ground plane.
+    @summary  Return the Y coordinate of the ground plane.
+    @desc     Uses the original ground part's top surface.  The
+              ExpandedGround tiles share the same Y, so this is
+              correct across the full map.
     @returns  number?
 ]]
 local function getGroundTopY(): number?

@@ -124,9 +124,9 @@ local function scatterForLevel(level: number)
 
 	local baseMap = worldService:GetBaseMap()
 	local campfireCFrame = worldService:GetCampfireCFrame()
-	local groundPart = worldService:GetGroundPart()
+	local allGroundParts = worldService:GetAllGroundParts()
 	local bounds = worldService:GetGroundBounds()
-	if not baseMap or not campfireCFrame or not groundPart or not bounds then
+	if not baseMap or not campfireCFrame or #allGroundParts == 0 or not bounds then
 		return
 	end
 
@@ -147,14 +147,14 @@ local function scatterForLevel(level: number)
 		local junkId = randomJunkId()
 		local placement = WorldPlacement.FindPosition({
 			center = center,
-			groundPart = groundPart,
+			groundPart = allGroundParts,
 			bounds = bounds,
 			minDistance = minDist,
 			maxDistance = maxDist,
 			footprint = ITEM_FOOTPRINT,
 			clearanceRadius = ITEM_CLEARANCE,
 			seed = seedBase + index * 17,
-			exclusions = { groundPart },
+			exclusions = allGroundParts,
 			maxRetries = MAX_RETRIES,
 			maxSlope = MAX_SLOPE,
 		})
@@ -218,9 +218,9 @@ local function checkRespawn()
 	-- Respawn missing items across the accessible area
 	local baseMap = worldService:GetBaseMap()
 	local campfireCFrame = worldService:GetCampfireCFrame()
-	local groundPart = worldService:GetGroundPart()
+	local allGroundParts = worldService:GetAllGroundParts()
 	local bounds = worldService:GetGroundBounds()
-	if not baseMap or not campfireCFrame or not groundPart or not bounds then
+	if not baseMap or not campfireCFrame or #allGroundParts == 0 or not bounds then
 		return
 	end
 
@@ -237,14 +237,14 @@ local function checkRespawn()
 		local junkId = randomJunkId()
 		local placement = WorldPlacement.FindPosition({
 			center = center,
-			groundPart = groundPart,
+			groundPart = allGroundParts,
 			bounds = bounds,
 			minDistance = minDist,
 			maxDistance = maxDist,
 			footprint = ITEM_FOOTPRINT,
 			clearanceRadius = ITEM_CLEARANCE,
 			seed = seedBase + index * 23 + os.clock(),
-			exclusions = { groundPart },
+			exclusions = allGroundParts,
 			maxRetries = 50,
 			maxSlope = MAX_SLOPE,
 		})

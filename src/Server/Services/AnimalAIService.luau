@@ -177,13 +177,30 @@ end
 --[[
     @summary  Raycast down from a candidate spawn position to find the
               ground CFrame, falling back to a fixed height if nothing
-              is hit.
+              is hit.  Raycasts against all ground parts (original +
+              ExpandedGround tiles) so NPCs spawn correctly across
+              the full expanded map.
     @param    position  Vector3
     @returns  CFrame
 ]]
 local function groundedCFrame(position: Vector3): CFrame
-	local y = worldService and worldService:GetGroundY()
-	return CFrame.new(position.X, (y or position.Y) + 3, position.Z)
+	if worldService then
+		local allGroundParts = worldService:GetAllGroundParts()
+		if #allGroundParts > 0 then
+			local params = RaycastParams.new()
+			params.FilterType = Enum.RaycastFilterType.Include
+			params.FilterDescendantsInstances = allGroundParts
+			local refPart = allGroundParts[1]
+			local origin = Vector3.new(position.X, refPart.Position.Y + 500, position.Z)
+			local result = workspace:Raycast(origin, Vector3.new(0, -1000, 0), params)
+			if result then
+				return CFrame.new(position.X, result.Position.Y + 3, position.Z)
+			end
+		end
+		local y = worldService:GetGroundY()
+		return CFrame.new(position.X, (y or position.Y) + 3, position.Z)
+	end
+	return CFrame.new(position.X, position.Y + 3, position.Z)
 end
 
 --[[

@@ -113,9 +113,9 @@ local function spawnGiantTrees()
 
 	local baseMap = worldService:GetBaseMap()
 	local campfireCFrame = worldService:GetCampfireCFrame()
-	local groundPart = worldService:GetGroundPart()
+	local allGroundParts = worldService:GetAllGroundParts()
 	local bounds = worldService:GetGroundBounds()
-	if not baseMap or not campfireCFrame or not groundPart or not bounds then
+	if not baseMap or not campfireCFrame or #allGroundParts == 0 or not bounds then
 		warn("[GiantTreeService] Missing required world references")
 		return
 	end
@@ -133,7 +133,7 @@ local function spawnGiantTrees()
 	local spawned = 0
 
 	-- Collect all existing Tree/bigtree models to exclude from overlap checks
-	local treeExclusions = { groundPart }
+	local treeExclusions = table.clone(allGroundParts)
 	for _, desc in ipairs(baseMap:GetDescendants()) do
 		if desc:IsA("Model") and (desc.Name == "Tree" or desc.Name == "bigtree") then
 			table.insert(treeExclusions, desc)
@@ -149,7 +149,7 @@ local function spawnGiantTrees()
 		-- Try FindPosition first (collision-free placement)
 		local placement = WorldPlacement.FindPosition({
 			center = center,
-			groundPart = groundPart,
+			groundPart = allGroundParts,
 			bounds = bounds,
 			minDistance = MIN_DISTANCE,
 			maxDistance = maxDistance,
@@ -175,7 +175,7 @@ local function spawnGiantTrees()
 				giantTree:Destroy()
 				continue
 			end
-			placement = WorldPlacement.GetGroundCFrame(groundPart, testPos, 0)
+			placement = WorldPlacement.GetGroundCFrame(allGroundParts, testPos, 0)
 			if not placement then
 				giantTree:Destroy()
 				continue

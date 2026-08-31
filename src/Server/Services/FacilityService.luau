@@ -90,8 +90,8 @@ local function randomFacilityPosition(model: Model, unlockLevel: number, seed: n
 	if not groundBounds or not campfirePosition then
 		return nil
 	end
-	local groundPart = worldService:GetGroundPart()
-	if not groundPart then
+	local allGroundParts = worldService:GetAllGroundParts()
+	if #allGroundParts == 0 then
 		return nil
 	end
 	local previousRadius = if unlockLevel > 1 then WorldProgressionConfig.GetAccessRadius(unlockLevel - 1) else MIN_FACILITY_DISTANCE
@@ -101,14 +101,14 @@ local function randomFacilityPosition(model: Model, unlockLevel: number, seed: n
 	local clearanceRadius = math.max(footprint.X, footprint.Z) * 0.6
 	return WorldPlacement.FindPosition({
 		center = campfirePosition,
-		groundPart = groundPart,
+		groundPart = allGroundParts,
 		bounds = groundBounds,
 		minDistance = previousRadius + 15,
 		maxDistance = currentRadius - 25,
 		footprint = footprint,
 		clearanceRadius = clearanceRadius,
 		seed = seed,
-		exclusions = { groundPart },
+		exclusions = allGroundParts,
 		maxRetries = 150,
 		maxSlope = 10,
 	}), clearanceRadius
@@ -340,14 +340,14 @@ local function spawnJunkItem(facilityModel: Model, junkId: string)
 
 	-- Raycast to find the actual ground height at this position
 	-- instead of using a flat groundY which causes floating on uneven terrain
-	local groundPart = worldService:GetGroundPart()
+	local allGroundParts = worldService:GetAllGroundParts()
 	local actualGroundY = groundY
-	if groundPart then
+	if #allGroundParts > 0 then
 		local rayOrigin = Vector3.new(spawnX, groundY + 100, spawnZ)
 		local rayDirection = Vector3.new(0, -200, 0)
 		local raycastParams = RaycastParams.new()
 		raycastParams.FilterType = Enum.RaycastFilterType.Include
-		raycastParams.FilterDescendantsInstances = { groundPart }
+		raycastParams.FilterDescendantsInstances = allGroundParts
 		local result = Workspace:Raycast(rayOrigin, rayDirection, raycastParams)
 		if result then
 			actualGroundY = result.Position.Y

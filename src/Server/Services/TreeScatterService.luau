@@ -177,9 +177,9 @@ local function scatterTrees()
 
 	local baseMap = worldService:GetBaseMap()
 	local campfireCFrame = worldService:GetCampfireCFrame()
-	local groundPart = worldService:GetGroundPart()
+	local allGroundParts = worldService:GetAllGroundParts()
 	local bounds = worldService:GetGroundBounds()
-	if not baseMap or not campfireCFrame or not groundPart or not bounds then
+	if not baseMap or not campfireCFrame or #allGroundParts == 0 or not bounds then
 		warn("[TreeScatterService] Missing required world references")
 		return
 	end
@@ -195,8 +195,8 @@ local function scatterTrees()
 		return
 	end
 
-	-- Collect all existing buildings to exclude from overlap checks
-	local buildingExclusions = { groundPart }
+	-- Collect all existing buildings AND existing trees to exclude from overlap checks
+	local buildingExclusions = table.clone(allGroundParts)
 	for _, desc in ipairs(baseMap:GetDescendants()) do
 		if desc:IsA("Model") then
 			local name = desc.Name
@@ -215,7 +215,7 @@ local function scatterTrees()
 		for index = 1, SCATTER_TREE_COUNT do
 			local placement = WorldPlacement.FindPosition({
 				center = center,
-				groundPart = groundPart,
+				groundPart = allGroundParts,
 				bounds = bounds,
 				minDistance = MIN_DISTANCE,
 				maxDistance = maxDistance,
@@ -244,7 +244,7 @@ local function scatterTrees()
 		for index = 1, SCATTER_BIGTREE_COUNT do
 			local placement = WorldPlacement.FindPosition({
 				center = center,
-				groundPart = groundPart,
+				groundPart = allGroundParts,
 				bounds = bounds,
 				minDistance = MIN_DISTANCE + 50,
 				maxDistance = maxDistance,

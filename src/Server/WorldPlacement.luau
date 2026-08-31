@@ -52,15 +52,19 @@ function WorldPlacement.IsReserved(position: Vector3, radius: number): boolean
 	return false
 end
 
-function WorldPlacement.GetGroundCFrame(groundPart: BasePart, position: Vector3, yaw: number?): (CFrame?, Vector3?)
+function WorldPlacement.GetGroundCFrame(groundPart: BasePart | { BasePart }, position: Vector3, yaw: number?): (CFrame?, Vector3?)
+	-- Normalize to a list so we can raycast against the original ground
+	-- AND any ExpandedGround tiles.
+	local parts = if typeof(groundPart) == "table" then groundPart else { groundPart }
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = { groundPart }
-	local origin = Vector3.new(position.X, groundPart.Position.Y + groundPart.Size.Y * 0.5 + 500, position.Z)
+	params.FilterDescendantsInstances = parts
+	local refPart = parts[1]
+	local origin = Vector3.new(position.X, refPart.Position.Y + refPart.Size.Y * 0.5 + 500, position.Z)
 	local result = Workspace:Raycast(origin, Vector3.new(0, -1000, 0), params)
 	local groundPosition = if result
 		then result.Position
-		else Vector3.new(position.X, groundPart.Position.Y + groundPart.Size.Y * 0.5, position.Z)
+		else Vector3.new(position.X, refPart.Position.Y + refPart.Size.Y * 0.5, position.Z)
 	-- Always use a flat CFrame (only Y-axis rotation) so structures are never tilted
 	return CFrame.new(groundPosition) * CFrame.Angles(0, yaw or 0, 0), Vector3.yAxis
 end
@@ -144,7 +148,7 @@ end
 
 function WorldPlacement.FindPosition(options: {
 	center: Vector3,
-	groundPart: BasePart,
+	groundPart: BasePart | { BasePart },
 	bounds: Bounds,
 	minDistance: number,
 	maxDistance: number,
@@ -192,7 +196,14 @@ function WorldPlacement.FindPosition(options: {
 		end
 		local checkCFrame = groundCFrame * CFrame.new(0, options.footprint.Y * 0.5, 0)
 		local exclusions = table.clone(options.exclusions or {})
-		table.insert(exclusions, options.groundPart)
+		-- Add all ground parts to exclusions so they don't block overlap checks
+		if typeof(options.groundPart) == "table" then
+			for _, p in ipairs(options.groundPart) do
+				table.insert(exclusions, p)
+			end
+		else
+			table.insert(exclusions, options.groundPart)
+		end
 		local overlapCount = WorldPlacement.CountFootprintOverlaps(checkCFrame, options.footprint, exclusions)
 		if overlapCount == 0 then
 			if options.requirePathFrom and not WorldPlacement.IsPathAccessible(options.requirePathFrom, groundCFrame.Position) then

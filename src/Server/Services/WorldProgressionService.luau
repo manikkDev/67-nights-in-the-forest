@@ -50,6 +50,9 @@ local function relocateBuildings()
 	if not bounds then
 		return
 	end
+	-- Use all ground parts (original + ExpandedGround tiles) so buildings
+	-- can be placed across the full expanded map, not just the original terrain.
+	local allGroundParts = worldService:GetAllGroundParts()
 	local buildingNames = {
 		["cabin"] = true,
 		["modern-house"] = true,
@@ -108,14 +111,14 @@ local function relocateBuildings()
 		end
 		local placement = WorldPlacement.FindPosition({
 			center = center,
-			groundPart = groundPart,
+			groundPart = allGroundParts,
 			bounds = bounds,
 			minDistance = ringMin,
 			maxDistance = ringMax,
 			footprint = footprint,
 			clearanceRadius = clearanceRadius,
 			seed = seedBase + index * 7,
-			exclusions = { groundPart },
+			exclusions = allGroundParts,
 			maxRetries = 200,
 			maxSlope = 8,
 			faceCenter = true,
@@ -149,7 +152,7 @@ local function relocateBuildings()
 			-- Fallback: keep original position but fix ground alignment with yaw-only
 			local pivot = building:GetPivot()
 			local yaw = select(2, pivot:ToEulerAnglesYXZ())
-			local groundCFrame = WorldPlacement.GetGroundCFrame(groundPart, pivot.Position, 0)
+			local groundCFrame = WorldPlacement.GetGroundCFrame(allGroundParts, pivot.Position, 0)
 			if groundCFrame then
 				-- Move to temp position with yaw-only, then find lowest part
 				building:PivotTo(CFrame.new(groundCFrame.Position.X, groundCFrame.Position.Y + 500, groundCFrame.Position.Z) * CFrame.Angles(0, yaw, 0))

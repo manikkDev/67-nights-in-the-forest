@@ -387,9 +387,9 @@ local function buildCaves()
 	tentsFolder = tents
 
 	local campfireCFrame = worldService:GetCampfireCFrame()
-	local groundPart = worldService:GetGroundPart()
+	local allGroundParts = worldService:GetAllGroundParts()
 	local bounds = worldService:GetGroundBounds()
-	if not campfireCFrame or not groundPart or not bounds then
+	if not campfireCFrame or #allGroundParts == 0 or not bounds then
 		return
 	end
 	local seedBase = WorldPlacement.Hash(runStateService:GetRunId())
@@ -398,14 +398,14 @@ local function buildCaves()
 		local ring = WorldProgressionConfig.CaveRings[rescueId]
 		local caveCFrame = WorldPlacement.FindPosition({
 			center = campfireCFrame.Position,
-			groundPart = groundPart,
+			groundPart = allGroundParts,
 			bounds = bounds,
 			minDistance = ring.Min,
 			maxDistance = ring.Max,
 			footprint = WorldProgressionConfig.Placement.CaveFootprint,
 			clearanceRadius = WorldProgressionConfig.Placement.CaveSpacing,
 			seed = seedBase + WorldPlacement.Hash(rescueId) + index,
-			exclusions = { groundPart },
+			exclusions = allGroundParts,
 			maxRetries = WorldProgressionConfig.Placement.MaxRetries,
 			maxSlope = WorldProgressionConfig.Placement.MaxSlope,
 			faceCenter = true,
