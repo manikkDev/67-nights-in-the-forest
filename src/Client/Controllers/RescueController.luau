@@ -22,6 +22,8 @@ local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
 local RescueConfig = require(ReplicatedStorage.Shared.RescueConfig)
 -- testtt
+-- gotta wait for money
+
 -- | Objects | --
 local RescueController = Knit.CreateController({
 	Name = "RescueController",
