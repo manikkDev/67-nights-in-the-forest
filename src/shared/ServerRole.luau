@@ -96,11 +96,12 @@ function ServerRole.IsGameServer(): boolean
 
 	-- No attribute or PlaceId match — fall back to runtime detection.
 	if RunService:IsStudio() then
-		-- In Studio, SkipLobby mode means the lobby server also acts as the
-		-- game server (since there's no real teleport to a separate place).
-		local result = RunConfig.IsTestEnabled("ForceGameMode") or RunConfig.IsTestEnabled("SkipLobby")
-		logDetection("Studio flags", result)
-		return result
+		-- In Studio there is only one server, so it must act as both the lobby
+		-- AND the game server. Always return true so WorldService creates the
+		-- Campfire and all game-only services initialise correctly.
+		-- SpawnService handles the lobby character spawn separately.
+		logDetection("Studio always-game", true)
+		return true
 	end
 	-- A reserved game server has a non-empty PrivateServerId with no owner.
 	-- Public servers (lobby) have an empty PrivateServerId.

@@ -17,12 +17,14 @@
 -- | Services | --
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 local Constants = require(ReplicatedStorage.Shared.Constants)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local SpawnService = Knit.CreateService({
@@ -292,6 +294,21 @@ function SpawnService:KnitStart()
 		Players.PlayerAdded:Connect(function(player)
 			task.spawn(autoSpawnPlayer, player)
 		end)
+	elseif ServerRole.IsLobby() or RunService:IsStudio() then
+		-- In production this is the true Lobby server. In Studio, IsGameServer()
+		-- is always true so IsLobby() is always false — the explicit IsStudio()
+		-- check here ensures players still spawn at the Lobby SpawnLocation.
+		local function spawnInLobby(player: Player)
+			task.spawn(function()
+				SpawnService:ReturnToLobby(player)
+			end)
+		end
+		task.delay(1, function()
+			for _, player in ipairs(Players:GetPlayers()) do
+				spawnInLobby(player)
+			end
+		end)
+		Players.PlayerAdded:Connect(spawnInLobby)
 	end
 end
 
