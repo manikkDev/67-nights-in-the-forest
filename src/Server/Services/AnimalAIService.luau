@@ -109,13 +109,13 @@ local spawnPersistentPopulation: (() -> ())? = nil
 ]]
 local function collectSpawnArea()
 	if not worldService or not worldService:IsForestReady() then
-		task.defer(collectSpawnArea)
+		task.delay(0.1, collectSpawnArea)
 		return
 	end
 
 	local baseMap = worldService:GetBaseMap()
 	if not baseMap then
-		task.defer(collectSpawnArea)
+		task.delay(0.1, collectSpawnArea)
 		return
 	end
 

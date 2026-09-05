@@ -25,6 +25,9 @@ local lifeService: any = nil
 local gui: ScreenGui? = nil
 local card: Frame? = nil
 local timerLabel: TextLabel? = nil
+local notifFrame: Frame? = nil
+local notifLabel: TextLabel? = nil
+local notifJanitor = Janitor.new()
 local selfState = "Lobby"
 local bleedOutAt = 0
 
@@ -108,6 +111,39 @@ local function buildUi()
 	hint.TextXAlignment = Enum.TextXAlignment.Left
 	hint.TextYAlignment = Enum.TextYAlignment.Top
 	hint.Parent = panel
+	-- Teammate downed notification banner (top-center)
+	local notif = Instance.new("Frame")
+	notif.Name = "TeammateDowned"
+	notif.AnchorPoint = Vector2.new(0.5, 0)
+	notif.Position = UDim2.new(0.5, 0, 0, 14)
+	notif.Size = UDim2.new(0.55, 0, 0, 36)
+	notif.BackgroundColor3 = Color3.fromRGB(42, 32, 12)
+	notif.BackgroundTransparency = 1
+	notif.BorderSizePixel = 0
+	notif.Visible = false
+	notif.Parent = screenGui
+	local nc = Instance.new("UISizeConstraint")
+	nc.MaxSize = Vector2.new(380, 36)
+	nc.Parent = notif
+	local ncorner = Instance.new("UICorner")
+	ncorner.CornerRadius = UDim.new(0, 10)
+	ncorner.Parent = notif
+	local nstroke = Instance.new("UIStroke")
+	nstroke.Color = Color3.fromRGB(195, 148, 55)
+	nstroke.Thickness = 1
+	nstroke.Transparency = 0.2
+	nstroke.Parent = notif
+	local nlabel = Instance.new("TextLabel")
+	nlabel.Size = UDim2.fromScale(1, 1)
+	nlabel.BackgroundTransparency = 1
+	nlabel.Font = Enum.Font.GothamBold
+	nlabel.Text = ""
+	nlabel.TextColor3 = Color3.fromRGB(235, 178, 70)
+	nlabel.TextSize = 14
+	nlabel.TextTransparency = 1
+	nlabel.Parent = notif
+	notifFrame = notif
+	notifLabel = nlabel
 end
 
 local function applyState(state: string, payload: any)
@@ -135,9 +171,45 @@ function LifeStateController:KnitStart()
 	local runStateService = Knit.GetService("RunStateService")
 	buildUi()
 	task.spawn(disableReset)
+	-- Teammate downed/revived notification
+	local function showDownedNotification(displayName: string, state: string)
+		if not notifFrame or not notifLabel then return end
+		local TweenService = game:GetService("TweenService")
+		notifJanitor:Cleanup()
+		local text = if state == "Downed"
+			then ("⚠ " .. displayName .. " is DOWNED!")
+			else ("✓ " .. displayName .. " was revived")
+		local color = if state == "Downed"
+			then Color3.fromRGB(235, 178, 70)
+			else Color3.fromRGB(90, 200, 110)
+		notifLabel.Text = text
+		notifLabel.TextColor3 = color
+		notifFrame.Visible = true
+		notifFrame.BackgroundTransparency = 1
+		notifLabel.TextTransparency = 1
+		TweenService:Create(notifFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad), { BackgroundTransparency = 0.1 }):Play()
+		TweenService:Create(notifLabel, TweenInfo.new(0.25), { TextTransparency = 0 }):Play()
+		local t = task.delay(4.0, function()
+			TweenService:Create(notifFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+			TweenService:Create(notifLabel, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
+			task.delay(0.45, function()
+				if notifFrame then notifFrame.Visible = false end
+			end)
+		end)
+		notifJanitor:Add(function() task.cancel(t) end)
+	end
+
 	janitor:Add(lifeService.LifeStateChanged:Connect(function(payload)
-		if typeof(payload) == "table" and payload.userId == localPlayer.UserId then
+		if typeof(payload) ~= "table" then return end
+		if payload.userId == localPlayer.UserId then
 			applyState(payload.state, payload)
+		else
+			-- Notify the local player when a teammate goes down or gets revived
+			if payload.state == "Downed" or payload.state == "Alive" then
+				local teammate = Players:GetPlayerByUserId(payload.userId)
+				local name = teammate and teammate.DisplayName or tostring(payload.userId)
+				showDownedNotification(name, payload.state)
+			end
 		end
 	end), "Disconnect")
 	janitor:Add(runStateService.RunPhaseChanged:Connect(function(payload)

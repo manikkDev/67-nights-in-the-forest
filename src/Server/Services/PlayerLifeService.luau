@@ -100,7 +100,9 @@ local function removeRevivePrompts(character: Model?)
 		return
 	end
 	for _, descendant in ipairs(character:GetDescendants()) do
-		if descendant:IsA("ProximityPrompt") and descendant.Name == "RevivePrompt" then
+		if descendant:IsA("ProximityPrompt")
+			and (descendant.Name == "RevivePrompt" or descendant.Name == "DragBodyPrompt")
+		then
 			descendant:Destroy()
 		end
 	end
@@ -113,6 +115,8 @@ local function ensureRevivePrompt(player: Player)
 		return
 	end
 	removeRevivePrompts(character)
+
+	-- Revive prompt (requires Bandage, 5-second hold)
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "RevivePrompt"
 	prompt.ActionText = "Revive with Bandage"
@@ -120,9 +124,28 @@ local function ensureRevivePrompt(player: Player)
 	prompt.MaxActivationDistance = RunConfig.ReviveRange
 	prompt.HoldDuration = RunConfig.ReviveHoldDuration
 	prompt.RequiresLineOfSight = true
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.GamepadKeyCode = Enum.KeyCode.ButtonX
 	prompt.Parent = root
 	prompt.Triggered:Connect(function(reviver)
 		PlayerLifeService:TryRevive(reviver, player)
+	end)
+
+	-- Drag body prompt (no cost, instant, lets teammates reposition body)
+	local dragPrompt = Instance.new("ProximityPrompt")
+	dragPrompt.Name = "DragBodyPrompt"
+	dragPrompt.ActionText = "Drag Body"
+	dragPrompt.ObjectText = player.DisplayName
+	dragPrompt.MaxActivationDistance = RunConfig.BodyDragStartRange
+	dragPrompt.HoldDuration = 0
+	dragPrompt.RequiresLineOfSight = false
+	dragPrompt.KeyboardKeyCode = Enum.KeyCode.F
+	dragPrompt.GamepadKeyCode = Enum.KeyCode.ButtonY
+	dragPrompt.Parent = root
+	dragPrompt.Triggered:Connect(function(dragger)
+		if lifeStates[dragger] == "Alive" and bodyDrags[dragger] == nil then
+			PlayerLifeService.Client.RequestBodyDragStart:Fire(dragger, player)
+		end
 	end)
 end
 

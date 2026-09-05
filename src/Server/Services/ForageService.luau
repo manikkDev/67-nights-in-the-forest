@@ -98,13 +98,13 @@ end
 ]]
 local function collectTreePivots()
 	if not worldService or not worldService:IsForestReady() then
-		task.defer(collectTreePivots)
+		task.delay(0.1, collectTreePivots)
 		return
 	end
 
 	local baseMap = worldService:GetBaseMap()
 	if not baseMap then
-		task.defer(collectTreePivots)
+		task.delay(0.1, collectTreePivots)
 		return
 	end
 

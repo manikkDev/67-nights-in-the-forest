@@ -481,10 +481,10 @@ local function broadcastSafeZone(target: Player?, force: boolean?)
 
 	-- Keep the replicated properties always in sync with the server state.
 	-- The SafeZoneChanged signal below is throttled to avoid spamming clients.
-	if CampfireService.Client.SafeZoneRadius then
+	if CampfireService.Client.SafeZoneRadius and CampfireService.Client.SafeZoneRadius:Get() ~= currentSafeZoneRadius then
 		CampfireService.Client.SafeZoneRadius:Set(currentSafeZoneRadius)
 	end
-	if CampfireService.Client.IsLit then
+	if CampfireService.Client.IsLit and CampfireService.Client.IsLit:Get() ~= isLit then
 		CampfireService.Client.IsLit:Set(isLit)
 	end
 
@@ -716,7 +716,7 @@ end
 ]]
 local function setupCampfire()
 	if not worldService then
-		task.defer(setupCampfire)
+		task.delay(0.1, setupCampfire)
 		return
 	end
 
@@ -724,7 +724,7 @@ local function setupCampfire()
 	local anchor = worldService:GetCampfire()
 	local map = bonfire and bonfire.Parent
 	if not bonfire or not anchor then
-		task.defer(setupCampfire)
+		task.delay(0.1, setupCampfire)
 		return
 	end
 

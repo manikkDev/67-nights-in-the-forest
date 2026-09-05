@@ -29,11 +29,15 @@ local targetLabel: TextLabel? = nil
 local healthLabel: TextLabel? = nil
 local healthFill: Frame? = nil
 local emptyLabel: TextLabel? = nil
+local teamPanel: Frame? = nil
+local eliminatedBanner: Frame? = nil
 local selfState = "Lobby"
 local memberStates: { [number]: string } = {}
+memberStates = {}
 local targetIndex = 1
 local currentTarget: Player? = nil
 local spectating = false
+local memberNames: { [number]: string } = {}
 
 local function makeButton(parent: Instance, name: string, text: string, position: UDim2): TextButton
 	local button = Instance.new("TextButton")
@@ -60,6 +64,78 @@ local function makeButton(parent: Instance, name: string, text: string, position
 	return button
 end
 
+-- Map life state to display label and color
+local STATE_COLORS = {
+	Alive    = Color3.fromRGB(78,  184, 99),
+	Downed   = Color3.fromRGB(216, 165, 64),
+	Eliminated = Color3.fromRGB(200, 60, 55),
+	Lobby    = Color3.fromRGB(110, 115, 125),
+}
+local STATE_LABELS = { Alive = "Alive", Downed = "Down", Eliminated = "Gone", Lobby = "Lobby" }
+
+local function updateTeamPanel()
+	if not teamPanel then return end
+	for _, row in ipairs(teamPanel:GetChildren()) do
+		if row:IsA("Frame") then row:Destroy() end
+	end
+	local order = 0
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p == localPlayer then continue end
+		order += 1
+		local state = memberStates[p.UserId] or "Lobby"
+		local stateColor = STATE_COLORS[state] or STATE_COLORS.Lobby
+		local stateLabel = STATE_LABELS[state] or state
+
+		local row = Instance.new("Frame")
+		row.Name = "TeamRow_" .. p.UserId
+		row.Size = UDim2.new(1, 0, 0, 32)
+		row.BackgroundColor3 = Color3.fromRGB(16, 19, 23)
+		row.BackgroundTransparency = 0.1
+		row.BorderSizePixel = 0
+		row.LayoutOrder = order
+		row.Parent = teamPanel
+		local rc = Instance.new("UICorner")
+		rc.CornerRadius = UDim.new(0, 7)
+		rc.Parent = row
+
+		local dot = Instance.new("Frame")
+		dot.AnchorPoint = Vector2.new(0, 0.5)
+		dot.Position = UDim2.fromOffset(8, 16)
+		dot.Size = UDim2.fromOffset(8, 8)
+		dot.BackgroundColor3 = stateColor
+		dot.BorderSizePixel = 0
+		dot.Parent = row
+		local dc = Instance.new("UICorner")
+		dc.CornerRadius = UDim.new(1, 0)
+		dc.Parent = dot
+
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.AnchorPoint = Vector2.new(0, 0.5)
+		nameLabel.Position = UDim2.fromOffset(22, 16)
+		nameLabel.Size = UDim2.new(0.6, -22, 0, 22)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Font = Enum.Font.GothamBold
+		nameLabel.Text = p.DisplayName
+		nameLabel.TextColor3 = Color3.fromRGB(220, 220, 218)
+		nameLabel.TextSize = 12
+		nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+		nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+		nameLabel.Parent = row
+
+		local stateText = Instance.new("TextLabel")
+		stateText.AnchorPoint = Vector2.new(1, 0.5)
+		stateText.Position = UDim2.new(1, -6, 0.5, 0)
+		stateText.Size = UDim2.fromOffset(44, 20)
+		stateText.BackgroundTransparency = 1
+		stateText.Font = Enum.Font.GothamBold
+		stateText.Text = stateLabel
+		stateText.TextColor3 = stateColor
+		stateText.TextSize = 11
+		stateText.TextXAlignment = Enum.TextXAlignment.Right
+		stateText.Parent = row
+	end
+end
+
 local function buildUi()
 	if gui then return end
 	local screenGui = Instance.new("ScreenGui")
@@ -71,6 +147,51 @@ local function buildUi()
 	screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 	gui = screenGui
 
+	-- === "ELIMINATED" entry cinematic banner (center screen, 2 seconds) ===
+	local banner = Instance.new("Frame")
+	banner.Name = "EliminatedBanner"
+	banner.AnchorPoint = Vector2.new(0.5, 0.5)
+	banner.Position = UDim2.fromScale(0.5, 0.5)
+	banner.Size = UDim2.new(0.7, 0, 0, 72)
+	banner.BackgroundColor3 = Color3.fromRGB(14, 8, 8)
+	banner.BackgroundTransparency = 1
+	banner.BorderSizePixel = 0
+	banner.Visible = false
+	banner.Parent = screenGui
+	local bannerConstraint = Instance.new("UISizeConstraint")
+	bannerConstraint.MaxSize = Vector2.new(420, 72)
+	bannerConstraint.Parent = banner
+	local bannerCorner = Instance.new("UICorner")
+	bannerCorner.CornerRadius = UDim.new(0, 12)
+	bannerCorner.Parent = banner
+	local bannerStroke = Instance.new("UIStroke")
+	bannerStroke.Color = Color3.fromRGB(170, 45, 40)
+	bannerStroke.Thickness = 1.5
+	bannerStroke.Transparency = 1
+	bannerStroke.Parent = banner
+	local bannerLabel = Instance.new("TextLabel")
+	bannerLabel.Size = UDim2.fromScale(1, 1)
+	bannerLabel.BackgroundTransparency = 1
+	bannerLabel.Font = Enum.Font.GothamBlack
+	bannerLabel.Text = "YOU HAVE BEEN ELIMINATED"
+	bannerLabel.TextColor3 = Color3.fromRGB(220, 60, 55)
+	bannerLabel.TextSize = 26
+	bannerLabel.TextTransparency = 1
+	bannerLabel.Parent = banner
+	local bannerSub = Instance.new("TextLabel")
+	bannerSub.AnchorPoint = Vector2.new(0.5, 1)
+	bannerSub.Position = UDim2.new(0.5, 0, 1, -8)
+	bannerSub.Size = UDim2.new(1, 0, 0, 18)
+	bannerSub.BackgroundTransparency = 1
+	bannerSub.Font = Enum.Font.GothamBold
+	bannerSub.Text = "Spectating teammates..."
+	bannerSub.TextColor3 = Color3.fromRGB(180, 140, 135)
+	bannerSub.TextSize = 13
+	bannerSub.TextTransparency = 1
+	bannerSub.Parent = banner
+	eliminatedBanner = banner
+
+	-- === Top status panel (existing, preserved) ===
 	local status = Instance.new("Frame")
 	status.AnchorPoint = Vector2.new(0.5, 0)
 	status.Position = UDim2.new(0.5, 0, 0, 22)
@@ -161,6 +282,21 @@ local function buildUi()
 	empty.Parent = screenGui
 	emptyLabel = empty
 
+	-- === Team status panel (right side, compact) ===
+	local tp = Instance.new("Frame")
+	tp.Name = "TeamPanel"
+	tp.AnchorPoint = Vector2.new(1, 0)
+	tp.Position = UDim2.new(1, -10, 0, 130)
+	tp.Size = UDim2.fromOffset(150, 0)
+	tp.AutomaticSize = Enum.AutomaticSize.Y
+	tp.BackgroundTransparency = 1
+	tp.Parent = screenGui
+	local tpLayout = Instance.new("UIListLayout")
+	tpLayout.Padding = UDim.new(0, 4)
+	tpLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	tpLayout.Parent = tp
+	teamPanel = tp
+
 	local previous = makeButton(screenGui, "Previous", "Q / L1  Previous", UDim2.new(0.5, -76, 1, -28))
 	local nextButton = makeButton(screenGui, "Next", "Next  E / R1", UDim2.new(0.5, 76, 1, -28))
 	previous.Activated:Connect(function() SpectateController:Cycle(-1) end)
@@ -233,12 +369,46 @@ end
 local function startSpectating()
 	buildUi()
 	if spectating then updateTarget() return end
+
+	-- Show the "ELIMINATED" cinematic banner for 2.2s, then reveal spectator UI
+	if eliminatedBanner then
+		local TweenService = game:GetService("TweenService")
+		eliminatedBanner.Visible = true
+		eliminatedBanner.BackgroundTransparency = 1
+		for _, desc in ipairs(eliminatedBanner:GetDescendants()) do
+			if desc:IsA("TextLabel") then desc.TextTransparency = 1 end
+			if desc:IsA("UIStroke") then desc.Transparency = 1 end
+		end
+		TweenService:Create(eliminatedBanner, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { BackgroundTransparency = 0.15 }):Play()
+		local stroke = eliminatedBanner:FindFirstChildOfClass("UIStroke")
+		if stroke then TweenService:Create(stroke, TweenInfo.new(0.4), { Transparency = 0.2 }):Play() end
+		for _, desc in ipairs(eliminatedBanner:GetDescendants()) do
+			if desc:IsA("TextLabel") then
+				TweenService:Create(desc, TweenInfo.new(0.5, Enum.EasingStyle.Quad), { TextTransparency = 0 }):Play()
+			end
+		end
+		task.delay(2.2, function()
+			if eliminatedBanner then
+				TweenService:Create(eliminatedBanner, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+				for _, desc in ipairs(eliminatedBanner:GetDescendants()) do
+					if desc:IsA("TextLabel") then
+						TweenService:Create(desc, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
+					end
+				end
+				task.delay(0.45, function()
+					if eliminatedBanner then eliminatedBanner.Visible = false end
+				end)
+			end
+		end)
+	end
+
 	spectating = true
 	targetIndex = 1
 	if gui then gui.Enabled = true end
 	ContextActionService:BindAction(NEXT_ACTION, onAction, false, Enum.KeyCode.E, Enum.KeyCode.ButtonR1, Enum.KeyCode.DPadRight)
 	ContextActionService:BindAction(PREVIOUS_ACTION, onAction, false, Enum.KeyCode.Q, Enum.KeyCode.ButtonL1, Enum.KeyCode.DPadLeft)
 	updateTarget()
+	updateTeamPanel()
 end
 
 function SpectateController:Cycle(direction: number)
@@ -261,6 +431,7 @@ function SpectateController:KnitStart()
 		elseif spectating then
 			updateTarget()
 		end
+		updateTeamPanel()
 	end), "Disconnect")
 	janitor:Add(runStateService.RunPhaseChanged:Connect(function(payload)
 		if typeof(payload) == "table" and (payload.phase == "Ending" or payload.phase == "Ended" or payload.phase == "Lobby") then

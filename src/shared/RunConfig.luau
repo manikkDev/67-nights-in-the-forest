@@ -16,23 +16,23 @@
 local RunService = game:GetService("RunService")
 
 local StudioTest = {
-	Enabled = true,
-	SkipLobby = true, -- TEMP: skip lobby for testing, revert to false when done
+	Enabled = false, -- All test flags disabled for production multiplayer
+	SkipLobby = false,
 	ForceGameMode = false,
-	GrantResources = true, -- TEMP: grant all resources for testing, revert to false when done
+	GrantResources = false,
 	InfiniteWood = false,
-	FastClock = true, -- TEMP: 15s day/night for testing, revert to false when done
+	FastClock = false,
 	ForceNight = false,
-	VerboseFlashlight = true,
+	VerboseFlashlight = false,
 	VerboseStalkers = false,
-	DayDuration = 30, -- TEMP: short day for testing, revert to 15 when done
-	NightDuration = 60, -- TEMP: 60s night for testing, revert to 15 when done
+	DayDuration = 180,
+	NightDuration = 90,
 }
 
 local Config = {
 	GoalDay = 67,
 
-	DayDuration = 5, -- TEMP: revert to 180 when done
+	DayDuration = 180,
 	NightDuration = 90,
 	DayStartClock = 6,
 	DayEndClock = 18,

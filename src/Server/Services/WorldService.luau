@@ -454,15 +454,15 @@ end
 -- // INITIALIZATION // --
 
 function WorldService:KnitStart()
-	if ServerRole.IsLobby() then return end
 	lobbyMap = findMap("lobby-map")
-	baseMap = findMap("Base-map")
-
 	if lobbyMap then
 		ensurePrimaryPart(lobbyMap)
 		disableBrokenScripts(lobbyMap)
 	end
 
+	if ServerRole.IsLobby() then return end
+
+	baseMap = findMap("Base-map")
 	if baseMap then
 		ensurePrimaryPart(baseMap)
 		local groundPartInstance = baseMap:FindFirstChild("Земля", true)
