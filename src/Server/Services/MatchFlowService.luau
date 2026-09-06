@@ -177,21 +177,12 @@ local function removePlayerFromSession(player: Player, returnToLobby: boolean?)
 	end
 	sessionsByPlayer[player] = nil
 	session.players[player] = nil
-	if session.state == "Countdown" then
-		cancelTimer(session)
-		session.endsAt = 0
-		session.duration = 0
-		session.state = "Waiting"
-	end
 	if not next(session.players) then
 		cancelTimer(session)
 		sessionsByQueue[session.queueId] = nil
 	else
 		if session.host == player then
 			session.host = selectNextHost(session) :: Player
-		end
-		if session.state == "Waiting" then
-			fireToSession(session, MatchFlowService.Client.FlowStateChanged, "Waiting")
 		end
 		broadcastSession(session)
 	end
@@ -220,7 +211,7 @@ local function startRun(participants: { Player }, metadata: { [string]: any }, s
 	if not startedRunId then
 		if session then
 			session.routing = false
-			setState(session, "Waiting")
+			setState(session, "Countdown")
 		end
 		return false
 	end
@@ -280,7 +271,7 @@ local function beginStory(session: Session)
 			and sessionRoutingService:RouteParty(session.partyId, session.host.UserId, participants)
 		if not accepted then
 			session.routing = false
-			setState(session, "Waiting")
+			setState(session, "Countdown")
 		end
 	end)
 end
@@ -291,6 +282,21 @@ local function scheduleTimer(session: Session)
 		session.timerThread = nil
 		beginStory(session)
 	end)
+end
+
+local function fastForwardTimer(session: Session, newSeconds: number)
+	if session.state ~= "Countdown" then return end
+	local currentLeft = session.endsAt - getServerNow()
+	if currentLeft > newSeconds then
+		session.endsAt = getServerNow() + newSeconds
+		session.duration = newSeconds
+		scheduleTimer(session)
+		fireToSession(session, MatchFlowService.Client.Countdown, {
+			endsAt = session.endsAt,
+			duration = session.duration,
+		})
+		broadcastSession(session)
+	end
 end
 
 function MatchFlowService:EnterWaiting(player: Player, queueId: string)
@@ -310,7 +316,7 @@ function MatchFlowService:EnterWaiting(player: Player, queueId: string)
 
 	local session = sessionsByQueue[queueId]
 	if session then
-		if session.state ~= "Waiting" or #rosterFor(session) >= session.capacity then
+		if session.state ~= "Countdown" or #rosterFor(session) >= session.capacity then
 			return
 		end
 		session.players[player] = true
@@ -320,20 +326,21 @@ function MatchFlowService:EnterWaiting(player: Player, queueId: string)
 		session = {
 			queueId = queueId,
 			partyId = HttpService:GenerateGUID(false),
-			state = "Waiting",
+			state = "Countdown",
 			host = player,
 			players = { [player] = true },
 			memberOrder = { player },
-			capacity = MIN_PARTY,
-			endsAt = 0,
-			duration = 0,
+			capacity = MAX_PARTY,
+			endsAt = getServerNow() + COUNTDOWN_SECONDS,
+			duration = COUNTDOWN_SECONDS,
 			timerThread = nil,
 			routing = false,
 		}
+		scheduleTimer(session)
 		sessionsByQueue[queueId] = session
 		sessionsByPlayer[player] = session
 	end
-	MatchFlowService.Client.FlowStateChanged:Fire(player, "Waiting")
+	MatchFlowService.Client.FlowStateChanged:Fire(player, "Countdown")
 	broadcastSession(session)
 end
 
@@ -376,13 +383,16 @@ function MatchFlowService:KnitStart()
 		end
 		local session = sessionsByPlayer[player]
 		local capacity = math.floor(requested)
-		if not session or session.host ~= player or session.state ~= "Waiting"
+		if not session or session.host ~= player or session.state ~= "Countdown"
 			or capacity < MIN_PARTY or capacity > MAX_PARTY or capacity < #rosterFor(session)
 		then
 			return
 		end
 		session.capacity = capacity
 		broadcastSession(session)
+		if capacity == 1 then
+			fastForwardTimer(session, Constants.MATCH_FASTFORWARD_SECONDS or 5)
+		end
 	end)
 
 	self.Client.RequestLeave:Connect(function(player: Player)
@@ -396,23 +406,14 @@ function MatchFlowService:KnitStart()
 			return
 		end
 		local session = sessionsByPlayer[player]
-		if not session or session.host ~= player or session.state ~= "Waiting" or session.routing then
+		if not session or session.host ~= player or session.state ~= "Countdown" or session.routing then
 			return
 		end
 		local count = #rosterFor(session)
 		if count < MIN_PARTY or count > session.capacity then
 			return
 		end
-		session.state = "Countdown"
-		session.endsAt = getServerNow() + COUNTDOWN_SECONDS
-		session.duration = COUNTDOWN_SECONDS
-		scheduleTimer(session)
-		fireToSession(session, MatchFlowService.Client.FlowStateChanged, "Countdown")
-		fireToSession(session, MatchFlowService.Client.Countdown, {
-			endsAt = session.endsAt,
-			duration = session.duration,
-		})
-		broadcastSession(session)
+		fastForwardTimer(session, Constants.MATCH_FASTFORWARD_SECONDS or 5)
 	end)
 
 	sessionRoutingService.LocalPartyReady:Connect(function(participants, metadata)
@@ -436,7 +437,7 @@ function MatchFlowService:KnitStart()
 		for _, session in pairs(sessionsByQueue) do
 			if session.partyId == partyId and session.state == "Story" then
 				session.routing = false
-				setState(session, "Waiting")
+				setState(session, "Countdown")
 				break
 			end
 		end

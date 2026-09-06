@@ -434,6 +434,104 @@ local function disableBrokenScripts(map: Model)
 	end
 end
 
+--[[
+    @summary  Build a permanent outer wall exactly at the map's real boundary
+              edges, parented directly to the base map model.
+    @desc     This wall always exists from the moment the map loads — it does
+              NOT depend on RunStarted or any runtime folder.  It prevents
+              players from falling off the edge of the expanded 3200×3200 map
+              at any campfire level.
+]]
+function WorldService:CreateOuterWall()
+	if not baseMap or not groundPart then
+		return
+	end
+	-- Remove any previously-built outer wall (e.g. on hot-reload)
+	local existing = baseMap:FindFirstChild("OuterWallStatic")
+	if existing then existing:Destroy() end
+
+	local folder = Instance.new("Folder")
+	folder.Name = "OuterWallStatic"
+	folder.Parent = baseMap
+
+	local height = 500
+	local thickness = 30
+	local segPerSide = 16
+
+	local radius = WorldProgressionConfig.MapRadius  -- 1600
+	-- Use the ground part's actual world centre, NOT the campfire position.
+	-- The campfire can be slightly off-centre; the ground tile defines the map.
+	local cx = groundPart.Position.X
+	local cz = groundPart.Position.Z
+	local groundTop = groundPart.Position.Y + groundPart.Size.Y * 0.5
+
+	local minX = cx - radius
+	local maxX = cx + radius
+	local minZ = cz - radius
+	local maxZ = cz + radius
+	local spanX = maxX - minX   -- 3200
+	local spanZ = maxZ - minZ   -- 3200
+	local wallY = groundTop + height * 0.5
+
+	local function makeWall(size: Vector3, position: Vector3)
+		local part = Instance.new("Part")
+		part.Anchored = true
+		part.CanCollide = true
+		part.CanTouch = false
+		part.CanQuery = false
+		part.Transparency = 0
+		part.CastShadow = false
+		part.Reflectance = 0
+		part.Material = Enum.Material.SmoothPlastic
+		part.Color = Color3.fromRGB(22, 25, 32)
+		part.Size = size
+		part.CFrame = CFrame.new(position)
+		part.Parent = folder
+		-- Neon top trim so the wall is visible day and night
+		local trim = Instance.new("Part")
+		trim.Anchored = true
+		trim.CanCollide = false
+		trim.CanTouch = false
+		trim.CanQuery = false
+		trim.Transparency = 0
+		trim.CastShadow = false
+		trim.Material = Enum.Material.Neon
+		trim.Color = Color3.fromRGB(55, 65, 100)
+		trim.Size = Vector3.new(size.X, 10, size.Z)
+		trim.CFrame = CFrame.new(position.X, groundTop + height - 5, position.Z)
+		trim.Parent = folder
+	end
+
+	-- North wall (min Z) and South wall (max Z) — run along X
+	local segLenX = spanX / segPerSide
+	for i = 0, segPerSide - 1 do
+		local cx2 = minX + (i + 0.5) * segLenX
+		makeWall(Vector3.new(segLenX + 4, height, thickness), Vector3.new(cx2, wallY, minZ - thickness * 0.5))
+		makeWall(Vector3.new(segLenX + 4, height, thickness), Vector3.new(cx2, wallY, maxZ + thickness * 0.5))
+	end
+	-- West wall (min X) and East wall (max X) — run along Z
+	local segLenZ = spanZ / segPerSide
+	for i = 0, segPerSide - 1 do
+		local cz2 = minZ + (i + 0.5) * segLenZ
+		makeWall(Vector3.new(thickness, height, segLenZ + 4), Vector3.new(minX - thickness * 0.5, wallY, cz2))
+		makeWall(Vector3.new(thickness, height, segLenZ + 4), Vector3.new(maxX + thickness * 0.5, wallY, cz2))
+	end
+	-- Corner caps (seal all 4 corners)
+	local cap = Vector3.new(thickness + 4, height, thickness + 4)
+	for _, corner in ipairs({
+		Vector3.new(minX - thickness * 0.5, wallY, minZ - thickness * 0.5),
+		Vector3.new(maxX + thickness * 0.5, wallY, minZ - thickness * 0.5),
+		Vector3.new(minX - thickness * 0.5, wallY, maxZ + thickness * 0.5),
+		Vector3.new(maxX + thickness * 0.5, wallY, maxZ + thickness * 0.5),
+	}) do
+		makeWall(cap, corner)
+	end
+	print(string.format(
+		"[WorldService] CreateOuterWall: done. Center=(%.0f,%.0f) radius=%d. X[%.0f,%.0f] Z[%.0f,%.0f]",
+		cx, cz, radius, minX, maxX, minZ, maxZ
+	))
+end
+
 -- // CLIENT REMOTES // --
 
 --[[
@@ -476,6 +574,9 @@ function WorldService:KnitStart()
 		campfire = createCampfire(baseMap, ground)
 		bonfire = placeBonfire(baseMap, ground)
 		forestReady = true
+		-- Build the permanent outer wall immediately so the map boundary
+		-- is always sealed, regardless of campfire level or RunStarted.
+		self:CreateOuterWall()
 		disableBrokenScripts(baseMap)
 	end
 end

@@ -254,7 +254,7 @@ local function makeCircleButton(parent: Instance, name: string, text: string, co
 end
 
 local function updateSizeButtons()
-	local canConfigure = flowState == "Waiting" and sessionSnapshot ~= nil and sessionSnapshot.isHost == true
+	local canConfigure = flowState == "Countdown" and sessionSnapshot ~= nil and sessionSnapshot.isHost == true
 	for i, button in ipairs(sizeButtons) do
 		button.Active = canConfigure
 		button.AutoButtonColor = canConfigure
@@ -267,10 +267,10 @@ local function updateSizeButtons()
 		end
 	end
 	if createButton then
-		createButton.Visible = flowState == "Waiting"
+		createButton.Visible = true
 		createButton.Active = canConfigure
 		createButton.AutoButtonColor = canConfigure
-		createButton.Text = if canConfigure then "Start" else "Waiting for Host"
+		createButton.Text = if canConfigure then "Start Now" else "Waiting for Host"
 		createButton.BackgroundColor3 = if canConfigure then CREATE else SIZE_DISABLED
 	end
 end
@@ -284,7 +284,8 @@ local function renderSession(snapshot: { [string]: any })
 	local lines = {}
 	for _, member in ipairs(roster) do
 		if typeof(member) == "table" then
-			table.insert(lines, (member.isHost and "Host  " or "Member  ") .. tostring(member.name or member.username or "Player"))
+			local prefix = member.isHost and '<b><font color="#FFD232">[HOST]</font></b>' or '<font color="#A0A0A0">[MEMBER]</font>'
+			table.insert(lines, prefix .. "  " .. tostring(member.name or member.username or "Player"))
 		end
 	end
 	if rosterLabel then
@@ -318,8 +319,8 @@ local function buildGui()
 	panel.AnchorPoint = Vector2.new(0.5, 0.5)
 	panel.Position = UDim2.fromScale(0.5, 0.5)
 	panel.Size = UDim2.new(0.9, 0, 0.86, 0)
-	panel.BackgroundColor3 = PANEL
-	panel.BackgroundTransparency = PANEL_ALPHA
+	panel.BackgroundColor3 = Color3.fromRGB(18, 20, 24)
+	panel.BackgroundTransparency = 0.15
 	panel.BorderSizePixel = 0
 	panel.Visible = false
 	panel.ZIndex = 20
@@ -328,6 +329,10 @@ local function buildGui()
 	local panelCorner = Instance.new("UICorner")
 	panelCorner.CornerRadius = UDim.new(0, 16)
 	panelCorner.Parent = panel
+	local panelStroke = Instance.new("UIStroke")
+	panelStroke.Color = Color3.fromRGB(80, 90, 110)
+	panelStroke.Thickness = 2
+	panelStroke.Parent = panel
 	local panelSize = Instance.new("UISizeConstraint")
 	panelSize.MinSize = Vector2.new(300, 440)
 	panelSize.MaxSize = Vector2.new(540, 580)
@@ -381,6 +386,7 @@ local function buildGui()
 		UDim2.fromScale(0.08, 0.41), UDim2.new(0.84, 0, 0.27, 0))
 	roster.TextXAlignment = Enum.TextXAlignment.Left
 	roster.TextYAlignment = Enum.TextYAlignment.Top
+	roster.RichText = true
 	rosterLabel = roster
 
 	local createBtn = makeButton(panel, "CreateButton", "Start", 22, CREATE,
@@ -393,10 +399,11 @@ local function buildGui()
 	leaveBtn.AnchorPoint = Vector2.new(0.5, 0)
 	leaveButton = leaveBtn
 
-	local countLabel = makeLabel(panel, "CountdownLabel", "5", 64, CREAM,
-		UDim2.fromScale(0.5, 0.58), UDim2.new(0, 320, 0, 80))
+	local countLabel = makeLabel(panel, "CountdownLabel", "Starting in: 45s", 22, CREAM,
+		UDim2.fromScale(0.5, 0.64), UDim2.new(0, 320, 0, 30))
 	countLabel.AnchorPoint = Vector2.new(0.5, 0)
 	countLabel.Visible = false
+	countLabel.Font = Enum.Font.GothamBold
 	countLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
 	countLabel.TextStrokeTransparency = 0.3
 	countdownLabel = countLabel
@@ -701,7 +708,7 @@ local function startCountdownLoop()
 		if not countdownLabel or not countdownEndsAt then
 			return
 		end
-		countdownLabel.Text = formatCountdown(countdownEndsAt - Workspace:GetServerTimeNow())
+		countdownLabel.Text = "Starting in: " .. formatCountdown(countdownEndsAt - Workspace:GetServerTimeNow()) .. "s"
 	end), "Disconnect")
 end
 
@@ -712,7 +719,7 @@ local function showCreateParty()
 	waitingJanitor:Cleanup()
 	countdownEndsAt = nil
 	if countdownLabel then
-		countdownLabel.Visible = false
+		countdownLabel.Visible = true
 	end
 	for _, button in ipairs(sizeButtons) do
 		button.Visible = true
@@ -740,25 +747,7 @@ local function showCreateParty()
 end
 
 local function showCountdown()
-	if not createPartyFrame then
-		return
-	end
-	for _, btn in ipairs(sizeButtons) do
-		btn.Visible = false
-	end
-	if createButton then
-		createButton.Visible = false
-	end
-	for _, name in ipairs({ "PartySizeTitle", "SizeHolder" }) do
-		local object = createPartyFrame:FindFirstChild(name)
-		if object and object:IsA("GuiObject") then
-			object.Visible = false
-		end
-	end
-	if countdownLabel then
-		countdownLabel.Visible = true
-	end
-	startCountdownLoop()
+	-- Legacy function, UI is now handled by showCreateParty during Countdown
 end
 
 local function showStory()
@@ -880,7 +869,7 @@ function IntroController:KnitStart()
 
 	if createButton then
 		createButton.MouseButton1Click:Connect(function()
-			if flowState == "Waiting" and sessionSnapshot and sessionSnapshot.isHost == true then
+			if flowState == "Countdown" and sessionSnapshot and sessionSnapshot.isHost == true then
 				matchFlow.RequestStart:Fire()
 			end
 		end)
@@ -903,7 +892,7 @@ function IntroController:KnitStart()
 
 	for i, btn in ipairs(sizeButtons) do
 		btn.MouseButton1Click:Connect(function()
-			if flowState ~= "Waiting" or not sessionSnapshot or sessionSnapshot.isHost ~= true then
+			if flowState ~= "Countdown" or not sessionSnapshot or sessionSnapshot.isHost ~= true then
 				return
 			end
 			selectedSize = i
@@ -925,10 +914,9 @@ function IntroController:KnitStart()
 		flowState = state
 		if state == "Lobby" then
 			resetForLobby()
-		elseif state == "Waiting" then
-			showCreateParty()
 		elseif state == "Countdown" then
-			showCountdown()
+			showCreateParty()
+			startCountdownLoop()
 		elseif state == "Story" then
 			showStory()
 		elseif state == "Day1" then
@@ -962,12 +950,10 @@ function IntroController:KnitStart()
 		if snapshot.state ~= "Lobby" then
 			flowState = snapshot.state
 			renderSession(snapshot)
-			if snapshot.state == "Waiting" then
-				showCreateParty()
-			elseif snapshot.state == "Countdown" then
+			if snapshot.state == "Countdown" then
 				countdownEndsAt = snapshot.endsAt
 				showCreateParty()
-				showCountdown()
+				startCountdownLoop()
 			end
 		end
 	end)

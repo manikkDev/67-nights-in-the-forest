@@ -20,6 +20,10 @@ local campfireService: any = nil
 local boundaryFolder: Folder? = nil
 local boundaryParts: { Part } = {}
 local boundaryTrims: { Part } = {}
+-- Permanent outer wall — always present at the actual map boundary so
+-- players can never fall off the map edge regardless of campfire level.
+local outerWallFolder: Folder? = nil
+local outerWallParts: { Part } = {}
 local accessRadius = WorldProgressionConfig.GetAccessRadius(1)
 local checkTimer = 0
 
@@ -225,6 +229,142 @@ local function ensureBoundary()
 	end
 end
 
+--[[
+    @summary  Build (or rebuild) the permanent outer wall segments that run
+              exactly along the real map boundary edges as reported by
+              WorldService:GetGroundBounds().  This wall always exists from
+              the start of a run so that even before the campfire reaches
+              level 6, players cannot fall off the world edge.
+]]
+local function createOuterWall()
+	-- Tear down any old outer wall from a previous run.
+	if outerWallFolder and outerWallFolder.Parent then
+		outerWallFolder:Destroy()
+	end
+	table.clear(outerWallParts)
+
+	local bounds = worldService:GetGroundBounds()
+	local groundY = worldService:GetGroundY()
+	if not bounds or not groundY then
+		warn("[WorldProgressionService] createOuterWall: ground bounds not ready, skipping.")
+		return
+	end
+
+	local runtime = runStateService:GetRuntimeFolder()
+	local folder = Instance.new("Folder")
+	folder.Name = "OuterWall"
+	folder.Parent = runtime
+	outerWallFolder = folder
+
+	local height = WorldProgressionConfig.Boundary.Height
+	local thickness = 28  -- thicker than the progression wall for certainty
+	local segCount = WorldProgressionConfig.Boundary.ServerSegments  -- 64
+	local segPerSide = math.floor(segCount / 4)
+
+	-- Exact map edge coordinates from ground bounds.
+	local minX, maxX = bounds.minX, bounds.maxX
+	local minZ, maxZ = bounds.minZ, bounds.maxZ
+	local midX = (minX + maxX) * 0.5
+	local midZ = (minZ + maxZ) * 0.5
+	local spanX = maxX - minX
+	local spanZ = maxZ - minZ
+
+	local wallY = groundY + height * 0.5
+
+	local function makeWallPart(size: Vector3, cf: CFrame)
+		local part = Instance.new("Part")
+		part.Anchored = true
+		part.CanCollide = true
+		part.CanTouch = false
+		part.CanQuery = false
+		part.Transparency = 0
+		part.Material = Enum.Material.SmoothPlastic
+		part.Color = Color3.fromRGB(25, 28, 36)
+		part.CastShadow = false
+		part.Reflectance = 0
+		part.Size = size
+		part.CFrame = cf
+		part.Parent = folder
+		table.insert(outerWallParts, part)
+		-- Neon top trim for visibility
+		local trim = Instance.new("Part")
+		trim.Anchored = true
+		trim.CanCollide = false
+		trim.CanTouch = false
+		trim.CanQuery = false
+		trim.Transparency = 0
+		trim.Material = Enum.Material.Neon
+		trim.Color = Color3.fromRGB(60, 70, 110)
+		trim.CastShadow = false
+		trim.Size = Vector3.new(size.X, 10, thickness + 4)
+		trim.CFrame = CFrame.new(cf.Position.X, groundY + height - 5, cf.Position.Z)
+			* (cf - cf.Position)  -- preserve orientation
+		trim.Parent = folder
+		return part
+	end
+
+	-- North wall (min Z edge) — runs along X at minZ
+	local segLenX = spanX / segPerSide
+	for i = 0, segPerSide - 1 do
+		local cx = minX + (i + 0.5) * segLenX
+		makeWallPart(
+			Vector3.new(segLenX + 4, height, thickness),
+			CFrame.new(cx, wallY, minZ - thickness * 0.5)
+		)
+	end
+	-- South wall (max Z edge)
+	for i = 0, segPerSide - 1 do
+		local cx = minX + (i + 0.5) * segLenX
+		makeWallPart(
+			Vector3.new(segLenX + 4, height, thickness),
+			CFrame.new(cx, wallY, maxZ + thickness * 0.5)
+		)
+	end
+	-- West wall (min X edge) — runs along Z at minX
+	local segLenZ = spanZ / segPerSide
+	for i = 0, segPerSide - 1 do
+		local cz = minZ + (i + 0.5) * segLenZ
+		makeWallPart(
+			Vector3.new(thickness, height, segLenZ + 4),
+			CFrame.new(minX - thickness * 0.5, wallY, cz)
+		)
+	end
+	-- East wall (max X edge)
+	for i = 0, segPerSide - 1 do
+		local cz = minZ + (i + 0.5) * segLenZ
+		makeWallPart(
+			Vector3.new(thickness, height, segLenZ + 4),
+			CFrame.new(maxX + thickness * 0.5, wallY, cz)
+		)
+	end
+	-- Corner blocks to seal all 4 corners with no gaps
+	local cornerSize = Vector3.new(thickness + 4, height, thickness + 4)
+	for _, corner in ipairs({
+		Vector3.new(minX - thickness * 0.5, wallY, minZ - thickness * 0.5),
+		Vector3.new(maxX + thickness * 0.5, wallY, minZ - thickness * 0.5),
+		Vector3.new(minX - thickness * 0.5, wallY, maxZ + thickness * 0.5),
+		Vector3.new(maxX + thickness * 0.5, wallY, maxZ + thickness * 0.5),
+	}) do
+		local part = Instance.new("Part")
+		part.Anchored = true
+		part.CanCollide = true
+		part.CanTouch = false
+		part.CanQuery = false
+		part.Transparency = 0
+		part.Material = Enum.Material.SmoothPlastic
+		part.Color = Color3.fromRGB(25, 28, 36)
+		part.CastShadow = false
+		part.Size = cornerSize
+		part.CFrame = CFrame.new(corner)
+		part.Parent = folder
+		table.insert(outerWallParts, part)
+	end
+	print(string.format(
+		"[WorldProgressionService] createOuterWall: %d segments placed. bounds: X[%.0f,%.0f] Z[%.0f,%.0f]",
+		#outerWallParts, minX, maxX, minZ, maxZ
+	))
+end
+
 local function updateBoundary()
 	ensureBoundary()
 	local campfireCFrame = worldService:GetCampfireCFrame()
@@ -238,38 +378,78 @@ local function updateBoundary()
 	print(("[WorldProgressionService] updateBoundary: accessRadius=%.0f, parts=%d, trims=%d, groundY=%.0f")
 		:format(accessRadius, count, #boundaryTrims, groundY))
 	local height = WorldProgressionConfig.Boundary.Height
-	local center = campfireCFrame.Position
-	-- Square boundary: place segments along the 4 edges of a square
-	-- centered on the campfire with half-width = accessRadius.
-	-- This fully encloses the playable area including corners.
-	local halfWidth = accessRadius
 	local segmentsPerSide = math.floor(count / 4)
-	local segmentLength = (halfWidth * 2) / segmentsPerSide + 12
-	local sideOrder = { "East", "South", "West", "North" }
+
+	-- At max radius (Level 6 / MapRadius), place the progression wall exactly
+	-- at the real ground-tile edges rather than campfire-offset.  The campfire
+	-- anchor can be slightly off the ground centre, so this guarantees no gap.
+	local isMaxRadius = accessRadius >= WorldProgressionConfig.MapRadius
+	local bounds = isMaxRadius and worldService:GetGroundBounds() or nil
+
 	for index, part in ipairs(boundaryParts) do
 		local sideIndex = math.floor((index - 1) / segmentsPerSide)
 		local indexInSide = (index - 1) % segmentsPerSide
 		local t = (indexInSide + 0.5) / segmentsPerSide  -- 0..1 along the side
-		local posAlongSide = -halfWidth + t * halfWidth * 2
 		local position: Vector3
 		local facing: Vector3
-		if sideIndex == 0 then
-			-- East side (positive X): runs from -halfWidth to +halfWidth in Z
-			position = center + Vector3.new(halfWidth, 0, posAlongSide)
-			facing = Vector3.new(-1, 0, 0)
-		elseif sideIndex == 1 then
-			-- South side (positive Z): runs from +halfWidth to -halfWidth in X
-			position = center + Vector3.new(posAlongSide, 0, halfWidth)
-			facing = Vector3.new(0, 0, -1)
-		elseif sideIndex == 2 then
-			-- West side (negative X): runs from +halfWidth to -halfWidth in Z
-			position = center + Vector3.new(-halfWidth, 0, posAlongSide)
-			facing = Vector3.new(1, 0, 0)
+		local segmentLength: number
+
+		if isMaxRadius and bounds then
+			-- Use the exact map-edge coordinates
+			local halfX = (bounds.maxX - bounds.minX) * 0.5
+			local halfZ = (bounds.maxZ - bounds.minZ) * 0.5
+			local midX = (bounds.minX + bounds.maxX) * 0.5
+			local midZ = (bounds.minZ + bounds.maxZ) * 0.5
+			if sideIndex == 0 then
+				-- East (max X)
+				local spanZ = bounds.maxZ - bounds.minZ
+				segmentLength = spanZ / segmentsPerSide + 12
+				local posZ = bounds.minZ + t * (bounds.maxZ - bounds.minZ)
+				position = Vector3.new(bounds.maxX, 0, posZ)
+				facing = Vector3.new(-1, 0, 0)
+			elseif sideIndex == 1 then
+				-- South (max Z)
+				local spanX = bounds.maxX - bounds.minX
+				segmentLength = spanX / segmentsPerSide + 12
+				local posX = bounds.maxX - t * (bounds.maxX - bounds.minX)
+				position = Vector3.new(posX, 0, bounds.maxZ)
+				facing = Vector3.new(0, 0, -1)
+			elseif sideIndex == 2 then
+				-- West (min X)
+				local spanZ = bounds.maxZ - bounds.minZ
+				segmentLength = spanZ / segmentsPerSide + 12
+				local posZ = bounds.maxZ - t * (bounds.maxZ - bounds.minZ)
+				position = Vector3.new(bounds.minX, 0, posZ)
+				facing = Vector3.new(1, 0, 0)
+			else
+				-- North (min Z)
+				local spanX = bounds.maxX - bounds.minX
+				segmentLength = spanX / segmentsPerSide + 12
+				local posX = bounds.minX + t * (bounds.maxX - bounds.minX)
+				position = Vector3.new(posX, 0, bounds.minZ)
+				facing = Vector3.new(0, 0, 1)
+			end
 		else
-			-- North side (negative Z): runs from -halfWidth to +halfWidth in X
-			position = center + Vector3.new(posAlongSide, 0, -halfWidth)
-			facing = Vector3.new(0, 0, 1)
+			-- Normal campfire-centred boundary for levels 1-5
+			local halfWidth = accessRadius
+			segmentLength = (halfWidth * 2) / segmentsPerSide + 12
+			local posAlongSide = -halfWidth + t * halfWidth * 2
+			local center = campfireCFrame.Position
+			if sideIndex == 0 then
+				position = center + Vector3.new(halfWidth, 0, posAlongSide)
+				facing = Vector3.new(-1, 0, 0)
+			elseif sideIndex == 1 then
+				position = center + Vector3.new(posAlongSide, 0, halfWidth)
+				facing = Vector3.new(0, 0, -1)
+			elseif sideIndex == 2 then
+				position = center + Vector3.new(-halfWidth, 0, posAlongSide)
+				facing = Vector3.new(1, 0, 0)
+			else
+				position = center + Vector3.new(posAlongSide, 0, -halfWidth)
+				facing = Vector3.new(0, 0, 1)
+			end
 		end
+
 		position = Vector3.new(position.X, groundY + height * 0.5, position.Z)
 		part.Size = Vector3.new(segmentLength, height, 14)
 		part.CFrame = CFrame.lookAt(position, position + facing)
@@ -423,8 +603,12 @@ function WorldProgressionService:KnitStart()
 		-- Relocate buildings FIRST so their reservations are in place
 		-- before facilities and caves are placed
 		relocateBuildings()
+		-- Build the permanent outer wall at the real map edges.
+		-- This is always present so players can never fall off the world.
+		createOuterWall()
 		boundaryFolder = nil
 		table.clear(boundaryParts)
+		table.clear(boundaryTrims)
 		updateBoundary()
 		broadcastExpansion(campfireService:GetLevel())
 	end)
