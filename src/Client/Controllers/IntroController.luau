@@ -254,7 +254,7 @@ local function makeCircleButton(parent: Instance, name: string, text: string, co
 end
 
 local function updateSizeButtons()
-	local canConfigure = flowState == "Countdown" and sessionSnapshot ~= nil and sessionSnapshot.isHost == true
+	local canConfigure = (flowState == "Countdown" or flowState == "Waiting") and sessionSnapshot ~= nil and sessionSnapshot.isHost == true
 	for i, button in ipairs(sizeButtons) do
 		button.Active = canConfigure
 		button.AutoButtonColor = canConfigure
@@ -270,8 +270,15 @@ local function updateSizeButtons()
 		createButton.Visible = true
 		createButton.Active = canConfigure
 		createButton.AutoButtonColor = canConfigure
-		createButton.Text = if canConfigure then "Start Now" else "Waiting for Host"
+		if flowState == "Waiting" then
+			createButton.Text = if canConfigure then "Open Lobby" else "Waiting for Host"
+		else
+			createButton.Text = if canConfigure then "Start Now" else "Waiting for Host"
+		end
 		createButton.BackgroundColor3 = if canConfigure then CREATE else SIZE_DISABLED
+	end
+	if countdownLabel then
+		countdownLabel.Visible = (flowState == "Countdown")
 	end
 end
 
@@ -719,7 +726,7 @@ local function showCreateParty()
 	waitingJanitor:Cleanup()
 	countdownEndsAt = nil
 	if countdownLabel then
-		countdownLabel.Visible = true
+		countdownLabel.Visible = (flowState == "Countdown")
 	end
 	for _, button in ipairs(sizeButtons) do
 		button.Visible = true
@@ -869,7 +876,7 @@ function IntroController:KnitStart()
 
 	if createButton then
 		createButton.MouseButton1Click:Connect(function()
-			if flowState == "Countdown" and sessionSnapshot and sessionSnapshot.isHost == true then
+			if (flowState == "Countdown" or flowState == "Waiting") and sessionSnapshot and sessionSnapshot.isHost == true then
 				matchFlow.RequestStart:Fire()
 			end
 		end)
@@ -892,7 +899,7 @@ function IntroController:KnitStart()
 
 	for i, btn in ipairs(sizeButtons) do
 		btn.MouseButton1Click:Connect(function()
-			if flowState ~= "Countdown" or not sessionSnapshot or sessionSnapshot.isHost ~= true then
+			if (flowState ~= "Countdown" and flowState ~= "Waiting") or not sessionSnapshot or sessionSnapshot.isHost ~= true then
 				return
 			end
 			selectedSize = i
@@ -914,6 +921,8 @@ function IntroController:KnitStart()
 		flowState = state
 		if state == "Lobby" then
 			resetForLobby()
+		elseif state == "Waiting" then
+			showCreateParty()
 		elseif state == "Countdown" then
 			showCreateParty()
 			startCountdownLoop()
@@ -950,7 +959,9 @@ function IntroController:KnitStart()
 		if snapshot.state ~= "Lobby" then
 			flowState = snapshot.state
 			renderSession(snapshot)
-			if snapshot.state == "Countdown" then
+			if snapshot.state == "Waiting" then
+				showCreateParty()
+			elseif snapshot.state == "Countdown" then
 				countdownEndsAt = snapshot.endsAt
 				showCreateParty()
 				startCountdownLoop()
