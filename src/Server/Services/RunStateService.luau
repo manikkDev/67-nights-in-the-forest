@@ -366,25 +366,33 @@ end
     @returns  string?  -- the new run identifier, or nil when refused
 ]]
 function RunStateService:StartRun(participants: { Player }): string?
+	local function showErrorToClients(msg: string)
+		warn(msg)
+		local hint = Instance.new("Message")
+		hint.Text = msg
+		hint.Parent = game:GetService("Workspace")
+		task.delay(10, function() hint:Destroy() end)
+	end
+
 	if phase == "Active" or phase == "Starting" or phase == "Ending" then
-		warn("[RunStateService] Force cleaning stuck phase before start:", phase)
+		showErrorToClients("[RunStateService] Force cleaning stuck phase before start: " .. phase)
 		self:CleanupRun("ForceRestart")
 	end
 	if #participants == 0 then
-		warn("[RunStateService] StartRun failed: participants array is empty")
+		showErrorToClients("[RunStateService] StartRun failed: participants array is empty")
 		return nil
 	end
 	if not playerDataService then
-		warn("[RunStateService] StartRun failed: playerDataService is nil")
+		showErrorToClients("[RunStateService] StartRun failed: playerDataService is nil")
 		return nil
 	end
 	for _, player in ipairs(participants) do
 		if not player.Parent then
-			warn("[RunStateService] StartRun failed: player.Parent is nil for", player.Name)
+			showErrorToClients("[RunStateService] StartRun failed: player.Parent is nil for " .. player.Name)
 			return nil
 		end
 		if not playerDataService:GetData(player) then
-			warn("[RunStateService] StartRun failed: playerDataService:GetData() returned nil for", player.Name)
+			showErrorToClients("[RunStateService] StartRun failed: playerDataService:GetData() returned nil for " .. player.Name)
 			return nil
 		end
 	end

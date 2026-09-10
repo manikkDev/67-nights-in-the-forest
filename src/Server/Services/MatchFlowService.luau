@@ -210,6 +210,11 @@ local function startRun(participants: { Player }, metadata: { [string]: any }, s
 	local startedRunId = runStateService and runStateService:StartRun(participants, metadata) or nil
 	if not startedRunId then
 		warn("[MatchFlowService] startRun failed: RunStateService:StartRun returned nil")
+		local hint = Instance.new("Message")
+		hint.Text = "[MatchFlowService] startRun failed: RunStateService:StartRun returned nil"
+		hint.Parent = Workspace
+		task.delay(10, function() hint:Destroy() end)
+
 		if session then
 			session.routing = false
 			setState(session, "Countdown")
@@ -272,6 +277,11 @@ local function beginStory(session: Session)
 			and sessionRoutingService:RouteParty(session.partyId, session.host.UserId, participants)
 		if not accepted then
 			warn("[MatchFlowService] beginStory failed: RouteParty returned false")
+			local hint = Instance.new("Message")
+			hint.Text = "[MatchFlowService] beginStory failed: RouteParty returned false"
+			hint.Parent = Workspace
+			task.delay(10, function() hint:Destroy() end)
+
 			session.routing = false
 			setState(session, "Countdown")
 		end
