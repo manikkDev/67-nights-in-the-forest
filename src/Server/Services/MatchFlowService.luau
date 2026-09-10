@@ -209,6 +209,7 @@ end
 local function startRun(participants: { Player }, metadata: { [string]: any }, session: Session?): boolean
 	local startedRunId = runStateService and runStateService:StartRun(participants, metadata) or nil
 	if not startedRunId then
+		warn("[MatchFlowService] startRun failed: RunStateService:StartRun returned nil")
 		if session then
 			session.routing = false
 			setState(session, "Countdown")
@@ -270,6 +271,7 @@ local function beginStory(session: Session)
 		local accepted = sessionRoutingService
 			and sessionRoutingService:RouteParty(session.partyId, session.host.UserId, participants)
 		if not accepted then
+			warn("[MatchFlowService] beginStory failed: RouteParty returned false")
 			session.routing = false
 			setState(session, "Countdown")
 		end

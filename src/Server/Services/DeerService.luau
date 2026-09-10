@@ -44,6 +44,7 @@ local DeerService = Knit.CreateService({
 		StalkerStunned = Knit.CreateSignal(),
 		StalkerContact = Knit.CreateSignal(),
 		StalkerActive = Knit.CreateSignal(),
+		AnimationStateChanged = Knit.CreateSignal(),
 	},
 })
 
