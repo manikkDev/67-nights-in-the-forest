@@ -87,7 +87,7 @@ local function validMetadata(data: any): boolean
 	local seen = {}
 	local hostFound = false
 	for _, userId in ipairs(data.expectedUserIds) do
-		if typeof(userId) ~= "number" or userId <= 0 or seen[userId] then
+		if typeof(userId) ~= "number" or seen[userId] then
 			return false
 		end
 		seen[userId] = true

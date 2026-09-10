@@ -184,6 +184,12 @@ local function removePlayerFromSession(player: Player, returnToLobby: boolean?)
 		if session.host == player then
 			session.host = selectNextHost(session) :: Player
 		end
+		for i, member in ipairs(session.memberOrder) do
+			if member == player then
+				table.remove(session.memberOrder, i)
+				break
+			end
+		end
 		broadcastSession(session)
 	end
 	if player.Parent == Players then
