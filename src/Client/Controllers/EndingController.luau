@@ -510,7 +510,7 @@ local function showEnding(payload)
 	resetUi()
 
 	-- Backdrop tint differs per outcome
-	backdrop.BackgroundColor3 = if isVictory then BACKDROP_COLOR else Color3.fromRGB(12, 4, 4)
+	backdrop.BackgroundColor3 = if isVictory then BACKDROP_COLOR else Color3.fromRGB(8, 2, 2)
 
 	-- Title text and color
 	local titleColor = if isVictory then VICTORY_COLOR else DEFEAT_COLOR
@@ -518,16 +518,20 @@ local function showEnding(payload)
 		titleLabels[1].Text = "DAY 67"
 		titleLabels[2].Text = "SURVIVED"
 	else
-		titleLabels[1].Text = "YOUR TEAM"
-		titleLabels[2].Text = "HAS FALLEN"
+		titleLabels[1].Text = "YOU PERISHED"
+		titleLabels[2].Text = "IN THE FOREST"
 	end
-	for _, tl in ipairs(titleLabels) do tl.TextColor3 = titleColor end
+	for _, tl in ipairs(titleLabels) do
+		tl.TextColor3 = titleColor
+		tl.TextStrokeColor3 = if isVictory then Color3.fromRGB(0, 0, 0) else Color3.fromRGB(100, 0, 0)
+		tl.TextStrokeTransparency = if isVictory then 0.5 else 0.2
+	end
 
 	-- Subtitle
 	if subtitleLabel then
 		subtitleLabel.TextColor3 = if isVictory then SUBTITLE_COLOR else DEFEAT_SUBTITLE
 		subtitleLabel.Text = string.format(
-			if isVictory then "Survived to Day %d  \xC2\xB7  %s" else "Fell on Day %d  \xC2\xB7  Lasted %s",
+			if isVictory then "Survived to Day %d  ·  %s" else "Fell on Night %d  ·  Lasted %s",
 			payload.displayedDay or 1,
 			formatTime(payload.elapsedSeconds or 0)
 		)
@@ -536,7 +540,7 @@ local function showEnding(payload)
 	-- Multiplier badge — victory only
 	if isVictory and payload.multiplier and payload.multiplier > 1 then
 		if multiplierLabel then
-			multiplierLabel.Text = string.format("\xE2\x9C\xA6  %dx Multiplier", payload.multiplier)
+			multiplierLabel.Text = string.format("✦  %dx Multiplier", payload.multiplier)
 		end
 		if multiplierBadge then multiplierBadge.Visible = true end
 	else
@@ -550,27 +554,52 @@ local function showEnding(payload)
 	-- Button text
 	if returnButton then
 		returnButton.Text = if isVictory then "Continue" else "Return to Lobby"
+		-- Change button border to red for defeat
+		local btnStroke = returnButton:FindFirstChildOfClass("UIStroke")
+		if btnStroke then
+			btnStroke.Color = if isVictory then Color3.fromRGB(70, 72, 80) else Color3.fromRGB(180, 55, 50)
+		end
 	end
 
 	-- === Animation sequence ===
-	TweenService:Create(backdrop, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		BackgroundTransparency = 0.06,
+	-- Phase 1: Backdrop fades in
+	TweenService:Create(backdrop, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		BackgroundTransparency = if isVictory then 0.06 else 0.04,
 	}):Play()
-	task.delay(0.3, function()
+
+	-- Phase 2 (defeat only): red vignette pulse — make backdrop flash then settle
+	if not isVictory then
+		task.delay(0.1, function()
+			if not gui or not gui.Enabled then return end
+			TweenService:Create(backdrop, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				BackgroundTransparency = 0,
+			}):Play()
+			task.delay(0.4, function()
+				if not gui or not gui.Enabled then return end
+				TweenService:Create(backdrop, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+					BackgroundTransparency = 0.04,
+				}):Play()
+			end)
+		end)
+	end
+
+	-- Phase 3: Titles slide up from below with stagger
+	task.delay(0.4, function()
 		if not gui or not gui.Enabled then return end
-		TweenService:Create(titleLabels[1], TweenInfo.new(0.7, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		TweenService:Create(titleLabels[1], TweenInfo.new(0.75, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
 			TextTransparency = 0,
 			Position = UDim2.new(0, 0, 0, 0),
 		}):Play()
 	end)
-	task.delay(0.48, function()
+	task.delay(0.58, function()
 		if not gui or not gui.Enabled then return end
-		TweenService:Create(titleLabels[2], TweenInfo.new(0.7, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-			TextTransparency = 0,
+		TweenService:Create(titleLabels[2], TweenInfo.new(0.75, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			TextTransparency = if isVictory then 0 else 0.1,
 			Position = UDim2.new(0, 0, 0, 0),
 		}):Play()
 	end)
-	task.delay(0.85, function()
+	-- Phase 4: Subtitle
+	task.delay(0.95, function()
 		if not gui or not gui.Enabled then return end
 		if subtitleLabel then
 			TweenService:Create(subtitleLabel, TweenInfo.new(0.5, Enum.EasingStyle.Quad), {
@@ -579,7 +608,7 @@ local function showEnding(payload)
 		end
 	end)
 	if isVictory and payload.multiplier and payload.multiplier > 1 then
-		task.delay(1.0, function()
+		task.delay(1.1, function()
 			if not gui or not gui.Enabled then return end
 			if multiplierBadge then
 				TweenService:Create(multiplierBadge, TweenInfo.new(0.4, Enum.EasingStyle.Quad), {
@@ -618,7 +647,7 @@ local function showDefeatTeamStatus(result)
 		addMemberRow(defeatPanel, name, stateLabel, stateColor, order)
 	end
 
-	-- Animate rows + button
+	-- Animate rows
 	local rows = {}
 	for _, child in ipairs(defeatPanel:GetChildren()) do
 		if child:IsA("Frame") then table.insert(rows, child) end
@@ -629,10 +658,10 @@ local function showDefeatTeamStatus(result)
 			if desc:IsA("TextLabel") then desc.TextTransparency = 1 end
 			if desc:IsA("Frame") then desc.BackgroundTransparency = 1 end
 		end
-		task.delay(1.1 + (i - 1) * 0.12, function()
+		task.delay(1.2 + (i - 1) * 0.14, function()
 			if not gui or not gui.Enabled then return end
-			TweenService:Create(row, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				BackgroundTransparency = 0.25,
+			TweenService:Create(row, TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				BackgroundTransparency = 0.2,
 			}):Play()
 			for _, desc in ipairs(row:GetDescendants()) do
 				if desc:IsA("TextLabel") then
@@ -643,30 +672,13 @@ local function showDefeatTeamStatus(result)
 			end
 		end)
 	end
-	task.delay(1.1 + #rows * 0.12 + 0.3, function()
-		if not gui or not gui.Enabled then return end
-		if returnButton then
-			TweenService:Create(returnButton, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-				BackgroundTransparency = 0,
-				TextTransparency = 0,
-			}):Play()
-			local stroke = returnButton:FindFirstChildOfClass("UIStroke")
-			if stroke then TweenService:Create(stroke, TweenInfo.new(0.5), { Transparency = 0.1 }):Play() end
-		end
-	end)
 end
 
 --[[
-    @summary  Populate victory stat cards with staggered animation.
+    @summary  Populate stat cards (victory) or defeat summary + button.
     @param    result  table
 ]]
 local function showResults(result)
-	if not isVictory then
-		-- For defeat, the result payload might still carry memberStates; show them
-		showDefeatTeamStatus(result)
-		return
-	end
-	if cardContainer then cardContainer.Visible = true end
 	local stats = {
 		{ value = string.format("%d / %d", result.displayedDay or 1, result.goalDay or 67), label = "Days Survived" },
 		{ value = formatTime(result.elapsedSeconds or 0), label = "Run Time" },
@@ -677,6 +689,59 @@ local function showResults(result)
 		{ value = tostring(result.cultistsKilled or 0), label = "Cultists Defeated" },
 		{ value = string.format("%d / %d", result.revives or 0, result.downs or 0), label = "Revives / Downs" },
 	}
+
+	if not isVictory then
+		-- Defeat: show team status panel first, then stat cards below
+		showDefeatTeamStatus(result)
+		-- Show the stat cards section with a slight offset
+		if cardContainer then
+			cardContainer.Visible = true
+		end
+		local defeatBaseDelay = 1.2 + math.max(1, #(result.memberStates or {})) * 0.14 + 0.2
+		for i, stat in ipairs(stats) do
+			local card = statCards[i]
+			if card then
+				card.value.Text = stat.value
+				card.label.Text = stat.label
+				card.value.TextColor3 = Color3.fromRGB(220, 200, 200)
+				local col = (i - 1) % CARDS_PER_ROW
+				local row = math.floor((i - 1) / CARDS_PER_ROW)
+				local totalWidth = CARDS_PER_ROW * CARD_WIDTH + (CARDS_PER_ROW - 1) * CARD_GAP
+				local startX = -totalWidth / 2
+				local restPos = UDim2.fromScale(0.5, 0.5)
+					+ UDim2.fromOffset(startX + col * (CARD_WIDTH + CARD_GAP), row * (CARD_HEIGHT + CARD_GAP))
+				card.frame.Position = restPos + UDim2.fromOffset(0, 18)
+				task.delay(defeatBaseDelay + (i - 1) * 0.07, function()
+					if not gui or not gui.Enabled then return end
+					TweenService:Create(card.frame, TweenInfo.new(0.42, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+						BackgroundTransparency = 0.1,
+						Position = restPos,
+					}):Play()
+					TweenService:Create(card.value, TweenInfo.new(0.4), { TextTransparency = 0 }):Play()
+					TweenService:Create(card.label, TweenInfo.new(0.4), { TextTransparency = 0 }):Play()
+					if card.stroke then
+						TweenService:Create(card.stroke, TweenInfo.new(0.4), { Transparency = 0.5 }):Play()
+					end
+				end)
+			end
+		end
+		-- Animate return button at the very end
+		task.delay(defeatBaseDelay + #stats * 0.07 + 0.4, function()
+			if not gui or not gui.Enabled then return end
+			if returnButton then
+				TweenService:Create(returnButton, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+					BackgroundTransparency = 0,
+					TextTransparency = 0,
+				}):Play()
+				local stroke = returnButton:FindFirstChildOfClass("UIStroke")
+				if stroke then TweenService:Create(stroke, TweenInfo.new(0.55), { Transparency = 0 }):Play() end
+			end
+		end)
+		return
+	end
+
+	-- Victory: original stat card flow
+	if cardContainer then cardContainer.Visible = true end
 	for i, stat in ipairs(stats) do
 		local card = statCards[i]
 		if card then

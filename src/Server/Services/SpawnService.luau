@@ -231,13 +231,15 @@ local function wireTeleporters()
 						end
 						touchCooldowns[player] = now
 
-						local destination = teleporter:FindFirstChild("TeleportHere")
-						local rootPart = character:FindFirstChild("HumanoidRootPart")
-						if destination and destination:IsA("BasePart") and rootPart and rootPart:IsA("BasePart") then
-							character:PivotTo(destination.CFrame * CFrame.new(0, 3, 0))
-						end
 						if matchFlowService then
-							matchFlowService:EnterWaiting(player, queueId)
+							local entered = matchFlowService:EnterWaiting(player, queueId)
+							if entered then
+								local destination = teleporter:FindFirstChild("TeleportHere")
+								local rootPart = character:FindFirstChild("HumanoidRootPart")
+								if destination and destination:IsA("BasePart") and rootPart and rootPart:IsA("BasePart") then
+									character:PivotTo(destination.CFrame * CFrame.new(0, 3, 0))
+								end
+							end
 						end
 					end)
 				end

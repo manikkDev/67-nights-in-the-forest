@@ -299,25 +299,25 @@ local function fastForwardTimer(session: Session, newSeconds: number)
 	end
 end
 
-function MatchFlowService:EnterWaiting(player: Player, queueId: string)
+function MatchFlowService:EnterWaiting(player: Player, queueId: string): boolean
 	if not player or player.Parent ~= Players or not isQueueId(queueId) then
-		return
+		return false
 	end
 	local existing = sessionsByPlayer[player]
 	if existing then
 		MatchFlowService.Client.FlowStateChanged:Fire(player, existing.state)
 		MatchFlowService.Client.SessionChanged:Fire(player, snapshotFor(existing, player))
 		MatchFlowService.Client.RosterChanged:Fire(player, rosterFor(existing))
-		return
+		return false
 	end
 	if spawnService and spawnService:IsPlayerSpawned(player) then
-		return
+		return false
 	end
 
 	local session = sessionsByQueue[queueId]
 	if session then
 		if session.state ~= "Countdown" or #rosterFor(session) >= session.capacity then
-			return
+			return false
 		end
 		session.players[player] = true
 		table.insert(session.memberOrder, player)
@@ -345,6 +345,7 @@ function MatchFlowService:EnterWaiting(player: Player, queueId: string)
 	end
 	MatchFlowService.Client.FlowStateChanged:Fire(player, session.state)
 	broadcastSession(session)
+	return true
 end
 
 function MatchFlowService:GetState(player: Player): FlowState
@@ -386,17 +387,15 @@ function MatchFlowService:KnitStart()
 		end
 		local session = sessionsByPlayer[player]
 		local capacity = math.floor(requested)
-		if not session or session.host ~= player or (session.state ~= "Countdown" and session.state ~= "Waiting")
+		-- Only allow capacity changes during setup (Waiting). Once the lobby is open
+		-- (Countdown), the team size is locked so no one can resize after teammates join.
+		if not session or session.host ~= player or session.state ~= "Waiting"
 			or capacity < MIN_PARTY or capacity > MAX_PARTY or capacity < #rosterFor(session)
 		then
 			return
 		end
 		session.capacity = capacity
 		broadcastSession(session)
-		
-		if session.state == "Countdown" and #rosterFor(session) >= capacity then
-			fastForwardTimer(session, Constants.MATCH_FASTFORWARD_SECONDS or 3)
-		end
 	end)
 
 	self.Client.RequestLeave:Connect(function(player: Player)

@@ -147,120 +147,141 @@ local function buildUi()
 	screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 	gui = screenGui
 
-	-- === "ELIMINATED" entry cinematic banner (center screen, 2 seconds) ===
+	-- === Full-width dark vignette strip at top (context label behind status) ===
+	local topStrip = Instance.new("Frame")
+	topStrip.Name = "TopStrip"
+	topStrip.Size = UDim2.new(1, 0, 0, 100)
+	topStrip.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	topStrip.BackgroundTransparency = 0.55
+	topStrip.BorderSizePixel = 0
+	topStrip.Parent = screenGui
+	local stripGrad = Instance.new("UIGradient")
+	stripGrad.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0)),
+	})
+	stripGrad.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.3),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	stripGrad.Rotation = 90
+	stripGrad.Parent = topStrip
+
+	-- === "ELIMINATED" cinematic banner (center, fades away) ===
 	local banner = Instance.new("Frame")
 	banner.Name = "EliminatedBanner"
 	banner.AnchorPoint = Vector2.new(0.5, 0.5)
 	banner.Position = UDim2.fromScale(0.5, 0.5)
-	banner.Size = UDim2.new(0.7, 0, 0, 72)
-	banner.BackgroundColor3 = Color3.fromRGB(14, 8, 8)
+	banner.Size = UDim2.new(0.7, 0, 0, 80)
+	banner.BackgroundColor3 = Color3.fromRGB(10, 6, 6)
 	banner.BackgroundTransparency = 1
 	banner.BorderSizePixel = 0
 	banner.Visible = false
 	banner.Parent = screenGui
 	local bannerConstraint = Instance.new("UISizeConstraint")
-	bannerConstraint.MaxSize = Vector2.new(420, 72)
+	bannerConstraint.MaxSize = Vector2.new(460, 80)
 	bannerConstraint.Parent = banner
 	local bannerCorner = Instance.new("UICorner")
-	bannerCorner.CornerRadius = UDim.new(0, 12)
+	bannerCorner.CornerRadius = UDim.new(0, 14)
 	bannerCorner.Parent = banner
 	local bannerStroke = Instance.new("UIStroke")
-	bannerStroke.Color = Color3.fromRGB(170, 45, 40)
-	bannerStroke.Thickness = 1.5
+	bannerStroke.Color = Color3.fromRGB(180, 42, 38)
+	bannerStroke.Thickness = 2
 	bannerStroke.Transparency = 1
 	bannerStroke.Parent = banner
 	local bannerLabel = Instance.new("TextLabel")
-	bannerLabel.Size = UDim2.fromScale(1, 1)
+	bannerLabel.Size = UDim2.new(1, 0, 0.6, 0)
+	bannerLabel.Position = UDim2.fromScale(0, 0.1)
 	bannerLabel.BackgroundTransparency = 1
 	bannerLabel.Font = Enum.Font.GothamBlack
 	bannerLabel.Text = "YOU HAVE BEEN ELIMINATED"
-	bannerLabel.TextColor3 = Color3.fromRGB(220, 60, 55)
+	bannerLabel.TextColor3 = Color3.fromRGB(230, 55, 50)
 	bannerLabel.TextSize = 26
 	bannerLabel.TextTransparency = 1
 	bannerLabel.Parent = banner
 	local bannerSub = Instance.new("TextLabel")
 	bannerSub.AnchorPoint = Vector2.new(0.5, 1)
-	bannerSub.Position = UDim2.new(0.5, 0, 1, -8)
-	bannerSub.Size = UDim2.new(1, 0, 0, 18)
+	bannerSub.Position = UDim2.new(0.5, 0, 1, -10)
+	bannerSub.Size = UDim2.new(1, 0, 0, 20)
 	bannerSub.BackgroundTransparency = 1
 	bannerSub.Font = Enum.Font.GothamBold
 	bannerSub.Text = "Spectating teammates..."
-	bannerSub.TextColor3 = Color3.fromRGB(180, 140, 135)
-	bannerSub.TextSize = 13
+	bannerSub.TextColor3 = Color3.fromRGB(185, 145, 140)
+	bannerSub.TextSize = 14
 	bannerSub.TextTransparency = 1
 	bannerSub.Parent = banner
 	eliminatedBanner = banner
 
-	-- === Top status panel (existing, preserved) ===
+	-- === Top-center status panel (who we're spectating + health) ===
 	local status = Instance.new("Frame")
 	status.AnchorPoint = Vector2.new(0.5, 0)
-	status.Position = UDim2.new(0.5, 0, 0, 22)
-	status.Size = UDim2.new(0.82, 0, 0, 96)
-	status.BackgroundColor3 = Color3.fromRGB(16, 19, 23)
-	status.BackgroundTransparency = 0.08
+	status.Position = UDim2.new(0.5, 0, 0, 16)
+	status.Size = UDim2.new(0.72, 0, 0, 90)
+	status.BackgroundColor3 = Color3.fromRGB(14, 16, 21)
+	status.BackgroundTransparency = 0.1
 	status.BorderSizePixel = 0
 	status.Parent = screenGui
-	local size = Instance.new("UISizeConstraint")
-	size.MaxSize = Vector2.new(460, 96)
-	size.MinSize = Vector2.new(290, 90)
-	size.Parent = status
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 12)
-	corner.Parent = status
-	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(70, 76, 86)
-	stroke.Transparency = 0.2
-	stroke.Parent = status
+	local statusConstraint = Instance.new("UISizeConstraint")
+	statusConstraint.MaxSize = Vector2.new(420, 90)
+	statusConstraint.MinSize = Vector2.new(260, 84)
+	statusConstraint.Parent = status
+	local statusCorner = Instance.new("UICorner")
+	statusCorner.CornerRadius = UDim.new(0, 14)
+	statusCorner.Parent = status
+	local statusStroke = Instance.new("UIStroke")
+	statusStroke.Color = Color3.fromRGB(60, 68, 80)
+	statusStroke.Transparency = 0.15
+	statusStroke.Parent = status
 
 	local eyebrow = Instance.new("TextLabel")
-	eyebrow.Position = UDim2.fromOffset(18, 10)
-	eyebrow.Size = UDim2.new(1, -36, 0, 18)
+	eyebrow.Position = UDim2.fromOffset(16, 10)
+	eyebrow.Size = UDim2.new(1, -32, 0, 18)
 	eyebrow.BackgroundTransparency = 1
 	eyebrow.Font = Enum.Font.GothamBold
 	eyebrow.Text = "SPECTATING"
-	eyebrow.TextColor3 = Color3.fromRGB(150, 157, 168)
-	eyebrow.TextSize = 12
+	eyebrow.TextColor3 = Color3.fromRGB(140, 152, 170)
+	eyebrow.TextSize = 11
 	eyebrow.TextXAlignment = Enum.TextXAlignment.Left
 	eyebrow.Parent = status
 
 	local target = Instance.new("TextLabel")
-	target.Position = UDim2.fromOffset(18, 29)
-	target.Size = UDim2.new(1, -120, 0, 29)
+	target.Position = UDim2.fromOffset(16, 27)
+	target.Size = UDim2.new(1, -110, 0, 30)
 	target.BackgroundTransparency = 1
-	target.Font = Enum.Font.GothamBold
+	target.Font = Enum.Font.GothamBlack
 	target.Text = "Finding teammate..."
-	target.TextColor3 = Color3.fromRGB(242, 242, 238)
-	target.TextSize = 21
+	target.TextColor3 = Color3.fromRGB(245, 245, 240)
+	target.TextSize = 22
 	target.TextTruncate = Enum.TextTruncate.AtEnd
 	target.TextXAlignment = Enum.TextXAlignment.Left
 	target.Parent = status
 	targetLabel = target
 
-	local health = Instance.new("TextLabel")
-	health.AnchorPoint = Vector2.new(1, 0)
-	health.Position = UDim2.new(1, -18, 0, 33)
-	health.Size = UDim2.fromOffset(92, 22)
-	health.BackgroundTransparency = 1
-	health.Font = Enum.Font.GothamBold
-	health.Text = "-- / --"
-	health.TextColor3 = Color3.fromRGB(178, 220, 177)
-	health.TextSize = 14
-	health.TextXAlignment = Enum.TextXAlignment.Right
-	health.Parent = status
-	healthLabel = health
+	local healthText = Instance.new("TextLabel")
+	healthText.AnchorPoint = Vector2.new(1, 0)
+	healthText.Position = UDim2.new(1, -14, 0, 30)
+	healthText.Size = UDim2.fromOffset(88, 22)
+	healthText.BackgroundTransparency = 1
+	healthText.Font = Enum.Font.GothamBold
+	healthText.Text = "-- / --"
+	healthText.TextColor3 = Color3.fromRGB(100, 215, 110)
+	healthText.TextSize = 14
+	healthText.TextXAlignment = Enum.TextXAlignment.Right
+	healthText.Parent = status
+	healthLabel = healthText
 
 	local healthBack = Instance.new("Frame")
-	healthBack.Position = UDim2.fromOffset(18, 68)
-	healthBack.Size = UDim2.new(1, -36, 0, 8)
-	healthBack.BackgroundColor3 = Color3.fromRGB(48, 51, 57)
+	healthBack.Position = UDim2.fromOffset(16, 64)
+	healthBack.Size = UDim2.new(1, -32, 0, 8)
+	healthBack.BackgroundColor3 = Color3.fromRGB(40, 43, 50)
 	healthBack.BorderSizePixel = 0
 	healthBack.Parent = status
-	local healthCorner = Instance.new("UICorner")
-	healthCorner.CornerRadius = UDim.new(1, 0)
-	healthCorner.Parent = healthBack
+	local healthBackCorner = Instance.new("UICorner")
+	healthBackCorner.CornerRadius = UDim.new(1, 0)
+	healthBackCorner.Parent = healthBack
 	local fill = Instance.new("Frame")
 	fill.Size = UDim2.fromScale(1, 1)
-	fill.BackgroundColor3 = Color3.fromRGB(78, 184, 99)
+	fill.BackgroundColor3 = Color3.fromRGB(80, 195, 95)
 	fill.BorderSizePixel = 0
 	fill.Parent = healthBack
 	local fillCorner = Instance.new("UICorner")
@@ -268,39 +289,93 @@ local function buildUi()
 	fillCorner.Parent = fill
 	healthFill = fill
 
+	-- === "No one to spectate" message (centered) ===
 	local empty = Instance.new("TextLabel")
 	empty.AnchorPoint = Vector2.new(0.5, 0.5)
 	empty.Position = UDim2.fromScale(0.5, 0.5)
-	empty.Size = UDim2.new(0.8, 0, 0, 60)
+	empty.Size = UDim2.new(0.8, 0, 0, 70)
 	empty.BackgroundTransparency = 1
 	empty.Font = Enum.Font.GothamBold
-	empty.Text = "Waiting for an alive teammate..."
-	empty.TextColor3 = Color3.fromRGB(220, 220, 218)
+	empty.Text = "No alive teammates to spectate."
+	empty.TextColor3 = Color3.fromRGB(210, 210, 208)
 	empty.TextSize = 18
 	empty.TextWrapped = true
 	empty.Visible = false
 	empty.Parent = screenGui
 	emptyLabel = empty
 
-	-- === Team status panel (right side, compact) ===
+	-- === Team status panel — bottom-right, compact ===
 	local tp = Instance.new("Frame")
 	tp.Name = "TeamPanel"
-	tp.AnchorPoint = Vector2.new(1, 0)
-	tp.Position = UDim2.new(1, -10, 0, 130)
-	tp.Size = UDim2.fromOffset(150, 0)
+	tp.AnchorPoint = Vector2.new(1, 1)
+	tp.Position = UDim2.new(1, -10, 1, -80)
+	tp.Size = UDim2.fromOffset(165, 0)
 	tp.AutomaticSize = Enum.AutomaticSize.Y
-	tp.BackgroundTransparency = 1
+	tp.BackgroundColor3 = Color3.fromRGB(12, 14, 18)
+	tp.BackgroundTransparency = 0.15
+	tp.BorderSizePixel = 0
 	tp.Parent = screenGui
+	local tpCorner = Instance.new("UICorner")
+	tpCorner.CornerRadius = UDim.new(0, 10)
+	tpCorner.Parent = tp
+	local tpStroke = Instance.new("UIStroke")
+	tpStroke.Color = Color3.fromRGB(50, 56, 66)
+	tpStroke.Transparency = 0.3
+	tpStroke.Parent = tp
 	local tpLayout = Instance.new("UIListLayout")
-	tpLayout.Padding = UDim.new(0, 4)
+	tpLayout.Padding = UDim.new(0, 3)
 	tpLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	tpLayout.Parent = tp
+	local tpPad = Instance.new("UIPadding")
+	tpPad.PaddingTop = UDim.new(0, 6)
+	tpPad.PaddingBottom = UDim.new(0, 6)
+	tpPad.PaddingLeft = UDim.new(0, 6)
+	tpPad.PaddingRight = UDim.new(0, 6)
+	tpPad.Parent = tp
+	-- Team panel header
+	local tpHeader = Instance.new("TextLabel")
+	tpHeader.Size = UDim2.new(1, 0, 0, 18)
+	tpHeader.BackgroundTransparency = 1
+	tpHeader.Font = Enum.Font.GothamBold
+	tpHeader.Text = "TEAMMATES"
+	tpHeader.TextColor3 = Color3.fromRGB(130, 140, 158)
+	tpHeader.TextSize = 10
+	tpHeader.LayoutOrder = 0
+	tpHeader.Parent = tp
 	teamPanel = tp
 
-	local previous = makeButton(screenGui, "Previous", "Q / L1  Previous", UDim2.new(0.5, -76, 1, -28))
-	local nextButton = makeButton(screenGui, "Next", "Next  E / R1", UDim2.new(0.5, 76, 1, -28))
-	previous.Activated:Connect(function() SpectateController:Cycle(-1) end)
-	nextButton.Activated:Connect(function() SpectateController:Cycle(1) end)
+	-- === Bottom navigation bar (Prev / info / Next) ===
+	local navBar = Instance.new("Frame")
+	navBar.Name = "NavBar"
+	navBar.AnchorPoint = Vector2.new(0.5, 1)
+	navBar.Position = UDim2.new(0.5, 0, 1, -12)
+	navBar.Size = UDim2.new(0, 320, 0, 48)
+	navBar.BackgroundColor3 = Color3.fromRGB(12, 14, 18)
+	navBar.BackgroundTransparency = 0.1
+	navBar.BorderSizePixel = 0
+	navBar.Parent = screenGui
+	local navConstraint = Instance.new("UISizeConstraint")
+	navConstraint.MaxSize = Vector2.new(360, 48)
+	navConstraint.Parent = navBar
+	local navCorner = Instance.new("UICorner")
+	navCorner.CornerRadius = UDim.new(0, 24)
+	navCorner.Parent = navBar
+	local navStroke = Instance.new("UIStroke")
+	navStroke.Color = Color3.fromRGB(55, 62, 75)
+	navStroke.Transparency = 0.2
+	navStroke.Parent = navBar
+
+	local prevBtn = makeButton(navBar, "Previous", "◄  Prev", UDim2.new(0.5, -80, 0.5, 0))
+	prevBtn.AnchorPoint = Vector2.new(1, 0.5)
+	prevBtn.Position = UDim2.new(0.5, -8, 0.5, 0)
+	prevBtn.Size = UDim2.fromOffset(120, 36)
+
+	local nextBtn = makeButton(navBar, "Next", "Next  ►", UDim2.new(0.5, 8, 0.5, 0))
+	nextBtn.AnchorPoint = Vector2.new(0, 0.5)
+	nextBtn.Size = UDim2.fromOffset(120, 36)
+
+	prevBtn.Activated:Connect(function() SpectateController:Cycle(-1) end)
+	nextBtn.Activated:Connect(function() SpectateController:Cycle(1) end)
 end
 
 local function targets(): { Player }
@@ -366,12 +441,28 @@ local function stopSpectating()
 	restoreCamera()
 end
 
-local function startSpectating()
+local function startSpectating(isDowned: boolean?)
 	buildUi()
-	if spectating then updateTarget() return end
+	if spectating then
+		-- Update eyebrow label if state changed (downed → eliminated or vice versa)
+		local statusFrame = gui and gui:FindFirstChild("Frame") -- the top status panel isn't named
+		-- Find eyebrow via traversal
+		if gui then
+			for _, child in ipairs(gui:GetChildren()) do
+				if child:IsA("Frame") and child.Name ~= "EliminatedBanner" and child.Name ~= "NavBar" and child.Name ~= "TeamPanel" and child.Name ~= "TopStrip" then
+					local ey = child:FindFirstChild("TextLabel")
+					if ey and ey.Text:find("SPECTATING") then
+						ey.Text = isDowned and "DOWNED — Watching Teammates" or "SPECTATING"
+					end
+				end
+			end
+		end
+		updateTarget()
+		return
+	end
 
-	-- Show the "ELIMINATED" cinematic banner for 2.2s, then reveal spectator UI
-	if eliminatedBanner then
+	-- Show "ELIMINATED" cinematic banner only for eliminated players (not downed)
+	if not isDowned and eliminatedBanner then
 		local TweenService = game:GetService("TweenService")
 		eliminatedBanner.Visible = true
 		eliminatedBanner.BackgroundTransparency = 1
@@ -379,27 +470,42 @@ local function startSpectating()
 			if desc:IsA("TextLabel") then desc.TextTransparency = 1 end
 			if desc:IsA("UIStroke") then desc.Transparency = 1 end
 		end
-		TweenService:Create(eliminatedBanner, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { BackgroundTransparency = 0.15 }):Play()
+		TweenService:Create(eliminatedBanner, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { BackgroundTransparency = 0.12 }):Play()
 		local stroke = eliminatedBanner:FindFirstChildOfClass("UIStroke")
-		if stroke then TweenService:Create(stroke, TweenInfo.new(0.4), { Transparency = 0.2 }):Play() end
+		if stroke then TweenService:Create(stroke, TweenInfo.new(0.4), { Transparency = 0.15 }):Play() end
 		for _, desc in ipairs(eliminatedBanner:GetDescendants()) do
 			if desc:IsA("TextLabel") then
 				TweenService:Create(desc, TweenInfo.new(0.5, Enum.EasingStyle.Quad), { TextTransparency = 0 }):Play()
 			end
 		end
-		task.delay(2.2, function()
+		task.delay(2.5, function()
 			if eliminatedBanner then
-				TweenService:Create(eliminatedBanner, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+				TweenService:Create(eliminatedBanner, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
 				for _, desc in ipairs(eliminatedBanner:GetDescendants()) do
 					if desc:IsA("TextLabel") then
 						TweenService:Create(desc, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
 					end
 				end
-				task.delay(0.45, function()
+				task.delay(0.55, function()
 					if eliminatedBanner then eliminatedBanner.Visible = false end
 				end)
 			end
 		end)
+	end
+
+	-- Update the eyebrow label based on downed vs eliminated state
+	if gui then
+		for _, child in ipairs(gui:GetChildren()) do
+			if child:IsA("Frame") and child.Name ~= "EliminatedBanner" and child.Name ~= "NavBar" and child.Name ~= "TeamPanel" and child.Name ~= "TopStrip" then
+				local eyebrowLabel = child:FindFirstChild("TextLabel")
+				if eyebrowLabel then
+					eyebrowLabel.Text = isDowned and "DOWNED — Watching Teammates" or "SPECTATING"
+					eyebrowLabel.TextColor3 = if isDowned
+						then Color3.fromRGB(230, 150, 60)
+						else Color3.fromRGB(140, 152, 170)
+				end
+			end
+		end
 	end
 
 	spectating = true
@@ -427,7 +533,13 @@ function SpectateController:KnitStart()
 		memberStates[payload.userId] = payload.state
 		if payload.userId == localPlayer.UserId then
 			selfState = payload.state
-			if selfState == "Eliminated" then startSpectating() else stopSpectating() end
+			if selfState == "Eliminated" then
+				startSpectating(false)
+			elseif selfState == "Downed" then
+				startSpectating(true)
+			else
+				stopSpectating()
+			end
 		elseif spectating then
 			updateTarget()
 		end
@@ -449,7 +561,9 @@ function SpectateController:KnitStart()
 			if numericId then memberStates[numericId] = state end
 		end
 		selfState = snapshot.selfState or "Lobby"
-		if selfState == "Eliminated" then startSpectating() end
+		if selfState == "Eliminated" then startSpectating(false)
+		elseif selfState == "Downed" then startSpectating(true)
+		end
 	end)
 	janitor:Add(localPlayer.CharacterAdded:Connect(function()
 		if not spectating then task.defer(restoreCamera) end

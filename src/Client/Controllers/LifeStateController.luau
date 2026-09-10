@@ -42,103 +42,123 @@ local function buildUi()
 	screenGui.Parent = localPlayer:WaitForChild("PlayerGui")
 	gui = screenGui
 
+	-- ====== DOWNED CARD — centered, prominent ======
 	local panel = Instance.new("Frame")
 	panel.Name = "DownedCard"
 	panel.AnchorPoint = Vector2.new(0.5, 1)
-	panel.Position = UDim2.new(0.5, 0, 1, -34)
-	panel.Size = UDim2.new(0.86, 0, 0, 104)
-	panel.BackgroundColor3 = Color3.fromRGB(25, 16, 18)
-	panel.BackgroundTransparency = 0.08
+	panel.Position = UDim2.new(0.5, 0, 1, -24)
+	panel.Size = UDim2.new(0, 480, 0, 124)
+	panel.BackgroundColor3 = Color3.fromRGB(20, 10, 12)
+	panel.BackgroundTransparency = 0.05
 	panel.BorderSizePixel = 0
 	panel.Parent = screenGui
 	card = panel
 	local size = Instance.new("UISizeConstraint")
-	size.MaxSize = Vector2.new(440, 104)
-	size.MinSize = Vector2.new(280, 96)
+	size.MaxSize = Vector2.new(520, 130)
+	size.MinSize = Vector2.new(300, 110)
 	size.Parent = panel
 	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 12)
+	corner.CornerRadius = UDim.new(0, 14)
 	corner.Parent = panel
 	local stroke = Instance.new("UIStroke")
-	stroke.Color = Color3.fromRGB(165, 58, 55)
-	stroke.Thickness = 1.5
-	stroke.Transparency = 0.15
+	stroke.Color = Color3.fromRGB(200, 55, 50)
+	stroke.Thickness = 2
+	stroke.Transparency = 0.1
 	stroke.Parent = panel
 
+	-- Red left accent bar
 	local accent = Instance.new("Frame")
-	accent.Size = UDim2.new(0, 4, 1, -20)
-	accent.Position = UDim2.fromOffset(10, 10)
-	accent.BackgroundColor3 = Color3.fromRGB(205, 66, 58)
+	accent.Size = UDim2.new(0, 5, 1, -24)
+	accent.Position = UDim2.fromOffset(12, 12)
+	accent.BackgroundColor3 = Color3.fromRGB(220, 55, 48)
 	accent.BorderSizePixel = 0
 	accent.Parent = panel
 	local accentCorner = Instance.new("UICorner")
 	accentCorner.CornerRadius = UDim.new(1, 0)
 	accentCorner.Parent = accent
 
+	-- "⚠ YOU ARE DOWNED" title
 	local title = Instance.new("TextLabel")
-	title.Position = UDim2.fromOffset(28, 14)
-	title.Size = UDim2.new(1, -130, 0, 28)
+	title.Position = UDim2.fromOffset(30, 12)
+	title.Size = UDim2.new(1, -150, 0, 32)
 	title.BackgroundTransparency = 1
-	title.Font = Enum.Font.GothamBold
-	title.Text = "YOU ARE DOWNED"
-	title.TextColor3 = Color3.fromRGB(242, 226, 220)
-	title.TextSize = 21
+	title.Font = Enum.Font.GothamBlack
+	title.Text = "⚠  YOU ARE DOWNED"
+	title.TextColor3 = Color3.fromRGB(248, 100, 90)
+	title.TextSize = 22
 	title.TextXAlignment = Enum.TextXAlignment.Left
 	title.Parent = panel
+	local titleStroke = Instance.new("UIStroke")
+	titleStroke.Color = Color3.fromRGB(0, 0, 0)
+	titleStroke.Transparency = 0.5
+	titleStroke.Parent = title
 
+	-- Bleed-out timer (top-right)
 	local timer = Instance.new("TextLabel")
 	timer.AnchorPoint = Vector2.new(1, 0)
-	timer.Position = UDim2.new(1, -18, 0, 13)
-	timer.Size = UDim2.fromOffset(82, 32)
+	timer.Position = UDim2.new(1, -18, 0, 14)
+	timer.Size = UDim2.fromOffset(90, 32)
 	timer.BackgroundTransparency = 1
-	timer.Font = Enum.Font.GothamBold
+	timer.Font = Enum.Font.GothamBlack
 	timer.Text = "45.0s"
-	timer.TextColor3 = Color3.fromRGB(235, 88, 76)
-	timer.TextSize = 24
+	timer.TextColor3 = Color3.fromRGB(245, 90, 78)
+	timer.TextSize = 26
 	timer.TextXAlignment = Enum.TextXAlignment.Right
 	timer.Parent = panel
 	timerLabel = timer
 
+	-- Divider line
+	local divider = Instance.new("Frame")
+	divider.Position = UDim2.fromOffset(30, 50)
+	divider.Size = UDim2.new(1, -60, 0, 1)
+	divider.BackgroundColor3 = Color3.fromRGB(200, 55, 50)
+	divider.BackgroundTransparency = 0.6
+	divider.BorderSizePixel = 0
+	divider.Parent = panel
+
+	-- Hint: campfire revive requirement
 	local hint = Instance.new("TextLabel")
-	hint.Position = UDim2.fromOffset(28, 49)
-	hint.Size = UDim2.new(1, -48, 0, 38)
+	hint.Position = UDim2.fromOffset(30, 58)
+	hint.Size = UDim2.new(1, -48, 0, 54)
 	hint.BackgroundTransparency = 1
 	hint.Font = Enum.Font.GothamBold
-	hint.Text = "Stay put — a teammate can revive you with one Bandage."
-	hint.TextColor3 = Color3.fromRGB(185, 177, 174)
-	hint.TextSize = 14
+	hint.Text = "A teammate must carry your body to the Campfire to revive you.\nPress [E] near your body to start dragging."
+	hint.TextColor3 = Color3.fromRGB(200, 180, 178)
+	hint.TextSize = 13
 	hint.TextWrapped = true
 	hint.TextXAlignment = Enum.TextXAlignment.Left
 	hint.TextYAlignment = Enum.TextYAlignment.Top
 	hint.Parent = panel
-	-- Teammate downed notification banner (top-center)
+
+	-- ====== TEAMMATE DOWNED NOTIFICATION — shown to alive players ======
+	-- Positioned at bottom-left to not overlap the SpectateGui's top status bar
 	local notif = Instance.new("Frame")
 	notif.Name = "TeammateDowned"
-	notif.AnchorPoint = Vector2.new(0.5, 0)
-	notif.Position = UDim2.new(0.5, 0, 0, 14)
-	notif.Size = UDim2.new(0.55, 0, 0, 36)
-	notif.BackgroundColor3 = Color3.fromRGB(42, 32, 12)
+	notif.AnchorPoint = Vector2.new(0, 1)
+	notif.Position = UDim2.new(0, 16, 1, -16)
+	notif.Size = UDim2.new(0, 320, 0, 44)
+	notif.BackgroundColor3 = Color3.fromRGB(36, 26, 8)
 	notif.BackgroundTransparency = 1
 	notif.BorderSizePixel = 0
 	notif.Visible = false
 	notif.Parent = screenGui
 	local nc = Instance.new("UISizeConstraint")
-	nc.MaxSize = Vector2.new(380, 36)
+	nc.MaxSize = Vector2.new(360, 44)
 	nc.Parent = notif
 	local ncorner = Instance.new("UICorner")
 	ncorner.CornerRadius = UDim.new(0, 10)
 	ncorner.Parent = notif
 	local nstroke = Instance.new("UIStroke")
-	nstroke.Color = Color3.fromRGB(195, 148, 55)
-	nstroke.Thickness = 1
-	nstroke.Transparency = 0.2
+	nstroke.Color = Color3.fromRGB(210, 155, 50)
+	nstroke.Thickness = 1.5
+	nstroke.Transparency = 0.15
 	nstroke.Parent = notif
 	local nlabel = Instance.new("TextLabel")
 	nlabel.Size = UDim2.fromScale(1, 1)
 	nlabel.BackgroundTransparency = 1
 	nlabel.Font = Enum.Font.GothamBold
 	nlabel.Text = ""
-	nlabel.TextColor3 = Color3.fromRGB(235, 178, 70)
+	nlabel.TextColor3 = Color3.fromRGB(240, 190, 75)
 	nlabel.TextSize = 14
 	nlabel.TextTransparency = 1
 	nlabel.Parent = notif

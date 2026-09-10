@@ -254,28 +254,36 @@ local function makeCircleButton(parent: Instance, name: string, text: string, co
 end
 
 local function updateSizeButtons()
-	local canConfigure = (flowState == "Countdown" or flowState == "Waiting") and sessionSnapshot ~= nil and sessionSnapshot.isHost == true
+	-- Size buttons are only interactive for the HOST during setup (Waiting state).
+	-- Once the lobby is opened (Countdown), capacity is locked — no changes allowed.
+	local isHostInWaiting = flowState == "Waiting" and sessionSnapshot ~= nil and sessionSnapshot.isHost == true
+	local isHostInCountdown = flowState == "Countdown" and sessionSnapshot ~= nil and sessionSnapshot.isHost == true
 	for i, button in ipairs(sizeButtons) do
-		button.Active = canConfigure
-		button.AutoButtonColor = canConfigure
+		-- Active only during setup phase
+		button.Active = isHostInWaiting
+		button.AutoButtonColor = isHostInWaiting
 		if i == selectedSize then
-			button.BackgroundColor3 = SIZE_SELECTED
-			button.TextColor3 = Color3.new(0.1, 0.1, 0.1)
+			button.BackgroundColor3 = if isHostInWaiting then SIZE_SELECTED else Color3.fromRGB(55, 58, 65)
+			button.TextColor3 = if isHostInWaiting then Color3.new(0.1, 0.1, 0.1) else Color3.fromRGB(160, 160, 160)
 		else
-			button.BackgroundColor3 = if canConfigure then SIZE_BTN else SIZE_DISABLED
-			button.TextColor3 = if canConfigure then Color3.new(1, 1, 1) else Color3.new(0.6, 0.6, 0.6)
+			button.BackgroundColor3 = SIZE_DISABLED
+			button.TextColor3 = Color3.new(0.6, 0.6, 0.6)
 		end
 	end
 	if createButton then
 		createButton.Visible = true
-		createButton.Active = canConfigure
-		createButton.AutoButtonColor = canConfigure
 		if flowState == "Waiting" then
-			createButton.Text = if canConfigure then "Open Lobby" else "Waiting for Host"
+			createButton.Active = isHostInWaiting
+			createButton.AutoButtonColor = isHostInWaiting
+			createButton.Text = if isHostInWaiting then "Open Lobby" else "Waiting for Host..."
+			createButton.BackgroundColor3 = if isHostInWaiting then CREATE else SIZE_DISABLED
 		else
-			createButton.Text = if canConfigure then "Start Now" else "Waiting for Host"
+			-- During Countdown: "Start Now" is available to host, others see "Lobby Open"
+			createButton.Active = isHostInCountdown
+			createButton.AutoButtonColor = isHostInCountdown
+			createButton.Text = if isHostInCountdown then "Start Now" else "Lobby Open..."
+			createButton.BackgroundColor3 = if isHostInCountdown then Color3.fromRGB(40, 170, 80) else SIZE_DISABLED
 		end
-		createButton.BackgroundColor3 = if canConfigure then CREATE else SIZE_DISABLED
 	end
 	if countdownLabel then
 		countdownLabel.Visible = (flowState == "Countdown")
@@ -291,18 +299,17 @@ local function renderSession(snapshot: { [string]: any })
 	local lines = {}
 	for _, member in ipairs(roster) do
 		if typeof(member) == "table" then
-			local prefix = member.isHost and '<b><font color="#FFD232">[HOST]</font></b>' or '<font color="#A0A0A0">[MEMBER]</font>'
+			local prefix = member.isHost and '<b><font color="#FFD232">★ HOST</font></b>' or '<font color="#A0A0A0">● MEMBER</font>'
 			table.insert(lines, prefix .. "  " .. tostring(member.name or member.username or "Player"))
 		end
 	end
 	if rosterLabel then
-		rosterLabel.Text = #lines > 0 and table.concat(lines, "\n") or "Waiting for players..."
+		rosterLabel.Text = #lines > 0 and table.concat(lines, "\n") or '<font color="#666666">No players yet...</font>'
 	end
 	if statusLabel then
-		local queueName = tostring(snapshot.queueId or "Queue")
-		statusLabel.Text = if snapshot.isHost
-			then ("%s  |  You are host  |  %d/%d"):format(queueName, #roster, selectedSize)
-			else ("%s  |  Waiting for host  |  %d/%d"):format(queueName, #roster, selectedSize)
+		local stateLabel = if flowState == "Waiting" then "Setting up" else "Lobby Open"
+		local hostLabel = if snapshot.isHost then "You are host" else "Hosted by teammate"
+		statusLabel.Text = ("%s  ·  %d/%d players  ·  %s"):format(stateLabel, #roster, selectedSize, hostLabel)
 	end
 	updateSizeButtons()
 end
@@ -745,6 +752,12 @@ local function showCreateParty()
 		if titleScreen.Visible then
 			hideTitleScreen()
 		end
+	end
+	if storyFrame then
+		storyFrame.Visible = false
+	end
+	if dayFrame then
+		dayFrame.Visible = false
 	end
 	createPartyFrame.Visible = true
 	setGroupTransparency(createPartyFrame, 1)

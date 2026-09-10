@@ -170,12 +170,14 @@ local function createCaveModel(definition, center: Vector3): (Model, Part)
 	floor.Parent = cave
 	cave.PrimaryPart = floor
 
+	-- Walls: increased height from 12 to 22 studs for a proper enclosed cave.
+	-- Offsets use half-height (11) so walls sit on top of the floor.
 	local wallData = {
-		{ Vector3.new(34, 12, 2), Vector3.new(0, 6, -15) },
-		{ Vector3.new(12, 12, 2), Vector3.new(-11, 6, 15) },
-		{ Vector3.new(12, 12, 2), Vector3.new(11, 6, 15) },
-		{ Vector3.new(2, 12, 30), Vector3.new(-16, 6, 0) },
-		{ Vector3.new(2, 12, 30), Vector3.new(16, 6, 0) },
+		{ Vector3.new(34, 22, 2),  Vector3.new(0,   11, -15) }, -- back wall
+		{ Vector3.new(12, 22, 2),  Vector3.new(-11, 11,  15) }, -- front-left
+		{ Vector3.new(12, 22, 2),  Vector3.new( 11, 11,  15) }, -- front-right
+		{ Vector3.new(2,  22, 30), Vector3.new(-16, 11,   0) }, -- left side
+		{ Vector3.new(2,  22, 30), Vector3.new( 16, 11,   0) }, -- right side
 	}
 	for index, entry in ipairs(wallData) do
 		local wall = Instance.new("Part")
@@ -188,10 +190,21 @@ local function createCaveModel(definition, center: Vector3): (Model, Part)
 		wall.Parent = cave
 	end
 
+	-- Roof: sits flat on top of 22-stud walls (Y = 22 + 0.5 for half-thickness = 22.5 above floor bottom)
+	local roof = Instance.new("Part")
+	roof.Name = "CaveRoof"
+	roof.Size = Vector3.new(34, 1, 32)
+	roof.Position = center + Vector3.new(0, 22.5, 0)
+	roof.Anchored = true
+	roof.Material = Enum.Material.Rock
+	roof.Color = Color3.fromRGB(48, 45, 43)
+	roof.Parent = cave
+
+	-- Gate: scaled to 18 studs tall to fill the entrance between the 22-stud walls.
 	local gate = Instance.new("Part")
 	gate.Name = "Gate"
-	gate.Size = Vector3.new(10, 10, 1)
-	gate.Position = center + Vector3.new(0, 5, 14)
+	gate.Size = Vector3.new(10, 18, 1)
+	gate.Position = center + Vector3.new(0, 9, 14)
 	gate.Anchored = true
 	gate.Material = Enum.Material.Metal
 	gate.Color = definition.CaveColor
@@ -437,6 +450,7 @@ local function buildCaves()
 			gate = gate,
 			child = child,
 			center = center,
+			caveCFrame = caveCFrame, -- stored so spawnKey can place the key in front of the entrance
 			state = "Locked",
 			guards = {},
 			keyModel = nil,
@@ -516,7 +530,23 @@ local function spawnKey(record)
 	part.Parent = key
 	key.PrimaryPart = part
 	key.Parent = cavesFolder
-	key:PivotTo(CFrame.new(record.center + Vector3.new(0, 2, 20)))
+
+	-- Place the key on the ground in front of the cave entrance (outside, not inside/hovering).
+	-- The gate sits at local Z+14 in cave space. We place the key at Z+22 (well outside the gate).
+	-- Use worldService ground Y so the key rests on the terrain surface, not floating.
+	local groundY = worldService and worldService:GetGroundY() or record.center.Y
+	local keySpawnCFrame: CFrame
+	if record.caveCFrame then
+		-- caveCFrame has the cave's orientation (facing the campfire); move along its forward axis
+		local localOffset = record.caveCFrame:PointToWorldSpace(Vector3.new(0, 0, 22))
+		local worldPos = Vector3.new(localOffset.X, groundY + 1.5, localOffset.Z)
+		keySpawnCFrame = CFrame.new(worldPos)
+	else
+		-- Fallback: place directly in front at a fixed offset
+		keySpawnCFrame = CFrame.new(record.center + Vector3.new(0, groundY - record.center.Y + 1.5, 22))
+	end
+	key:PivotTo(keySpawnCFrame)
+
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.ActionText = "Take Key"
 	prompt.ObjectText = record.definition.KeyName
