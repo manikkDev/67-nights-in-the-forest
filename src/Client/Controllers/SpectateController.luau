@@ -428,6 +428,25 @@ local function onAction(actionName: string, inputState: Enum.UserInputState): En
 	return Enum.ContextActionResult.Sink
 end
 
+local function setCoreGuisEnabled(enabled: boolean)
+	local playerGui = localPlayer:FindFirstChild("PlayerGui")
+	if not playerGui then return end
+	local guisToToggle = {
+		"CarryBagGui",
+		"HudGui",
+		"HealthBarGui",
+		"HungerGui",
+		"CraftingGui",
+		"StaminaBarGui"
+	}
+	for _, guiName in ipairs(guisToToggle) do
+		local g = playerGui:FindFirstChild(guiName)
+		if g and g:IsA("ScreenGui") then
+			g.Enabled = enabled
+		end
+	end
+end
+
 local function stopSpectating()
 	if not spectating then
 		if gui then gui.Enabled = false end
@@ -439,6 +458,7 @@ local function stopSpectating()
 	ContextActionService:UnbindAction(PREVIOUS_ACTION)
 	if gui then gui.Enabled = false end
 	restoreCamera()
+	setCoreGuisEnabled(true)
 end
 
 local function startSpectating(isDowned: boolean?)
@@ -515,6 +535,7 @@ local function startSpectating(isDowned: boolean?)
 	ContextActionService:BindAction(PREVIOUS_ACTION, onAction, false, Enum.KeyCode.Q, Enum.KeyCode.ButtonL1, Enum.KeyCode.DPadLeft)
 	updateTarget()
 	updateTeamPanel()
+	setCoreGuisEnabled(false)
 end
 
 function SpectateController:Cycle(direction: number)

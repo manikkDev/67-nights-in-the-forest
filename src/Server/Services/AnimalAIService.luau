@@ -53,7 +53,7 @@ AnimalAIService.NpcDiedServer = Signal.new()
 
 -- | Configuration | --
 local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
-local DECISION_INTERVAL = 0.25
+local DECISION_INTERVAL = 0.15
 local MIN_SPAWN_DIST = 20
 local MAX_SPAWN_DIST = 60
 -- Bunnies spawn far from campfire, scattered across all levels
@@ -65,7 +65,7 @@ local BEAR_MAX_SPAWN_DIST = 400
 local GAIT_AMPLITUDE = math.rad(35)
 local GAIT_ARM_AMPLITUDE = math.rad(22)
 local IDLE_LERP_SPEED = 6
-local PATH_RECOMPUTE_INTERVAL = 1.5
+local PATH_RECOMPUTE_INTERVAL = 0.6
 local PATH_AGENT_RADIUS = 3.5
 local PATH_AGENT_HEIGHT = 6
 local LUNGE_DISTANCE = 2.5

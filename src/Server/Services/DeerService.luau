@@ -65,7 +65,7 @@ local MAX_CONTINUOUS_STUN = 5 -- max total seconds the deer can stay stunned fro
 local STUN_COOLDOWN = 3 -- seconds after a stun expires before the deer can be re-stunned
 local RETREAT_HOLD_TIME = 3
 -- Pathfinding configuration
-local PATH_RECOMPUTE_INTERVAL = 0.4 -- recompute path every 0.4s for responsive chasing
+local PATH_RECOMPUTE_INTERVAL = 0.3 -- recompute path every 0.3s for responsive chasing
 local PATH_AGENT_RADIUS = 3
 local PATH_AGENT_HEIGHT = 6
 local WAYPOINT_REACHED_DIST = 4 -- distance to consider a waypoint reached
@@ -305,6 +305,7 @@ local function stopAllTracks(stalker)
 			track:Stop(0)
 		end
 	end
+	broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StopAll")
 end
 
 --[[
@@ -330,6 +331,9 @@ local function playTrack(stalker, name: string)
 		end
 	end
 	track:Play(0.15)
+	-- Replicate animation state to all clients so DeerController can drive
+	-- the custom KeyframeSequence player (hash-based IDs don't replicate).
+	broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, name)
 end
 
 --[[
@@ -515,16 +519,17 @@ local function updateStalkerState(stalker)
 	if stalker.state == "Stunned" then
 		if now >= stalker.stunUntil then
 			-- Play StunnedEnd transition animation
-			if not stalker.stunEndPlayed then
-				stalker.stunEndPlayed = true
-				stopAllTracks(stalker)
-				local endTrack = stalker.tracks["StunnedEnd"]
-				if endTrack then
-					endTrack:Play(0.1)
+				if not stalker.stunEndPlayed then
+					stalker.stunEndPlayed = true
+					stopAllTracks(stalker) -- fires AnimationStateChanged "StopAll"
+					local endTrack = stalker.tracks["StunnedEnd"]
+					if endTrack then
+						endTrack:Play(0.1)
+						broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StunnedEnd")
+					end
+					-- Set the lockout ONCE when stun first expires
+					stalker.postStunLockout = now + 0.3
 				end
-				-- Set the lockout ONCE when stun first expires
-				stalker.postStunLockout = now + 0.3
-			end
 			-- Transition after the lockout
 			if stalker.postStunLockout > 0 and now >= stalker.postStunLockout then
 				-- Stop all stun animations before transitioning
@@ -1008,6 +1013,8 @@ local function runStalkerBehavior(stalker)
 				if attackTrack then
 					attackTrack:Play(0.1)
 				end
+				-- Notify clients to play Attack animation in their local custom player
+				broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "Attack")
 				broadcastToAll(DeerService.Client.StalkerContact, stalker.rootPart.Position, stalker.key)
 			end
 		end
@@ -1111,17 +1118,18 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 				local maxRemaining = MAX_CONTINUOUS_STUN - continuousStunTime
 				stalker.stunUntil = now + math.min(refreshDuration, maxRemaining)
 				stalker.stunEndPlayed = false
-				-- Ensure StunnedLoop is playing
-				local loopTrack = stalker.tracks["StunnedLoop"]
-				if loopTrack and not loopTrack.IsPlaying then
-					local startTrack = stalker.tracks["StunnedStart"]
-					if startTrack and startTrack.IsPlaying then
-						-- Let StunnedStart finish naturally
-					else
-						loopTrack:Play(0.1)
+					-- Ensure StunnedLoop is playing
+					local loopTrack = stalker.tracks["StunnedLoop"]
+					if loopTrack and not loopTrack.IsPlaying then
+						local startTrack = stalker.tracks["StunnedStart"]
+						if startTrack and startTrack.IsPlaying then
+							-- Let StunnedStart finish naturally
+						else
+							loopTrack:Play(0.1)
+							broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StunnedLoop")
+						end
 					end
-				end
-				return true
+					return true
 			end
 
 			-- New stun application
@@ -1151,15 +1159,17 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 			stalker.avoidanceDir = nil
 			stalker.avoidanceUntil = 0
 			-- Stop all tracks immediately so Attack/Run don't override StunnedStart
-			stopAllTracks(stalker)
+			stopAllTracks(stalker) -- also fires AnimationStateChanged "StopAll"
 			-- Play StunnedStart directly
 			local startTrack = stalker.tracks["StunnedStart"]
 			if startTrack then
 				startTrack:Play(0.1)
+				broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StunnedStart")
 			else
 				local loopTrack = stalker.tracks["StunnedLoop"]
 				if loopTrack then
 					loopTrack:Play(0.1)
+					broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StunnedLoop")
 				else
 					warn("[DeerService] No stunned animations found for", stalker.key)
 				end

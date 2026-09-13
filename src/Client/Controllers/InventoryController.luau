@@ -691,13 +691,13 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 
 	local eatButton = buildPillButton(
 		"EatButton",
-		"EAT",
+		resourceName == "Bandage" and "USE" or "EAT",
 		Color3.fromRGB(65, 155, 90),
 		Color3.fromRGB(80, 180, 110),
 		actionContainer
 	)
 	eatButton.Position = UDim2.new(0, 0, 0.5, -12)
-	eatButton.Visible = EDIBLE_RESOURCES[resourceName] == true
+	eatButton.Visible = EDIBLE_RESOURCES[resourceName] == true or resourceName == "Bandage"
 
 	local dropButton = buildPillButton(
 		"DropButton",
@@ -1008,6 +1008,13 @@ local function showBag()
 	if isOpen then
 		return
 	end
+	local lifeService = Knit.GetService("PlayerLifeService")
+	if lifeService then
+		local snap = lifeService:GetSnapshot()
+		if snap and type(snap) == "table" and (snap.selfState == "Downed" or snap.selfState == "Eliminated") then
+			return
+		end
+	end
 	isOpen = true
 	if bagGui then
 		bagGui.Enabled = true
@@ -1099,6 +1106,15 @@ local function wireInteractions()
 					warn("[InventoryController] RequestEat failed:", err)
 				end)
 			end)
+		elseif resourceName == "Bandage" then
+			entry.eatButton.MouseButton1Click:Connect(function()
+				local lifeService = Knit.GetService("PlayerLifeService")
+				if lifeService then
+					lifeService:RequestBandageRevive():catch(function(err)
+						warn("[InventoryController] RequestBandageRevive failed:", err)
+					end)
+				end
+			end)
 		end
 
 		entry.dropButton.MouseButton1Click:Connect(function()
@@ -1181,6 +1197,18 @@ local function watchBagTool()
 		onCharacterAdded(localPlayer.Character)
 	end
 	localPlayer.CharacterAdded:Connect(onCharacterAdded)
+
+	-- Close bag if player is downed
+	local lifeService = Knit.GetService("PlayerLifeService")
+	if lifeService then
+		lifeService.LifeStateChanged:Connect(function(payload)
+			if type(payload) == "table" and payload.userId == localPlayer.UserId then
+				if payload.state == "Downed" or payload.state == "Eliminated" then
+					hideBag()
+				end
+			end
+		end)
+	end
 end
 
 -- // INITIALIZATION // --

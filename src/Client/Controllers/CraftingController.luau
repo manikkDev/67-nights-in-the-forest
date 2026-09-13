@@ -948,6 +948,18 @@ function CraftingController:KnitStart()
 			closeMenu()
 		end
 	end)
+	
+	local playerLifeService = Knit.GetService("PlayerLifeService")
+	if playerLifeService then
+		playerLifeService.Client.LifeStateChanged:Connect(function(payload)
+			if type(payload) == "table" and payload.userId == Players.LocalPlayer.UserId then
+				if payload.state == "Downed" or payload.state == "Eliminated" then
+					closeMenu()
+				end
+			end
+		end)
+	end
+
 	craftingService.CraftingStateChanged:Connect(function(snapshot)
 		if typeof(snapshot) == "table" then
 			currentState.tier = snapshot.tier or currentState.tier

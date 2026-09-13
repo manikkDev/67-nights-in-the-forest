@@ -490,6 +490,17 @@ function BuildingController:KnitStart()
 		end
 	end), "Disconnect")
 
+	local playerLifeService = Knit.GetService("PlayerLifeService")
+	if playerLifeService then
+		janitor:Add(playerLifeService.Client.LifeStateChanged:Connect(function(payload)
+			if type(payload) == "table" and payload.userId == Players.LocalPlayer.UserId then
+				if payload.state == "Downed" or payload.state == "Eliminated" then
+					stopPlacement()
+				end
+			end
+		end), "Disconnect")
+	end
+
 	-- Mouse click to place
 	janitor:Add(UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		if gameProcessed or not activeToken then

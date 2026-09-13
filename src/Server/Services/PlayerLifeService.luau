@@ -25,6 +25,7 @@ local PlayerLifeService = Knit.CreateService({
 		TeammateDowned = Knit.CreateSignal(),
 		ReviveCompleted = Knit.CreateSignal(),
 		BodyDragTargetMoved = Knit.CreateSignal(),
+		RequestBodyDragStart = Knit.CreateSignal(),
 	},
 })
 
@@ -130,23 +131,9 @@ local function ensureRevivePrompt(player: Player)
 	prompt.Triggered:Connect(function(reviver)
 		PlayerLifeService:TryRevive(reviver, player)
 	end)
-
-	-- Drag body prompt (no cost, instant, lets teammates reposition body)
-	local dragPrompt = Instance.new("ProximityPrompt")
-	dragPrompt.Name = "DragBodyPrompt"
-	dragPrompt.ActionText = "Drag Body"
-	dragPrompt.ObjectText = player.DisplayName
-	dragPrompt.MaxActivationDistance = RunConfig.BodyDragStartRange
-	dragPrompt.HoldDuration = 0
-	dragPrompt.RequiresLineOfSight = false
-	dragPrompt.KeyboardKeyCode = Enum.KeyCode.F
-	dragPrompt.GamepadKeyCode = Enum.KeyCode.ButtonY
-	dragPrompt.Parent = root
-	dragPrompt.Triggered:Connect(function(dragger)
-		if lifeStates[dragger] == "Alive" and bodyDrags[dragger] == nil then
-			PlayerLifeService.Client.RequestBodyDragStart:Fire(dragger, player)
-		end
-	end)
+	-- Drag body via click (CarryController handles click-to-drag on the client side).
+	-- We no longer create a DragBodyPrompt here; the character's LifeState attribute
+	-- is sufficient for clients to detect a draggable body on click.
 end
 
 local function applyBodyPresentation(player: Player, state: LifeState)
@@ -171,6 +158,10 @@ local function applyBodyPresentation(player: Player, state: LifeState)
 	humanoid.AutoRotate = false
 	humanoid.PlatformStand = true
 	root.Anchored = false
+	-- Tilt the character flat on the ground so they appear lying down.
+	-- We rotate 90° around the X-axis and lift slightly above ground level.
+	local pos = root.Position
+	root.CFrame = CFrame.new(pos.X, pos.Y + 0.5, pos.Z) * CFrame.Angles(math.rad(-90), 0, 0)
 	character:SetAttribute("LifeState", state)
 	ensureRevivePrompt(player)
 end
@@ -406,6 +397,31 @@ function PlayerLifeService:TryRevive(reviver: Player, target: Player): boolean
 		PlayerLifeService.Client.ReviveCompleted:Fire(member, target.UserId, reviver.UserId)
 	end
 	return true
+end
+
+-- | Client Remote: Use Bandage from Inventory to revive nearest downed teammate |
+function PlayerLifeService.Client:RequestBandageRevive(player: Player): boolean
+	if lifeStates[player] ~= "Alive" then return false end
+	if not runStateService or not runStateService:IsActive() or not runStateService:IsMember(player) then return false end
+	local reviverRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not reviverRoot then return false end
+	-- Find nearest downed member within revive range
+	local nearest: Player? = nil
+	local nearestDist = math.huge
+	for _, member in ipairs(runMembers()) do
+		if member ~= player and (lifeStates[member] == "Downed") then
+			local memberRoot = member.Character and member.Character:FindFirstChild("HumanoidRootPart")
+			if memberRoot then
+				local dist = (reviverRoot.Position - memberRoot.Position).Magnitude
+				if dist <= RunConfig.ReviveRange and dist < nearestDist then
+					nearestDist = dist
+					nearest = member
+				end
+			end
+		end
+	end
+	if not nearest then return false end
+	return PlayerLifeService:TryRevive(player, nearest)
 end
 
 function PlayerLifeService.Client:RequestBodyDragStart(player: Player, target: Player): boolean
