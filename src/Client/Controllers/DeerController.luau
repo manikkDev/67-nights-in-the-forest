@@ -346,9 +346,10 @@ function DeerController:KnitStart()
 		onAnimationStateChanged(stalkerKey, trackName)
 	end)
 
-	-- Tick all custom tracks on Heartbeat (client-side Motor6D.Transform writes)
-	heartbeatConnection = RunService.Heartbeat:Connect(function(dt)
-		for _, data in pairs(stalkerData) do
+	-- Tick all custom tracks on Stepped (client-side Motor6D.Transform writes)
+	-- Stepped runs after the internal Animator, allowing us to override Transform successfully.
+	heartbeatConnection = RunService.Stepped:Connect(function(_time, dt)
+		for key, data in pairs(stalkerData) do
 			if data.model.Parent then
 				for _, track in pairs(data.tracks) do
 					if track.isCustom and track._isPlaying then
@@ -357,7 +358,7 @@ function DeerController:KnitStart()
 				end
 			else
 				-- Model was destroyed, clean up
-				stalkerData[data] = nil
+				stalkerData[key] = nil
 			end
 		end
 	end)

@@ -44,6 +44,7 @@ local DeerService = Knit.CreateService({
 		StalkerStunned = Knit.CreateSignal(),
 		StalkerContact = Knit.CreateSignal(),
 		StalkerActive = Knit.CreateSignal(),
+		AnimationStateChanged = Knit.CreateSignal(),
 	},
 })
 
@@ -304,6 +305,7 @@ local function stopAllTracks(stalker)
 			track:Stop(0)
 		end
 	end
+	broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StopAll")
 end
 
 --[[
@@ -336,6 +338,7 @@ local function playTrack(stalker, name: string)
 		end
 	end
 	track:Play(0.15)
+	broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, name)
 end
 
 --[[
@@ -527,6 +530,7 @@ local function updateStalkerState(stalker)
 					local endTrack = stalker.tracks["StunnedEnd"]
 					if endTrack then
 						endTrack:Play(0.1)
+						broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StunnedEnd")
 					end
 					-- Set the lockout ONCE when stun first expires
 					stalker.postStunLockout = now + 0.3
@@ -1014,6 +1018,7 @@ local function runStalkerBehavior(stalker)
 				if attackTrack then
 					attackTrack:Play(0.1)
 				end
+				broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "Attack")
 				broadcastToAll(DeerService.Client.StalkerContact, stalker.rootPart.Position, stalker.key)
 			end
 		end
@@ -1125,6 +1130,7 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 							-- Let StunnedStart finish naturally
 						else
 							loopTrack:Play(0.1)
+							broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StunnedLoop")
 						end
 					end
 					return true
@@ -1162,10 +1168,12 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 			local startTrack = stalker.tracks["StunnedStart"]
 			if startTrack then
 				startTrack:Play(0.1)
+				broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StunnedStart")
 			else
 				local loopTrack = stalker.tracks["StunnedLoop"]
 				if loopTrack then
 					loopTrack:Play(0.1)
+					broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "StunnedLoop")
 				else
 					warn("[DeerService] No stunned animations found for", stalker.key)
 				end
