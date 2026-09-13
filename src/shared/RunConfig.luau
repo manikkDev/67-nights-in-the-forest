@@ -25,14 +25,14 @@ local StudioTest = {
 	ForceNight = false,
 	VerboseFlashlight = false,
 	VerboseStalkers = false,
-	DayDuration = 180,
+	DayDuration = 10,
 	NightDuration = 90,
 }
 
 local Config = {
 	GoalDay = 67,
 
-	DayDuration = 180,
+	DayDuration = 10,
 	NightDuration = 90,
 	DayStartClock = 6,
 	DayEndClock = 18,
