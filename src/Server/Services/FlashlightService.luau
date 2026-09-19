@@ -43,14 +43,10 @@ local FlashlightService = Knit.CreateService({
 
 -- | Configuration | --
 local FLASHLIGHT_TOOL_NAME = "Flashlight"
--- Stun cone is deliberately SHORTER and NARROWER than the visible beam
--- (SpotLight reaches 60-100 studs at 65-85°): the deer must actually be
--- inside the bright core of the beam, not merely inside the light radius.
-local BEAM_MIN_RANGE = 28
-local BEAM_MAX_RANGE = 58
-local BEAM_MIN_ANGLE = 42
-local BEAM_MAX_ANGLE = 60
-local POINT_BLANK_STUN = 4
+local BEAM_MIN_RANGE = 80
+local BEAM_MAX_RANGE = 140
+local BEAM_MIN_ANGLE = 80
+local BEAM_MAX_ANGLE = 110
 local AIM_TIMEOUT = 1.0
 local AIM_UPDATE_MIN_INTERVAL = 0.05
 local CHECK_INTERVAL = 0.15
@@ -236,9 +232,9 @@ local function isBeamAlignedWithStalker(player: Player, stalker: Model): boolean
 	if distance > range or distance < 0.1 then
 		return false
 	end
-	-- Point-blank: the stalker is inside the wielder's space, the beam is
-	-- guaranteed to be on it regardless of exact facing.
-	if distance <= POINT_BLANK_STUN then
+	-- When the deer is very close (within 5 studs), skip the angle check
+	-- — the beam is essentially on top of the deer, so it should always stun
+	if distance <= 5 then
 		return true
 	end
 	local aim = aimDirections[player]
@@ -246,8 +242,10 @@ local function isBeamAlignedWithStalker(player: Player, stalker: Model): boolean
 		aim = handle.CFrame.LookVector
 	end
 	local fullAngle = BEAM_MIN_ANGLE + (BEAM_MAX_ANGLE - BEAM_MIN_ANGLE) * charge
+	-- Widen the angle when the deer is close (within 15 studs) for more reliable stuns
+	local angleBonus = if distance < 15 then math.rad(20) else 0
 	local angle = math.acos(math.clamp(aim.Unit:Dot(toStalker.Unit), -1, 1))
-	if angle > math.rad(fullAngle * 0.5) then
+	if angle > math.rad(fullAngle * 0.5) + angleBonus then
 		return false
 	end
 

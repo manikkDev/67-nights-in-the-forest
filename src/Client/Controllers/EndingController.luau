@@ -46,6 +46,8 @@ local CARD_WIDTH = 180
 local CARD_HEIGHT = 90
 local CARD_GAP = 14
 local CARDS_PER_ROW = 2
+local CARD_ROWS = 4
+local STAT_GRID_HEIGHT = CARD_ROWS * CARD_HEIGHT + (CARD_ROWS - 1) * CARD_GAP
 
 -- | State Management | --
 local endingService: any = nil
@@ -75,24 +77,35 @@ local function formatTime(seconds: number): string
 end
 
 --[[
+    @summary  Resting position of a stat card, centered vertically inside
+              the fixed-height card grid. Rows are offset symmetrically
+              around the frame center so the grid never reserves empty
+              space above or below itself.
+    @param    index  number  -- 1-based card index
+    @returns  UDim2
+]]
+local function statCardRestPosition(index: number): UDim2
+	local col = (index - 1) % CARDS_PER_ROW
+	local row = math.floor((index - 1) / CARDS_PER_ROW)
+	local totalWidth = CARDS_PER_ROW * CARD_WIDTH + (CARDS_PER_ROW - 1) * CARD_GAP
+	return UDim2.fromScale(0.5, 0.5) + UDim2.fromOffset(
+		-totalWidth / 2 + col * (CARD_WIDTH + CARD_GAP),
+		(row - (CARD_ROWS - 1) / 2) * (CARD_HEIGHT + CARD_GAP)
+	)
+end
+
+--[[
     @summary  Build a single stat card.
     @param    parent  Instance
     @param    index   number  -- for layout positioning
     @returns  table   -- { frame, value, label }
 ]]
 local function buildStatCard(parent: Instance, index: number)
-	local col = (index - 1) % CARDS_PER_ROW
-	local row = math.floor((index - 1) / CARDS_PER_ROW)
-
-	local totalWidth = CARDS_PER_ROW * CARD_WIDTH + (CARDS_PER_ROW - 1) * CARD_GAP
-	local startX = -totalWidth / 2
-
 	local card = Instance.new("Frame")
 	card.Name = "StatCard" .. tostring(index)
 	card.AnchorPoint = Vector2.new(0, 0.5)
 	card.Size = UDim2.fromOffset(CARD_WIDTH, CARD_HEIGHT)
-	card.Position = UDim2.fromScale(0.5, 0.5)
-		+ UDim2.fromOffset(startX + col * (CARD_WIDTH + CARD_GAP), row * (CARD_HEIGHT + CARD_GAP))
+	card.Position = statCardRestPosition(index)
 	card.BackgroundColor3 = CARD_BG
 	card.BackgroundTransparency = 1
 	card.BorderSizePixel = 0
@@ -385,8 +398,7 @@ local function buildUi()
 	-- === Stat cards container (victory only) ===
 	local cardsFrame = Instance.new("Frame")
 	cardsFrame.Name = "StatCards"
-	cardsFrame.Size = UDim2.new(1, 0, 0, 0)
-	cardsFrame.AutomaticSize = Enum.AutomaticSize.Y
+	cardsFrame.Size = UDim2.new(1, 0, 0, STAT_GRID_HEIGHT)
 	cardsFrame.BackgroundTransparency = 1
 	cardsFrame.LayoutOrder = 5
 	cardsFrame.Visible = false
@@ -475,14 +487,7 @@ local function resetUi()
 		if card.stroke then card.stroke.Transparency = 1 end
 		local col = (tonumber(string.sub(card.frame.Name, 9)) or 1) - 1
 		local cardIndex = col + 1
-		local c = (cardIndex - 1) % CARDS_PER_ROW
-		local r = math.floor((cardIndex - 1) / CARDS_PER_ROW)
-		local totalWidth = CARDS_PER_ROW * CARD_WIDTH + (CARDS_PER_ROW - 1) * CARD_GAP
-		card.frame.Position = UDim2.fromScale(0.5, 0.5)
-			+ UDim2.fromOffset(
-				-totalWidth / 2 + c * (CARD_WIDTH + CARD_GAP),
-				r * (CARD_HEIGHT + CARD_GAP) + 15
-			)
+		card.frame.Position = statCardRestPosition(cardIndex) + UDim2.fromOffset(0, 15)
 	end
 	if returnButton then
 		returnButton.BackgroundTransparency = 1
@@ -707,12 +712,7 @@ local function showResults(result)
 				card.value.Text = stat.value
 				card.label.Text = stat.label
 				card.value.TextColor3 = Color3.fromRGB(220, 200, 200)
-				local col = (i - 1) % CARDS_PER_ROW
-				local row = math.floor((i - 1) / CARDS_PER_ROW)
-				local totalWidth = CARDS_PER_ROW * CARD_WIDTH + (CARDS_PER_ROW - 1) * CARD_GAP
-				local startX = -totalWidth / 2
-				local restPos = UDim2.fromScale(0.5, 0.5)
-					+ UDim2.fromOffset(startX + col * (CARD_WIDTH + CARD_GAP), row * (CARD_HEIGHT + CARD_GAP))
+				local restPos = statCardRestPosition(i)
 				card.frame.Position = restPos + UDim2.fromOffset(0, 18)
 				task.delay(defeatBaseDelay + (i - 1) * 0.07, function()
 					if not gui or not gui.Enabled then return end
@@ -750,12 +750,7 @@ local function showResults(result)
 		if card then
 			card.value.Text = stat.value
 			card.label.Text = stat.label
-			local col = (i - 1) % CARDS_PER_ROW
-			local row = math.floor((i - 1) / CARDS_PER_ROW)
-			local totalWidth = CARDS_PER_ROW * CARD_WIDTH + (CARDS_PER_ROW - 1) * CARD_GAP
-			local startX = -totalWidth / 2
-			local restPos = UDim2.fromScale(0.5, 0.5)
-				+ UDim2.fromOffset(startX + col * (CARD_WIDTH + CARD_GAP), row * (CARD_HEIGHT + CARD_GAP))
+			local restPos = statCardRestPosition(i)
 			card.frame.Position = restPos + UDim2.fromOffset(0, 15)
 			task.delay(1.1 + (i - 1) * 0.08, function()
 				if not gui or not gui.Enabled then return end
