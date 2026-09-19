@@ -26,6 +26,7 @@ local PlayerLifeService = Knit.CreateService({
 		LifeStateChanged = Knit.CreateSignal(),
 		TeammateDowned = Knit.CreateSignal(),
 		ReviveCompleted = Knit.CreateSignal(),
+		BodyDragTargetMoved = Knit.CreateSignal(),
 		RequestBodyDragStart = Knit.CreateSignal(),
 	},
 })
@@ -46,12 +47,11 @@ type MovementState = {
 type BodyDrag = {
 	target: Player,
 	root: BasePart,
-	dragPart: BasePart,
 	dragTarget: BasePart,
 	targetAttachment: Attachment,
 	bodyAttachment: Attachment,
 	alignPosition: AlignPosition,
-	alignOrientation: AlignOrientation,
+	lastUpdate: number,
 }
 
 type RagdollData = {
@@ -374,7 +374,7 @@ local function stopBodyDrag(dragger: Player)
 	if bodyDraggedBy[entry.target] == dragger then
 		bodyDraggedBy[entry.target] = nil
 	end
-	for _, instance in ipairs({ entry.alignPosition, entry.alignOrientation, entry.bodyAttachment, entry.targetAttachment, entry.dragTarget }) do
+	for _, instance in ipairs({ entry.alignPosition, entry.bodyAttachment, entry.targetAttachment, entry.dragTarget }) do
 		if instance and instance.Parent then
 			instance:Destroy()
 		end
@@ -606,13 +606,6 @@ function PlayerLifeService.Client:RequestBodyDragStart(player: Player, target: P
 		return false
 	end
 	local targetCharacter = target.Character
-	-- Pull from the torso so the ragdoll trails naturally behind the dragger
-	-- instead of being yanked by the invisible root part.
-	local dragPart = targetCharacter
-		and (targetCharacter:FindFirstChild("UpperTorso") or targetCharacter:FindFirstChild("Torso"))
-	if not (dragPart and dragPart:IsA("BasePart")) then
-		dragPart = targetRoot
-	end
 	local dragTarget = Instance.new("Part")
 	dragTarget.Name = "BodyDragTarget_" .. tostring(player.UserId)
 	dragTarget.Size = Vector3.one
@@ -621,48 +614,34 @@ function PlayerLifeService.Client:RequestBodyDragStart(player: Player, target: P
 	dragTarget.CanQuery = false
 	dragTarget.CanTouch = false
 	dragTarget.Anchored = true
-	dragTarget.CFrame = CFrame.new(dragPart.Position)
+	dragTarget.CFrame = targetRoot.CFrame
 	dragTarget.Parent = workspace
 	local targetAttachment = Instance.new("Attachment")
 	targetAttachment.Name = "BodyDragTargetAttachment"
 	targetAttachment.Parent = dragTarget
 	local bodyAttachment = Instance.new("Attachment")
 	bodyAttachment.Name = "BodyDragAttachment"
-	bodyAttachment.Parent = dragPart
+	bodyAttachment.Parent = targetRoot
 	local align = Instance.new("AlignPosition")
 	align.Name = "BodyDragAlignPosition"
 	align.Attachment0 = bodyAttachment
 	align.Attachment1 = targetAttachment
 	align.RigidityEnabled = false
-	align.ApplyAtCenterOfMass = false
+	align.ApplyAtCenterOfMass = true
 	align.Responsiveness = RunConfig.BodyDragResponsiveness
-	align.MaxForce = 1e5
-	align.MaxVelocity = RunConfig.BodyDragMaxVelocity
-	align.Parent = dragPart
-	-- Gently keep the torso lying flat so the body cannot spin upright or
-	-- cartwheel while being dragged; limbs stay free via the ball sockets.
-	local orient = Instance.new("AlignOrientation")
-	orient.Name = "BodyDragAlignOrientation"
-	orient.Mode = Enum.OrientationAlignmentMode.OneAttachment
-	orient.Attachment0 = bodyAttachment
-	orient.CFrame = dragPart.CFrame.Rotation
-	orient.RigidityEnabled = false
-	orient.Responsiveness = 10
-	orient.MaxTorque = 3e4
-	orient.MaxAngularVelocity = 8
-	orient.Parent = dragPart
+	align.MaxForce = 1.25e5
+	align.Parent = targetRoot
 	if targetCharacter then
 		setBodyNetworkOwner(targetCharacter, nil)
 	end
 	bodyDrags[player] = {
 		target = target,
 		root = targetRoot,
-		dragPart = dragPart,
 		dragTarget = dragTarget,
 		targetAttachment = targetAttachment,
 		bodyAttachment = bodyAttachment,
 		alignPosition = align,
-		alignOrientation = orient,
+		lastUpdate = 0,
 	}
 	bodyDraggedBy[target] = player
 	return true
@@ -781,30 +760,29 @@ function PlayerLifeService:KnitStart()
 		ragdollData[player] = nil
 		task.defer(checkTeamLoss)
 	end)
+	PlayerLifeService.Client.BodyDragTargetMoved:Connect(function(player: Player, position: any)
+		if typeof(position) ~= "Vector3" then
+			return
+		end
+		local entry = bodyDrags[player]
+		if not entry then
+			return
+		end
+		local now = os.clock()
+		if now - entry.lastUpdate < RunConfig.BodyDragUpdateInterval then
+			return
+		end
+		local draggerRoot = validateBodyDrag(player, entry.target, RunConfig.BodyDragMaxDistance)
+		if not draggerRoot or (draggerRoot.Position - position).Magnitude > RunConfig.BodyDragMaxDistance then
+			stopBodyDrag(player)
+			return
+		end
+		entry.lastUpdate = now
+		entry.dragTarget.CFrame = CFrame.new(position)
+	end)
+
 	RunService.Heartbeat:Connect(function()
 		cleanupInvalidBodyDrags()
-		-- The drag target is fully server-driven: it trails a fixed distance
-		-- behind the dragger and snaps to the ground, so clients can never
-		-- position a body somewhere invalid or fight over its position.
-		for dragger, entry in pairs(bodyDrags) do
-			local draggerCharacter = dragger.Character
-			local draggerRoot = draggerCharacter and draggerCharacter:FindFirstChild("HumanoidRootPart")
-			if not draggerRoot or not draggerRoot:IsA("BasePart") or not entry.dragTarget.Parent then
-				continue
-			end
-			local behind = draggerRoot.Position - draggerRoot.CFrame.LookVector * RunConfig.BodyDragFollowDistance
-			dragRayParams.FilterDescendantsInstances = { draggerCharacter, entry.root.Parent }
-			local origin = Vector3.new(behind.X, draggerRoot.Position.Y + 5, behind.Z)
-			local hit = workspace:Raycast(origin, Vector3.new(0, -16, 0), dragRayParams)
-			local groundY = if hit then hit.Position.Y else draggerRoot.Position.Y - 3
-			entry.dragTarget.CFrame = CFrame.new(behind.X, groundY + RunConfig.BodyDragLiftHeight, behind.Z)
-			-- Align the flat torso along the drag axis (feet toward the dragger).
-			local back = draggerRoot.CFrame.LookVector * -1
-			if back.Magnitude > 0.01 then
-				entry.alignOrientation.CFrame = CFrame.lookAt(Vector3.zero, Vector3.new(back.X, 0, back.Z).Unit)
-					* CFrame.Angles(math.rad(-90), 0, 0)
-			end
-		end
 		-- Downed/eliminated bodies stay at 1 HP; external heals or regen
 		-- ticks are clamped back so nobody recovers while on the ground.
 		for player, state in pairs(lifeStates) do
