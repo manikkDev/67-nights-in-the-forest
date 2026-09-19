@@ -25,6 +25,7 @@
 local Players = game:GetService("Players")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -211,9 +212,12 @@ end
 ]]
 local function loadProfile(player: Player)
 	local profile = profileStore:LoadProfileAsync(tostring(player.UserId), function(placeId, gameJobId)
-		if player.Parent then
-			player:Kick("Profile released by another server.")
-		end
+		-- Stale session locks are routine in Studio (playtests die without
+		-- releasing) — steal them immediately. In production, ForceLoad
+		-- requests the holding session to release; that session's
+		-- ListenToRelease kicks its copy of the player, so the newest
+		-- join always wins the profile.
+		return if RunService:IsStudio() then "Steal" else "ForceLoad"
 	end)
 
 	if profile then
