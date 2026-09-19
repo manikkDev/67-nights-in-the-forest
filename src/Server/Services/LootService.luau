@@ -88,6 +88,7 @@ local inventoryService: any = nil
 local worldService: any = nil
 local rescueService: any = nil
 local combatService: any = nil
+local playerLifeService: any = nil
 local openedChests: { [string]: boolean } = {}
 local openedCaveChests: { [Player]: { [string]: boolean } } = {}
 local cooldowns: { [Player]: number } = {}
@@ -328,7 +329,7 @@ local function openChest(player: Player, chest: Model)
 	if not runStateService:IsCurrentRun(capturedRunId) then
 		return
 	end
-	if not runStateService:IsActive() or not runStateService:IsMember(player) then
+	if not playerLifeService or not playerLifeService:CanAct(player) then
 		return
 	end
 

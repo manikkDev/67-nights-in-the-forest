@@ -69,6 +69,7 @@ local AXE_TOOL_NAME = "Axe"
 local worldService: any = nil
 local inventoryService: any = nil
 local spawnService: any = nil
+local playerLifeService: any = nil
 local axeTemplate: Tool? = nil
 local treeRegistry: { [Model]: { health: number, part: { Position: Vector3 }, pivot: CFrame, felled: boolean } } = {}
 local chopCooldowns: { [Player]: number } = {}
@@ -443,7 +444,7 @@ end
     @param    player     Player  -- the chopping player
 ]]
 local function tryChop(treeModel: Model, registry, player: Player)
-	if registry.felled then
+	if not playerLifeService or not playerLifeService:CanAct(player) or registry.felled then
 		return
 	end
 
@@ -494,7 +495,7 @@ end
     @param    player    Player  -- the picking player
 ]]
 local function tryPickup(logModel: Model, player: Player): boolean
-	if not logModel.Parent then
+	if not playerLifeService or not playerLifeService:CanAct(player) or not logModel.Parent then
 		return false
 	end
 	if inventoryService and inventoryService:IsModelDragged(logModel) then
@@ -603,6 +604,7 @@ function HarvestService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	inventoryService = Knit.GetService("InventoryService")
 	spawnService = Knit.GetService("SpawnService")
+	playerLifeService = Knit.GetService("PlayerLifeService")
 
 	axeTemplate = buildAxeTool()
 	publishAxeAnimation()

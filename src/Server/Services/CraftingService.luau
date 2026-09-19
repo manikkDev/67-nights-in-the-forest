@@ -49,6 +49,7 @@ local playerDataService: any = nil
 local inventoryService: any = nil
 local worldService: any = nil
 local grinderService: any = nil
+local playerLifeService: any = nil
 
 local benchTier = 1
 local benchModel: Model? = nil
@@ -95,6 +96,9 @@ end
     @returns  boolean
 ]]
 local function isNearBench(player: Player): boolean
+	if not playerLifeService or not playerLifeService:CanAct(player) then
+		return false
+	end
 	local benchPosition = getBenchPosition()
 	local character = player.Character
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
@@ -855,6 +859,7 @@ function CraftingService:KnitStart()
 	inventoryService = Knit.GetService("InventoryService")
 	worldService = Knit.GetService("WorldService")
 	grinderService = Knit.GetService("GrinderService")
+	playerLifeService = Knit.GetService("PlayerLifeService")
 
 	-- The packaged asset fires PackageLink / TextureConfiguration on
 	-- game load before Knit starts.  We can't prevent the initial

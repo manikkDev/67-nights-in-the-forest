@@ -54,6 +54,7 @@ local WEAPON_COOLDOWN = { Axe = 0.6, Spear = 0.9 }
 -- | State Management | --
 local harvestService: any = nil
 local spawnService: any = nil
+local playerLifeService: any = nil
 local spearTemplate: Tool? = nil
 local attackCooldowns: { [Player]: number } = {}
 
@@ -221,6 +222,9 @@ end
     @param    player  Player  -- injected by Knit
 ]]
 function CombatService.Client:RequestAttack(player: Player)
+	if not playerLifeService or not playerLifeService:CanAct(player) then
+		return
+	end
 	local weaponName = getEquippedWeaponName(player)
 	if not weaponName then
 		return
@@ -253,6 +257,7 @@ end
 function CombatService:KnitStart()
 	harvestService = Knit.GetService("HarvestService")
 	spawnService = Knit.GetService("SpawnService")
+	playerLifeService = Knit.GetService("PlayerLifeService")
 
 	spearTemplate = buildSpearTool()
 end

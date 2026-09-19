@@ -318,6 +318,16 @@ function PlayerLifeService:IsAlive(player: Player): boolean
 	return lifeStates[player] == "Alive"
 end
 
+function PlayerLifeService:CanAct(player: Player): boolean
+	if lifeStates[player] ~= "Alive" or not runStateService or not runStateService:IsActive() or not runStateService:IsMember(player) then
+		return false
+	end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	return humanoid ~= nil and humanoid.Health > 0 and root ~= nil and root:IsA("BasePart")
+end
+
 function PlayerLifeService:ApplyDamage(player: Player, amount: number, source: string?): { [string]: any }
 	if typeof(amount) ~= "number" or amount <= 0 or amount ~= amount then
 		return { applied = 0, downed = false }

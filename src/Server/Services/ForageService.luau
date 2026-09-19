@@ -65,6 +65,8 @@ local EAT_HUNGER_RESTORE = {
 local worldService: any = nil
 local inventoryService: any = nil
 local hungerService: any = nil
+local playerLifeService: any = nil
+local runStateService: any = nil
 local treePivots: { CFrame } = {}
 local groundPart: BasePart? = nil
 local groundBounds: { minX: number, maxX: number, minZ: number, maxZ: number }? = nil
@@ -300,7 +302,7 @@ end
     @param    player  Player  -- the picking player
 ]]
 local function tryForagePickup(model: Model, player: Player): boolean
-	if not model.Parent then
+	if not playerLifeService or not playerLifeService:CanAct(player) or not model.Parent then
 		return false
 	end
 	if inventoryService and inventoryService:IsModelDragged(model) then
@@ -399,6 +401,9 @@ end
     @returns  boolean               -- true if eaten successfully
 ]]
 function ForageService.Client:RequestEat(player: Player, resourceName: string): boolean
+	if not playerLifeService or not playerLifeService:CanAct(player) then
+		return false
+	end
 	local restoreAmount = EAT_HUNGER_RESTORE[resourceName]
 	if not restoreAmount then
 		return false
@@ -424,6 +429,8 @@ function ForageService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	inventoryService = Knit.GetService("InventoryService")
 	hungerService = Knit.GetService("HungerService")
+	playerLifeService = Knit.GetService("PlayerLifeService")
+	runStateService = Knit.GetService("RunStateService")
 
 	collectTreePivots()
 	task.delay(1, spawnInitialForage)

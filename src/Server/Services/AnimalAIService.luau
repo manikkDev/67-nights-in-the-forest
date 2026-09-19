@@ -544,21 +544,30 @@ end
     @param    range     number
     @returns  Player?, number?  -- player and distance
 ]]
+local function isPlayerTargetable(player: Player): boolean
+	if player.Parent ~= Players then
+		return false
+	end
+	if spawnService and not spawnService:IsPlayerSpawned(player) then
+		return false
+	end
+	if playerLifeService and not playerLifeService:IsAlive(player) then
+		return false
+	end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+	return humanoid ~= nil and humanoid.Health > 0 and rootPart ~= nil and rootPart:IsA("BasePart")
+end
+
 local function findNearestPlayer(position: Vector3, range: number): (Player?, number?)
 	local nearest: Player? = nil
 	local nearestDist: number? = nil
 	for _, player in ipairs(Players:GetPlayers()) do
-		if spawnService and not spawnService:IsPlayerSpawned(player) then
+		if not isPlayerTargetable(player) then
 			continue
 		end
-		if playerLifeService and not playerLifeService:IsAlive(player) then
-			continue
-		end
-		local character = player.Character
-		local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-		if not rootPart or not rootPart:IsA("BasePart") then
-			continue
-		end
+		local rootPart = (player.Character :: Model):FindFirstChild("HumanoidRootPart") :: BasePart
 		local dist = (rootPart.Position - position).Magnitude
 		if dist <= range and (not nearestDist or dist < nearestDist) then
 			nearest = player
@@ -634,10 +643,7 @@ local function updateState(record)
 		if nearestPlayer and distance then
 			-- Validate current target is still alive.
 			if record.target then
-				local character = (record.target :: Player).Character
-				local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-				if not rootPart or not spawnService or not spawnService:IsPlayerSpawned(record.target) or
-					(playerLifeService and not playerLifeService:IsAlive(record.target)) then
+				if not isPlayerTargetable(record.target) then
 					record.target = nearestPlayer
 				end
 			else
@@ -692,9 +698,16 @@ local function updateState(record)
 	end
 
 	if record.target then
+		if not isPlayerTargetable(record.target) then
+			record.target = nearestPlayer
+			if not nearestPlayer then
+				record.state = "Patrol"
+				return
+			end
+		end
 		local character = (record.target :: Player).Character
 		local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-		if not rootPart or not spawnService or not spawnService:IsPlayerSpawned(record.target) then
+		if not rootPart or not rootPart:IsA("BasePart") then
 			record.state = "Patrol"
 			record.target = nil
 			return
@@ -792,8 +805,8 @@ local function runStateBehavior(record, dt: number)
 				if record.tracks and record.tracks.Attack then
 					record.tracks.Attack:Play()
 				end
-				playerLifeService:ApplyDamage(targetPlayer, config.AttackDamage, record.speciesKey)
-				broadcastToAll(AnimalAIService.Client.NpcAttacked, record.rootPart.Position)
+				playerLifeService:ApplyDamage(targetPlayer, config.AttackDamage, record.key)
+				AnimalAIService.Client.NpcAttacked:Fire(targetPlayer, record.rootPart.Position)
 			end
 		end
 	end
@@ -1102,6 +1115,17 @@ end
 
 -- // INITIALIZATION // --
 
+local function releaseTargetsForPlayer(player: Player)
+	for _, record in pairs(activeNpcs) do
+		if record.target == player and not record.isDead then
+			record.target = nil
+			record.state = "Patrol"
+			record.waypoints = nil
+			record.humanoid:MoveTo(record.rootPart.Position)
+		end
+	end
+end
+
 function AnimalAIService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	timeService = Knit.GetService("TimeService")
@@ -1114,6 +1138,8 @@ function AnimalAIService:KnitStart()
 	local campfireService = Knit.GetService("CampfireService")
 
 	collectSpawnArea()
+	playerLifeService.PlayerDowned:Connect(releaseTargetsForPlayer)
+	playerLifeService.PlayerEliminated:Connect(releaseTargetsForPlayer)
 	runStateService.RunCleaned:Connect(function()
 		AnimalAIService:CleanupAll()
 	end)

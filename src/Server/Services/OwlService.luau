@@ -272,21 +272,31 @@ end
     @summary  Pick a landing position near a random player, not near campfire.
     @returns  Vector3?
 ]]
+local function isHuntablePlayer(player: Player): boolean
+	if player.Parent ~= Players then
+		return false
+	end
+	if spawnService and not spawnService:IsPlayerSpawned(player) then
+		return false
+	end
+	if playerLifeService and not playerLifeService:IsAlive(player) then
+		return false
+	end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+	return humanoid ~= nil and humanoid.Health > 0 and rootPart ~= nil and rootPart:IsA("BasePart")
+		and not (campfireService and campfireService:IsInSafeZone(rootPart.Position))
+end
+
 local function pickLandingPosition(): Vector3?
 	local players = Players:GetPlayers()
 	local valid = {}
 	for _, player in ipairs(players) do
-		if spawnService and not spawnService:IsPlayerSpawned(player) then
+		if not isHuntablePlayer(player) then
 			continue
 		end
-		local character = player.Character
-		local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-		if not rootPart or not rootPart:IsA("BasePart") then
-			continue
-		end
-		if campfireService and campfireService:IsInSafeZone(rootPart.Position) then
-			continue
-		end
+		local rootPart = (player.Character :: Model):FindFirstChild("HumanoidRootPart") :: BasePart
 		table.insert(valid, rootPart.Position)
 	end
 
@@ -484,17 +494,10 @@ local function updateDetection(dt: number)
 
 	local anyMoving = false
 	for _, player in ipairs(Players:GetPlayers()) do
-		if spawnService and not spawnService:IsPlayerSpawned(player) then
+		if not isHuntablePlayer(player) then
 			continue
 		end
-		if playerLifeService and not playerLifeService:IsAlive(player) then
-			continue
-		end
-		local character = player.Character
-		local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-		if not rootPart or not rootPart:IsA("BasePart") then
-			continue
-		end
+		local rootPart = (player.Character :: Model):FindFirstChild("HumanoidRootPart") :: BasePart
 		local dist = (rootPart.Position - owl.rootPart.Position).Magnitude
 		if dist <= DETECTION_RANGE then
 			local velocity = rootPart.AssemblyLinearVelocity
@@ -519,17 +522,10 @@ local function updateDetection(dt: number)
 		-- Find the nearest moving player to chase
 		local nearestDist = math.huge
 		for _, player in ipairs(Players:GetPlayers()) do
-			if spawnService and not spawnService:IsPlayerSpawned(player) then
+			if not isHuntablePlayer(player) then
 				continue
 			end
-			local character = player.Character
-			local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-			if not rootPart or not rootPart:IsA("BasePart") then
-				continue
-			end
-			if campfireService and campfireService:IsInSafeZone(rootPart.Position) then
-				continue
-			end
+			local rootPart = (player.Character :: Model):FindFirstChild("HumanoidRootPart") :: BasePart
 			local dist = (rootPart.Position - owl.rootPart.Position).Magnitude
 			if dist < nearestDist and dist <= DETECTION_RANGE then
 				nearestDist = dist
@@ -554,20 +550,10 @@ local function findHuntableTarget(fromPosition: Vector3): Player?
 	local nearest: Player? = nil
 	local nearestDist = math.huge
 	for _, player in ipairs(Players:GetPlayers()) do
-		if spawnService and not spawnService:IsPlayerSpawned(player) then
+		if not isHuntablePlayer(player) then
 			continue
 		end
-		if playerLifeService and not playerLifeService:IsAlive(player) then
-			continue
-		end
-		local character = player.Character
-		local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-		if not rootPart or not rootPart:IsA("BasePart") then
-			continue
-		end
-		if campfireService and campfireService:IsInSafeZone(rootPart.Position) then
-			continue
-		end
+		local rootPart = (player.Character :: Model):FindFirstChild("HumanoidRootPart") :: BasePart
 		local dist = (rootPart.Position - fromPosition).Magnitude
 		if dist < nearestDist then
 			nearestDist = dist
@@ -601,14 +587,12 @@ local function updateOwlState()
 
 	if owl.state == "Stunned" then
 		if now >= owl.stunUntil then
+			if not owl.target or not isHuntablePlayer(owl.target) then
+				owl.target = findHuntableTarget(owl.rootPart.Position)
+			end
 			if owl.target then
-				local character = owl.target.Character
-				local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-				if rootPart and not (campfireService and campfireService:IsInSafeZone(rootPart.Position)) then
-					owl.state = "Chasing"
-				else
-					enterRetreating()
-				end
+				owl.state = "Chasing"
+				owl.pursuitStartTime = now
 			else
 				enterRetreating()
 			end
@@ -650,15 +634,7 @@ local function updateOwlState()
 	end
 
 	if owl.state == "Chasing" then
-		if owl.target then
-			local character = owl.target.Character
-			local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-			if not rootPart or (campfireService and campfireService:IsInSafeZone(rootPart.Position)) then
-				enterRetreating()
-				return
-			end
-		else
-			-- Lost target, try to find a new one
+		if not owl.target or not isHuntablePlayer(owl.target) then
 			local newTarget = findHuntableTarget(owl.rootPart.Position)
 			if newTarget then
 				owl.target = newTarget
@@ -734,7 +710,7 @@ local function runOwlBehavior(dt: number)
 			if targetPlayer and playerLifeService and playerLifeService:IsAlive(targetPlayer) then
 				local damage = 25 + (timeService and timeService:GetCycleIndex() or 1) * 2
 				playerLifeService:ApplyDamage(targetPlayer, damage, "Owl")
-				broadcastToAll(OwlService.Client.OwlContact, owl.rootPart.Position)
+				OwlService.Client.OwlContact:Fire(targetPlayer, owl.rootPart.Position)
 			end
 		end
 
@@ -875,6 +851,24 @@ end
 
 -- // INITIALIZATION // --
 
+local function releaseTarget(player: Player)
+	if not owl or owl.target ~= player then
+		return
+	end
+	owl.target = nil
+	owl.pursuitStartTime = nil
+	owl.humanoid:MoveTo(owl.rootPart.Position)
+	if owl.state == "Chasing" then
+		local replacement = findHuntableTarget(owl.rootPart.Position)
+		if replacement then
+			owl.target = replacement
+			owl.pursuitStartTime = os.clock()
+		else
+			enterRetreating()
+		end
+	end
+end
+
 function OwlService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	timeService = Knit.GetService("TimeService")
@@ -884,6 +878,8 @@ function OwlService:KnitStart()
 	inventoryService = Knit.GetService("InventoryService")
 	deerService = Knit.GetService("DeerService")
 	playerLifeService = Knit.GetService("PlayerLifeService")
+	playerLifeService.PlayerDowned:Connect(releaseTarget)
+	playerLifeService.PlayerEliminated:Connect(releaseTarget)
 
 	task.delay(3, function()
 		spawnOwl()

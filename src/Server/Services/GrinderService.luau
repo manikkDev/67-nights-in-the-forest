@@ -55,6 +55,7 @@ local GRIND_SOUND_ID = "rbxassetid://9116635756"
 -- | State Management | --
 local runStateService: any = nil
 local inventoryService: any = nil
+local playerLifeService: any = nil
 local grinderModel: Model? = nil
 local grinderPosition: Vector3? = nil
 local grinderPrimaryPart: BasePart? = nil
@@ -319,11 +320,7 @@ local function autoGrindTouched(model: Model)
 	if not player then
 		return
 	end
-	if not runStateService:IsActive() or not runStateService:IsMember(player) then
-		return
-	end
-	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-	if not humanoid or humanoid.Health <= 0 then
+	if not playerLifeService or not playerLifeService:CanAct(player) then
 		return
 	end
 
@@ -475,10 +472,12 @@ isNearGrinder = function(player: Player): boolean
 	if not grinderPosition then
 		return false
 	end
+	if not playerLifeService or not playerLifeService:CanAct(player) then
+		return false
+	end
 	local character = player.Character
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	if not rootPart or not rootPart:IsA("BasePart") or not humanoid or humanoid.Health <= 0 then
+	if not rootPart or not rootPart:IsA("BasePart") then
 		return false
 	end
 	return (rootPart.Position - grinderPosition).Magnitude <= GRIND_RANGE
@@ -631,6 +630,7 @@ end
 function GrinderService:KnitStart()
 	runStateService = Knit.GetService("RunStateService")
 	inventoryService = Knit.GetService("InventoryService")
+	playerLifeService = Knit.GetService("PlayerLifeService")
 
 	runStateService.RunCleaned:Connect(function()
 		if grinderModel and not isManualModel then

@@ -120,6 +120,7 @@ local MUSHROOM_ASSET_NAME = "Mushroom"
 local playerDataService: any = nil
 local worldService: any = nil
 local spawnService: any = nil
+local playerLifeService: any = nil
 local bagTemplate: Tool? = nil
 local flashlightTemplate: Tool? = nil
 local mushroomSource: Model? = nil
@@ -135,6 +136,10 @@ local function getPlayerData(player: Player): any
 		return nil
 	end
 	return playerDataService:GetData(player)
+end
+
+local function canAct(player: Player): boolean
+	return playerLifeService ~= nil and playerLifeService:CanAct(player)
 end
 
 --[[
@@ -781,7 +786,7 @@ end
     @returns  boolean
 ]]
 local function tryPickup(model: Model, player: Player): boolean
-	if not model.Parent then
+	if not canAct(player) or not model.Parent then
 		return false
 	end
 	if isModelDragged(model) then
@@ -831,6 +836,9 @@ end
     @returns  boolean
 ]]
 local function tryDropAll(player: Player): boolean
+	if not canAct(player) then
+		return false
+	end
 	local data = getPlayerData(player)
 	if not data then
 		return false
@@ -894,6 +902,9 @@ end
     @returns  boolean
 ]]
 local function tryDropOne(player: Player): boolean
+	if not canAct(player) then
+		return false
+	end
 	local data = getPlayerData(player)
 	if not data then
 		return false
@@ -1108,7 +1119,7 @@ end
     @returns  boolean
 ]]
 local function tryStartDrag(player: Player, model: Model): boolean
-	if not model or not model:IsA("Model") or not model.Parent then
+	if not canAct(player) or not model or not model:IsA("Model") or not model.Parent then
 		return false
 	end
 
@@ -1263,7 +1274,7 @@ local function cleanupDrags()
 			continue
 		end
 
-		if not hrp or not hrp:IsA("BasePart") or humanoid and humanoid.Health <= 0 then
+		if not hrp or not hrp:IsA("BasePart") or not humanoid or not canAct(player) then
 			table.insert(toStop, player)
 			continue
 		end
@@ -1351,7 +1362,7 @@ end
     @returns  boolean
 ]]
 function InventoryService.Client:RequestDrop(player: Player, resourceName: string, amount: number?): boolean
-	if not resourceName or typeof(resourceName) ~= "string" then
+	if not canAct(player) or not resourceName or typeof(resourceName) ~= "string" then
 		return false
 	end
 	if not table.find(RESOURCE_NAMES, resourceName) then
@@ -1571,6 +1582,7 @@ function InventoryService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 	worldService = Knit.GetService("WorldService")
 	spawnService = Knit.GetService("SpawnService")
+	playerLifeService = Knit.GetService("PlayerLifeService")
 
 	-- Diagnostic: log junk folder discovery
 	local junkFolder = findJunkFolder()
@@ -1631,6 +1643,10 @@ function InventoryService:KnitStart()
 		local position = pos :: Vector3
 		local entry = dragging[player]
 		if not entry then
+			return
+		end
+		if not canAct(player) then
+			stopDrag(player)
 			return
 		end
 		local dragTarget = entry.dragTarget

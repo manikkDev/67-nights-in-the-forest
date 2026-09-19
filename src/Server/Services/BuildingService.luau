@@ -56,6 +56,7 @@ local craftingService: any = nil
 local worldService: any = nil
 local inventoryService: any = nil
 local timeService: any = nil
+local playerLifeService: any = nil
 
 local structures: { [string]: { model: Model, definition: any, ownerUserId: number, placedCycle: number } } = {}
 local placementCooldowns: { [Player]: number } = {}
@@ -329,11 +330,7 @@ local function broadcast(signal, payload)
 end
 
 local function canInteract(player: Player): boolean
-	if not runStateService:IsActive() or not runStateService:IsMember(player) then
-		return false
-	end
-	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-	return humanoid ~= nil and humanoid.Health > 0
+	return playerLifeService ~= nil and playerLifeService:CanAct(player)
 end
 
 --[[
@@ -502,7 +499,7 @@ function BuildingService.Client:RequestPlace(player: Player, tokenId: string, re
 	if typeof(tokenId) ~= "string" or typeof(requestedCFrame) ~= "CFrame" or not isFiniteCFrame(requestedCFrame) then
 		return { ok = false, code = "INVALID_REQUEST" }
 	end
-	if not runStateService:IsActive() or not runStateService:IsMember(player) then
+	if not canInteract(player) then
 		return { ok = false, code = "NOT_ACTIVE" }
 	end
 	if structureCount() >= RunConfig.MaxStructures then
@@ -680,6 +677,7 @@ function BuildingService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	inventoryService = Knit.GetService("InventoryService")
 	timeService = Knit.GetService("TimeService")
+	playerLifeService = Knit.GetService("PlayerLifeService")
 
 	runStateService.RunStarted:Connect(function()
 		structures = {}

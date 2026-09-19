@@ -469,25 +469,32 @@ end
     @param    fromPosition  Vector3  -- the stalker's current position
     @returns  Player?, Vector3?
 ]]
+local function isHuntablePlayer(player: Player): boolean
+	if player.Parent ~= Players then
+		return false
+	end
+	if spawnService and not spawnService:IsPlayerSpawned(player) then
+		return false
+	end
+	if playerLifeService and not playerLifeService:IsAlive(player) then
+		return false
+	end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+	return humanoid ~= nil and humanoid.Health > 0 and rootPart ~= nil and rootPart:IsA("BasePart")
+		and not (campfireService and campfireService:IsInSafeZone(rootPart.Position))
+end
+
 local function findHuntableTarget(fromPosition: Vector3): (Player?, Vector3?)
 	local nearest: Player? = nil
 	local nearestPos: Vector3? = nil
 	local nearestDist = math.huge
 	for _, player in ipairs(Players:GetPlayers()) do
-		if spawnService and not spawnService:IsPlayerSpawned(player) then
+		if not isHuntablePlayer(player) then
 			continue
 		end
-		if playerLifeService and not playerLifeService:IsAlive(player) then
-			continue
-		end
-		local character = player.Character
-		local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-		if not rootPart or not rootPart:IsA("BasePart") then
-			continue
-		end
-		if campfireService and campfireService:IsInSafeZone(rootPart.Position) then
-			continue
-		end
+		local rootPart = (player.Character :: Model):FindFirstChild("HumanoidRootPart") :: BasePart
 		local dist = (rootPart.Position - fromPosition).Magnitude
 		if dist < nearestDist then
 			nearestDist = dist
@@ -542,6 +549,12 @@ local function updateStalkerState(stalker)
 				-- Un-anchor the root part
 				if stalker.rootPart.Anchored then
 					stalker.rootPart.Anchored = false
+				end
+				if stalker.target and not isHuntablePlayer(stalker.target) then
+					stalker.target = nil
+				end
+				if not stalker.target then
+					stalker.target = findHuntableTarget(stalker.rootPart.Position)
 				end
 				stalker.state = if stalker.target then "Pursuing" else "Patrol"
 				stalker.postStunLockout = 0
@@ -629,13 +642,28 @@ local function updateStalkerState(stalker)
 	end
 
 	if stalker.target then
-		local character = (stalker.target :: Player).Character
+		local character = stalker.target.Character
 		local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-		if not rootPart or (campfireService and campfireService:IsInSafeZone(rootPart.Position)) then
+		if rootPart and rootPart:IsA("BasePart") and campfireService and campfireService:IsInSafeZone(rootPart.Position) then
 			stalker.state = "Retreating"
 			stalker.retreatUntil = now + RETREAT_HOLD_TIME
 			stalker.target = nil
 			stalker.pursuitStartTime = nil
+			stalker.waypoints = nil
+			return
+		end
+		if not isHuntablePlayer(stalker.target) then
+			stalker.target = nil
+			stalker.pursuitStartTime = nil
+			stalker.waypoints = nil
+			local replacement = findHuntableTarget(stalker.rootPart.Position)
+			if replacement then
+				stalker.target = replacement
+				stalker.pursuitStartTime = now
+				stalker.state = "Pursuing"
+			else
+				stalker.state = "Patrol"
+			end
 			return
 		end
 		stalker.state = "Pursuing"
@@ -1019,7 +1047,7 @@ local function runStalkerBehavior(stalker)
 					attackTrack:Play(0.1)
 				end
 				broadcastToAll(DeerService.Client.AnimationStateChanged, stalker.key, "Attack")
-				broadcastToAll(DeerService.Client.StalkerContact, stalker.rootPart.Position, stalker.key)
+				DeerService.Client.StalkerContact:Fire(targetPlayer, stalker.rootPart.Position, stalker.key)
 			end
 		end
 	end
@@ -1212,6 +1240,20 @@ end
 
 -- // INITIALIZATION // --
 
+local function releaseTarget(player: Player)
+	for _, stalker in pairs(stalkers) do
+		if stalker.target == player then
+			stalker.target = nil
+			stalker.pursuitStartTime = nil
+			stalker.waypoints = nil
+			stalker.humanoid:MoveTo(stalker.rootPart.Position)
+			if stalker.state == "Pursuing" then
+				stalker.state = "Patrol"
+			end
+		end
+	end
+end
+
 function DeerService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	timeService = Knit.GetService("TimeService")
@@ -1219,6 +1261,8 @@ function DeerService:KnitStart()
 	spawnService = Knit.GetService("SpawnService")
 	playerLifeService = Knit.GetService("PlayerLifeService")
 	worldProgressionService = Knit.GetService("WorldProgressionService")
+	playerLifeService.PlayerDowned:Connect(releaseTarget)
+	playerLifeService.PlayerEliminated:Connect(releaseTarget)
 
 	task.delay(3, function()
 		spawnStalker("Deer")
