@@ -74,8 +74,6 @@ local reviveLocks: { [Player]: boolean } = {}
 local bodyDrags: { [Player]: BodyDrag } = {}
 local bodyDraggedBy: { [Player]: Player } = {}
 local ragdollData: { [Player]: RagdollData } = {}
-local dragRayParams = RaycastParams.new()
-dragRayParams.FilterType = Enum.RaycastFilterType.Exclude
 
 local function runMembers(): { Player }
 	return if runStateService then runStateService:GetMembers() else {}

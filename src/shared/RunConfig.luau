@@ -67,11 +67,7 @@ local Config = {
 	BodyDragStartRange = 12,
 	BodyDragMaxDistance = 28,
 	BodyDragResponsiveness = 35,
-	-- Server-driven drag target: trails this far behind the dragger, lifted
-	-- just above the ground, and can never outrun a sprint.
-	BodyDragFollowDistance = 4.5,
-	BodyDragLiftHeight = 1.4,
-	BodyDragMaxVelocity = 14,
+	BodyDragUpdateInterval = 0.04,
 
 	PlacementGrid = 2,
 	PlacementRotationDegrees = 15,

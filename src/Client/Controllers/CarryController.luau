@@ -44,6 +44,7 @@ local PICKUP_RANGE = 12
 local PICKUP_COOLDOWN = 0.2
 local RAY_LENGTH = 128
 local ITEM_DRAG_MAX_HORIZONTAL_DISTANCE = 20
+local BODY_DRAG_MAX_HORIZONTAL_DISTANCE = 24
 local DRAG_MIN_HEIGHT_FROM_ROOT = -3
 local DRAG_MAX_HEIGHT_FROM_ROOT = 14
 local DRAG_MIN_CAMERA_DEPTH = 6
@@ -429,9 +430,12 @@ local function updateDragTarget()
 	local targetPos = ray.Origin + rayDirection * math.max(distanceAlongRay, DRAG_MIN_CAMERA_DEPTH)
 
 	local rootPosition = rootPart.Position
+	local maxHorizontalDistance = if draggingBodyPlayer
+		then BODY_DRAG_MAX_HORIZONTAL_DISTANCE
+		else ITEM_DRAG_MAX_HORIZONTAL_DISTANCE
 	local horizontalOffset = Vector3.new(targetPos.X - rootPosition.X, 0, targetPos.Z - rootPosition.Z)
-	if horizontalOffset.Magnitude > ITEM_DRAG_MAX_HORIZONTAL_DISTANCE then
-		horizontalOffset = horizontalOffset.Unit * ITEM_DRAG_MAX_HORIZONTAL_DISTANCE
+	if horizontalOffset.Magnitude > maxHorizontalDistance then
+		horizontalOffset = horizontalOffset.Unit * maxHorizontalDistance
 	end
 
 	-- Refresh cached ground height periodically (not every frame).
@@ -453,7 +457,11 @@ local function updateDragTarget()
 
 	lastDragTargetSent = now
 
-	if inventoryService then
+	if draggingBodyPlayer then
+		if lifeService then
+			lifeService.BodyDragTargetMoved:Fire(targetPos)
+		end
+	elseif inventoryService then
 		inventoryService.DragTargetMoved:Fire(targetPos)
 	end
 end
@@ -620,8 +628,26 @@ local function startBodyDrag(model: Model, targetPlayer: Player): boolean
 	draggingModel = model
 	draggingBodyPlayer = targetPlayer
 	draggingResourceName = nil
-	-- The body drag target is server-driven: it trails behind the dragger on
-	-- the ground, so the client only tracks which body is held for the label.
+
+	local targetName = "BodyDragTarget_" .. tostring(localPlayer.UserId)
+	local target = workspace:WaitForChild(targetName, 8)
+	if target and target:IsA("BasePart") then
+		dragTarget = target
+		local camera = workspace.CurrentCamera
+		if not camera then
+			stopDrag()
+			return false
+		end
+		dragCameraDepth = math.clamp(
+			(model:GetPivot().Position - camera.CFrame.Position):Dot(camera.CFrame.LookVector),
+			DRAG_MIN_CAMERA_DEPTH,
+			DRAG_MAX_CAMERA_DEPTH
+		)
+		updateDragTarget()
+	else
+		stopDrag()
+		return false
+	end
 	return true
 end
 
