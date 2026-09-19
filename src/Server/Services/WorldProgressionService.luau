@@ -20,10 +20,6 @@ local campfireService: any = nil
 local boundaryFolder: Folder? = nil
 local boundaryParts: { Part } = {}
 local boundaryTrims: { Part } = {}
--- Permanent outer wall — always present at the actual map boundary so
--- players can never fall off the map edge regardless of campfire level.
-local outerWallFolder: Folder? = nil
-local outerWallParts: { Part } = {}
 local accessRadius = WorldProgressionConfig.GetAccessRadius(1)
 local checkTimer = 0
 
@@ -227,142 +223,6 @@ local function ensureBoundary()
 		trim.Parent = folder
 		table.insert(boundaryTrims, trim)
 	end
-end
-
---[[
-    @summary  Build (or rebuild) the permanent outer wall segments that run
-              exactly along the real map boundary edges as reported by
-              WorldService:GetGroundBounds().  This wall always exists from
-              the start of a run so that even before the campfire reaches
-              level 6, players cannot fall off the world edge.
-]]
-local function createOuterWall()
-	-- Tear down any old outer wall from a previous run.
-	if outerWallFolder and outerWallFolder.Parent then
-		outerWallFolder:Destroy()
-	end
-	table.clear(outerWallParts)
-
-	local bounds = worldService:GetGroundBounds()
-	local groundY = worldService:GetGroundY()
-	if not bounds or not groundY then
-		warn("[WorldProgressionService] createOuterWall: ground bounds not ready, skipping.")
-		return
-	end
-
-	local runtime = runStateService:GetRuntimeFolder()
-	local folder = Instance.new("Folder")
-	folder.Name = "OuterWall"
-	folder.Parent = runtime
-	outerWallFolder = folder
-
-	local height = WorldProgressionConfig.Boundary.Height
-	local thickness = 28  -- thicker than the progression wall for certainty
-	local segCount = WorldProgressionConfig.Boundary.ServerSegments  -- 64
-	local segPerSide = math.floor(segCount / 4)
-
-	-- Exact map edge coordinates from ground bounds.
-	local minX, maxX = bounds.minX, bounds.maxX
-	local minZ, maxZ = bounds.minZ, bounds.maxZ
-	local midX = (minX + maxX) * 0.5
-	local midZ = (minZ + maxZ) * 0.5
-	local spanX = maxX - minX
-	local spanZ = maxZ - minZ
-
-	local wallY = groundY + height * 0.5
-
-	local function makeWallPart(size: Vector3, cf: CFrame)
-		local part = Instance.new("Part")
-		part.Anchored = true
-		part.CanCollide = true
-		part.CanTouch = false
-		part.CanQuery = false
-		part.Transparency = 0
-		part.Material = Enum.Material.SmoothPlastic
-		part.Color = Color3.fromRGB(25, 28, 36)
-		part.CastShadow = false
-		part.Reflectance = 0
-		part.Size = size
-		part.CFrame = cf
-		part.Parent = folder
-		table.insert(outerWallParts, part)
-		-- Neon top trim for visibility
-		local trim = Instance.new("Part")
-		trim.Anchored = true
-		trim.CanCollide = false
-		trim.CanTouch = false
-		trim.CanQuery = false
-		trim.Transparency = 0
-		trim.Material = Enum.Material.Neon
-		trim.Color = Color3.fromRGB(60, 70, 110)
-		trim.CastShadow = false
-		trim.Size = Vector3.new(size.X, 10, thickness + 4)
-		trim.CFrame = CFrame.new(cf.Position.X, groundY + height - 5, cf.Position.Z)
-			* (cf - cf.Position)  -- preserve orientation
-		trim.Parent = folder
-		return part
-	end
-
-	-- North wall (min Z edge) — runs along X at minZ
-	local segLenX = spanX / segPerSide
-	for i = 0, segPerSide - 1 do
-		local cx = minX + (i + 0.5) * segLenX
-		makeWallPart(
-			Vector3.new(segLenX + 4, height, thickness),
-			CFrame.new(cx, wallY, minZ - thickness * 0.5)
-		)
-	end
-	-- South wall (max Z edge)
-	for i = 0, segPerSide - 1 do
-		local cx = minX + (i + 0.5) * segLenX
-		makeWallPart(
-			Vector3.new(segLenX + 4, height, thickness),
-			CFrame.new(cx, wallY, maxZ + thickness * 0.5)
-		)
-	end
-	-- West wall (min X edge) — runs along Z at minX
-	local segLenZ = spanZ / segPerSide
-	for i = 0, segPerSide - 1 do
-		local cz = minZ + (i + 0.5) * segLenZ
-		makeWallPart(
-			Vector3.new(thickness, height, segLenZ + 4),
-			CFrame.new(minX - thickness * 0.5, wallY, cz)
-		)
-	end
-	-- East wall (max X edge)
-	for i = 0, segPerSide - 1 do
-		local cz = minZ + (i + 0.5) * segLenZ
-		makeWallPart(
-			Vector3.new(thickness, height, segLenZ + 4),
-			CFrame.new(maxX + thickness * 0.5, wallY, cz)
-		)
-	end
-	-- Corner blocks to seal all 4 corners with no gaps
-	local cornerSize = Vector3.new(thickness + 4, height, thickness + 4)
-	for _, corner in ipairs({
-		Vector3.new(minX - thickness * 0.5, wallY, minZ - thickness * 0.5),
-		Vector3.new(maxX + thickness * 0.5, wallY, minZ - thickness * 0.5),
-		Vector3.new(minX - thickness * 0.5, wallY, maxZ + thickness * 0.5),
-		Vector3.new(maxX + thickness * 0.5, wallY, maxZ + thickness * 0.5),
-	}) do
-		local part = Instance.new("Part")
-		part.Anchored = true
-		part.CanCollide = true
-		part.CanTouch = false
-		part.CanQuery = false
-		part.Transparency = 0
-		part.Material = Enum.Material.SmoothPlastic
-		part.Color = Color3.fromRGB(25, 28, 36)
-		part.CastShadow = false
-		part.Size = cornerSize
-		part.CFrame = CFrame.new(corner)
-		part.Parent = folder
-		table.insert(outerWallParts, part)
-	end
-	print(string.format(
-		"[WorldProgressionService] createOuterWall: %d segments placed. bounds: X[%.0f,%.0f] Z[%.0f,%.0f]",
-		#outerWallParts, minX, maxX, minZ, maxZ
-	))
 end
 
 local function updateBoundary()
@@ -603,9 +463,8 @@ function WorldProgressionService:KnitStart()
 		-- Relocate buildings FIRST so their reservations are in place
 		-- before facilities and caves are placed
 		relocateBuildings()
-		-- Build the permanent outer wall at the real map edges.
-		-- This is always present so players can never fall off the world.
-		createOuterWall()
+		-- The permanent outer wall is built once by WorldService:CreateOuterWall
+		-- at KnitStart; only the dynamic progression boundary is managed here.
 		boundaryFolder = nil
 		table.clear(boundaryParts)
 		table.clear(boundaryTrims)

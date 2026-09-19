@@ -909,9 +909,18 @@ local function createPosterBoard()
 		boardModel.Parent = boardsFolder
 	else
 		-- Clear any dynamic children from a previous run (SurfaceGui, prompts, etc.)
+		-- BoardGui and the ProximityPrompt live inside BoardPanel, not the model root.
 		for _, child in ipairs(boardModel:GetChildren()) do
-			if child.Name == "BoardGui" or child.Name == "ExclamationIcon" or child:IsA("ProximityPrompt") then
+			if child.Name == "ExclamationIcon" or child:IsA("ProximityPrompt") then
 				child:Destroy()
+			end
+		end
+		local panel = boardModel:FindFirstChild("BoardPanel")
+		if panel then
+			for _, child in ipairs(panel:GetChildren()) do
+				if child.Name == "BoardGui" or child:IsA("ProximityPrompt") then
+					child:Destroy()
+				end
 			end
 		end
 	end

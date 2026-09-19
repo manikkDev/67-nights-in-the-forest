@@ -59,13 +59,23 @@ local services = script.Parent.Services
 
 -- // INITIALIZATION // --
 
+local failedServices: { string } = {}
 for _, module in ipairs(services:GetChildren()) do
 	if module:IsA("ModuleScript") then
 		local ok, err = pcall(require, module)
 		if not ok then
+			table.insert(failedServices, module.Name)
 			warn("[Server] Failed to require service", module.Name, "-", err)
 		end
 	end
+end
+
+-- A missing service leaves every dependent system silently degraded, so
+-- refuse to boot a partial game: surface a single loud startup failure
+-- instead of letting players into a broken server.
+if #failedServices > 0 then
+	error(("[Server] Startup aborted — %d service(s) failed to load: %s")
+		:format(#failedServices, table.concat(failedServices, ", ")))
 end
 
 Knit.Start():andThen(function()

@@ -7,10 +7,11 @@
     Securely routes lobby parties into isolated reserved run servers.
 
     @description
-    Public servers reserve this same place and attach server-authored party
-    metadata. Reserved destinations validate every arrival and wait for both
-    the expected party and their profiles. Studio uses the same interface but
-    returns the local party instead of calling TeleportService.
+    Lobby servers reserve a server in Constants.GAME_PLACE_ID and attach
+    server-authored party metadata. Reserved destinations validate every
+    arrival and wait for both the expected party and their profiles. Studio
+    uses the same interface but returns the local party instead of calling
+    TeleportService.
 ]]
 
 -- // VARIABLES // --
@@ -211,7 +212,7 @@ function SessionRoutingService:RouteParty(partyId: string, hostUserId: number, p
 	end
 
 	local reserveOk, accessCode = pcall(function()
-		return TeleportService:ReserveServerAsync(game.PlaceId)
+		return TeleportService:ReserveServerAsync(Constants.GAME_PLACE_ID)
 	end)
 	if not reserveOk or typeof(accessCode) ~= "string" then
 		warn("[SessionRoutingService] Could not reserve run server:", accessCode)
@@ -226,7 +227,7 @@ function SessionRoutingService:RouteParty(partyId: string, hostUserId: number, p
 	options.ReservedServerAccessCode = accessCode
 	options:SetTeleportData(metadata)
 	local teleportOk, teleportError = pcall(function()
-		TeleportService:TeleportAsync(game.PlaceId, livePlayers, options)
+		TeleportService:TeleportAsync(Constants.GAME_PLACE_ID, livePlayers, options)
 	end)
 	if not teleportOk then
 		for _, player in ipairs(livePlayers) do

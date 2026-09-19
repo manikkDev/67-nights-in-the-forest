@@ -12,6 +12,7 @@
 
 -- | Services | --
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -37,6 +38,9 @@ local animalAIService: any = nil
 local deerService: any = nil
 local owlService: any = nil
 local endingRunId = ""
+-- Return-to-lobby is an acknowledgement: the results stay up until every
+-- connected member clicks (or ResultsDisplaySeconds elapses server-side).
+local returnAcks: { [Player]: boolean } = {}
 
 -- // FUNCTIONS // --
 
@@ -112,6 +116,7 @@ local function onRunEnding(reason: string, data)
 		return
 	end
 	endingRunId = currentRunId
+	returnAcks = {}
 	timeService:Pause()
 	animalAIService:CleanupAll()
 	deerService:ResetForRun()
@@ -166,8 +171,17 @@ function EndingService:KnitStart()
 		if not runStateService:IsMember(player) then
 			return
 		end
+		returnAcks[player] = true
+		-- Clean up once every still-connected member has acknowledged.
+		local allAcked = true
+		for _, member in ipairs(runStateService:GetMembers()) do
+			if member.Parent == Players and not returnAcks[member] then
+				allAcked = false
+				break
+			end
+		end
 		local capturedRunId = endingRunId
-		if runStateService:GetRunId() == capturedRunId then
+		if allAcked and runStateService:GetRunId() == capturedRunId then
 			runStateService:CleanupRun("EARLY_RETURN")
 			endingRunId = ""
 		end
