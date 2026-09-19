@@ -37,6 +37,8 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local NpcConfig = require(ReplicatedStorage.Shared.NpcConfig)
 local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgressionConfig)
+local AssetCatalog = require(ReplicatedStorage.Shared.AssetCatalog)
+local WorldSoundUtil = require(ReplicatedStorage.Shared.WorldSoundUtil)
 local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 
 -- | Objects | --
@@ -80,6 +82,20 @@ local WOLF_MIN_SPAWN_DIST = 150
 local WOLF_MAX_SPAWN_DIST = 250
 local PERSISTENT_TARGET_COUNTS = { Bunny = 8, Bear = 2, WolfModel = 3 }
 local RESPAWN_CHECK_INTERVAL = 10
+
+-- Per-species vocal one-shots. `aggro` plays on entering Chase/Flee,
+-- `attack` on each landed hit, `hurt` on damage taken, `death` on kill.
+local Audio = AssetCatalog.Audio
+local SPECIES_SOUNDS: { [string]: { aggro: string?, attack: string?, hurt: string?, death: string? } } = {
+	Bunny = { aggro = Audio.RabbitSqueak, hurt = Audio.RabbitSqueak, death = Audio.RabbitSqueak },
+	WolfModel = { aggro = Audio.WolfSnarl, attack = Audio.WolfSnarl, hurt = "rbxassetid://9114574294", death = Audio.WolfSnarl },
+	AlphaWolfModel = { aggro = Audio.WolfSnarl, attack = Audio.WolfSnarl, hurt = "rbxassetid://9114574294", death = Audio.WolfSnarl },
+	Bear = { aggro = Audio.BearGrowl, attack = Audio.BearRoar, hurt = "rbxassetid://9117969687", death = Audio.BearRoar },
+	Cultist = { attack = Audio.PlayerHurtAlt, hurt = "rbxassetid://608688324", death = Audio.PlayerHurt },
+	Cultist2 = { attack = Audio.PlayerHurtAlt, hurt = "rbxassetid://608688324", death = Audio.PlayerHurt },
+	RamMonster = { aggro = Audio.DeerGrowl, attack = Audio.DeerGrowl, death = Audio.DeerGrowl },
+}
+local NPC_SOUND_MAX_DISTANCE = 90
 
 -- | State Management | --
 local worldService: any = nil
@@ -468,6 +484,45 @@ local function cleanupRecord(record)
 end
 
 --[[
+    @summary  Play a species vocal at the NPC's position. Per-record,
+              per-kind cooldown keeps rapid state flips from spamming.
+    @param    record  table
+    @param    kind    string  -- aggro | attack | hurt | death
+]]
+local function playSpeciesSound(record, kind: string)
+	local speciesSounds = SPECIES_SOUNDS[record.key]
+	local soundId = speciesSounds and speciesSounds[kind]
+	if not soundId or not record.rootPart then
+		return
+	end
+	local now = os.clock()
+	record.soundCooldowns = record.soundCooldowns or {}
+	local minInterval = if kind == "hurt" then 0.8 elseif kind == "attack" then 0.9 else 1.5
+	if record.soundCooldowns[kind] and now - record.soundCooldowns[kind] < minInterval then
+		return
+	end
+	record.soundCooldowns[kind] = now
+	WorldSoundUtil.playAt(soundId, record.rootPart.Position, {
+		volume = if kind == "aggro" then 0.6 else 0.5,
+		maxDistance = NPC_SOUND_MAX_DISTANCE,
+		pitchJitter = 0.06,
+	})
+end
+
+--[[
+    @summary  Clamp rolloff distances on any Sound embedded in the NPC
+              template (e.g. legacy "damage" sounds with ~11k range).
+    @param    record  table
+]]
+local function sanitizeModelSounds(record)
+	for _, desc in ipairs(record.model:GetDescendants()) do
+		if desc:IsA("Sound") and desc.RollOffMaxDistance > NPC_SOUND_MAX_DISTANCE then
+			desc.RollOffMaxDistance = NPC_SOUND_MAX_DISTANCE
+		end
+	end
+end
+
+--[[
     @summary  Kill an NPC: grant loot, bump stats, ragdoll, then remove
               it after a short delay so the death reads clearly.
     @param    record    table
@@ -478,6 +533,8 @@ local function killNpc(record, attacker: Player?)
 		return
 	end
 	record.isDead = true
+
+	playSpeciesSound(record, "death")
 
 	if attacker then
 		grantLoot(record, attacker)
@@ -525,6 +582,7 @@ local function applyDamageToRecord(record, amount: number, attacker: Player?): (
 	end
 	record.health -= amount
 	flashHit(record.model)
+	playSpeciesSound(record, "hurt")
 
 	local maxHealth = record.config.MaxHealth
 	local healthRatio = math.clamp(record.health / maxHealth, 0, 1)
@@ -632,6 +690,17 @@ end
               an NPC based on its tier, config, and nearby players.
     @param    record  table
 ]]
+--[[
+    @summary  Play the species aggro vocal when an NPC first enters a
+              hostile state (Chase/Attack) from a calm state.
+    @param    record  table
+]]
+local function noteAggro(record)
+	if record.state ~= "Chase" and record.state ~= "Attack" then
+		playSpeciesSound(record, "aggro")
+	end
+end
+
 local function updateState(record)
 	local config = record.config
 
@@ -649,6 +718,7 @@ local function updateState(record)
 			else
 				record.target = nearestPlayer
 			end
+			noteAggro(record)
 			record.state = if distance <= config.AttackRange then "Attack" else "Chase"
 		else
 			-- No players found at all; patrol toward campfire area.
@@ -673,6 +743,7 @@ local function updateState(record)
 				record.target = nearestPlayer
 				record.fleeStartleUntil = os.clock() + 0.2
 				record.fleeZigzagPhase = 0
+				playSpeciesSound(record, "aggro")
 			end
 		elseif record.target and record.state == "Flee" then
 			local character = (record.target :: Player).Character
@@ -728,6 +799,7 @@ local function updateState(record)
 				return
 			end
 		end
+		noteAggro(record)
 		record.target = nearestPlayer
 		record.state = "Chase"
 	else
@@ -805,6 +877,7 @@ local function runStateBehavior(record, dt: number)
 				if record.tracks and record.tracks.Attack then
 					record.tracks.Attack:Play()
 				end
+				playSpeciesSound(record, "attack")
 				playerLifeService:ApplyDamage(targetPlayer, config.AttackDamage, record.key)
 				AnimalAIService.Client.NpcAttacked:Fire(targetPlayer, record.rootPart.Position)
 			end
@@ -914,6 +987,7 @@ function AnimalAIService:SpawnNpc(speciesKey: string, cframe: CFrame, options: {
 	end
 
 	buildAnimationTracks(record)
+	sanitizeModelSounds(record)
 	activeNpcs[model] = record
 	speciesCounts[speciesKey] = (speciesCounts[speciesKey] or 0) + 1
 

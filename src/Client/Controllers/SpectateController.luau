@@ -12,10 +12,12 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ContextActionService = game:GetService("ContextActionService")
 local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
+local UiSoundUtil = require(ReplicatedStorage.Shared.UiSoundUtil)
 
 local SpectateController = Knit.CreateController({ Name = "SpectateController" })
 local janitor = Janitor.new()
@@ -31,13 +33,13 @@ local healthFill: Frame? = nil
 local emptyLabel: TextLabel? = nil
 local teamPanel: Frame? = nil
 local eliminatedBanner: Frame? = nil
+local eyebrowLabel: TextLabel? = nil
+local bannerSubLabel: TextLabel? = nil
 local selfState = "Lobby"
 local memberStates: { [number]: string } = {}
-memberStates = {}
 local targetIndex = 1
 local currentTarget: Player? = nil
 local spectating = false
-local memberNames: { [number]: string } = {}
 
 local function makeButton(parent: Instance, name: string, text: string, position: UDim2): TextButton
 	local button = Instance.new("TextButton")
@@ -80,7 +82,7 @@ local function updateTeamPanel()
 	end
 	local order = 0
 	for _, p in ipairs(Players:GetPlayers()) do
-		if p == localPlayer then continue end
+		if p == localPlayer or memberStates[p.UserId] == nil then continue end
 		order += 1
 		local state = memberStates[p.UserId] or "Lobby"
 		local stateColor = STATE_COLORS[state] or STATE_COLORS.Lobby
@@ -211,9 +213,11 @@ local function buildUi()
 	bannerSub.TextTransparency = 1
 	bannerSub.Parent = banner
 	eliminatedBanner = banner
+	bannerSubLabel = bannerSub
 
 	-- === Top-center status panel (who we're spectating + health) ===
 	local status = Instance.new("Frame")
+	status.Name = "StatusPanel"
 	status.AnchorPoint = Vector2.new(0.5, 0)
 	status.Position = UDim2.new(0.5, 0, 0, 16)
 	status.Size = UDim2.new(0.72, 0, 0, 90)
@@ -234,6 +238,7 @@ local function buildUi()
 	statusStroke.Parent = status
 
 	local eyebrow = Instance.new("TextLabel")
+	eyebrow.Name = "EyebrowLabel"
 	eyebrow.Position = UDim2.fromOffset(16, 10)
 	eyebrow.Size = UDim2.new(1, -32, 0, 18)
 	eyebrow.BackgroundTransparency = 1
@@ -243,6 +248,7 @@ local function buildUi()
 	eyebrow.TextSize = 11
 	eyebrow.TextXAlignment = Enum.TextXAlignment.Left
 	eyebrow.Parent = status
+	eyebrowLabel = eyebrow
 
 	local target = Instance.new("TextLabel")
 	target.Position = UDim2.fromOffset(16, 27)
@@ -374,8 +380,14 @@ local function buildUi()
 	nextBtn.AnchorPoint = Vector2.new(0, 0.5)
 	nextBtn.Size = UDim2.fromOffset(120, 36)
 
-	prevBtn.Activated:Connect(function() SpectateController:Cycle(-1) end)
-	nextBtn.Activated:Connect(function() SpectateController:Cycle(1) end)
+	prevBtn.Activated:Connect(function()
+		UiSoundUtil.playClick()
+		SpectateController:Cycle(-1)
+	end)
+	nextBtn.Activated:Connect(function()
+		UiSoundUtil.playClick()
+		SpectateController:Cycle(1)
+	end)
 end
 
 local function targets(): { Player }
@@ -428,22 +440,46 @@ local function onAction(actionName: string, inputState: Enum.UserInputState): En
 	return Enum.ContextActionResult.Sink
 end
 
-local function setCoreGuisEnabled(enabled: boolean)
+-- Presentation GUIs that stay visible while spectating. Everything else
+-- (inventory HUD, crafting, map, campfire panels, owl warnings, etc.) is
+-- hidden and restored to its exact prior Enabled state on exit, so the
+-- spectate UI can never overlap gameplay HUD elements.
+local SPECTATE_ALLOWED_GUIS: { [string]: boolean } = {
+	SpectateGui = true,
+	LifeStateGui = true,
+	TeammateAlertGui = true,
+	EndingGui = true,
+	IntroGui = true,
+	PhaseIndicator = true,
+	RaidBanner = true,
+}
+local hiddenGuis: { [ScreenGui]: boolean } = {}
+
+local function setGameGuisHidden(hidden: boolean)
 	local playerGui = localPlayer:FindFirstChild("PlayerGui")
-	if not playerGui then return end
-	local guisToToggle = {
-		"CarryBagGui",
-		"HudGui",
-		"HealthBarGui",
-		"HungerGui",
-		"CraftingGui",
-		"StaminaBarGui"
-	}
-	for _, guiName in ipairs(guisToToggle) do
-		local g = playerGui:FindFirstChild(guiName)
-		if g and g:IsA("ScreenGui") then
-			g.Enabled = enabled
+	if not playerGui then
+		return
+	end
+	if hidden then
+		for _, g in ipairs(playerGui:GetChildren()) do
+			if g:IsA("ScreenGui") and not SPECTATE_ALLOWED_GUIS[g.Name] then
+				hiddenGuis[g] = g.Enabled
+				g.Enabled = false
+			end
 		end
+		pcall(function()
+			StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, false)
+		end)
+	else
+		for g, wasEnabled in pairs(hiddenGuis) do
+			if g.Parent then
+				g.Enabled = wasEnabled
+			end
+		end
+		table.clear(hiddenGuis)
+		pcall(function()
+			StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Backpack, true)
+		end)
 	end
 end
 
@@ -458,55 +494,54 @@ local function stopSpectating()
 	ContextActionService:UnbindAction(PREVIOUS_ACTION)
 	if gui then gui.Enabled = false end
 	restoreCamera()
-	setCoreGuisEnabled(true)
+	setGameGuisHidden(false)
 end
 
 local function startSpectating(isDowned: boolean?)
 	buildUi()
 	if spectating then
 		-- Update eyebrow label if state changed (downed → eliminated or vice versa)
-		local statusFrame = gui and gui:FindFirstChild("Frame") -- the top status panel isn't named
-		-- Find eyebrow via traversal
-		if gui then
-			for _, child in ipairs(gui:GetChildren()) do
-				if child:IsA("Frame") and child.Name ~= "EliminatedBanner" and child.Name ~= "NavBar" and child.Name ~= "TeamPanel" and child.Name ~= "TopStrip" then
-					local ey = child:FindFirstChild("TextLabel")
-					if ey and ey.Text:find("SPECTATING") then
-						ey.Text = isDowned and "DOWNED — Watching Teammates" or "SPECTATING"
-					end
-				end
-			end
+		if eyebrowLabel then
+			eyebrowLabel.Text = isDowned and "DOWNED — WATCHING TEAMMATES" or "SPECTATING"
+			eyebrowLabel.TextColor3 = if isDowned
+				then Color3.fromRGB(230, 150, 60)
+				else Color3.fromRGB(140, 152, 170)
 		end
 		updateTarget()
 		return
 	end
 
-	-- Show "ELIMINATED" cinematic banner only for eliminated players (not downed)
+	-- Show the elimination cinematic only for eliminated players (not downed).
+	-- It holds for several seconds before handing over to the spectator HUD so
+	-- the death actually lands instead of flickering past.
 	if not isDowned and eliminatedBanner then
 		local TweenService = game:GetService("TweenService")
+		if bannerSubLabel then
+			bannerSubLabel.Text = "Your body can still be revived by a teammate"
+		end
 		eliminatedBanner.Visible = true
 		eliminatedBanner.BackgroundTransparency = 1
 		for _, desc in ipairs(eliminatedBanner:GetDescendants()) do
 			if desc:IsA("TextLabel") then desc.TextTransparency = 1 end
 			if desc:IsA("UIStroke") then desc.Transparency = 1 end
 		end
-		TweenService:Create(eliminatedBanner, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { BackgroundTransparency = 0.12 }):Play()
+		TweenService:Create(eliminatedBanner, TweenInfo.new(0.6, Enum.EasingStyle.Quad), { BackgroundTransparency = 0.12 }):Play()
 		local stroke = eliminatedBanner:FindFirstChildOfClass("UIStroke")
-		if stroke then TweenService:Create(stroke, TweenInfo.new(0.4), { Transparency = 0.15 }):Play() end
+		if stroke then TweenService:Create(stroke, TweenInfo.new(0.6), { Transparency = 0.15 }):Play() end
 		for _, desc in ipairs(eliminatedBanner:GetDescendants()) do
 			if desc:IsA("TextLabel") then
-				TweenService:Create(desc, TweenInfo.new(0.5, Enum.EasingStyle.Quad), { TextTransparency = 0 }):Play()
+				TweenService:Create(desc, TweenInfo.new(0.7, Enum.EasingStyle.Quad), { TextTransparency = 0 }):Play()
 			end
 		end
-		task.delay(2.5, function()
+		task.delay(6, function()
 			if eliminatedBanner then
-				TweenService:Create(eliminatedBanner, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+				TweenService:Create(eliminatedBanner, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
 				for _, desc in ipairs(eliminatedBanner:GetDescendants()) do
 					if desc:IsA("TextLabel") then
-						TweenService:Create(desc, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
+						TweenService:Create(desc, TweenInfo.new(0.7), { TextTransparency = 1 }):Play()
 					end
 				end
-				task.delay(0.55, function()
+				task.delay(0.85, function()
 					if eliminatedBanner then eliminatedBanner.Visible = false end
 				end)
 			end
@@ -514,18 +549,11 @@ local function startSpectating(isDowned: boolean?)
 	end
 
 	-- Update the eyebrow label based on downed vs eliminated state
-	if gui then
-		for _, child in ipairs(gui:GetChildren()) do
-			if child:IsA("Frame") and child.Name ~= "EliminatedBanner" and child.Name ~= "NavBar" and child.Name ~= "TeamPanel" and child.Name ~= "TopStrip" then
-				local eyebrowLabel = child:FindFirstChild("TextLabel")
-				if eyebrowLabel then
-					eyebrowLabel.Text = isDowned and "DOWNED — Watching Teammates" or "SPECTATING"
-					eyebrowLabel.TextColor3 = if isDowned
-						then Color3.fromRGB(230, 150, 60)
-						else Color3.fromRGB(140, 152, 170)
-				end
-			end
-		end
+	if eyebrowLabel then
+		eyebrowLabel.Text = isDowned and "DOWNED — WATCHING TEAMMATES" or "SPECTATING"
+		eyebrowLabel.TextColor3 = if isDowned
+			then Color3.fromRGB(230, 150, 60)
+			else Color3.fromRGB(140, 152, 170)
 	end
 
 	spectating = true
@@ -535,7 +563,7 @@ local function startSpectating(isDowned: boolean?)
 	ContextActionService:BindAction(PREVIOUS_ACTION, onAction, false, Enum.KeyCode.Q, Enum.KeyCode.ButtonL1, Enum.KeyCode.DPadLeft)
 	updateTarget()
 	updateTeamPanel()
-	setCoreGuisEnabled(false)
+	setGameGuisHidden(true)
 end
 
 function SpectateController:Cycle(direction: number)

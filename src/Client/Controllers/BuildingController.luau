@@ -492,7 +492,7 @@ function BuildingController:KnitStart()
 
 	local playerLifeService = Knit.GetService("PlayerLifeService")
 	if playerLifeService then
-		janitor:Add(playerLifeService.Client.LifeStateChanged:Connect(function(payload)
+		janitor:Add(playerLifeService.LifeStateChanged:Connect(function(payload)
 			if type(payload) == "table" and payload.userId == Players.LocalPlayer.UserId then
 				if payload.state == "Downed" or payload.state == "Eliminated" then
 					stopPlacement()

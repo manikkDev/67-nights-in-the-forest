@@ -80,8 +80,20 @@ end
     @param    data    table
 ]]
 local function finalizeResults(reason: string, data)
-	for _, player in ipairs(runStateService:GetMembers()) do
+	local members = runStateService:GetMembers()
+	-- The defeat screen lists every member's final life state; it is the
+	-- same for all recipients, so build it once and share it.
+	local memberStates = {}
+	for _, member in ipairs(members) do
+		memberStates[tostring(member.UserId)] = {
+			state = playerLifeService:GetLifeState(member),
+			displayName = member.DisplayName,
+		}
+	end
+	for _, player in ipairs(members) do
 		local result = buildPlayerResult(player, reason, data)
+		result.memberStates = memberStates
+		result.memberCount = #members
 		local saved, saveCode = playerDataService:ApplyRunRecords(player, endingRunId, result)
 		result.recordSaved = saved
 		result.recordSaveCode = saveCode

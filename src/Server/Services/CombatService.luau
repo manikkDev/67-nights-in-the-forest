@@ -32,6 +32,8 @@ local CollectionService = game:GetService("CollectionService")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Constants = require(ReplicatedStorage.Shared.Constants)
+local AssetCatalog = require(ReplicatedStorage.Shared.AssetCatalog)
+local WorldSoundUtil = require(ReplicatedStorage.Shared.WorldSoundUtil)
 local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 
 -- | Objects | --
@@ -242,7 +244,13 @@ function CombatService.Client:RequestAttack(player: Player)
 		local handlers = CombatTargetRegistry.Get(target)
 		if handlers then
 			local _killed, immune = handlers.ApplyDamage(WEAPON_DAMAGE[weaponName] or 10, player)
-			broadcastToAll(CombatService.Client.AttackLanded, target:GetPivot().Position, weaponName, immune == true)
+			local hitPosition = target:GetPivot().Position
+			WorldSoundUtil.playAt(AssetCatalog.Audio.MeleeHit, hitPosition, {
+				volume = 0.45,
+				maxDistance = 50,
+				pitchJitter = 0.08,
+			})
+			broadcastToAll(CombatService.Client.AttackLanded, hitPosition, weaponName, immune == true)
 		end
 		return
 	end

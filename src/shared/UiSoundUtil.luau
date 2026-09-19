@@ -78,4 +78,49 @@ function UiSoundUtil.playLevelUp()
 	playFromStart(sound)
 end
 
+--[[
+    @summary  Play a short dramatic sting for urgent alerts
+              (teammate downed, warnings).
+]]
+function UiSoundUtil.playAlert()
+	local sound = getSound("Alert", AssetCatalog.Audio.AlertSting, 0.45)
+	playFromStart(sound)
+end
+
+--[[
+    @summary  Play a result sting for endings.
+    @param    victory  boolean
+]]
+function UiSoundUtil.playSting(victory: boolean)
+	local id = if victory then AssetCatalog.Audio.VictorySting else AssetCatalog.Audio.DefeatSting
+	local sound = getSound(if victory then "VictorySting" else "DefeatSting", id, 0.55)
+	playFromStart(sound)
+end
+
+--[[
+    @summary  Start a looping ambience (e.g. heartbeat while downed).
+              No-op if the named loop is already playing.
+    @param    name     string  -- unique loop key
+    @param    soundId  string
+    @param    volume   number
+]]
+function UiSoundUtil.startLoop(name: string, soundId: string, volume: number)
+	local sound = getSound("Loop_" .. name, soundId, volume)
+	sound.Looped = true
+	if not sound.IsPlaying then
+		sound:Play()
+	end
+end
+
+--[[
+    @summary  Stop a named loop started by startLoop.
+    @param    name  string
+]]
+function UiSoundUtil.stopLoop(name: string)
+	local sound = sounds["Loop_" .. name]
+	if sound then
+		sound:Stop()
+	end
+end
+
 return UiSoundUtil

@@ -34,6 +34,8 @@ local Debris = game:GetService("Debris")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Constants = require(ReplicatedStorage.Shared.Constants)
+local AssetCatalog = require(ReplicatedStorage.Shared.AssetCatalog)
+local WorldSoundUtil = require(ReplicatedStorage.Shared.WorldSoundUtil)
 
 -- | Objects | --
 local HarvestService = Knit.CreateService({
@@ -476,6 +478,11 @@ local function tryChop(treeModel: Model, registry, player: Player)
 
 	registry.health -= 1
 	spawnChopVFX(registry.part.Position)
+	WorldSoundUtil.playAt(AssetCatalog.Audio.WoodChop, registry.part.Position, {
+		volume = 0.5,
+		maxDistance = 50,
+		pitchJitter = 0.07,
+	})
 	HarvestService.Client.TreeChopped:Fire(player, registry.part.Position)
 
 	if registry.health <= 0 then

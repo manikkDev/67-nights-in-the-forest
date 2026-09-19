@@ -951,7 +951,7 @@ function CraftingController:KnitStart()
 	
 	local playerLifeService = Knit.GetService("PlayerLifeService")
 	if playerLifeService then
-		playerLifeService.Client.LifeStateChanged:Connect(function(payload)
+		playerLifeService.LifeStateChanged:Connect(function(payload)
 			if type(payload) == "table" and payload.userId == Players.LocalPlayer.UserId then
 				if payload.state == "Downed" or payload.state == "Eliminated" then
 					closeMenu()

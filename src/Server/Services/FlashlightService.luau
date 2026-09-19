@@ -43,10 +43,14 @@ local FlashlightService = Knit.CreateService({
 
 -- | Configuration | --
 local FLASHLIGHT_TOOL_NAME = "Flashlight"
-local BEAM_MIN_RANGE = 80
-local BEAM_MAX_RANGE = 140
-local BEAM_MIN_ANGLE = 80
-local BEAM_MAX_ANGLE = 110
+-- Stun cone is deliberately SHORTER and NARROWER than the visible beam
+-- (SpotLight reaches 60-100 studs at 65-85°): the deer must actually be
+-- inside the bright core of the beam, not merely inside the light radius.
+local BEAM_MIN_RANGE = 28
+local BEAM_MAX_RANGE = 58
+local BEAM_MIN_ANGLE = 42
+local BEAM_MAX_ANGLE = 60
+local POINT_BLANK_STUN = 4
 local AIM_TIMEOUT = 1.0
 local AIM_UPDATE_MIN_INTERVAL = 0.05
 local CHECK_INTERVAL = 0.15
@@ -57,6 +61,7 @@ local STALKER_MODEL_NAMES = { "Deer", "Ram Monster", "Owl" }
 -- | State Management | --
 local deerService: any = nil
 local owlService: any = nil
+local playerLifeService: any = nil
 local beamActive: { [Player]: boolean } = {}
 local battery: { [Player]: number } = {}
 local aimDirections: { [Player]: Vector3 } = {}
@@ -108,6 +113,31 @@ local function isFlashlightBeamOn(player: Player): boolean
 end
 
 --[[
+    @summary  Write the SpotLight on the server-side tool instance so the
+              beam replicates to every client (not just the wielder) and
+              matches the current battery charge.
+    @param    player   Player
+    @param    enabled  boolean
+]]
+local function applyBeamVisuals(player: Player, enabled: boolean)
+	local character = player.Character
+	local tool = character and character:FindFirstChild(FLASHLIGHT_TOOL_NAME)
+	local handle = tool and tool:FindFirstChild("Handle")
+	local spotLight = handle and handle:FindFirstChildOfClass("SpotLight")
+	if not spotLight then
+		return
+	end
+	spotLight.Enabled = enabled
+	if enabled then
+		local t = math.clamp((battery[player] or 100) / 100, 0, 1)
+		spotLight.Color = Color3.fromRGB(255, 235, 180):Lerp(Color3.fromRGB(255, 190, 70), 1 - t)
+		spotLight.Brightness = 2 + (5 - 2) * t
+		spotLight.Range = 60 + (100 - 60) * t
+		spotLight.Angle = 65 + (85 - 65) * t
+	end
+end
+
+--[[
     @summary  Broadcast the current battery state to the owning player.
     @param    player  Player
 ]]
@@ -121,6 +151,9 @@ local function broadcastBattery(player: Player)
 	end
 
 	lastBroadcastState[player] = { percent = percent, isOn = isOn }
+	if isOn then
+		applyBeamVisuals(player, true)
+	end
 	FlashlightService.Client.BatteryChanged:Fire(player, percent, isOn)
 end
 
@@ -146,12 +179,20 @@ local function updateBatteries(dt: number)
 		end
 
 		local current = battery[player]
-		if isActive and hasFlashlightEquipped(player) then
+		local canUseBeam = playerLifeService == nil or playerLifeService:IsAlive(player)
+		if isActive and (not canUseBeam or not hasFlashlightEquipped(player)) then
+			-- Downed/eliminated players and dropped tools cannot keep the beam on.
+			beamActive[player] = false
+			applyBeamVisuals(player, false)
+			isActive = false
+		end
+		if isActive then
 			current -= BATTERY_DRAIN_PER_SECOND * dt
 			if current <= 0 then
 				current = 0
 				beamActive[player] = false
-				-- Force the client to turn the visual beam off
+				-- Force the visual beam off for every client
+				applyBeamVisuals(player, false)
 				broadcastBattery(player)
 			end
 		else
@@ -195,9 +236,9 @@ local function isBeamAlignedWithStalker(player: Player, stalker: Model): boolean
 	if distance > range or distance < 0.1 then
 		return false
 	end
-	-- When the deer is very close (within 5 studs), skip the angle check
-	-- — the beam is essentially on top of the deer, so it should always stun
-	if distance <= 5 then
+	-- Point-blank: the stalker is inside the wielder's space, the beam is
+	-- guaranteed to be on it regardless of exact facing.
+	if distance <= POINT_BLANK_STUN then
 		return true
 	end
 	local aim = aimDirections[player]
@@ -205,10 +246,8 @@ local function isBeamAlignedWithStalker(player: Player, stalker: Model): boolean
 		aim = handle.CFrame.LookVector
 	end
 	local fullAngle = BEAM_MIN_ANGLE + (BEAM_MAX_ANGLE - BEAM_MIN_ANGLE) * charge
-	-- Widen the angle when the deer is close (within 15 studs) for more reliable stuns
-	local angleBonus = if distance < 15 then math.rad(20) else 0
 	local angle = math.acos(math.clamp(aim.Unit:Dot(toStalker.Unit), -1, 1))
-	if angle > math.rad(fullAngle * 0.5) + angleBonus then
+	if angle > math.rad(fullAngle * 0.5) then
 		return false
 	end
 
@@ -240,7 +279,8 @@ local function checkAllBeams()
 	end
 
 	for player, isActive in pairs(beamActive) do
-		if not isActive or not player.Parent or not hasFlashlightEquipped(player) then
+		if not isActive or not player.Parent or not hasFlashlightEquipped(player)
+			or (playerLifeService and not playerLifeService:IsAlive(player)) then
 			continue
 		end
 		for _, stalkerModel in ipairs(stalkerModels) do
@@ -286,7 +326,9 @@ function FlashlightService.Client:SetBeamActive(player: Player, isActive: boolea
 		return
 	end
 	ensureBattery(player)
-	if isActive and (battery[player] or 0) <= 0 then
+	if isActive and ((battery[player] or 0) <= 0
+		or (playerLifeService and not playerLifeService:IsAlive(player))
+		or not hasFlashlightEquipped(player)) then
 		isActive = false
 	end
 	beamActive[player] = isActive
@@ -294,6 +336,9 @@ function FlashlightService.Client:SetBeamActive(player: Player, isActive: boolea
 		aimDirections[player] = nil
 		aimTimestamps[player] = nil
 	end
+	-- Set the light on the server-side tool so the beam replicates to
+	-- every teammate instead of only existing on the wielder's client.
+	applyBeamVisuals(player, isActive)
 	broadcastBattery(player)
 end
 
@@ -348,6 +393,7 @@ function FlashlightService:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	deerService = Knit.GetService("DeerService")
 	owlService = Knit.GetService("OwlService")
+	playerLifeService = Knit.GetService("PlayerLifeService")
 	RunService.Heartbeat:Connect(onHeartbeat)
 end
 

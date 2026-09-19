@@ -21,6 +21,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
 local RescueConfig = require(ReplicatedStorage.Shared.RescueConfig)
+local UiSoundUtil = require(ReplicatedStorage.Shared.UiSoundUtil)
 -- testtt
 -- gotta wait for money
 
@@ -137,6 +138,7 @@ local function buildMapUi()
 	closeCorner.CornerRadius = UDim.new(1, 0)
 	closeCorner.Parent = closeBtn
 	closeBtn.MouseButton1Click:Connect(function()
+		UiSoundUtil.playClick()
 		screenGui.Enabled = false
 		mapOpen = false
 	end)
@@ -273,6 +275,7 @@ local function buildMapUi()
 			if not rescueService then
 				return
 			end
+			UiSoundUtil.playClick()
 			if trackedRescueId == rescueId then
 				-- Already tracking this kid — untrack instead.
 				rescueService:RequestClearWaypoint()
@@ -596,6 +599,7 @@ local function buildUi()
 	untrackCorner.CornerRadius = UDim.new(1, 0)
 	untrackCorner.Parent = untrackBtn
 	untrackBtn.MouseButton1Click:Connect(function()
+		UiSoundUtil.playClick()
 		if rescueService then
 			rescueService:RequestClearWaypoint()
 		end

@@ -137,6 +137,7 @@ local fireCenter: BasePart? = nil
 local groundPart: BasePart? = nil
 local fireInstance: Fire? = nil
 local pointLight: PointLight? = nil
+local fireSound: Sound? = nil
 local feedCooldowns: { [Player]: number } = {}
 local fuelBroadcastTimer = 0
 local logScanTimer = 0
@@ -363,6 +364,16 @@ local function updateFireVisuals()
 		local targetRange = math.clamp(currentSafeZoneRadius * 1.2, LIGHT_RANGE_MIN, lightMax)
 		pointLight.Range = if isLit then targetRange else 0
 		pointLight.Brightness = if isLit then LIGHT_BRIGHTNESS_MIN + (LIGHT_BRIGHTNESS_MAX - LIGHT_BRIGHTNESS_MIN) * fraction + 0.5 else 0
+	end
+
+	if fireSound then
+		local shouldPlay = isLit and fuel > 0
+		if shouldPlay and not fireSound.IsPlaying then
+			fireSound:Play()
+		elseif not shouldPlay and fireSound.IsPlaying then
+			fireSound:Stop()
+		end
+		fireSound.Volume = if shouldPlay then 0.35 + 0.3 * fraction else 0
 	end
 end
 
@@ -739,6 +750,13 @@ local function setupCampfire()
 	local firePart = bonfire:FindFirstChild("Fire")
 	if firePart and firePart:IsA("BasePart") then
 		fireInstance = firePart:FindFirstChildOfClass("Fire")
+		fireSound = firePart:FindFirstChildOfClass("Sound")
+		if fireSound then
+			fireSound.Looped = true
+			fireSound.RollOffMode = Enum.RollOffMode.InverseTapered
+			fireSound.RollOffMinDistance = 6
+			fireSound.RollOffMaxDistance = 90
+		end
 	end
 
 	for _, descendant in ipairs(bonfire:GetDescendants()) do

@@ -35,6 +35,8 @@ local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local AssetCatalog = require(ReplicatedStorage.Shared.AssetCatalog)
+local WorldSoundUtil = require(ReplicatedStorage.Shared.WorldSoundUtil)
 local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 
 -- | Objects | --
@@ -440,6 +442,28 @@ local function enterFlyingAway(dropFeather: boolean)
 end
 
 --[[
+    @summary  Play an owl vocal at its position with a small cooldown.
+    @param    kind  string  -- hoot | stun
+]]
+local function playOwlSound(kind: string)
+	if not owl or not owl.rootPart then
+		return
+	end
+	local soundId = if kind == "stun" then AssetCatalog.Audio.StunZap else AssetCatalog.Audio.OwlHoot
+	local now = os.clock()
+	owl.soundCooldowns = owl.soundCooldowns or {}
+	if owl.soundCooldowns[kind] and now - owl.soundCooldowns[kind] < 2.5 then
+		return
+	end
+	owl.soundCooldowns[kind] = now
+	WorldSoundUtil.playAt(soundId, owl.rootPart.Position, {
+		volume = if kind == "stun" then 0.7 else 0.65,
+		maxDistance = 110,
+		pitchJitter = 0.05,
+	})
+end
+
+--[[
     @summary  Transition to Chasing — scream and pursue the target.
     @param    target  Player
 ]]
@@ -451,6 +475,7 @@ local function enterChasing(target: Player)
 	owl.target = target
 	owl.pursuitStartTime = os.clock()
 	owl.detectionMeter = 0
+	playOwlSound("hoot")
 	broadcastToAll(OwlService.Client.OwlScream, owl.rootPart.Position)
 end
 
@@ -709,6 +734,7 @@ local function runOwlBehavior(dt: number)
 			local targetPlayer = owl.target :: Player?
 			if targetPlayer and playerLifeService and playerLifeService:IsAlive(targetPlayer) then
 				local damage = 25 + (timeService and timeService:GetCycleIndex() or 1) * 2
+				playOwlSound("hoot")
 				playerLifeService:ApplyDamage(targetPlayer, damage, "Owl")
 				OwlService.Client.OwlContact:Fire(targetPlayer, owl.rootPart.Position)
 			end
@@ -844,6 +870,7 @@ function OwlService:ApplyFlashlightStun(model: Model, player: Player): boolean
 	owl.humanoid.WalkSpeed = 0
 	stopAllTracks(owl)
 	playTrack(owl, "Idle")
+	playOwlSound("stun")
 
 	broadcastToAll(OwlService.Client.OwlStunned, owl.rootPart.Position, duration)
 	return true

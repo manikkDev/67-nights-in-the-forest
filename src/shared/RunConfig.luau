@@ -66,8 +66,12 @@ local Config = {
 	ReviveGracePeriod = 3,
 	BodyDragStartRange = 12,
 	BodyDragMaxDistance = 28,
-	BodyDragUpdateInterval = 0.04,
 	BodyDragResponsiveness = 35,
+	-- Server-driven drag target: trails this far behind the dragger, lifted
+	-- just above the ground, and can never outrun a sprint.
+	BodyDragFollowDistance = 4.5,
+	BodyDragLiftHeight = 1.4,
+	BodyDragMaxVelocity = 14,
 
 	PlacementGrid = 2,
 	PlacementRotationDegrees = 15,
@@ -77,7 +81,7 @@ local Config = {
 	CampBuildRadius = 110,
 	MaxStructures = 48,
 
-	ResultsDisplaySeconds = 12,
+	ResultsDisplaySeconds = 18,
 	ReplayVoteSeconds = 30,
 	ReplayRequestCooldown = 1.5,
 	EarlyReturnCooldown = 1.5,

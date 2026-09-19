@@ -17,6 +17,7 @@ local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local UiSoundUtil = require(ReplicatedStorage.Shared.UiSoundUtil)
 
 -- | Objects | --
 local EndingController = Knit.CreateController({
@@ -437,6 +438,7 @@ local function buildUi()
 		}):Play()
 	end)
 	button.Activated:Connect(function()
+		UiSoundUtil.playClick()
 		if endingService then
 			endingService.RequestEarlyReturn:Fire()
 		end
@@ -508,6 +510,7 @@ local function showEnding(payload)
 	isVictory = payload.victory == true
 	gui.Enabled = true
 	resetUi()
+	UiSoundUtil.playSting(isVictory)
 
 	-- Backdrop tint differs per outcome
 	backdrop.BackgroundColor3 = if isVictory then BACKDROP_COLOR else Color3.fromRGB(8, 2, 2)
@@ -697,7 +700,7 @@ local function showResults(result)
 		if cardContainer then
 			cardContainer.Visible = true
 		end
-		local defeatBaseDelay = 1.2 + math.max(1, #(result.memberStates or {})) * 0.14 + 0.2
+		local defeatBaseDelay = 1.2 + math.max(1, result.memberCount or 1) * 0.14 + 0.2
 		for i, stat in ipairs(stats) do
 			local card = statCards[i]
 			if card then

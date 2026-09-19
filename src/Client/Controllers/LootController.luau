@@ -27,6 +27,7 @@ local Debris = game:GetService("Debris")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local UiSoundUtil = require(ReplicatedStorage.Shared.UiSoundUtil)
 
 -- | Objects | --
 local LootController = Knit.CreateController({
@@ -369,6 +370,7 @@ local function showLootPanel(position: Vector3, tier: string, granted: { [string
 
 	-- Close button handler.
 	closeBtn.Activated:Connect(function()
+		UiSoundUtil.playClick()
 		LootController:DismissPanel()
 	end)
 end

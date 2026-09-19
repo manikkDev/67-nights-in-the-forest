@@ -44,7 +44,6 @@ local PICKUP_RANGE = 12
 local PICKUP_COOLDOWN = 0.2
 local RAY_LENGTH = 128
 local ITEM_DRAG_MAX_HORIZONTAL_DISTANCE = 20
-local BODY_DRAG_MAX_HORIZONTAL_DISTANCE = 24
 local DRAG_MIN_HEIGHT_FROM_ROOT = -3
 local DRAG_MAX_HEIGHT_FROM_ROOT = 14
 local DRAG_MIN_CAMERA_DEPTH = 6
@@ -431,9 +430,8 @@ local function updateDragTarget()
 
 	local rootPosition = rootPart.Position
 	local horizontalOffset = Vector3.new(targetPos.X - rootPosition.X, 0, targetPos.Z - rootPosition.Z)
-	local maxHorizontalDistance = if draggingBodyPlayer then BODY_DRAG_MAX_HORIZONTAL_DISTANCE else ITEM_DRAG_MAX_HORIZONTAL_DISTANCE
-	if horizontalOffset.Magnitude > maxHorizontalDistance then
-		horizontalOffset = horizontalOffset.Unit * maxHorizontalDistance
+	if horizontalOffset.Magnitude > ITEM_DRAG_MAX_HORIZONTAL_DISTANCE then
+		horizontalOffset = horizontalOffset.Unit * ITEM_DRAG_MAX_HORIZONTAL_DISTANCE
 	end
 
 	-- Refresh cached ground height periodically (not every frame).
@@ -455,9 +453,7 @@ local function updateDragTarget()
 
 	lastDragTargetSent = now
 
-	if draggingBodyPlayer then
-		if lifeService then lifeService.BodyDragTargetMoved:Fire(targetPos) end
-	elseif inventoryService then
+	if inventoryService then
 		inventoryService.DragTargetMoved:Fire(targetPos)
 	end
 end
@@ -624,24 +620,9 @@ local function startBodyDrag(model: Model, targetPlayer: Player): boolean
 	draggingModel = model
 	draggingBodyPlayer = targetPlayer
 	draggingResourceName = nil
-	local target = workspace:WaitForChild("BodyDragTarget_" .. tostring(localPlayer.UserId), 8)
-	if target and target:IsA("BasePart") then
-		dragTarget = target
-		local camera = workspace.CurrentCamera
-		if not camera then
-			stopDrag()
-			return false
-		end
-		dragCameraDepth = math.clamp(
-			(model:GetPivot().Position - camera.CFrame.Position):Dot(camera.CFrame.LookVector),
-			DRAG_MIN_CAMERA_DEPTH,
-			DRAG_MAX_CAMERA_DEPTH
-		)
-		updateDragTarget()
-		return true
-	end
-	stopDrag()
-	return false
+	-- The body drag target is server-driven: it trails behind the dragger on
+	-- the ground, so the client only tracks which body is held for the label.
+	return true
 end
 
 --[[

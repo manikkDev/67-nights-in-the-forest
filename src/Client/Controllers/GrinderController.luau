@@ -25,6 +25,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
 local AssetCatalog = require(ReplicatedStorage.Shared.AssetCatalog)
+local UiSoundUtil = require(ReplicatedStorage.Shared.UiSoundUtil)
 
 -- | Objects | --
 local GrinderController = Knit.CreateController({
@@ -119,6 +120,7 @@ local function buildUi()
 	closeCorner.CornerRadius = UDim.new(0, 8)
 	closeCorner.Parent = close
 	close.Activated:Connect(function()
+		UiSoundUtil.playClick()
 		screenGui.Enabled = false
 	end)
 
@@ -140,6 +142,7 @@ local function buildUi()
 	grindAllCorner.CornerRadius = UDim.new(0, 8)
 	grindAllCorner.Parent = grindAll
 	grindAll.Activated:Connect(function()
+		UiSoundUtil.playClick()
 		if grinderService then
 			grinderService:GrindAll():andThen(function()
 				refreshList()
@@ -219,6 +222,7 @@ refreshList = function()
 				corner.CornerRadius = UDim.new(0, 8)
 				corner.Parent = row
 				row.Activated:Connect(function()
+					UiSoundUtil.playClick()
 					if grinderService then
 						grinderService:GrindItem(junkId):andThen(function()
 							refreshList()

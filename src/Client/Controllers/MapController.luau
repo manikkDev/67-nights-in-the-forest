@@ -29,6 +29,7 @@ local TweenService = game:GetService("TweenService")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
+local UiSoundUtil = require(ReplicatedStorage.Shared.UiSoundUtil)
 
 -- | Objects | --
 local MapController = Knit.CreateController({
@@ -522,6 +523,7 @@ local function createLegendEntry(parent: Instance, order: number, entry: LegendE
 
 	local isActive = false
 	row.MouseButton1Click:Connect(function()
+		UiSoundUtil.playClick()
 		isActive = not isActive
 		row:SetAttribute("Active", isActive)
 		if isActive then
@@ -959,6 +961,7 @@ function buildGui()
 	closeCorner.CornerRadius = UDim.new(1, 0)
 	closeCorner.Parent = closeBtn
 	closeBtn.MouseButton1Click:Connect(function()
+		UiSoundUtil.playClick()
 		closeMap()
 	end)
 
@@ -1153,6 +1156,7 @@ function buildMapIcon()
 		TweenService:Create(iconBtn, TweenInfo.new(0.12), { BackgroundColor3 = Color3.fromRGB(50, 38, 28), Size = UDim2.fromOffset(56, 56) }):Play()
 	end)
 	iconBtn.MouseButton1Click:Connect(function()
+		UiSoundUtil.playClick()
 		if mapService then
 			mapService:GetMapData():andThen(function(data)
 				if typeof(data) == "table" then

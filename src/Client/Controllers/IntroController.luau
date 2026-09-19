@@ -28,6 +28,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
 local IntroAssets = require(ReplicatedStorage.Shared.IntroAssets)
 local Constants = require(ReplicatedStorage.Shared.Constants)
+local UiSoundUtil = require(ReplicatedStorage.Shared.UiSoundUtil)
 
 -- | Objects | --
 local IntroController = Knit.CreateController({
@@ -882,6 +883,7 @@ function IntroController:KnitStart()
 		local play = titleScreen:FindFirstChild("PlayButton")
 		if play then
 			play.MouseButton1Click:Connect(function()
+				UiSoundUtil.playClick()
 				hideTitleScreen(true)
 			end)
 		end
@@ -889,6 +891,7 @@ function IntroController:KnitStart()
 
 	if createButton then
 		createButton.MouseButton1Click:Connect(function()
+			UiSoundUtil.playClick()
 			if (flowState == "Countdown" or flowState == "Waiting") and sessionSnapshot and sessionSnapshot.isHost == true then
 				matchFlow.RequestStart:Fire()
 			end
@@ -896,6 +899,7 @@ function IntroController:KnitStart()
 	end
 
 	local function requestLeave()
+		UiSoundUtil.playClick()
 		if flowState == "Waiting" or flowState == "Countdown" then
 			matchFlow.RequestLeave:Fire()
 		end
@@ -915,6 +919,7 @@ function IntroController:KnitStart()
 			if (flowState ~= "Countdown" and flowState ~= "Waiting") or not sessionSnapshot or sessionSnapshot.isHost ~= true then
 				return
 			end
+			UiSoundUtil.playClick()
 			selectedSize = i
 			updateSizeButtons()
 			matchFlow.RequestSetCapacity:Fire(i)

@@ -29,6 +29,8 @@ local Debris = game:GetService("Debris")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
+local AssetCatalog = require(ReplicatedStorage.Shared.AssetCatalog)
+local WorldSoundUtil = require(ReplicatedStorage.Shared.WorldSoundUtil)
 
 -- | Objects | --
 local LootService = Knit.CreateService({
@@ -46,7 +48,7 @@ local GOLD_CHEST_COUNT = 2
 local LANDMARK_NAMES = { "cabin", "Hunters Lodge", "Tower", "Treehouse", "Crashed Plane", "modern-house" }
 
 -- Chest open sound (wooden chest open/close SFX from Creator Store).
-local CHEST_OPEN_SOUND_ID = "rbxassetid://9120873624"
+local CHEST_OPEN_SOUND_ID = AssetCatalog.Audio.ChestOpen
 
 local LOOT_TABLES = {
 	Basic = {
@@ -187,23 +189,7 @@ end
     @param    position  Vector3
 ]]
 local function playChestSound(position: Vector3)
-	local soundPart = Instance.new("Part")
-	soundPart.Anchored = true
-	soundPart.CanCollide = false
-	soundPart.CanQuery = false
-	soundPart.CanTouch = false
-	soundPart.Transparency = 1
-	soundPart.Size = Vector3.new(0.2, 0.2, 0.2)
-	soundPart.Position = position
-	soundPart.Parent = workspace
-
-	local sound = Instance.new("Sound")
-	sound.SoundId = CHEST_OPEN_SOUND_ID
-	sound.Volume = 1
-	sound.Parent = soundPart
-	sound:Play()
-
-	Debris:AddItem(soundPart, 3)
+	WorldSoundUtil.playAt(CHEST_OPEN_SOUND_ID, position, { volume = 0.9, maxDistance = 70 })
 end
 
 --[[
@@ -518,6 +504,7 @@ function LootService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	rescueService = Knit.GetService("RescueService")
 	combatService = Knit.GetService("CombatService")
+	playerLifeService = Knit.GetService("PlayerLifeService")
 
 	runStateService.RunStarted:Connect(function(runId)
 		spawnChests()

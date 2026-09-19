@@ -82,6 +82,11 @@ local function tickPlayer(player: Player, dt: number)
 	if spawnService and not spawnService:IsPlayerSpawned(player) then
 		return
 	end
+	-- Downed/eliminated bodies do not burn hunger and cannot eat; starving
+	-- them to 0 while downed would guarantee a death spiral after revive.
+	if playerLifeService and not playerLifeService:IsAlive(player) then
+		return
+	end
 	local data = playerDataService:GetData(player)
 	if not data then
 		return

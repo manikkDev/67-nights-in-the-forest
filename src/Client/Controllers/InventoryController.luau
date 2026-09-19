@@ -30,6 +30,7 @@ local UserInputService = game:GetService("UserInputService")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
+local UiSoundUtil = require(ReplicatedStorage.Shared.UiSoundUtil)
 
 -- | Objects | --
 local InventoryController = Knit.CreateController({
@@ -1089,6 +1090,7 @@ local function wireInteractions()
 	local dropAllButton = dropAllContainer and dropAllContainer:FindFirstChild("DropAllButton")
 	if dropAllButton and dropAllButton:IsA("TextButton") then
 		dropAllButton.MouseButton1Click:Connect(function()
+			UiSoundUtil.playClick()
 			inventoryService:RequestDropAll():catch(function(err)
 				warn("[InventoryController] RequestDropAll failed:", err)
 			end)
@@ -1098,6 +1100,7 @@ local function wireInteractions()
 	for resourceName, entry in pairs(rowEntries) do
 		if EDIBLE_RESOURCES[resourceName] then
 			entry.eatButton.MouseButton1Click:Connect(function()
+				UiSoundUtil.playClick()
 				forageService:RequestEat(resourceName):andThen(function(ate)
 					if not ate then
 						warn("[InventoryController] RequestEat did not consume", resourceName)
@@ -1108,6 +1111,7 @@ local function wireInteractions()
 			end)
 		elseif resourceName == "Bandage" then
 			entry.eatButton.MouseButton1Click:Connect(function()
+				UiSoundUtil.playClick()
 				local lifeService = Knit.GetService("PlayerLifeService")
 				if lifeService then
 					lifeService:RequestBandageRevive():catch(function(err)
@@ -1118,6 +1122,7 @@ local function wireInteractions()
 		end
 
 		entry.dropButton.MouseButton1Click:Connect(function()
+			UiSoundUtil.playClick()
 			inventoryService:RequestDrop(resourceName, 1):catch(function(err)
 				warn("[InventoryController] RequestDrop failed:", err)
 			end)

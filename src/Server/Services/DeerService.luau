@@ -35,6 +35,8 @@ local _Debris = game:GetService("Debris")
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local NpcConfig = require(ReplicatedStorage.Shared.NpcConfig)
+local AssetCatalog = require(ReplicatedStorage.Shared.AssetCatalog)
+local WorldSoundUtil = require(ReplicatedStorage.Shared.WorldSoundUtil)
 local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 
 -- | Objects | --
@@ -464,6 +466,35 @@ local function spawnStalker(key: string)
 end
 
 --[[
+    @summary  Play a stalker vocal at its position with a per-stalker
+              cooldown so rapid state flips don't spam audio.
+    @param    stalker  table
+    @param    kind     string  -- aggro | attack | stun
+]]
+local function playStalkerSound(stalker, kind: string)
+	if not stalker.rootPart then
+		return
+	end
+	local ids = {
+		aggro = AssetCatalog.Audio.DeerGrowl,
+		attack = AssetCatalog.Audio.DeerGrowl,
+		stun = AssetCatalog.Audio.StunZap,
+	}
+	local minInterval = if kind == "attack" then 1.2 else 2.0
+	local now = os.clock()
+	stalker.soundCooldowns = stalker.soundCooldowns or {}
+	if stalker.soundCooldowns[kind] and now - stalker.soundCooldowns[kind] < minInterval then
+		return
+	end
+	stalker.soundCooldowns[kind] = now
+	WorldSoundUtil.playAt(ids[kind], stalker.rootPart.Position, {
+		volume = if kind == "stun" then 0.7 else 0.65,
+		maxDistance = 110,
+		pitchJitter = if kind == "stun" then 0.03 else 0.07,
+	})
+end
+
+--[[
     @summary  Pick the nearest in-game player who is currently outside
               the campfire's safe zone.
     @param    fromPosition  Vector3  -- the stalker's current position
@@ -661,6 +692,7 @@ local function updateStalkerState(stalker)
 				stalker.target = replacement
 				stalker.pursuitStartTime = now
 				stalker.state = "Pursuing"
+				playStalkerSound(stalker, "aggro")
 			else
 				stalker.state = "Patrol"
 			end
@@ -675,6 +707,7 @@ local function updateStalkerState(stalker)
 		stalker.target = target
 		stalker.pursuitStartTime = now
 		stalker.state = "Pursuing"
+		playStalkerSound(stalker, "aggro")
 	else
 		stalker.state = "Patrol"
 	end
@@ -1034,6 +1067,7 @@ local function runStalkerBehavior(stalker)
 			stalker.attackUntil = now + ATTACK_LOCKOUT
 			local targetPlayer = stalker.target :: Player?
 			if targetPlayer and playerLifeService and playerLifeService:IsAlive(targetPlayer) then
+				playStalkerSound(stalker, "attack")
 				playerLifeService:ApplyDamage(targetPlayer, stalker.def.AttackDamage, stalker.key)
 				-- Stop only Walk/Run (not all tracks) to avoid nuking Attack
 				if stalker.tracks.Walk and stalker.tracks.Walk.IsPlaying then
@@ -1180,6 +1214,7 @@ function DeerService:ApplyFlashlightStun(model: Model, player: Player): boolean
 			stalker.stunUntil = now + duration
 			stalker.stunStartTime = now
 			stalker.humanoid.WalkSpeed = 0
+			playStalkerSound(stalker, "stun")
 			stalker.stunEndPlayed = false
 			-- Reset pathfinding state so stale waypoints don't interfere after recovery
 			stalker.waypoints = nil

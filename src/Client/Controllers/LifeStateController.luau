@@ -16,6 +16,8 @@ local RunService = game:GetService("RunService")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
+local AssetCatalog = require(ReplicatedStorage.Shared.AssetCatalog)
+local UiSoundUtil = require(ReplicatedStorage.Shared.UiSoundUtil)
 
 local LifeStateController = Knit.CreateController({ Name = "LifeStateController" })
 local janitor = Janitor.new()
@@ -30,6 +32,10 @@ local notifLabel: TextLabel? = nil
 local notifJanitor = Janitor.new()
 local selfState = "Lobby"
 local bleedOutAt = 0
+local memberStates: { [number]: string } = {}
+local bodyMarkers: { [number]: BillboardGui } = {}
+local markerDistanceLabels: { [number]: TextLabel } = {}
+local markerRefresh = 0
 
 local function buildUi()
 	if gui then return end
@@ -46,7 +52,9 @@ local function buildUi()
 	local panel = Instance.new("Frame")
 	panel.Name = "DownedCard"
 	panel.AnchorPoint = Vector2.new(0.5, 1)
-	panel.Position = UDim2.new(0.5, 0, 1, -24)
+	-- Raised above the SpectateGui bottom nav bar (which occupies the
+	-- bottom ~60 px) so the two never overlap while spectating downed.
+	panel.Position = UDim2.new(0.5, 0, 1, -80)
 	panel.Size = UDim2.new(0, 480, 0, 124)
 	panel.BackgroundColor3 = Color3.fromRGB(20, 10, 12)
 	panel.BackgroundTransparency = 0.05
@@ -122,7 +130,7 @@ local function buildUi()
 	hint.Size = UDim2.new(1, -48, 0, 54)
 	hint.BackgroundTransparency = 1
 	hint.Font = Enum.Font.GothamBold
-	hint.Text = "A teammate must carry your body to the Campfire to revive you.\nPress [E] near your body to start dragging."
+	hint.Text = "A teammate can drag your body to safety and revive you with a Bandage.\nIf nobody reaches you in time, you will be eliminated."
 	hint.TextColor3 = Color3.fromRGB(200, 180, 178)
 	hint.TextSize = 13
 	hint.TextWrapped = true
@@ -130,8 +138,18 @@ local function buildUi()
 	hint.TextYAlignment = Enum.TextYAlignment.Top
 	hint.Parent = panel
 
-	-- ====== TEAMMATE DOWNED NOTIFICATION — shown to alive players ======
-	-- Positioned at bottom-left to not overlap the SpectateGui's top status bar
+	-- ====== TEAMMATE ALERTS — own always-enabled ScreenGui ======
+	-- Lives outside LifeStateGui so alive players actually see the toast;
+	-- the old layout kept it inside a GUI that is disabled until the local
+	-- player is downed, which meant nobody ever saw the alert.
+	local alertGui = Instance.new("ScreenGui")
+	alertGui.Name = "TeammateAlertGui"
+	alertGui.ResetOnSpawn = false
+	alertGui.IgnoreGuiInset = false
+	alertGui.DisplayOrder = 60
+	alertGui.Enabled = true
+	alertGui.Parent = localPlayer:WaitForChild("PlayerGui")
+
 	local notif = Instance.new("Frame")
 	notif.Name = "TeammateDowned"
 	notif.AnchorPoint = Vector2.new(0, 1)
@@ -166,15 +184,131 @@ local function buildUi()
 	notifLabel = nlabel
 end
 
+-- ====== DOWNED TEAMMATE WORLD MARKER ======
+-- Modest yellow billboard pinned above the body, visible through walls.
+-- Deliberately small — the reference game's oversized marker bug is what
+-- we are avoiding here.
+local function removeMarker(userId: number)
+	local marker = bodyMarkers[userId]
+	if marker then
+		bodyMarkers[userId] = nil
+		markerDistanceLabels[userId] = nil
+		if marker.Parent then
+			marker:Destroy()
+		end
+	end
+end
+
+local function updateMarker(userId: number, state: string)
+	removeMarker(userId)
+	if state ~= "Downed" and state ~= "Eliminated" then
+		return
+	end
+	if userId == localPlayer.UserId then
+		return
+	end
+	local teammate = Players:GetPlayerByUserId(userId)
+	local character = teammate and teammate.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not teammate or not character or not root or not root:IsA("BasePart") then
+		return
+	end
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "DownedMarker_" .. tostring(userId)
+	billboard.Adornee = root
+	billboard.Size = UDim2.fromOffset(150, 54)
+	billboard.StudsOffsetWorldSpace = Vector3.new(0, 2.6, 0)
+	billboard.MaxDistance = 350
+	billboard.AlwaysOnTop = true
+	billboard.Parent = localPlayer:WaitForChild("PlayerGui")
+
+	local downed = state == "Downed"
+	local accent = if downed then Color3.fromRGB(240, 190, 70) else Color3.fromRGB(200, 70, 60)
+
+	local icon = Instance.new("TextLabel")
+	icon.AnchorPoint = Vector2.new(0.5, 0)
+	icon.Position = UDim2.new(0.5, 0, 0, 0)
+	icon.Size = UDim2.fromOffset(30, 22)
+	icon.BackgroundTransparency = 1
+	icon.Font = Enum.Font.GothamBlack
+	icon.Text = "▼"
+	icon.TextColor3 = accent
+	icon.TextSize = 20
+	icon.Parent = billboard
+	local iconStroke = Instance.new("UIStroke")
+	iconStroke.Color = Color3.fromRGB(0, 0, 0)
+	iconStroke.Transparency = 0.3
+	iconStroke.Parent = icon
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.AnchorPoint = Vector2.new(0.5, 0)
+	nameLabel.Position = UDim2.new(0.5, 0, 0, 20)
+	nameLabel.Size = UDim2.new(1, 0, 0, 16)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.Text = teammate.DisplayName
+	nameLabel.TextColor3 = accent
+	nameLabel.TextSize = 12
+	nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	nameLabel.Parent = billboard
+	local nameStroke = Instance.new("UIStroke")
+	nameStroke.Color = Color3.fromRGB(0, 0, 0)
+	nameStroke.Transparency = 0.4
+	nameStroke.Parent = nameLabel
+
+	local distLabel = Instance.new("TextLabel")
+	distLabel.AnchorPoint = Vector2.new(0.5, 0)
+	distLabel.Position = UDim2.new(0.5, 0, 0, 36)
+	distLabel.Size = UDim2.new(1, 0, 0, 14)
+	distLabel.BackgroundTransparency = 1
+	distLabel.Font = Enum.Font.GothamBold
+	distLabel.Text = if downed then "DOWNED" else "ELIMINATED"
+	distLabel.TextColor3 = Color3.fromRGB(225, 220, 210)
+	distLabel.TextSize = 10
+	distLabel.Parent = billboard
+	local distStroke = Instance.new("UIStroke")
+	distStroke.Color = Color3.fromRGB(0, 0, 0)
+	distStroke.Transparency = 0.4
+	distStroke.Parent = distLabel
+
+	bodyMarkers[userId] = billboard
+	markerDistanceLabels[userId] = distLabel
+end
+
+local function refreshMarkers()
+	for userId, marker in pairs(bodyMarkers) do
+		local teammate = Players:GetPlayerByUserId(userId)
+		local character = teammate and teammate.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not teammate or not root or not root:IsA("BasePart") then
+			removeMarker(userId)
+			continue
+		end
+		if marker.Adornee ~= root then
+			marker.Adornee = root
+		end
+		local label = markerDistanceLabels[userId]
+		local myRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+		if label and myRoot and myRoot:IsA("BasePart") then
+			local state = memberStates[userId]
+			local tag = if state == "Eliminated" then "ELIMINATED" else "DOWNED"
+			label.Text = string.format("%s · %dm", tag, math.floor((root.Position - myRoot.Position).Magnitude + 0.5))
+		end
+	end
+end
+
 local function applyState(state: string, payload: any)
 	selfState = state
 	buildUi()
 	if state == "Downed" then
 		bleedOutAt = if typeof(payload) == "table" then payload.bleedOutAt or workspace:GetServerTimeNow() else workspace:GetServerTimeNow()
 		if gui then gui.Enabled = true end
+		UiSoundUtil.startLoop("DownedHeartbeat", AssetCatalog.Audio.HeartbeatLoop, 0.4)
 	else
 		bleedOutAt = 0
 		if gui then gui.Enabled = false end
+		UiSoundUtil.stopLoop("DownedHeartbeat")
 	end
 end
 
@@ -198,9 +332,11 @@ function LifeStateController:KnitStart()
 		notifJanitor:Cleanup()
 		local text = if state == "Downed"
 			then ("⚠ " .. displayName .. " is DOWNED!")
+			elseif state == "Eliminated" then ("✖ " .. displayName .. " was eliminated")
 			else ("✓ " .. displayName .. " was revived")
 		local color = if state == "Downed"
 			then Color3.fromRGB(235, 178, 70)
+			elseif state == "Eliminated" then Color3.fromRGB(215, 90, 80)
 			else Color3.fromRGB(90, 200, 110)
 		notifLabel.Text = text
 		notifLabel.TextColor3 = color
@@ -221,13 +357,20 @@ function LifeStateController:KnitStart()
 
 	janitor:Add(lifeService.LifeStateChanged:Connect(function(payload)
 		if typeof(payload) ~= "table" then return end
+		memberStates[payload.userId] = payload.state
 		if payload.userId == localPlayer.UserId then
 			applyState(payload.state, payload)
 		else
+			updateMarker(payload.userId, payload.state)
 			-- Notify the local player when a teammate goes down or gets revived
-			if payload.state == "Downed" or payload.state == "Alive" then
+			if payload.state == "Downed" or payload.state == "Eliminated" or payload.state == "Alive" then
 				local teammate = Players:GetPlayerByUserId(payload.userId)
 				local name = teammate and teammate.DisplayName or tostring(payload.userId)
+				if payload.state == "Alive" then
+					UiSoundUtil.playSuccess()
+				else
+					UiSoundUtil.playAlert()
+				end
 				showDownedNotification(name, payload.state)
 			end
 		end
@@ -235,15 +378,56 @@ function LifeStateController:KnitStart()
 	janitor:Add(runStateService.RunPhaseChanged:Connect(function(payload)
 		if typeof(payload) == "table" and (payload.phase == "Ending" or payload.phase == "Ended" or payload.phase == "Lobby") then
 			if gui then gui.Enabled = false end
-			if payload.phase == "Lobby" then selfState = "Lobby" end
+			UiSoundUtil.stopLoop("DownedHeartbeat")
+			for userId in pairs(bodyMarkers) do
+				removeMarker(userId)
+			end
+			if payload.phase == "Lobby" then
+				selfState = "Lobby"
+				table.clear(memberStates)
+			end
 		end
 	end), "Disconnect")
+	janitor:Add(Players.PlayerRemoving:Connect(function(player)
+		removeMarker(player.UserId)
+		memberStates[player.UserId] = nil
+	end), "Disconnect")
+	-- A downed teammate's character can respawn; re-pin the marker on the new body.
+	local function watchCharacterRespawns(player: Player)
+		janitor:Add(player.CharacterAdded:Connect(function()
+			local state = memberStates[player.UserId]
+			if state == "Downed" or state == "Eliminated" then
+				task.defer(updateMarker, player.UserId, state)
+			end
+		end), "Disconnect")
+	end
+	janitor:Add(Players.PlayerAdded:Connect(watchCharacterRespawns), "Disconnect")
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= localPlayer then
+			watchCharacterRespawns(player)
+		end
+	end
 	lifeService:GetSnapshot():andThen(function(snapshot)
-		if typeof(snapshot) == "table" then applyState(snapshot.selfState or "Lobby", {}) end
+		if typeof(snapshot) ~= "table" then return end
+		for userId, state in pairs(snapshot.states or {}) do
+			local numericId = tonumber(userId)
+			if numericId then
+				memberStates[numericId] = state
+				if numericId ~= localPlayer.UserId then
+					updateMarker(numericId, state)
+				end
+			end
+		end
+		applyState(snapshot.selfState or "Lobby", {})
 	end)
 	janitor:Add(RunService.RenderStepped:Connect(function()
 		if selfState == "Downed" and timerLabel then
 			timerLabel.Text = string.format("%.1fs", math.max(0, bleedOutAt - workspace:GetServerTimeNow()))
+		end
+		markerRefresh += 1
+		if markerRefresh >= 15 then
+			markerRefresh = 0
+			refreshMarkers()
 		end
 	end), "Disconnect")
 end
