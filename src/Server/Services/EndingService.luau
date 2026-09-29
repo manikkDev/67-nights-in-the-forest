@@ -6,6 +6,14 @@
     @summary
     One-shot Day 67 victory or team-defeat transition, threat pause,
     result construction, idempotent lifetime records, and lobby return.
+
+    @description
+    When the run reaches Day 67 — or the whole team is downed — this
+    service pauses hostile threats, assembles the victory/defeat
+    result payload with per-player stats, and writes lifetime records
+    idempotently so duplicate triggers cannot double-count. It fires
+    EndingStarted, then ResultsReady for the client presentation, and
+    teleports the party back to the lobby on request.
 ]]
 
 -- // VARIABLES // --
