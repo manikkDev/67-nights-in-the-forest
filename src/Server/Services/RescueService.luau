@@ -7,6 +7,15 @@
     Four campfire-gated caves, guard packs, keys, gates, child carrying,
     safe-zone rescue completion, tents, poster targeting, and multiplier.
 
+    @description
+    Spawns the four missing-child caves in rescue order (Dino, Kraken,
+    Squid, Koala), each unlocked at a campfire level and protected by a
+    guard pack, a key, and a gate. Handles key pickup, gate unlocking,
+    child pick-up/carry/drop, and completes a rescue when a carried
+    child reaches the campfire safe zone. Also owns the rescue tents,
+    the missing-poster board waypoint targeting, and the score
+    multiplier granted per rescued child.
+
     @exports
     - RescueService:GetRescuedCount() -> number
     - RescueService:DropCarriedChild(player)
