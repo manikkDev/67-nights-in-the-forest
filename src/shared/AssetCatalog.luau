@@ -5,6 +5,13 @@
 
     @summary
     Owned and approved cloud asset references used by Phase 4 presentation.
+
+    @description
+    Central frozen table of rbxassetid references — ambience loops,
+    transition stingers, world one-shots, and UI sounds — so services
+    and controllers reference semantic names instead of raw asset ids.
+    Entries are grouped by category and table.freeze'd so they cannot
+    be accidentally mutated at runtime.
 ]]
 
 return table.freeze({
