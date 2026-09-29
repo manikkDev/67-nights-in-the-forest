@@ -5,6 +5,13 @@
 
     @summary
     Immutable placement and gameplay data for every buildable structure.
+
+    @description
+    Defines each StructureDefinition — display name, asset template,
+    footprint size, max health, placement slope limit, and score
+    multiplier points — keyed by structure id. Pure data module with
+    no runtime state; consumed by CraftingService for recipe unlocks
+    and by BuildingService for placement validation and health.
 ]]
 
 export type StructureDefinition = {
