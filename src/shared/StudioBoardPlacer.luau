@@ -9,6 +9,14 @@
     are placed in a Workspace.Boards folder, so they persist when you
     save the place. You can then move/resize them in Studio.
 
+    @description
+    A self-contained edit-mode snippet (not a required module) that
+    builds the physical MapBoard and MissingChildrenBoard models —
+    parts, SurfaceGuis, and portrait ViewportFrames — inside a
+    Workspace.Boards folder in the currently open place. Because the
+    boards live in the place file rather than Rojo-synced source, they
+    must be created (or recreated) by running this file manually.
+
     @usage
     1. Open the place in Studio (build.rbxl or 67nights-phase4-final.rbxlx).
     2. Make sure the Base-map (with the Bonfire / campfire) is loaded.
