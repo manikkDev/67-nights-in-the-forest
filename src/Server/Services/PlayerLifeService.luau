@@ -6,6 +6,14 @@
     @summary
     Server-authoritative downing, persistent revivable bodies, body dragging,
     spectating, teammate revive, and team-loss resolution.
+
+    @description
+    Owns the authoritative life-state machine (alive, downed,
+    spectating). Downed players leave a persistent, draggable body in
+    the world that teammates can pull to safety and revive on a timer.
+    When every member is down or dead it reports team loss to the run
+    flow. LifeStateChanged broadcasts drive the HUD, downed markers,
+    and the spectator camera on clients.
 ]]
 
 local Players = game:GetService("Players")
