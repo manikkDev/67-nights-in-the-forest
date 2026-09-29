@@ -7,6 +7,14 @@
     Server-authoritative crafting bench tiers, recipe transactions,
     recipe caps, unlocks, and one-use building placement tokens.
 
+    @description
+    Tracks the campfire crafting-bench tier and exposes the full bench
+    state to clients via GetBenchState(). RequestCraft validates the
+    recipe's ingredient costs against the player's bag, enforces
+    per-recipe craft caps and bench-tier unlocks, consumes the
+    ingredients, and either grants the item directly or issues a
+    one-use placement token later consumed by BuildingService.
+
     @exports
     - CraftingService:GetBenchTier() -> number
     - CraftingService:GetPlacementToken(player, tokenId) -> table?
