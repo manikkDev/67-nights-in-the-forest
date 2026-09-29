@@ -7,6 +7,14 @@
     Server-authoritative structure placement, beds, gates, traps,
     farms, structure health, and run cleanup.
 
+    @description
+    Validates RequestPlace calls against the placement token issued by
+    CraftingService and the footprint/slope rules in StructureConfig,
+    then clones the template into the world. Tracks per-structure
+    health, handles gate toggling and harvestable structures, exposes
+    DamageStructure() to combat/raid services, and tears everything
+    down when the run resets.
+
     @exports
     - BuildingService:DamageStructure(model, amount) -> boolean
     - BuildingService:GetStructures() -> table
