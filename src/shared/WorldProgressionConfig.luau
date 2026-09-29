@@ -1,3 +1,24 @@
+--[[
+    @file    WorldProgressionConfig.luau
+    @author  manik
+    @date    2025
+
+    @summary
+    Tunable world-boundary progression data — access radius per
+    campfire level, safe-zone radius, cave spawn rings, and boundary
+    wall construction parameters.
+
+    @description
+    The map is 3200x3200 studs centred near (-75, -7); access radius
+    steps from 250 studs at level 1 out to the full 1600 at level 6.
+    CaveRings defines the annular band each rescue cave spawns in so
+    it always lands inside the wall at its unlock level, and Boundary
+    holds wall height, per-platform segment counts, pushback margin,
+    and the containment check interval. Helper functions
+    GetAccessRadius(), GetSafeZoneRadius(), and
+    GetUnlockLevelForDistance() derive per-level values.
+]]
+
 local Config = {
 	-- Map is 3200x3200 studs, center at (-75,-7).
 	-- Distance from center to edge midpoint = 1600.
