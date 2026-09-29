@@ -6,6 +6,15 @@
     @summary
     Responsive eliminated-player spectator camera with keyboard, gamepad,
     and touch controls. All camera and input state is restored on exit.
+
+    @description
+    Takes over the camera when the local player is eliminated or fully
+    dead and cycles between living teammates via prev/next buttons and
+    ContextActionService bindings (Q/E keys, gamepad shoulders, on-screen
+    touch buttons). A team panel lists each member's life state so the
+    spectator knows who is still up. Hides game HUD elements while
+    active, and restores camera subject, scriptable type, and all
+    bound actions when spectating ends.
 ]]
 
 local Players = game:GetService("Players")
