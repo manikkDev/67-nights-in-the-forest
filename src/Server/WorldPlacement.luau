@@ -1,3 +1,27 @@
+--[[
+    @file    WorldPlacement.luau
+    @author  manik
+    @date    2025
+
+    @summary
+    Shared placement helpers for world generation — spatial
+    reservations, footprint overlap checks, ground raycasts, seeded
+    hashing, and path-accessibility queries on the flat XZ plane.
+
+    @description
+    World-generation services call Reserve()/ReserveRing() to claim
+    circular or annular areas so landmarks, caves, and structures never
+    overlap. IsFootprintFree()/GetFootprintOverlaps() test rotated part
+    footprints against the workspace, GetGroundCFrame() raycasts for a
+    valid ground position, IsPathAccessible() wraps PathfindingService,
+    and FindPosition() searches for an unreserved spot matching a set
+    of constraints. Hash() provides deterministic picks, and Reset()
+    clears all reservations between runs.
+
+    @exports
+    - WorldPlacement (module table of pure/helper functions)
+]]
+
 local PathfindingService = game:GetService("PathfindingService")
 local Workspace = game:GetService("Workspace")
 
