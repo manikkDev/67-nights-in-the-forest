@@ -6,6 +6,15 @@
     @summary
     Client-only ambience and short-lived feedback for crafting, building,
     cave reveals, child rescues, revives, and the final ending.
+
+    @description
+    Listens to server Knit signals and reacts with cached Sound
+    instances and small particle bursts: a night-ambience layer on
+    DayStarted/NightStarted, an impact sound on structure placement,
+    a success cue on CraftSucceeded, cave-reveal and rescue stingers,
+    a revive swell, and the victory/defeat sting on EndingStarted.
+    Everything is client-presentational — no gameplay state is read
+    or written here — and all connections are tracked by a Janitor.
 ]]
 
 -- // VARIABLES // --
