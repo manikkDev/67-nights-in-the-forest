@@ -6,6 +6,14 @@
     @summary
     Cinematic Day 67 victory or defeat presentation with final run
     statistics, staggered card animations, and a Return-to-Lobby button.
+
+    @description
+    Builds the full ending screen in PlayerGui when the server fires
+    EndingStarted, then reveals per-run stat cards one-by-one when
+    ResultsReady arrives. On team defeat it renders a roster panel
+    showing each member's final state. The Return-to-Lobby button asks
+    the server to send the party home; all tweens and connections are
+    torn down on run reset.
 ]]
 
 -- // VARIABLES // --
