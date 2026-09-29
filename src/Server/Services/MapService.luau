@@ -8,6 +8,14 @@
     landmark positions (campfire, caves, facilities, buildings) and
     exposes them to clients who have crafted the Map unlock.
 
+    @description
+    Gathers the world-space positions of every map-worthy landmark —
+    campfire, rescue caves, facilities, and player-built structures —
+    into a single table served by the GetMapData remote. Only players
+    who have unlocked the Map item receive the data. The MapOpened
+    client signal lets the server know when the map UI is being
+    viewed.
+
     @exports
     - MapService:GetMapData() -> table
     - Knit Remote: GetMapData()
