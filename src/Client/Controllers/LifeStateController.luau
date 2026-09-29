@@ -6,6 +6,14 @@
     @summary
     Compact downed-state status, bleed-out timer, and reset protection.
     Spectator presentation is owned by SpectateController.
+
+    @description
+    Shows a compact status panel while the local player is downed —
+    bleed-out countdown and revive prompts — and keeps world-space
+    markers over downed teammates in sync via LifeStateChanged. While
+    downed it blocks the reset button so a run cannot be abandoned
+    mid-bleed-out. All listeners are tracked in a Janitor and cleaned
+    up on respawn or run-phase change.
 ]]
 
 local Players = game:GetService("Players")
