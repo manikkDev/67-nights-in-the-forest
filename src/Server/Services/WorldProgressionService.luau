@@ -1,3 +1,30 @@
+--[[
+    @file    WorldProgressionService.luau
+    @author  manik
+    @date    2025
+
+    @summary
+    Campfire-level-driven expansion of the playable-area boundary,
+    safe-zone radius, and server-side containment of stray players.
+
+    @description
+    Grows the circular access boundary as the campfire levels up:
+    rebuilds the boundary wall parts from WorldProgressionConfig
+    segment counts, repositions trims, updates the AccessRadius client
+    property, and fires BoundaryExpanded. A periodic check pulls
+    players that slip outside the wall radially back inside the
+    margin. Exposes GetAccessRadius(), GetBuildingPositions(), and
+    IsPositionAccessible() to other services.
+
+    @exports
+    - WorldProgressionService:GetAccessRadius() -> number
+    - WorldProgressionService:GetBuildingPositions() -> table
+    - WorldProgressionService:IsPositionAccessible(position, margin?) -> boolean
+    - Knit Remote: GetState()
+    - Knit Signal: BoundaryExpanded (client)
+    - Knit Property: AccessRadius (client)
+]]
+
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
