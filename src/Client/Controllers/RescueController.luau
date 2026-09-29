@@ -31,7 +31,6 @@ local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local Janitor = require(ReplicatedStorage.Packages.Janitor)
 local RescueConfig = require(ReplicatedStorage.Shared.RescueConfig)
 local UiSoundUtil = require(ReplicatedStorage.Shared.UiSoundUtil)
--- testtt
 -- gotta wait for money
 
 -- | Objects | --
