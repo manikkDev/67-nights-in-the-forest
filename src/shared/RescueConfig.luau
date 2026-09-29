@@ -5,6 +5,14 @@
 
     @summary
     Immutable cave, guard, key, child, and rescue-tent progression data.
+
+    @description
+    Defines each RescueDefinition — display name, rig template, cave
+    color, required campfire level, guard species and count, and key
+    name — plus the fixed rescue order (Dino, Kraken, Squid, Koala) and
+    rescue-tent data. Pure data module with no runtime state; consumed
+    by RescueService on the server and by RescueController for the
+    missing-children UI and portraits.
 ]]
 
 export type RescueDefinition = {
