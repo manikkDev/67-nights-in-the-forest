@@ -6,6 +6,15 @@
     @summary
     Missing-child waypoint, carry/drop controls, cave notifications,
     and rescue progress feedback across keyboard, touch, and gamepad.
+
+    @description
+    Builds the rescue map UI (the missing-children panel with portrait
+    ViewportFrames cloned client-side, since ViewportFrame contents do
+    not replicate), keeps the tracked-rescue waypoint marker updated,
+    and binds the drop-child action through ContextActionService so it
+    works on keyboard, touch, and gamepad. Banner notifications fire on
+    cave unlocks and rescue progress, and carry state mirrors the
+    server's ChildCarryChanged signal.
 ]]
 
 -- // VARIABLES // --
