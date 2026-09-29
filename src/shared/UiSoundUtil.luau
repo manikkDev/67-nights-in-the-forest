@@ -10,6 +10,14 @@
 
     Sounds are created lazily, cached, and parented to SoundService
     so they persist across UI rebuilds.
+
+    @description
+    Exposes playClick(), playSuccess(), playLevelUp(), playAlert(), and
+    playSting(victory) one-shots, plus startLoop()/stopLoop() helpers
+    for named looping sounds. Each Sound instance is created on first
+    use, cached in a module-level table keyed by name, and parented to
+    SoundService so it survives UI rebuilds and does not need an
+    Instance in the interface tree.
 ]]
 
 -- | Services | --
