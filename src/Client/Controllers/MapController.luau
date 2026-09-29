@@ -13,6 +13,14 @@
     counts, accessible area stats, and a hovered-marker info panel with
     distance from the player.
 
+    @description
+    Pulls the landmark table from MapService:GetMapData() and projects
+    world positions onto the circular minimap with worldToMap(). Marker
+    icons are grouped by category so legend rows can highlight the
+    matching markers, and hovering a marker raises a tooltip plus a
+    sidebar info panel with live distance from the player. Radius
+    circles reflect the current accessible-area boundary and safe zone.
+
     @exports
     - MapController (Knit controller)
 ]]
