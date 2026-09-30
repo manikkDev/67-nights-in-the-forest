@@ -15,6 +15,9 @@
     a revive swell, and the victory/defeat sting on EndingStarted.
     Everything is client-presentational — no gameplay state is read
     or written here — and all connections are tracked by a Janitor.
+
+    @exports
+    - Phase4EffectsController (Knit controller)
 ]]
 
 -- // VARIABLES // --
