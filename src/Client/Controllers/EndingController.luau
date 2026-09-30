@@ -14,6 +14,9 @@
     showing each member's final state. The Return-to-Lobby button asks
     the server to send the party home; all tweens and connections are
     torn down on run reset.
+
+    @exports
+    - EndingController (Knit controller)
 ]]
 
 -- // VARIABLES // --
