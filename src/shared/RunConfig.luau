@@ -11,6 +11,14 @@
     per-service test booleans from earlier phases: production values live
     at the top level and every debug override lives under StudioTest,
     which only applies while running inside Studio.
+
+    @exports
+    - Config.IsTestEnabled(flagName) -> boolean
+    - Config.GetPhaseDuration(phase) -> number
+    - Config.GetEnemyHealthMultiplier(initialPartySize?) -> number
+    - Config.GetEnemyCountMultiplier(initialPartySize?) -> number
+    - Config.ScaleEnemyHealth(baseHealth, initialPartySize?) -> number
+    - Config.ScaleEnemyCount(baseCount, initialPartySize?) -> number
 ]]
 
 local RunService = game:GetService("RunService")
