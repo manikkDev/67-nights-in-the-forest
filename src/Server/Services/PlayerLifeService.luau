@@ -14,6 +14,21 @@
     When every member is down or dead it reports team loss to the run
     flow. LifeStateChanged broadcasts drive the HUD, downed markers,
     and the spectator camera on clients.
+
+    @exports
+    - PlayerLifeService:GetLifeState(player) -> LifeState
+    - PlayerLifeService:IsAlive(player) -> boolean
+    - PlayerLifeService:CanAct(player) -> boolean
+    - PlayerLifeService:ApplyDamage(player, amount, source?) -> table
+    - PlayerLifeService:TryRevive(reviver, target) -> boolean
+    - Knit Remote: RequestBandageRevive()
+    - Knit Remote: RequestBodyDragStart(target)
+    - Knit Remote: RequestBodyDragStop()
+    - Knit Remote: GetSnapshot()
+    - Knit Signal: LifeStateChanged (client)
+    - Knit Signal: TeammateDowned (client)
+    - Knit Signal: ReviveCompleted (client)
+    - Knit Signal: BodyDragTargetMoved (client)
 ]]
 
 local Players = game:GetService("Players")
