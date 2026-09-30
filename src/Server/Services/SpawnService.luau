@@ -10,6 +10,16 @@
     Teleporter1/2/3 touches enter isolated MatchFlow queues. Only current run
     members may spawn at the campfire. This service owns fresh character loads,
     deterministic party spacing, and deterministic lobby returns.
+
+    @exports
+    - SpawnService:SpawnPlayer(player, slot?, partySize?) -> boolean
+    - SpawnService:SpawnParty(participants) -> boolean
+    - SpawnService:IsPlayerSpawned(player) -> boolean
+    - SpawnService:ReviveAtCampfire(player) -> boolean
+    - SpawnService:ResetPlayer(player)
+    - SpawnService:ReturnToLobby(player) -> boolean
+    - Knit Remote: RequestSpawn()
+    - Knit Signal: PlayerSpawned (client)
 ]]
 
 -- // VARIABLES // --
