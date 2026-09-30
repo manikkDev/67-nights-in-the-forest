@@ -11,6 +11,9 @@
     is enabled. Clicking Create starts a 5-second countdown, then fades
     to the story text, teleports the player, shows Day 1 on black, and
     slowly reveals the base map before gameplay begins.
+
+    @exports
+    - IntroController (Knit controller)
 ]]
 
 -- // VARIABLES // --
