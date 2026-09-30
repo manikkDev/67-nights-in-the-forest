@@ -16,6 +16,10 @@
     In Studio, the role is determined by the StudioTest.ForceGameMode flag
     so you can test either place without publishing.  In production, the
     role is determined by PlaceId and the DataModel attribute.
+
+    @exports
+    - ServerRole.IsLobby() -> boolean
+    - ServerRole.IsGameServer() -> boolean
 ]]
 
 local RunService = game:GetService("RunService")
