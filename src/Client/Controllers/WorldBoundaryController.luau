@@ -10,6 +10,9 @@
     Fog wall visuals have been removed. The controller now only shows
     a warning HUD + ColorCorrection effect when the player approaches
     the boundary edge.
+
+    @exports
+    - WorldBoundaryController (Knit controller)
 ]]
 
 local Lighting = game:GetService("Lighting")
