@@ -14,6 +14,9 @@
     downed it blocks the reset button so a run cannot be abandoned
     mid-bleed-out. All listeners are tracked in a Janitor and cleaned
     up on respawn or run-phase change.
+
+    @exports
+    - LifeStateController (Knit controller)
 ]]
 
 local Players = game:GetService("Players")
