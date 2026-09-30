@@ -15,6 +15,10 @@
     spectator knows who is still up. Hides game HUD elements while
     active, and restores camera subject, scriptable type, and all
     bound actions when spectating ends.
+
+    @exports
+    - SpectateController (Knit controller)
+    - SpectateController:Cycle(direction: number)
 ]]
 
 local Players = game:GetService("Players")
