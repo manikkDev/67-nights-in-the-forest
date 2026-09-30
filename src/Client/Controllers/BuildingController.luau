@@ -18,6 +18,9 @@
       - Q : rotate counter-clockwise
       - Mouse scroll wheel : rotate clockwise / counter-clockwise
       - Gamepad ButtonR1 / ButtonL1 : rotate clockwise / counter-clockwise
+
+    @exports
+    - BuildingController (Knit controller)
 ]]
 
 -- // VARIABLES // --
