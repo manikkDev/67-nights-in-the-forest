@@ -18,6 +18,15 @@
     use, cached in a module-level table keyed by name, and parented to
     SoundService so it survives UI rebuilds and does not need an
     Instance in the interface tree.
+
+    @exports
+    - UiSoundUtil.playClick()
+    - UiSoundUtil.playSuccess()
+    - UiSoundUtil.playLevelUp()
+    - UiSoundUtil.playAlert()
+    - UiSoundUtil.playSting(victory)
+    - UiSoundUtil.startLoop(name, soundId, volume)
+    - UiSoundUtil.stopLoop(name)
 ]]
 
 -- | Services | --
