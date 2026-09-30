@@ -12,6 +12,10 @@
     parts replicate normally). `playOn` parents the sound to an existing
     BasePart so it moves with the instance. Both clean up via Debris.
     Pitch jitter keeps repeated one-shots from sounding identical.
+
+    @exports
+    - WorldSoundUtil.playAt(soundId, position, opts?) -> Sound
+    - WorldSoundUtil.playOn(parent, soundId, opts?) -> Sound?
 ]]
 
 local Debris = game:GetService("Debris")
