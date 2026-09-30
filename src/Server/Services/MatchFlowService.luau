@@ -10,6 +10,18 @@
     Teleporter1/2/3 are independent queues. Each queue owns its capacity,
     roster, host migration, countdown, and party identity. Published parties
     route to reserved servers; Studio starts the same party locally.
+
+    @exports
+    - MatchFlowService:EnterWaiting(player, queueId) -> boolean
+    - MatchFlowService:GetState(player) -> FlowState
+    - Knit Remote: GetSnapshot()
+    - Knit Remote: RequestStart()
+    - Knit Remote: RequestLeave()
+    - Knit Remote: RequestSetCapacity(capacity)
+    - Knit Signal: FlowStateChanged (client)
+    - Knit Signal: Countdown (client)
+    - Knit Signal: RosterChanged (client)
+    - Knit Signal: SessionChanged (client)
 ]]
 
 -- // VARIABLES // --
