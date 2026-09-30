@@ -11,6 +11,9 @@
     bar, level bar, and level. It listens to FuelChanged, LevelChanged,
     and SafeZoneChanged from CampfireService and shows a warning when
     the fire goes out.
+
+    @exports
+    - CampfireController (Knit controller)
 ]]
 
 -- // VARIABLES // --
