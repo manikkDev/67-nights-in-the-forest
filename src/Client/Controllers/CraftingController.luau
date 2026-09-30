@@ -13,6 +13,9 @@
     - Animated success notifications (bench upgrade banner, unlock toast,
       item crafted toast)
     - Refined cohesive color palette with hover effects
+
+    @exports
+    - CraftingController (Knit controller)
 ]]
 
 -- // VARIABLES // --
