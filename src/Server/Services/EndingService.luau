@@ -14,6 +14,11 @@
     idempotently so duplicate triggers cannot double-count. It fires
     EndingStarted, then ResultsReady for the client presentation, and
     teleports the party back to the lobby on request.
+
+    @exports
+    - Knit Signal: EndingStarted (client)
+    - Knit Signal: ResultsReady (client)
+    - Knit Remote: RequestEarlyReturn()
 ]]
 
 -- // VARIABLES // --
