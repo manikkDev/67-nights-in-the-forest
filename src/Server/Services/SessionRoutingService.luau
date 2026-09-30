@@ -12,6 +12,13 @@
     arrival and wait for both the expected party and their profiles. Studio
     uses the same interface but returns the local party instead of calling
     TeleportService.
+
+    @exports
+    - SessionRoutingService:WriteReconnectTicket(partyId, userId, accessCode) -> boolean
+    - SessionRoutingService:GetReconnectTicket(partyId, userId) -> table?
+    - SessionRoutingService:ConsumeReconnectTicket(partyId, userId)
+    - SessionRoutingService:IsReservedRunServer() -> boolean
+    - SessionRoutingService:RouteParty(partyId, hostUserId, players) -> boolean
 ]]
 
 -- // VARIABLES // --
