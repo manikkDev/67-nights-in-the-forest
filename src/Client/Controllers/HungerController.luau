@@ -10,6 +10,9 @@
     Builds a modern "VITALS" card in the top-left with icon + bar +
     percentage for each stat, matching the dark-slate / warm-stroke
     visual style used by the inventory and campfire systems.
+
+    @exports
+    - HungerController (Knit controller)
 ]]
 
 -- // VARIABLES // --
