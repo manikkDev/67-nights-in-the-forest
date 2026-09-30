@@ -166,6 +166,7 @@ local function getMouseRay(): (BasePart?, Vector3?)
 	return result.Instance, result.Position
 end
 -- testt
+--cuh
 --[[
     @summary  Check whether the mouse cursor is currently over any UI element.
     @returns  boolean
