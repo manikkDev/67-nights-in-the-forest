@@ -14,6 +14,9 @@
     Landmark chests are one-open-per-run (global).  Cave chests are
     per-player — each member can open them once to get their own loot.
     Cave chests can grant Tools (e.g. Spear) in addition to resources.
+
+    @exports
+    - Knit Signal: ChestOpened (client, fired only to the opener)
 ]]
 
 -- // VARIABLES // --
