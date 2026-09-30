@@ -17,6 +17,11 @@
     and the containment check interval. Helper functions
     GetAccessRadius(), GetSafeZoneRadius(), and
     GetUnlockLevelForDistance() derive per-level values.
+
+    @exports
+    - Config.GetAccessRadius(level) -> number
+    - Config.GetSafeZoneRadius(level) -> number
+    - Config.GetUnlockLevelForDistance(distance) -> number
 ]]
 
 local Config = {
