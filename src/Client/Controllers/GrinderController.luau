@@ -12,6 +12,9 @@
     fires GrindItem/GrindAll remotes when buttons are clicked. Also
     handles spark particles, grinding sound, and the spinning blade
     visual on the grinder model.
+
+    @exports
+    - GrinderController (Knit controller)
 ]]
 
 -- // VARIABLES // --
