@@ -15,6 +15,9 @@
     works on keyboard, touch, and gamepad. Banner notifications fire on
     cave unlocks and rescue progress, and carry state mirrors the
     server's ChildCarryChanged signal.
+
+    @exports
+    - RescueController (Knit controller)
 ]]
 
 -- // VARIABLES // --
