@@ -40,7 +40,7 @@ local StudioTest = {
 local Config = {
 	GoalDay = 67,
 
-	DayDuration = 300,
+	DayDuration = 180,
 	NightDuration = 90,
 	DayStartClock = 6,
 	DayEndClock = 18,
