@@ -1620,7 +1620,7 @@ function InventoryService:KnitStart()
 			if RunConfig.IsTestEnabled("GrantResources") then
 				updatePlayerData(player, function(playerData)
 					for _, resourceName in ipairs(RESOURCE_NAMES) do
-						playerData.Resources[resourceName] = 9999
+						playerData.Resources[resourceName] = 100
 					end
 					playerData.Inventory.PickupOrder = table.clone(RESOURCE_NAMES)
 				end)

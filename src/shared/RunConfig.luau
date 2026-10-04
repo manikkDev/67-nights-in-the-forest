@@ -24,10 +24,10 @@
 local RunService = game:GetService("RunService")
 
 local StudioTest = {
-	Enabled = false, -- All test flags disabled for production multiplayer
+	Enabled = true, -- TEMPORARY: enabled for GrantResources testing
 	SkipLobby = false,
 	ForceGameMode = false,
-	GrantResources = false,
+	GrantResources = true,
 	InfiniteWood = false,
 	FastClock = false,
 	ForceNight = false,
@@ -40,7 +40,7 @@ local StudioTest = {
 local Config = {
 	GoalDay = 67,
 
-	DayDuration = 10,
+	DayDuration = 300,
 	NightDuration = 90,
 	DayStartClock = 6,
 	DayEndClock = 18,
