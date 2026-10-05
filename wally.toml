@@ -6,11 +6,17 @@ realm = "shared"
 license = "MIT"
 
 [dependencies]
+# Service/Controller framework — networking, remotes, lifecycle
 Knit = "sleitnick/knit@^1.7.0"
+# Resource cleanup (connections, tweens, instances) per lifecycle scope
 Janitor = "howmanysmall/janitor@^1.15.0"
+# Lightweight signal implementation for non-Knit event wiring
 Signal = "sleitnick/signal@^2.0.1"
+# Promise-based async utilities
 Promise = "evaera/promise@^4.0.0"
+# Zone detection (safe zone, camp radius triggers)
 ZonePlus = "qvgk/zoneplus@^3.2.1"
 
 [server-dependencies]
+# Session-locked DataStore profiles for player data
 ProfileService = "grilme99/profileservice@^1.0.0"
