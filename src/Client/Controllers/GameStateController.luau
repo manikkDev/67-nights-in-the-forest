@@ -49,6 +49,10 @@ function GameStateController:IsInGame(): boolean
 	return isInGame
 end
 
+--[[
+    @summary  Returns the current client flow state.
+    @returns  FlowState  -- "Lobby" | "Waiting" | "Countdown" | "Story" | "Day1" | "InGame"
+]]
 function GameStateController:GetState(): FlowState
 	return flowState
 end
