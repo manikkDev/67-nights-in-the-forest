@@ -657,6 +657,17 @@ function PlayerLifeService.Client:RequestBandageRevive(player: Player): boolean
 	return PlayerLifeService:TryRevive(player, nearest)
 end
 
+--[[
+    @summary  Client-facing remote to start dragging a downed teammate's body.
+    @desc     Validates the pair via validateBodyDrag (range
+              BodyDragStartRange, both members, target downed), then
+              spawns an anchored drag-target part linked to the body's
+              root by a non-rigid AlignPosition, and clears the target
+              character's network ownership so the server steers it.
+    @param    player  Player  -- the dragger
+    @param    target  Player  -- the downed teammate to drag
+    @returns  boolean
+]]
 function PlayerLifeService.Client:RequestBodyDragStart(player: Player, target: Player): boolean
 	if typeof(target) ~= "Instance" or not target:IsA("Player") or bodyDrags[player] or bodyDraggedBy[target] then
 		return false
@@ -707,6 +718,11 @@ function PlayerLifeService.Client:RequestBodyDragStart(player: Player, target: P
 	return true
 end
 
+--[[
+    @summary  Client-facing remote to release the body being dragged.
+    @param    player  Player
+    @returns  boolean  -- false when the player has no active drag
+]]
 function PlayerLifeService.Client:RequestBodyDragStop(player: Player): boolean
 	if not bodyDrags[player] then
 		return false
@@ -715,6 +731,11 @@ function PlayerLifeService.Client:RequestBodyDragStop(player: Player): boolean
 	return true
 end
 
+--[[
+    @summary  Client-facing remote returning the team's life-state snapshot.
+    @param    player  Player
+    @returns  table  -- { selfState: LifeState, states: { [userId]: LifeState } }
+]]
 function PlayerLifeService.Client:GetSnapshot(player: Player): { [string]: any }
 	if not runStateService or not runStateService:IsMember(player) then
 		return { selfState = lifeStates[player] or "Lobby", states = {} }
