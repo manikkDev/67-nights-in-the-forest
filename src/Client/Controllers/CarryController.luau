@@ -775,6 +775,10 @@ function CarryController.IsDragging(): boolean
 	return draggingModel ~= nil
 end
 
+--[[
+    @summary  Returns the world-item model the cursor is hovering over, or nil.
+    @returns  Model?
+]]
 function CarryController.GetHoveredModel(): Model?
 	return hoveredModel
 end
