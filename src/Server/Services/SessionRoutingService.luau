@@ -142,6 +142,14 @@ function SessionRoutingService:WriteReconnectTicket(partyId: string, userId: num
 	return ok
 end
 
+--[[
+    @summary  Read a reconnect ticket from the ticket DataStore map.
+    @desc     Returns nil when the ticket is missing, belongs to a
+              different party/user, or is past its expiry.
+    @param    partyId  string
+    @param    userId   number
+    @returns  table?
+]]
 function SessionRoutingService:GetReconnectTicket(partyId: string, userId: number): { [string]: any }?
 	local ok, ticket = pcall(function()
 		return TICKET_MAP:GetAsync(('%s:%d'):format(partyId, userId))
@@ -155,6 +163,13 @@ function SessionRoutingService:GetReconnectTicket(partyId: string, userId: numbe
 	return ticket
 end
 
+--[[
+    @summary  Delete a reconnect ticket after a successful rejoin.
+    @desc     DataStore failures are swallowed — a stale ticket is
+              harmless because GetReconnectTicket rejects expired ones.
+    @param    partyId  string
+    @param    userId   number
+]]
 function SessionRoutingService:ConsumeReconnectTicket(partyId: string, userId: number)
 	pcall(function()
 		TICKET_MAP:RemoveAsync(('%s:%d'):format(partyId, userId))
@@ -166,6 +181,17 @@ function SessionRoutingService:IsReservedRunServer(): boolean
 	return not RunService:IsStudio() and game.PrivateServerId ~= "" and game.PrivateServerOwnerId == 0
 end
 
+--[[
+    @summary  Route a formed party into a run server.
+    @desc     Validates party size bounds and that every member is still
+              connected, builds signed party metadata, then teleports the
+              party to a reserved server in production. In Studio it waits
+              for profiles to load and fires LocalPartyReady instead.
+    @param    partyId     string
+    @param    hostUserId  number
+    @param    players     { Player }
+    @returns  boolean
+]]
 function SessionRoutingService:RouteParty(partyId: string, hostUserId: number, players: { Player }): boolean
 	if typeof(partyId) ~= "string" or #players < MIN_PARTY or #players > MAX_PARTY then
 		return false
