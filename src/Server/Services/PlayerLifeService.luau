@@ -482,14 +482,31 @@ local function downPlayer(player: Player, source: string)
 	checkTeamLoss()
 end
 
+--[[
+    @summary  Returns a player's current life state.
+    @param    player  Player
+    @returns  LifeState  -- "Lobby" when the player has no tracked state
+]]
 function PlayerLifeService:GetLifeState(player: Player): LifeState
 	return lifeStates[player] or "Lobby"
 end
 
+--[[
+    @summary  Returns true while a player's life state is "Alive".
+    @param    player  Player
+    @returns  boolean
+]]
 function PlayerLifeService:IsAlive(player: Player): boolean
 	return lifeStates[player] == "Alive"
 end
 
+--[[
+    @summary  Whether a player may perform gameplay actions right now.
+    @desc     Requires "Alive" state, an active run the player belongs
+              to, and a living character with a HumanoidRootPart.
+    @param    player  Player
+    @returns  boolean
+]]
 function PlayerLifeService:CanAct(player: Player): boolean
 	if lifeStates[player] ~= "Alive" or not runStateService or not runStateService:IsActive() or not runStateService:IsMember(player) then
 		return false
@@ -500,6 +517,17 @@ function PlayerLifeService:CanAct(player: Player): boolean
 	return humanoid ~= nil and humanoid.Health > 0 and root ~= nil and root:IsA("BasePart")
 end
 
+--[[
+    @summary  Apply damage to a run member, downing them at zero health.
+    @desc     Validates the amount (positive, non-NaN), the alive state,
+              grace period, and run membership. Lethal damage clamps the
+              humanoid to 1 HP and routes through downPlayer() instead of
+              killing outright. Plays a positional hurt sound on hits.
+    @param    player  Player
+    @param    amount  number
+    @param    source  string?  -- free-form cause label for logging/UI
+    @returns  table  -- { applied: number, downed: boolean }
+]]
 function PlayerLifeService:ApplyDamage(player: Player, amount: number, source: string?): { [string]: any }
 	if typeof(amount) ~= "number" or amount <= 0 or amount ~= amount then
 		return { applied = 0, downed = false }
@@ -550,6 +578,17 @@ local function validRevive(reviver: Player, target: Player): boolean
 		and (reviverRoot.Position - targetRoot.Position).Magnitude <= RunConfig.ReviveRange
 end
 
+--[[
+    @summary  Revive a downed/eliminated teammate using one Bandage.
+    @desc     Serialized by a per-target revive lock: the range/state
+              check and Bandage consumption are revalidated under the
+              lock so concurrent prompts can never spend two Bandages.
+              The target respawns at the campfire with ReviveHealth and
+              a short damage grace period.
+    @param    reviver  Player  -- must be alive and within ReviveRange
+    @param    target   Player  -- must be "Downed" or "Eliminated"
+    @returns  boolean
+]]
 function PlayerLifeService:TryRevive(reviver: Player, target: Player): boolean
 	if reviveLocks[target] or not validRevive(reviver, target) then
 		return false
