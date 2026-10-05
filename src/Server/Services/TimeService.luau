@@ -114,10 +114,20 @@ function TimeService:GetDayNumber(): number
 	return cycleIndex
 end
 
+--[[
+    @summary  Client-facing remote returning the displayed day number.
+    @param    _player  Player  -- unused
+    @returns  number
+]]
 function TimeService.Client:GetDayNumber(_player: Player): number
 	return displayedDay
 end
 
+--[[
+    @summary  Client-facing remote returning the run's time progress.
+    @param    _player  Player  -- unused
+    @returns  table  -- { displayedDay, cycleIndex, goalDay, phase }
+]]
 function TimeService.Client:GetProgress(_player: Player): { [string]: any }
 	return {
 		displayedDay = displayedDay,
@@ -127,6 +137,10 @@ function TimeService.Client:GetProgress(_player: Player): { [string]: any }
 	}
 end
 
+--[[
+    @summary  Whether the day/night scheduler is currently running.
+    @returns  boolean
+]]
 function TimeService:IsRunning(): boolean
 	return isRunning
 end
