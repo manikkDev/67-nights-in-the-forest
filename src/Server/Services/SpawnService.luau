@@ -149,6 +149,13 @@ function SpawnService:SpawnPlayer(player: Player, slot: number?, partySize: numb
 	return true
 end
 
+--[[
+    @summary  Spawn every party member concurrently with deterministic slots.
+    @desc     Fans out SpawnPlayer per participant, then waits until all
+              finish or the character-load deadline passes.
+    @param    participants  { Player }
+    @returns  boolean  -- true only when every member spawned
+]]
 function SpawnService:SpawnParty(participants: { Player }): boolean
 	local completed = 0
 	local expected = #participants
@@ -165,6 +172,11 @@ function SpawnService:SpawnParty(participants: { Player }): boolean
 	return completed == expected
 end
 
+--[[
+    @summary  Whether the player has been spawned into the run map.
+    @param    player  Player
+    @returns  boolean
+]]
 function SpawnService:IsPlayerSpawned(player: Player): boolean
 	return spawnedPlayers[player] == true
 end
@@ -195,12 +207,24 @@ function SpawnService:ReviveAtCampfire(player: Player): boolean
 	return true
 end
 
+--[[
+    @summary  Clear all spawn tracking state for a player.
+    @param    player  Player
+]]
 function SpawnService:ResetPlayer(player: Player)
 	spawnedPlayers[player] = nil
 	spawningPlayers[player] = nil
 	touchCooldowns[player] = nil
 end
 
+--[[
+    @summary  Send a player back to the deterministic lobby spawn point.
+    @desc     Loads a fresh character, pivots it to the lobby CFrame,
+              and clears spawn tracking. Fails if the player left or no
+              lobby anchor exists.
+    @param    player  Player
+    @returns  boolean
+]]
 function SpawnService:ReturnToLobby(player: Player): boolean
 	local target = deterministicLobbyCFrame()
 	if not target or player.Parent ~= Players then
@@ -258,6 +282,11 @@ local function wireTeleporters()
 	end
 end
 
+--[[
+    @summary  Client-facing remote for requesting a run spawn.
+    @desc     Thin wrapper over SpawnPlayer — validation happens there.
+    @param    player  Player
+]]
 function SpawnService.Client:RequestSpawn(player: Player)
 	self.Server:SpawnPlayer(player)
 end
