@@ -125,14 +125,35 @@ local function normalizedPartySize(initialPartySize: number?): number
 	return math.clamp(size, 1, Config.Difficulty.MaxPartySize)
 end
 
+--[[
+    @summary  Health multiplier for enemies based on party size.
+    @desc     1.0 for solo runs, scaling up per additional member via
+              Difficulty.HealthPerAdditionalPlayer. Party size is
+              clamped to [1, Difficulty.MaxPartySize].
+    @param    initialPartySize  number?  -- defaults to 1
+    @returns  number
+]]
 function Config.GetEnemyHealthMultiplier(initialPartySize: number?): number
 	return 1 + (normalizedPartySize(initialPartySize) - 1) * Config.Difficulty.HealthPerAdditionalPlayer
 end
 
+--[[
+    @summary  Count multiplier for enemy packs based on party size.
+    @param    initialPartySize  number?  -- defaults to 1
+    @returns  number
+]]
 function Config.GetEnemyCountMultiplier(initialPartySize: number?): number
 	return 1 + (normalizedPartySize(initialPartySize) - 1) * Config.Difficulty.CountPerAdditionalPlayer
 end
 
+--[[
+    @summary  Apply the party-size health multiplier to a base value.
+    @desc     Never reduces below baseHealth; non-positive input passes
+              through unchanged.
+    @param    baseHealth        number
+    @param    initialPartySize  number?
+    @returns  number
+]]
 function Config.ScaleEnemyHealth(baseHealth: number, initialPartySize: number?): number
 	if baseHealth <= 0 then
 		return baseHealth
@@ -140,6 +161,13 @@ function Config.ScaleEnemyHealth(baseHealth: number, initialPartySize: number?):
 	return math.max(baseHealth, math.round(baseHealth * Config.GetEnemyHealthMultiplier(initialPartySize)))
 end
 
+--[[
+    @summary  Apply the party-size count multiplier to a base value.
+    @desc     Never reduces below baseCount; non-positive input yields 0.
+    @param    baseCount         number
+    @param    initialPartySize  number?
+    @returns  number
+]]
 function Config.ScaleEnemyCount(baseCount: number, initialPartySize: number?): number
 	if baseCount <= 0 then
 		return 0
