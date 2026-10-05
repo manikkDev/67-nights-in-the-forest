@@ -419,6 +419,10 @@ local function constrainPlayers(dt: number)
 	end
 end
 
+--[[
+    @summary  Returns the current playable-area radius in studs.
+    @returns  number
+]]
 function WorldProgressionService:GetAccessRadius(): number
 	return accessRadius
 end
@@ -453,6 +457,12 @@ function WorldProgressionService:GetBuildingPositions()
 	return result
 end
 
+--[[
+    @summary  Flat XZ check for whether a position is inside the boundary.
+    @param    position  Vector3
+    @param    margin    number?  -- extra studs shaved off the radius
+    @returns  boolean
+]]
 function WorldProgressionService:IsPositionAccessible(position: Vector3, margin: number?): boolean
 	local campfireCFrame = worldService and worldService:GetCampfireCFrame()
 	if not campfireCFrame then
@@ -463,6 +473,11 @@ function WorldProgressionService:IsPositionAccessible(position: Vector3, margin:
 	return distance <= accessRadius - (margin or 0)
 end
 
+--[[
+    @summary  Client-facing remote returning the boundary state for UIs.
+    @param    _player  Player  -- unused
+    @returns  table  -- { level: number, radius: number, maxRadius: number }
+]]
 function WorldProgressionService.Client:GetState(_player: Player): { level: number, radius: number, maxRadius: number }
 	return {
 		level = campfireService and campfireService:GetLevel() or 1,
