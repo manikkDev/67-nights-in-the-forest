@@ -319,6 +319,15 @@ local function fastForwardTimer(session: Session, newSeconds: number)
 	end
 end
 
+--[[
+    @summary  Add a player to a teleporter queue, creating the session if needed.
+    @desc     If the player is already in a session their client is resynced
+              and the call returns false. Joining a Countdown session when
+              the roster reaches capacity fast-forwards its timer.
+    @param    player   Player
+    @param    queueId  string  -- "Teleporter1" | "Teleporter2" | "Teleporter3"
+    @returns  boolean  -- false when already spawned or session is full/closed
+]]
 function MatchFlowService:EnterWaiting(player: Player, queueId: string): boolean
 	if not player or player.Parent ~= Players or not isQueueId(queueId) then
 		return false
@@ -368,11 +377,21 @@ function MatchFlowService:EnterWaiting(player: Player, queueId: string): boolean
 	return true
 end
 
+--[[
+    @summary  Returns the queue flow state for a player.
+    @param    player  Player
+    @returns  FlowState  -- "Lobby" when the player is in no session
+]]
 function MatchFlowService:GetState(player: Player): FlowState
 	local session = sessionsByPlayer[player]
 	return if session then session.state else "Lobby"
 end
 
+--[[
+    @summary  Client-facing remote returning the player's session snapshot.
+    @param    player  Player
+    @returns  table  -- session snapshot, or { state = "Lobby" }
+]]
 function MatchFlowService.Client:GetSnapshot(player: Player): { [string]: any }
 	local session = sessionsByPlayer[player]
 	return if session then snapshotFor(session, player) else { state = "Lobby" }
