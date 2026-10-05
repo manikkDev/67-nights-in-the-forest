@@ -58,16 +58,31 @@ local Config = {
 	},
 }
 
+--[[
+    @summary  Access radius in studs for a campfire level (clamped).
+    @param    level  number
+    @returns  number
+]]
 function Config.GetAccessRadius(level: number): number
 	local index = math.clamp(math.floor(level), 1, #Config.AccessRadiusByLevel)
 	return Config.AccessRadiusByLevel[index]
 end
 
+--[[
+    @summary  Safe-zone radius in studs for a campfire level (clamped).
+    @param    level  number
+    @returns  number
+]]
 function Config.GetSafeZoneRadius(level: number): number
 	local index = math.clamp(math.floor(level), 1, #Config.SafeZoneRadiusByLevel)
 	return Config.SafeZoneRadiusByLevel[index]
 end
 
+--[[
+    @summary  Lowest campfire level whose access radius covers `distance`.
+    @param    distance  number  -- studs from the map centre
+    @returns  number
+]]
 function Config.GetUnlockLevelForDistance(distance: number): number
 	for level, radius in ipairs(Config.AccessRadiusByLevel) do
 		if distance <= radius then
