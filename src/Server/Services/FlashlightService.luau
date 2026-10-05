@@ -340,6 +340,13 @@ function FlashlightService.Client:SetBeamActive(player: Player, isActive: boolea
 	broadcastBattery(player)
 end
 
+--[[
+    @summary  Client-facing remote that updates a player's flashlight aim.
+    @desc     Rejects stale beams, missing flashlights, NaN/degenerate
+              vectors, and requests faster than AIM_UPDATE_MIN_INTERVAL.
+    @param    player     Player
+    @param    direction  Vector3  -- world-space aim direction
+]]
 function FlashlightService.Client:UpdateAim(player: Player, direction: Vector3)
 	if typeof(direction) ~= "Vector3" or not beamActive[player] or not hasFlashlightEquipped(player) then
 		return
