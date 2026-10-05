@@ -46,6 +46,11 @@ local function flatDistance(a: Vector3, b: Vector3): number
 	return (Vector3.new(a.X, 0, a.Z) - Vector3.new(b.X, 0, b.Z)).Magnitude
 end
 
+--[[
+    @summary  Deterministic FNV-1a-style string hash for seeded picks.
+    @param    text  string
+    @returns  number  -- positive integer
+]]
 function WorldPlacement.Hash(text: string): number
 	local hash = 2166136261
 	for index = 1, #text do
@@ -55,10 +60,19 @@ function WorldPlacement.Hash(text: string): number
 	return math.max(1, hash)
 end
 
+--[[
+    @summary  Clear all spatial reservations. Called between runs.
+]]
 function WorldPlacement.Reset()
 	table.clear(reservations)
 end
 
+--[[
+    @summary  Claim a circular area so later placements skip it.
+    @param    position  Vector3
+    @param    radius    number   -- studs on the flat XZ plane
+    @param    category  string   -- e.g. "cave", "landmark", "structure"
+]]
 function WorldPlacement.Reserve(position: Vector3, radius: number, category: string)
 	table.insert(reservations, {
 		position = position,
@@ -84,6 +98,14 @@ function WorldPlacement.ReserveRing(center: Vector3, ringRadius: number, thickne
 	})
 end
 
+--[[
+    @summary  Whether a circle at `position` overlaps any reservation.
+    @desc     Tests both plain circles and ring bands (reserved by
+              ReserveRing) on the flat XZ plane.
+    @param    position  Vector3
+    @param    radius    number
+    @returns  boolean
+]]
 function WorldPlacement.IsReserved(position: Vector3, radius: number): boolean
 	local flatPos = Vector3.new(position.X, 0, position.Z)
 	for _, reservation in ipairs(reservations) do
@@ -100,6 +122,18 @@ function WorldPlacement.IsReserved(position: Vector3, radius: number): boolean
 	return false
 end
 
+--[[
+    @summary  Raycast down onto the ground to find a placement CFrame.
+    @desc     Raycasts from high above `position` against the given
+              ground part(s) — the original ground plus ExpandedGround
+              tiles — falling back to the part's top surface on a miss.
+              The result is always a flat CFrame (yaw-only rotation) so
+              placed structures are never tilted.
+    @param    groundPart  BasePart | { BasePart }
+    @param    position    Vector3
+    @param    yaw         number?  -- radians around the Y axis
+    @returns  CFrame?, Vector3?  -- ground CFrame and surface normal
+]]
 function WorldPlacement.GetGroundCFrame(groundPart: BasePart | { BasePart }, position: Vector3, yaw: number?): (CFrame?, Vector3?)
 	-- Normalize to a list so we can raycast against the original ground
 	-- AND any ExpandedGround tiles.
@@ -117,6 +151,13 @@ function WorldPlacement.GetGroundCFrame(groundPart: BasePart | { BasePart }, pos
 	return CFrame.new(groundPosition) * CFrame.Angles(0, yaw or 0, 0), Vector3.yAxis
 end
 
+--[[
+    @summary  Whether a rotated footprint box overlaps no world parts.
+    @param    cframe      CFrame
+    @param    footprint   Vector3        -- box size in studs
+    @param    exclusions  { Instance }?  -- instances ignored by the check
+    @returns  boolean
+]]
 function WorldPlacement.IsFootprintFree(cframe: CFrame, footprint: Vector3, exclusions: { Instance }?): boolean
 	return WorldPlacement.CountFootprintOverlaps(cframe, footprint, exclusions) == 0
 end
@@ -181,6 +222,15 @@ function WorldPlacement.GetFootprintOverlaps(cframe: CFrame, footprint: Vector3,
 	return result
 end
 
+--[[
+    @summary  Whether a ground path exists between two positions.
+    @desc     Wraps PathfindingService with a standard humanoid agent
+              (radius 3, height 6, can jump). ComputeAsync failures are
+              treated as inaccessible.
+    @param    from  Vector3
+    @param    to    Vector3
+    @returns  boolean
+]]
 function WorldPlacement.IsPathAccessible(from: Vector3, to: Vector3): boolean
 	local path = PathfindingService:CreatePath({
 		AgentRadius = 3,
@@ -194,6 +244,19 @@ function WorldPlacement.IsPathAccessible(from: Vector3, to: Vector3): boolean
 	return success and path.Status == Enum.PathStatus.Success
 end
 
+--[[
+    @summary  Search for a free placement spot matching constraints.
+    @desc     Seeded random search over a ring around `center`: each
+              candidate must fit inside `bounds`, be unreserved, sit on
+              ground with slope <= maxSlope, and have zero footprint
+              overlaps. Optionally requires a navigable path from
+              `requirePathFrom`; when `allowFallback` is set, the best
+              zero-overlap candidate that failed only the path check is
+              returned instead of nil — overlapping spots are never
+              returned.
+    @param    options  table  -- see fields below
+    @returns  CFrame?
+]]
 function WorldPlacement.FindPosition(options: {
 	center: Vector3,
 	groundPart: BasePart | { BasePart },
