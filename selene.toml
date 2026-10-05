@@ -1,0 +1,3 @@
+# Selene linter config — https://kampfkarren.github.io/selene/
+# Uses the built-in Roblox standard library definitions.
+std = "roblox"
