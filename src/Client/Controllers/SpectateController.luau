@@ -579,6 +579,11 @@ local function startSpectating(isDowned: boolean?)
 	setGameGuisHidden(true)
 end
 
+--[[
+    @summary  Move the spectate camera to the next/previous living teammate.
+    @desc     No-op while not spectating. Wraps around the target list.
+    @param    direction  number  -- +1 for next target, -1 for previous
+]]
 function SpectateController:Cycle(direction: number)
 	if not spectating then return end
 	targetIndex += direction
