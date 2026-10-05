@@ -644,6 +644,14 @@ Players.PlayerRemoving:Connect(function(player)
 	chopCooldowns[player] = nil
 end)
 
+--[[
+    @summary  Client-facing remote for picking up a world Wood item.
+    @desc     Rejects non-Wood resources, models outside the base map,
+              and requests made while required services are unavailable.
+    @param    player  Player
+    @param    model   Model  -- the world pickup model
+    @returns  boolean  -- true when the item was added to the bag
+]]
 function HarvestService.Client:RequestPickup(player: Player, model: Model): boolean
 	local resourceName = model and model:IsA("Model") and (model:GetAttribute("Resource") or model:GetAttribute("PickupResource") or model:GetAttribute("ForageResource"))
 	if not model or not model:IsA("Model") or not model.Parent then
