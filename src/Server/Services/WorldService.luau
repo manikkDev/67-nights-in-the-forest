@@ -120,6 +120,12 @@ function WorldService:GetGroundY(): number?
 	return groundY
 end
 
+--[[
+    @summary  Locate and cache the base map's ground part.
+    @desc     Finds the part named "Земля" inside the cloned base map;
+              returns nil until the base map exists.
+    @returns  BasePart?
+]]
 function WorldService:GetGroundPart(): BasePart?
 	if groundPart and groundPart.Parent then
 		return groundPart
@@ -161,6 +167,12 @@ function WorldService:GetAllGroundParts(): { BasePart }
 	return parts
 end
 
+--[[
+    @summary  XZ bounds of the playable area around the ground centre.
+    @desc     Derived from the ground part position ±
+              WorldProgressionConfig.MapRadius; nil when no ground exists.
+    @returns  table?  -- { minX, maxX, minZ, maxZ }
+]]
 function WorldService:GetGroundBounds(): { minX: number, maxX: number, minZ: number, maxZ: number }?
 	local ground = self:GetGroundPart()
 	if not ground then
