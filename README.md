@@ -60,10 +60,10 @@ wally install
 2. Build the place file:
 
 ```bash
-rojo build -o "67 nights in the forest.rbxlx"
+rojo build default.project.json --output build.rbxl
 ```
 
-3. Open the `.rbxlx` file in Roblox Studio.
+3. Open `build.rbxl` in Roblox Studio.
 
 4. Start the Rojo sync server:
 
