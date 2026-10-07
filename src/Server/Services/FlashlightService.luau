@@ -394,6 +394,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies and binds the
+              Heartbeat battery-drain/beam-alignment updater.
+]]
 function FlashlightService:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	deerService = Knit.GetService("DeerService")
