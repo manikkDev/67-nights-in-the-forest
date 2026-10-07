@@ -262,6 +262,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies and
+              pre-builds the Spear tool template.
+]]
 function CombatService:KnitStart()
 	harvestService = Knit.GetService("HarvestService")
 	spawnService = Knit.GetService("SpawnService")
