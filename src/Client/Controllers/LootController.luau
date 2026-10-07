@@ -402,6 +402,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — creates the LootGui ScreenGui and
+              the loot panel chrome in PlayerGui.
+]]
 function LootController:KnitStart()
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "LootGui"
