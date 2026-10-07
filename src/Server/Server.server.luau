@@ -25,6 +25,11 @@ local Workspace = game:GetService("Workspace")
 -- These scripts execute on game load before Knit starts.  Strip them as
 -- early as possible to minimize the error burst.
 do
+	--[[
+	    @summary  Strip scripts, ModuleScripts, PackageLinks, and texture
+	              configs from the crafting-table model copied into the
+	              place, so template leftovers can't run or error.
+	]]
 	local function sanitizeCraftingTable()
 		local bench = Workspace:FindFirstChild("crafting-table")
 		if not bench then return end
