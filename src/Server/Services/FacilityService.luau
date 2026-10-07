@@ -485,6 +485,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies and defers
+              facility spawning until after buildings are placed on
+              RunStarted.
+]]
 function FacilityService:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	runStateService = Knit.GetService("RunStateService")
