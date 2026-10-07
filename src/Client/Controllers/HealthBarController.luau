@@ -312,6 +312,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — subscribes to NPC health and death
+              signals to drive overhead health bars and damage numbers.
+]]
 function HealthBarController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	local animalAIService = Knit.GetService("AnimalAIService")
