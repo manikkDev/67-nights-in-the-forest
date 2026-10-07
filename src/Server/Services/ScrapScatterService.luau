@@ -290,6 +290,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies; on
+              RunStarted, cleans up leftovers then scatters junk piles.
+]]
 function ScrapScatterService:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	runStateService = Knit.GetService("RunStateService")
