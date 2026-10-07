@@ -159,6 +159,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves the services needed to
+              assemble end-of-run results and threat pausing.
+]]
 function EndingService:KnitStart()
 	runStateService = Knit.GetService("RunStateService")
 	timeService = Knit.GetService("TimeService")
