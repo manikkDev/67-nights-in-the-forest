@@ -477,6 +477,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — builds the placement status UI and
+              begins placement previews on CraftSucceeded token results.
+]]
 function BuildingController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	craftingService = Knit.GetService("CraftingService")
