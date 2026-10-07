@@ -33,6 +33,14 @@ local WorldSoundUtil = {}
 local DEFAULT_MIN_DISTANCE = 6
 local DEFAULT_MAX_DISTANCE = 80
 
+--[[
+    @summary  Apply common Sound properties from a PlayOptions table.
+    @desc     Sets SoundId, Volume, inverse-tapered rolloff distances,
+              and applies random pitch jitter when requested.
+    @param    sound    Sound
+    @param    soundId  string
+    @param    opts     PlayOptions?
+]]
 local function configure(sound: Sound, soundId: string, opts: PlayOptions?)
 	sound.SoundId = soundId
 	sound.Volume = (opts and opts.volume) or 0.5
