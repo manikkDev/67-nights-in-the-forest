@@ -15,3 +15,8 @@ sourcemap.json
 # AI Orchestrator (contains API keys, state, logs — never commit)
 .orchestrator/
 TASKS.md
+
+# Editor backup / merge artifacts
+*.orig
+*.bak
+*~
