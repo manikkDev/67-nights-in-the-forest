@@ -70,6 +70,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — wires DayStarted/NightStarted to
+              the client time indicators.
+]]
 function TimeController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	local timeService = Knit.GetService("TimeService")
