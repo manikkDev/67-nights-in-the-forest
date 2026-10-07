@@ -307,6 +307,11 @@ local function onHeartbeat(dt: number)
 	end
 end
 
+--[[
+    @summary  Snap all Lighting properties to day values at once.
+    @desc     Used at run start and phase edges so the first frame of a
+              day is never mid-tween.
+]]
 local function applyDayLightingImmediate()
 	Lighting.ClockTime = DAY_START_CLOCK
 	Lighting.Ambient = DAY_AMBIENT
