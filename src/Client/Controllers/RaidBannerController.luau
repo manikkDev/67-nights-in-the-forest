@@ -638,6 +638,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — wires RaidWarning phases to the
+              pre-night and incoming-raid warning banners.
+]]
 function RaidBannerController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	local cultistRaidService = Knit.GetService("CultistRaidService")
