@@ -627,6 +627,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies and destroys
+              generated grinder models on RunCleaned.
+]]
 function GrinderService:KnitStart()
 	runStateService = Knit.GetService("RunStateService")
 	inventoryService = Knit.GetService("InventoryService")
