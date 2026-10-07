@@ -42,6 +42,12 @@ export type Reservation = {
 
 local reservations: { Reservation } = {}
 
+--[[
+    @summary  XZ-plane distance between two positions (ignores Y).
+    @param    a  Vector3
+    @param    b  Vector3
+    @returns  number
+]]
 local function flatDistance(a: Vector3, b: Vector3): number
 	return (Vector3.new(a.X, 0, a.Z) - Vector3.new(b.X, 0, b.Z)).Magnitude
 end
