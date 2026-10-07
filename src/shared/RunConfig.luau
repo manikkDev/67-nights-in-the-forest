@@ -120,6 +120,11 @@ function Config.GetPhaseDuration(phase: string): number
 	return if phase == "Day" then Config.DayDuration else Config.NightDuration
 end
 
+--[[
+    @summary  Clamp an optional party size to [1, Difficulty.MaxPartySize].
+    @param    initialPartySize  number?  -- defaults to 1
+    @returns  number
+]]
 local function normalizedPartySize(initialPartySize: number?): number
 	local size = if typeof(initialPartySize) == "number" then math.floor(initialPartySize) else 1
 	return math.clamp(size, 1, Config.Difficulty.MaxPartySize)
