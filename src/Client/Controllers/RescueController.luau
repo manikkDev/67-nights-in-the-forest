@@ -768,6 +768,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — builds the carry HUD and rescue map
+              UI, then populates the physical board portraits.
+]]
 function RescueController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	rescueService = Knit.GetService("RescueService")
