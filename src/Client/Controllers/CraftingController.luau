@@ -932,6 +932,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — builds the crafting UI and
+              notification layer, wires OpenCrafting and CraftSucceeded.
+]]
 function CraftingController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	craftingService = Knit.GetService("CraftingService")
