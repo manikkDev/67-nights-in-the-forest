@@ -237,6 +237,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — wires OwlActive to the warning
+              banner and OwlDetection to the eye-meter HUD.
+]]
 function OwlController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	local owlService = Knit.GetService("OwlService")
