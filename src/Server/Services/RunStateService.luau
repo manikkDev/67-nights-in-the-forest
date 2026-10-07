@@ -523,6 +523,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies and injects
+              the score-multiplier provider into TimeService.
+]]
 function RunStateService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 	timeService = Knit.GetService("TimeService")
