@@ -431,6 +431,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — wires OpenGrinder to the panel and
+              GrinderProcessed to the VFX/sound player.
+]]
 function GrinderController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	grinderService = Knit.GetService("GrinderService")
