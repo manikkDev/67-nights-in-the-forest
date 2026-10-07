@@ -232,6 +232,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies and defers
+              giant-tree placement until earlier world-gen finishes on
+              RunStarted.
+]]
 function GiantTreeService:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	runStateService = Knit.GetService("RunStateService")
