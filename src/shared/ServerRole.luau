@@ -32,6 +32,13 @@ local isServer = RunService:IsServer()
 
 -- One-shot diagnostic log so we can see exactly how role detection resolved.
 local detectionLogged = false
+--[[
+    @summary  Print the detected server role once per process.
+    @desc     PrivateServerId/PrivateServerOwnerId warn when read on the
+              client, so they are only touched on the server.
+    @param    source  string   -- which check produced the result
+    @param    result  boolean  -- the detected IsGameServer value
+]]
 local function logDetection(source: string, result: boolean)
 	if detectionLogged then
 		return
