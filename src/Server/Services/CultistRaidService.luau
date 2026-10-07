@@ -302,6 +302,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies and binds the
+              Heartbeat raid scheduler.
+]]
 function CultistRaidService:KnitStart()
 	timeService = Knit.GetService("TimeService")
 	worldService = Knit.GetService("WorldService")
