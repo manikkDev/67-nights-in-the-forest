@@ -40,9 +40,16 @@ Spear (Model)
 5. **Set `tool.Grip`** (a CFrame) rather than the individual `GripPos`/`GripForward`/`GripUp`/`GripRight` properties — it's a single transform and easier to reason about.
 6. **Test at runtime** by equipping the tool and reading part positions via `execute_luau` to confirm the tip is above the hand and the shaft is vertical before shipping.
 
+## Documentation Conventions
+
+- Every `.luau` module starts with a `--[[ ]]` header: `@file`, `@author`, `@date`, `@summary`, `@description`, `@exports` (services list remotes/signals; shared modules list functions).
+- Public functions carry UDD doc blocks: `@summary`, `@desc`, `@param name  type  -- note`, `@returns  type`.
+- Scripts keep the three-section layout: `-- // VARIABLES // --`, `-- // FUNCTIONS // --`, `-- // INITIALIZATION // --`.
+- In-body comments are sparse and only explain non-obvious ordering/timing (e.g. deferred world-gen waits).
+
 ## Day/Night Cycle
 
-- `src/Shared/RunConfig.luau` → `DayDuration` (currently 300s for testing; revert to 180 when done).
+- `src/Shared/RunConfig.luau` → `DayDuration` = 180s (production). Bump temporarily for testing, then revert.
 - `NightDuration` = 90s.
 
 ## Chest / Loot System
