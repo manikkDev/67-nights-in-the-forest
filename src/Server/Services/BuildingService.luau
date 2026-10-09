@@ -337,6 +337,11 @@ local function broadcast(signal, payload)
 	end
 end
 
+--[[
+    @summary  Whether the player is alive and allowed to act.
+    @param    player  Player
+    @returns  boolean  -- delegates to PlayerLifeService:CanAct
+]]
 local function canInteract(player: Player): boolean
 	return playerLifeService ~= nil and playerLifeService:CanAct(player)
 end
@@ -678,6 +683,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies; creates a
+              fresh Structures folder on RunStarted and clears all
+              placement state on RunCleaned.
+]]
 function BuildingService:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	runStateService = Knit.GetService("RunStateService")
