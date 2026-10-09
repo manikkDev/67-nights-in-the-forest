@@ -290,6 +290,13 @@ local function buildAnimationTracks(record)
 	end
 	record.tracks = {}
 
+	--[[
+	    @summary  Load an Animation asset into the NPC's animator.
+	    @param    id        string
+	    @param    looped    boolean
+	    @param    priority  Enum.AnimationPriority?  -- defaults to Idle
+	    @returns  AnimationTrack?  -- nil when LoadAnimation fails
+	]]
 	local function loadTrack(id: string, looped: boolean, priority: Enum.AnimationPriority?): AnimationTrack?
 		local anim = Instance.new("Animation")
 		anim.AnimationId = id
@@ -618,6 +625,13 @@ local function isPlayerTargetable(player: Player): boolean
 	return humanoid ~= nil and humanoid.Health > 0 and rootPart ~= nil and rootPart:IsA("BasePart")
 end
 
+--[[
+    @summary  Return the nearest targetable player within range and
+              their distance.
+    @param    position  Vector3
+    @param    range     number
+    @returns  Player?, number?
+]]
 local function findNearestPlayer(position: Vector3, range: number): (Player?, number?)
 	local nearest: Player? = nil
 	local nearestDist: number? = nil
@@ -701,6 +715,11 @@ local function noteAggro(record)
 	end
 end
 
+--[[
+    @summary  Per-NPC state machine tick — handles targeting, pursuit,
+              waypoints, and animation for one active record.
+    @param    record  table  -- the NPC's active state record
+]]
 local function updateState(record)
 	local config = record.config
 
@@ -1189,6 +1208,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Drop pursuit of a player on every NPC — clears the
+              target, waypoints, halts movement, and returns to Patrol.
+    @param    player  Player
+]]
 local function releaseTargetsForPlayer(player: Player)
 	for _, record in pairs(activeNpcs) do
 		if record.target == player and not record.isDead then
@@ -1200,6 +1224,12 @@ local function releaseTargetsForPlayer(player: Player)
 	end
 end
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies, collects the
+              spawn area, releases targets on downed/eliminated, spawns
+              newly-unlocked animals on campfire level-ups, and binds
+              the AI tick.
+]]
 function AnimalAIService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	timeService = Knit.GetService("TimeService")
