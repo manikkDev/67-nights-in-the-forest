@@ -221,6 +221,11 @@ end
     @param    player  Player
 ]]
 local function watchForSpear(player: Player)
+	--[[
+	    @summary  Reset per-character janitors and wire the Spear tool,
+	              including any tool added later.
+	    @param    character  Model
+	]]
 	local function checkCharacter(character: Model)
 		toolJanitor:Cleanup()
 		charJanitor:Cleanup()
