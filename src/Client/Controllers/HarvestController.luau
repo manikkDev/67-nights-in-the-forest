@@ -147,6 +147,11 @@ end
 ]]
 local CarryController = require(script.Parent.CarryController)
 
+--[[
+    @summary  Handle axe activation — gates on being in game, not
+              dragging a body, and the chop cooldown; plays the swing
+              animation and requests the server attack.
+]]
 local function onToolActivated()
 	if not gameStateController or not gameStateController:IsInGame() then
 		return
@@ -180,6 +185,11 @@ end
               being equipped.
 ]]
 local function watchForAxe(player: Player)
+	--[[
+	    @summary  Reset per-character janitors and wire the Axe tool,
+	              including any tool added later.
+	    @param    character  Model
+	]]
 	local function checkCharacter(character: Model)
 		cachedAnimTrack = nil
 		toolJanitor:Cleanup()
