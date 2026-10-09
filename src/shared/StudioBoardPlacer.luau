@@ -33,6 +33,13 @@
 
 local workspace = game:GetService("Workspace")
 
+--[[
+    @summary  Locate the campfire anchor point for board placement.
+    @desc     Tries Workspace.Campfire, then a "Campfire" part inside
+              Base-map, then the Bonfire's first BasePart; falls back
+              to the world origin.
+    @returns  Vector3
+]]
 local function findCampfireCenter(): Vector3?
 	-- Try to find the campfire anchor created by the game
 	local campfire = workspace:FindFirstChild("Campfire")
@@ -58,6 +65,15 @@ local function findCampfireCenter(): Vector3?
 	return Vector3.new(0, 0, 0)
 end
 
+--[[
+    @summary  Create a single anchored wood-planks board part.
+    @param    name    string
+    @param    size    Vector3
+    @param    color   Color3
+    @param    cframe  CFrame
+    @param    parent  Instance
+    @returns  Part
+]]
 local function createBoardPart(name: string, size: Vector3, color: Color3, cframe: CFrame, parent: Instance): Part
 	local part = Instance.new("Part")
 	part.Name = name
@@ -72,6 +88,12 @@ local function createBoardPart(name: string, size: Vector3, color: Color3, cfram
 	return part
 end
 
+--[[
+    @summary  Build the MissingChildrenBoard poster model near the
+              campfire, with poles, poster face, and image decals.
+    @param    center  Vector3  -- campfire anchor
+    @returns  Model
+]]
 local function createPosterBoardModel(center: Vector3): Model
 	local model = Instance.new("Model")
 	model.Name = "MissingChildrenBoard"
@@ -114,6 +136,12 @@ local function createPosterBoardModel(center: Vector3): Model
 	return model
 end
 
+--[[
+    @summary  Build the MapBoard model near the campfire — a wooden
+              board with map graphic and legs.
+    @param    center  Vector3  -- campfire anchor
+    @returns  Model
+]]
 local function createMapBoardModel(center: Vector3): Model
 	local model = Instance.new("Model")
 	model.Name = "MapBoard"
