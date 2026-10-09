@@ -139,6 +139,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves services, creates the
+              ambient/impact sounds, and wires day-night, build,
+              rescue, and ending signals.
+]]
 function Phase4EffectsController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	local timeService = Knit.GetService("TimeService")
