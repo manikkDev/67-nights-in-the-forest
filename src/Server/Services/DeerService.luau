@@ -245,6 +245,12 @@ local function buildAnimationTracks(stalker)
 	-- Register KeyframeSequences FIRST so the Animations folder has valid local IDs
 	registerKeyframeAnims(stalker.model)
 
+	--[[
+	    @summary  Load an Animation asset into the stalker's animator.
+	    @param    id      string   -- rbxassetid
+	    @param    looped  boolean
+	    @returns  AnimationTrack?  -- nil when LoadAnimation fails
+	]]
 	local function loadTrack(id: string, looped: boolean): AnimationTrack?
 		local anim = Instance.new("Animation")
 		anim.AnimationId = id
@@ -517,6 +523,11 @@ local function isHuntablePlayer(player: Player): boolean
 		and not (campfireService and campfireService:IsInSafeZone(rootPart.Position))
 end
 
+--[[
+    @summary  Return the nearest huntable player and their position.
+    @param    fromPosition  Vector3
+    @returns  Player?, Vector3?
+]]
 local function findHuntableTarget(fromPosition: Vector3): (Player?, Vector3?)
 	local nearest: Player? = nil
 	local nearestPos: Vector3? = nil
@@ -1275,6 +1286,12 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Drop pursuit of a player on every stalker.
+    @desc     Clears target/waypoints, halts movement, and returns
+              Pursuing stalkers to Patrol.
+    @param    player  Player
+]]
 local function releaseTarget(player: Player)
 	for _, stalker in pairs(stalkers) do
 		if stalker.target == player then
@@ -1289,6 +1306,11 @@ local function releaseTarget(player: Player)
 	end
 end
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies, releases
+              targets on downed/eliminated, spawns the Deer and
+              RamMonster stalkers after a delay, and binds Heartbeat.
+]]
 function DeerService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	timeService = Knit.GetService("TimeService")
