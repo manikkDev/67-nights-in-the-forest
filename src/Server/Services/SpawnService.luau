@@ -85,6 +85,11 @@ local function loadFreshCharacter(player: Player): Model?
 	return nil
 end
 
+--[[
+    @summary  Whether a teleporter name is a valid party queue id.
+    @param    queueId  string
+    @returns  boolean  -- checks Constants.PARTY_QUEUE_IDS
+]]
 local function queueAllowed(queueId: string): boolean
 	for _, allowed in ipairs(Constants.PARTY_QUEUE_IDS or {}) do
 		if queueId == allowed then
@@ -94,6 +99,11 @@ local function queueAllowed(queueId: string): boolean
 	return false
 end
 
+--[[
+    @summary  Return the shared lobby spawn CFrame.
+    @desc     Same point for every player; nil until the lobby map exists.
+    @returns  CFrame?
+]]
 local function deterministicLobbyCFrame(): CFrame?
 	local lobbyMap = worldService and worldService:GetLobbyMap()
 	if not lobbyMap then
@@ -320,6 +330,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies, wires
+              teleporter touch queues, and auto-spawns players when the
+              SkipLobby test flag or Studio/lobby role is active.
+]]
 function SpawnService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	matchFlowService = Knit.GetService("MatchFlowService")
