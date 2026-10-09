@@ -447,6 +447,11 @@ local function isPlayerInGame(player: Player): boolean
 	return spawnService:IsPlayerSpawned(player)
 end
 
+--[[
+    @summary  Fire FuelChanged with fuel/maxFuel/fraction/isLit to one
+              player, or to every in-game player when omitted.
+    @param    target  Player?  -- nil broadcasts to all
+]]
 local function broadcastFuel(target: Player?)
 	local fraction = if maxFuel > 0 then fuel / maxFuel else 0
 	if target then
@@ -899,6 +904,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies, restores
+              campfire state from the first loaded profile, builds the
+              campfire, and starts the Heartbeat burn loop.
+]]
 function CampfireService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	playerDataService = Knit.GetService("PlayerDataService")
