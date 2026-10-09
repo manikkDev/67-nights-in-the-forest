@@ -74,6 +74,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves GameStateController and
+              binds Heartbeat to the procedural animation tick.
+]]
 function ProceduralAnimController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	gameStateController = Knit.GetController("GameStateController")
