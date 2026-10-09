@@ -126,13 +126,25 @@ local function buildCustomTracks(model)
 					isCustom = true,
 				}
 
+				--[[
+				    @summary  Custom-track shim mirroring AnimationTrack.IsPlaying.
+				    @returns  boolean
+				]]
 				function ct:GetPlaying()
 					return self._isPlaying
 				end
+				--[[
+				    @summary  Start the custom track and reset its playhead.
+				    @param    fadeTime  number?  -- accepted for API parity, unused
+				]]
 				function ct:Play(fadeTime)
 					self._isPlaying = true
 					self.playhead = 0
 				end
+				--[[
+				    @summary  Stop the track and reset Motor6D transforms.
+				    @param    fadeTime  number?  -- accepted for API parity, unused
+				]]
 				function ct:Stop(fadeTime)
 					self._isPlaying = false
 					self.playhead = 0
@@ -337,6 +349,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — wires AnimationStateChanged and
+              ticks custom tracks on Stepped (after the Animator) to
+              write Motor6D.Transform.
+]]
 function DeerController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 
