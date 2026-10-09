@@ -618,6 +618,14 @@ local function startDrag(model: Model, resourceName: string): boolean
 	return true
 end
 
+--[[
+    @summary  Ask the server to begin dragging a teammate's downed body.
+    @desc     On success, waits for the replicated BodyDragTarget part
+              and hooks it into the local camera-driven drag loop.
+    @param    model         Model   -- the body model under the cursor
+    @param    targetPlayer  Player  -- the downed teammate
+    @returns  boolean
+]]
 local function startBodyDrag(model: Model, targetPlayer: Player): boolean
 	if not lifeService or not isInRange(model) then
 		return false
@@ -734,6 +742,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves services and wires
+              LifeStateChanged to stop drags when bodies are revived.
+]]
 function CarryController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	harvestService = Knit.GetService("HarvestService")
