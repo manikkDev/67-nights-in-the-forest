@@ -73,11 +73,19 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle init — creates the GameStarted signal.
+]]
 function GameStateController:KnitInit()
 	gameStartedSignal = Signal.new()
 	GameStateController.GameStarted = gameStartedSignal
 end
 
+--[[
+    @summary  Knit lifecycle start — mirrors MatchFlowService flow
+              states locally; maps "InGame" to "Day1" and auto-completes
+              the intro after 3s as a safety net.
+]]
 function GameStateController:KnitStart()
 	local matchFlow = Knit.GetService("MatchFlowService")
 
