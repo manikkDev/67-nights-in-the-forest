@@ -248,11 +248,19 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — arms the spear watcher once the run
+              intro completes and wires AttackLanded to hit sparks +
+              camera shake.
+]]
 function CombatController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	gameStateController = Knit.GetController("GameStateController")
 	local player = Players.LocalPlayer
 
+	--[[
+	    @summary  Arm the spear-equip watcher once the intro completes.
+	]]
 	local function onGameStarted()
 		watchForSpear(player)
 	end
