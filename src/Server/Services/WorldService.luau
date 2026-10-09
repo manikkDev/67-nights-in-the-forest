@@ -254,6 +254,14 @@ local function findGroundCFrame(map: Model): CFrame
 	return pivot
 end
 
+--[[
+    @summary  Create the ExpandedGround tile folder that extends the
+              1536-stud map out to MapRadius*2.
+    @desc     No-op when the folder already exists. Tiles are clones of
+              the ground part arranged around the centre square.
+    @param    map     Model
+    @param    ground  BasePart
+]]
 local function ensureExpandedGround(map: Model, ground: BasePart)
 	if map:FindFirstChild("ExpandedGround") then
 		return
@@ -266,6 +274,13 @@ local function ensureExpandedGround(map: Model, ground: BasePart)
 	local centerSize = math.min(ground.Size.X, 1536)
 	local sideWidth = (targetSize - centerSize) * 0.5
 	local sideX = centerSize * 0.5 + sideWidth * 0.5
+	--[[
+	    @summary  Clone the ground part into a named expansion tile at
+	              ground.Position + offset.
+	    @param    name    string
+	    @param    size    Vector3
+	    @param    offset  Vector3
+	]]
 	local function createTile(name: string, size: Vector3, offset: Vector3)
 		local tile = ground:Clone()
 		tile.Name = name
@@ -485,6 +500,12 @@ function WorldService:CreateOuterWall()
 	local spanZ = maxZ - minZ   -- 3200
 	local wallY = groundTop + height * 0.5
 
+	--[[
+	    @summary  Create one anchored boundary wall segment with a neon
+	              top trim so it reads day and night.
+	    @param    size      Vector3
+	    @param    position  Vector3
+	]]
 	local function makeWall(size: Vector3, position: Vector3)
 		local part = Instance.new("Part")
 		part.Anchored = true
@@ -563,6 +584,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — locates the lobby/base maps, fixes
+              primary parts, disables template scripts, expands the
+              ground, and creates the campfire anchor.
+]]
 function WorldService:KnitStart()
 	lobbyMap = findMap("lobby-map")
 	if lobbyMap then
