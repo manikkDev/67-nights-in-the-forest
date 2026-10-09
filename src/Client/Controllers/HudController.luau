@@ -176,16 +176,26 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle init — builds the day/night phase UI.
+]]
 function HudController:KnitInit()
 	createPhaseUi()
 end
 
+--[[
+    @summary  Knit lifecycle start — wires DayStarted/NightStarted to the
+              phase labels once GameStarted enables them.
+]]
 function HudController:KnitStart()
 	if ServerRole.IsLobby() then return end
 	gameStateController = Knit.GetController("GameStateController")
 	local timeService = Knit.GetService("TimeService")
 	local runStateService = Knit.GetService("RunStateService")
 
+	--[[
+	    @summary  Enable the phase labels once the run intro completes.
+	]]
 	local function enableLabels()
 		labelsEnabled = true
 		if phaseGui then phaseGui.Enabled = true end
