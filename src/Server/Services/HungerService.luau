@@ -166,12 +166,22 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies, binds the
+              Heartbeat hunger drain, and fires each player's initial
+              HungerChanged once their profile loads.
+]]
 function HungerService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 	spawnService = Knit.GetService("SpawnService")
 	playerLifeService = Knit.GetService("PlayerLifeService")
 	RunService.Heartbeat:Connect(onHeartbeat)
 
+	--[[
+	    @summary  Fire HungerChanged with a player's stored hunger values
+	              once their profile data exists.
+	    @param    player  Player
+	]]
 	local function fireInitialHunger(player: Player)
 		if not player.Parent then return end
 		if not playerDataService then return end
