@@ -192,6 +192,14 @@ local function setTopLevelBar(level: number, progress: number, requirement: numb
 	end
 end
 
+--[[
+    @summary  Update the level label, tween the progress fill to
+              progress/requirement, refresh the value text, and mirror
+              to the world-space top bar.
+    @param    level        number
+    @param    progress     number
+    @param    requirement  number
+]]
 local function setLevelBar(level: number, progress: number, requirement: number)
 	if levelLabel then
 		levelLabel.Text = "LVL " .. tostring(level)
@@ -458,6 +466,10 @@ local function buildStatRow(parent: Frame, name: string, y: number, labelText: s
 	return fill, valueLabel
 end
 
+--[[
+    @summary  Find the Bonfire's "Fire" part inside Base-map.
+    @returns  BasePart?  -- nil until the base map exists
+]]
 local function _findCampfireFire(): BasePart?
 	local baseMap = workspace:FindFirstChild("Base-map")
 	if not baseMap then
@@ -795,6 +807,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — builds the HUD panel, world-space
+              top bar, level-up banner, and warning UI; enables them on
+              GameStarted.
+]]
 function CampfireController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	buildGui()
@@ -806,6 +823,10 @@ function CampfireController:KnitStart()
 	local runStateService = Knit.GetService("RunStateService")
 	campfireService = Knit.GetService("CampfireService")
 
+	--[[
+	    @summary  Enable the campfire HUD, warning, and top billboard
+	              when the run begins.
+	]]
 	local function onGameStarted()
 		if campfireGui then
 			campfireGui.Enabled = true
