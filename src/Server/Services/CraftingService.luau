@@ -367,6 +367,12 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 		end
 	end
 
+	--[[
+	    @summary  Walk a label's ancestors to find the BasePart hosting
+	              its SurfaceGui.
+	    @param    label  TextLabel
+	    @returns  BasePart?
+	]]
 	local function getHostPart(label: TextLabel): BasePart?
 		local current: Instance? = label
 		while current do
@@ -398,6 +404,12 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 		return false
 	end
 
+	--[[
+	    @summary  True for emoji/short-text icon labels (never the
+	              numeric "ObjectParts" count labels).
+	    @param    label  TextLabel
+	    @returns  boolean
+	]]
 	local function isIconLabel(label: TextLabel): boolean
 		if label.Name:find("ObjectParts") then
 			return false
@@ -860,6 +872,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies, sweeps
+              unauthorized sounds fired by the packaged bench asset,
+              and resets bench state on RunStarted.
+]]
 function CraftingService:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	runStateService = Knit.GetService("RunStateService")
