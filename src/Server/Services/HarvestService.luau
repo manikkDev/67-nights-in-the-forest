@@ -283,6 +283,10 @@ local function fellTree(treeModel: Model, baseMap: Model)
 	local fallAngle = Instance.new("NumberValue")
 	fallAngle.Value = 0
 
+	--[[
+	    @summary  Rotate the falling tree around its base pivot.
+	    @param    degrees  number  -- current fall angle in degrees
+	]]
 	local function applyFall(degrees: number)
 		local rad = math.rad(degrees)
 		local rotation = CFrame.Angles(0, yaw, 0) * CFrame.Angles(rad, 0, 0) * CFrame.Angles(0, -yaw, 0)
@@ -606,6 +610,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — builds the axe template, registers
+              trees, wires PromptTriggered, and grants the axe on
+              spawn/join.
+]]
 function HarvestService:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	worldService = Knit.GetService("WorldService")
@@ -620,6 +629,10 @@ function HarvestService:KnitStart()
 	ProximityPromptService.PromptTriggered:Connect(onPromptTriggered)
 
 	local spawnServicePublic = spawnService
+	--[[
+	    @summary  Give the axe once the player is spawned into the run.
+	    @param    player  Player
+	]]
 	local function tryGiveAxe(player: Player)
 		if spawnServicePublic and spawnServicePublic:IsPlayerSpawned(player) then
 			giveAxe(player)
