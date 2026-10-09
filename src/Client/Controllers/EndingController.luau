@@ -192,6 +192,14 @@ local function buildDefeatPanel(parent: Frame): Frame
 	return panel
 end
 
+--[[
+    @summary  Build one roster row for the defeat panel.
+    @param    parent       Frame
+    @param    displayName  string
+    @param    stateLabel   string
+    @param    stateColor   Color3   -- status-dot and label color
+    @param    layoutOrder  number
+]]
 local function addMemberRow(parent: Frame, displayName: string, stateLabel: string, stateColor: Color3, layoutOrder: number)
 	local row = Instance.new("Frame")
 	row.Name = "MemberRow"
@@ -792,6 +800,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — builds the ending UI, wires
+              EndingStarted/ResultsReady, and fades the backdrop out
+              when the run returns to Lobby.
+]]
 function EndingController:KnitStart()
 	endingService = Knit.GetService("EndingService")
 	runStateService = Knit.GetService("RunStateService")
