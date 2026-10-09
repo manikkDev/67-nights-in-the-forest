@@ -206,6 +206,15 @@ local function buildForageCFrame(position: Vector3, resourceName: string, size: 
 	local x, z = position.X, position.Z
 	local yaw = math.random() * math.pi * 2
 
+	--[[
+	    @summary  Compose a bush-relative CFrame for a berry part.
+	    @desc     Long axis leans `leanDegrees` from vertical toward the
+	              current yaw, with an optional roll around that axis.
+	    @param    y            number   -- height offset inside the bush
+	    @param    leanDegrees  number   -- tilt away from vertical
+	    @param    roll         number?  -- radians around the long axis
+	    @returns  CFrame
+	]]
 	local function makeBerryCFrame(y: number, leanDegrees: number, roll: number?): CFrame
 		local pitch = math.rad(leanDegrees)
 		local rollRad = roll or 0
@@ -425,6 +434,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies, caches tree
+              pivots, and spawns the initial forage after a 1s delay.
+]]
 function ForageService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	inventoryService = Knit.GetService("InventoryService")
