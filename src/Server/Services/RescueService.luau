@@ -114,6 +114,12 @@ local function broadcast(signal, payload)
 	end
 end
 
+--[[
+    @summary  Whether the player may use rescue interactions right now.
+    @desc     Requires an active run, run membership, and alive state.
+    @param    player  Player
+    @returns  boolean
+]]
 local function canInteract(player: Player): boolean
 	return runStateService:IsActive()
 		and runStateService:IsMember(player)
@@ -1551,6 +1557,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves dependencies, builds the
+              shared portrait templates, and defers cave/tent spawning
+              until earlier world-gen is reserved on RunStarted.
+]]
 function RescueService:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	runStateService = Knit.GetService("RunStateService")
