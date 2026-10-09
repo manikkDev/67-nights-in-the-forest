@@ -207,6 +207,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — wires TreeChopped to camera shake
+              and arms the axe watcher once the intro completes.
+]]
 function HarvestController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	gameStateController = Knit.GetController("GameStateController")
@@ -217,6 +221,9 @@ function HarvestController:KnitStart()
 
 	local player = Players.LocalPlayer
 
+	--[[
+	    @summary  Arm the axe-equip watcher once the intro completes.
+	]]
 	local function onGameStarted()
 		watchForAxe(player)
 	end
