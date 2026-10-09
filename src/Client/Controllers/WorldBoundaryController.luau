@@ -39,6 +39,9 @@ local proximityEffect: ColorCorrectionEffect? = nil
 local updateTimer = 0
 local warningVisible = false
 
+--[[
+    @summary  Lazily build the boundary warning GUI (no-op if built).
+]]
 local function ensureWarning()
 	if warningGui then
 		return
@@ -95,6 +98,11 @@ local function ensureWarning()
 	proximityEffect = effect
 end
 
+--[[
+    @summary  Fade the warning frame, label, stroke, and the
+              ColorCorrection proximity effect in or out.
+    @param    visible  boolean
+]]
 local function setWarning(visible: boolean)
 	if visible == warningVisible then
 		return
@@ -126,6 +134,11 @@ local function setWarning(visible: boolean)
 	end
 end
 
+--[[
+    @summary  Throttled (~0.15s) check of the player's distance to the
+              campfire vs the access radius; toggles the warning.
+    @param    dt  number
+]]
 local function updateProximity(dt: number)
 	updateTimer += dt
 	if updateTimer < 0.15 then
@@ -147,6 +160,11 @@ local function updateProximity(dt: number)
 	setWarning(math.max(dx, dz) >= accessRadius - 50)
 end
 
+--[[
+    @summary  Knit lifecycle start — builds the warning UI, resolves the
+              campfire position, observes AccessRadius/BoundaryExpanded,
+              and binds the Heartbeat proximity check.
+]]
 function WorldBoundaryController:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	progressionService = Knit.GetService("WorldProgressionService")
