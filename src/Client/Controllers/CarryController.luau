@@ -124,6 +124,12 @@ end
 
 -- Body models are never pickup resources. They are identified only by their
 -- owning Player and authoritative replicated life-state attribute.
+--[[
+    @summary  Resolve the ancestor character model and player for an
+              instance hit by the mouse.
+    @returns  Model?, Player?  -- only when that player's LifeState is
+              Downed or Eliminated (never the local player)
+]]
 local function findBodyModel(instance: Instance): (Model?, Player?)
 	local model = instance:FindFirstAncestorOfClass("Model")
 	local player = model and Players:GetPlayerFromCharacter(model)
