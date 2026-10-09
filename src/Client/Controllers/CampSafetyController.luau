@@ -299,11 +299,20 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle init — creates the ColorCorrection effect
+              and the warning label.
+]]
 function CampSafetyController:KnitInit()
 	colorCorrection = ensureColorCorrection()
 	warningLabel = buildWarningLabel()
 end
 
+--[[
+    @summary  Knit lifecycle start — observes campfire safe-zone/lit
+              state and the time phase via ClientRemoteProperty
+              :Observe(), replacing polling.
+]]
 function CampSafetyController:KnitStart()
 	if ServerRole.IsLobby() then return end
 	gameStateController = Knit.GetController("GameStateController")
@@ -356,6 +365,10 @@ function CampSafetyController:KnitStart()
 		safeZoneRadius = if isActive then radius or 0 else 0
 	end)
 
+	--[[
+	    @summary  Resolve the campfire position and start the proximity
+	              warning heartbeat once the run begins.
+	]]
 	local function onGameStarted()
 		-- ServicePromises is enabled, so GetCampfirePosition returns a Promise.
 		worldService:GetCampfirePosition():andThen(function(pos: Vector3?)
