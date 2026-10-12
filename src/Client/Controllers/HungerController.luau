@@ -53,6 +53,15 @@ local survivalGui: ScreenGui? = nil
 
 -- // FUNCTIONS // --
 
+--[[
+    @summary  Tween a stat bar's fill to current/max and set its
+              percentage label.
+    @param    fill     Frame?
+    @param    label    TextLabel?
+    @param    current  number
+    @param    max      number
+    @param    color    Color3  -- lerps the label toward dim as it drains
+]]
 local function setFillAndLabel(fill: Frame?, label: TextLabel?, current: number, max: number, color: Color3)
 	if not fill or not label then
 		return
@@ -66,6 +75,16 @@ local function setFillAndLabel(fill: Frame?, label: TextLabel?, current: number,
 	label.TextColor3 = color:Lerp(TEXT_DIM, 1 - clamped)
 end
 
+--[[
+    @summary  Build one stat row — icon square, name label, fill bar,
+              and value label.
+    @param    parent     Frame
+    @param    name       string
+    @param    y          number  -- row offset in pixels
+    @param    labelText  string
+    @param    color      Color3
+    @returns  Frame, TextLabel  -- fill frame and value label
+]]
 local function buildStatRow(parent: Frame, name: string, y: number, labelText: string, color: Color3): (Frame, TextLabel)
 	local icon = Instance.new("Frame")
 	icon.Name = name .. "Icon"
@@ -157,6 +176,10 @@ local function buildStatRow(parent: Frame, name: string, y: number, labelText: s
 	return barFill, valueLabel
 end
 
+--[[
+    @summary  Build the survival ScreenGui — health and hunger stat
+              rows. Removes the legacy HealthBarFill first.
+]]
 local function buildSurvivalGui()
 	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 	if not playerGui then
