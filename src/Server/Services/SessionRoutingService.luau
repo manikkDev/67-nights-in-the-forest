@@ -65,6 +65,11 @@ local pendingTeleports: { [Player]: string } = {}
 -- // FUNCTIONS // --
 
 -- | Validation | --
+--[[
+    @summary  Sorted UserId array for a player list (stable comparison).
+    @param    players  { Player }
+    @returns  { number }
+]]
 local function copyUserIds(players: { Player }): { number }
 	local ids = {}
 	for _, player in ipairs(players) do
@@ -74,6 +79,13 @@ local function copyUserIds(players: { Player }): { number }
 	return ids
 end
 
+--[[
+    @summary  Shape-check teleport metadata — requires the current
+              DATA_VERSION plus partyId, hostUserId, initialPartySize,
+              expectedUserIds, and issuedAt.
+    @param    data  any
+    @returns  boolean
+]]
 local function validMetadata(data: any): boolean
 	if typeof(data) ~= "table"
 		or data.version ~= DATA_VERSION
@@ -104,6 +116,13 @@ local function validMetadata(data: any): boolean
 	return hostFound
 end
 
+--[[
+    @summary  Whether two metadata payloads describe the same party —
+              equal partyId/hostUserId and identical expectedUserIds sets.
+    @param    a  { [string]: any }
+    @param    b  { [string]: any }
+    @returns  boolean
+]]
 local function metadataMatches(a: { [string]: any }, b: { [string]: any }): boolean
 	if a.partyId ~= b.partyId or a.hostUserId ~= b.hostUserId or #a.expectedUserIds ~= #b.expectedUserIds then
 		return false
@@ -120,6 +139,13 @@ local function metadataMatches(a: { [string]: any }, b: { [string]: any }): bool
 	return true
 end
 
+--[[
+    @summary  Whether a userId is listed in the metadata's
+              expectedUserIds.
+    @param    data    { [string]: any }
+    @param    userId  number
+    @returns  boolean
+]]
 local function isExpected(data: { [string]: any }, userId: number): boolean
 	for _, expectedId in ipairs(data.expectedUserIds) do
 		if expectedId == userId then
@@ -130,6 +156,14 @@ local function isExpected(data: { [string]: any }, userId: number): boolean
 end
 
 -- | Reconnect Tickets | --
+--[[
+    @summary  Persist a reconnect ticket (partyId+userId+accessCode) to
+              the ticket MemoryStore map with TICKET_TTL expiry.
+    @param    partyId     string
+    @param    userId      number
+    @param    accessCode  string
+    @returns  boolean  -- false when SetAsync failed
+]]
 function SessionRoutingService:WriteReconnectTicket(partyId: string, userId: number, accessCode: string): boolean
 	local ok = pcall(function()
 		TICKET_MAP:SetAsync(('%s:%d'):format(partyId, userId), {
@@ -177,6 +211,11 @@ function SessionRoutingService:ConsumeReconnectTicket(partyId: string, userId: n
 end
 
 -- | Routing | --
+--[[
+    @summary  Whether this server is a reserved run server (real
+              PrivateServerId with no VIP owner; never in Studio).
+    @returns  boolean
+]]
 function SessionRoutingService:IsReservedRunServer(): boolean
 	return not RunService:IsStudio() and game.PrivateServerId ~= "" and game.PrivateServerOwnerId == 0
 end
