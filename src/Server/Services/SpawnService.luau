@@ -64,6 +64,12 @@ local touchCooldowns: { [Player]: number } = {}
 -- // FUNCTIONS // --
 
 -- | Character Safety | --
+--[[
+    @summary  Force-reload a player's character and wait for the new
+              model (bounded by CHARACTER_TIMEOUT).
+    @param    player  Player
+    @returns  Model?  -- nil if the player left or the load timed out
+]]
 local function loadFreshCharacter(player: Player): Model?
 	if player.Parent ~= Players then
 		return nil
@@ -119,6 +125,16 @@ local function deterministicLobbyCFrame(): CFrame?
 end
 
 -- | Run Spawning | --
+--[[
+    @summary  Spawn a run member at their deterministic campfire slot.
+    @desc     Idempotent — already-spawned returns true; non-members or
+              in-flight spawns return false. Slot/partySize default to
+              the member's roster index and party size.
+    @param    player      Player
+    @param    slot        number?
+    @param    partySize   number?
+    @returns  boolean
+]]
 function SpawnService:SpawnPlayer(player: Player, slot: number?, partySize: number?): boolean
 	if spawnedPlayers[player] then
 		return true
@@ -252,6 +268,11 @@ function SpawnService:ReturnToLobby(player: Player): boolean
 end
 
 -- | Teleporter Queues | --
+--[[
+    @summary  Wire queue teleporter EnterParts in the lobby map to
+              queue joins; retries once per second until the lobby map
+              exists.
+]]
 local function wireTeleporters()
 	local lobbyMap = worldService and worldService:GetLobbyMap()
 	if not lobbyMap then
@@ -302,6 +323,11 @@ function SpawnService.Client:RequestSpawn(player: Player)
 end
 
 -- | Studio Shortcut | --
+--[[
+    @summary  Test-mode helper — when the SkipLobby flag is on, waits
+              for the run to leave the Lobby phase then auto-spawns.
+    @param    player  Player
+]]
 local function autoSpawnPlayer(player: Player)
 	if not RunConfig.IsTestEnabled("SkipLobby") or spawnedPlayers[player] then
 		return
@@ -354,6 +380,10 @@ function SpawnService:KnitStart()
 		-- In production this is the true Lobby server. In Studio, IsGameServer()
 		-- is always true so IsLobby() is always false — the explicit IsStudio()
 		-- check here ensures players still spawn at the Lobby SpawnLocation.
+		--[[
+		    @summary  ReturnToLobby a player, spawned async.
+		    @param    player  Player
+		]]
 		local function spawnInLobby(player: Player)
 			task.spawn(function()
 				SpawnService:ReturnToLobby(player)
