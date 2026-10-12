@@ -48,6 +48,11 @@ local bodyMarkers: { [number]: BillboardGui } = {}
 local markerDistanceLabels: { [number]: TextLabel } = {}
 local markerRefresh = 0
 
+--[[
+    @summary  Build the life-state ScreenGui — bleed-out bar, revive
+              hint, and teammate notification frame.
+    @desc     No-op if already built; starts disabled.
+]]
 local function buildUi()
 	if gui then return end
 	local screenGui = Instance.new("ScreenGui")
@@ -199,6 +204,10 @@ end
 -- Modest yellow billboard pinned above the body, visible through walls.
 -- Deliberately small — the reference game's oversized marker bug is what
 -- we are avoiding here.
+--[[
+    @summary  Destroy a teammate's world-space body marker.
+    @param    userId  number
+]]
 local function removeMarker(userId: number)
 	local marker = bodyMarkers[userId]
 	if marker then
@@ -210,6 +219,12 @@ local function removeMarker(userId: number)
 	end
 end
 
+--[[
+    @summary  Rebuild a teammate's body marker for Downed/Eliminated
+              states; removes it for any other state or the local player.
+    @param    userId  number
+    @param    state   string  -- LifeState
+]]
 local function updateMarker(userId: number, state: string)
 	removeMarker(userId)
 	if state ~= "Downed" and state ~= "Eliminated" then
@@ -287,6 +302,10 @@ local function updateMarker(userId: number, state: string)
 	markerDistanceLabels[userId] = distLabel
 end
 
+--[[
+    @summary  Tick refresh for body markers — re-adorns to the current
+              root part, updates distance text, drops stale markers.
+]]
 local function refreshMarkers()
 	for userId, marker in pairs(bodyMarkers) do
 		local teammate = Players:GetPlayerByUserId(userId)
