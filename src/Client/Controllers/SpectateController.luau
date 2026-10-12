@@ -420,6 +420,11 @@ local function buildUi()
 	end)
 end
 
+--[[
+    @summary  Alive, non-local teammates with a live humanoid, sorted
+              by UserId for a stable cycle order.
+    @returns  { Player }
+]]
 local function targets(): { Player }
 	local result = {}
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -432,6 +437,9 @@ local function targets(): { Player }
 	return result
 end
 
+--[[
+    @summary  Return the camera to Custom targeting the local humanoid.
+]]
 local function restoreCamera()
 	local camera = workspace.CurrentCamera
 	local humanoid = localPlayer.Character and localPlayer.Character:FindFirstChildOfClass("Humanoid")
@@ -441,6 +449,11 @@ local function restoreCamera()
 	end
 end
 
+--[[
+    @summary  Refresh the spectate target — re-picks when the list is
+              empty or the current target left; updates labels, health
+              bar, and camera subject.
+]]
 local function updateTarget()
 	local list = targets()
 	if #list == 0 then
@@ -463,6 +476,12 @@ local function updateTarget()
 	if targetLabel then targetLabel.Text = currentTarget.DisplayName end
 end
 
+--[[
+    @summary  ContextAction handler for next/previous teammate keys.
+    @param    actionName   string
+    @param    inputState   Enum.UserInputState
+    @returns  Enum.ContextActionResult  -- always Sink
+]]
 local function onAction(actionName: string, inputState: Enum.UserInputState): Enum.ContextActionResult
 	if inputState == Enum.UserInputState.Begin then
 		SpectateController:Cycle(if actionName == NEXT_ACTION then 1 else -1)
@@ -485,6 +504,12 @@ local SPECTATE_ALLOWED_GUIS: { [string]: boolean } = {
 }
 local hiddenGuis: { [ScreenGui]: boolean } = {}
 
+--[[
+    @summary  Hide (or restore) all gameplay ScreenGuis except those in
+              SPECTATE_ALLOWED_GUIS; prior Enabled states are saved so
+              exit restores them exactly.
+    @param    hidden  boolean
+]]
 local function setGameGuisHidden(hidden: boolean)
 	local playerGui = localPlayer:FindFirstChild("PlayerGui")
 	if not playerGui then
@@ -513,6 +538,10 @@ local function setGameGuisHidden(hidden: boolean)
 	end
 end
 
+--[[
+    @summary  Exit spectate mode — unbinds cycle actions, restores the
+              camera and hidden GUIs, disables the spectate UI.
+]]
 local function stopSpectating()
 	if not spectating then
 		if gui then gui.Enabled = false end
@@ -527,6 +556,13 @@ local function stopSpectating()
 	setGameGuisHidden(false)
 end
 
+--[[
+    @summary  Enter spectate mode — builds/updates the UI, binds cycle
+              actions, hides gameplay GUIs, and locks the camera to the
+              first teammate.
+    @param    isDowned  boolean?  -- switches the eyebrow label between
+                        "DOWNED — WATCHING TEAMMATES" and "SPECTATING"
+]]
 local function startSpectating(isDowned: boolean?)
 	buildUi()
 	if spectating then
@@ -607,6 +643,11 @@ function SpectateController:Cycle(direction: number)
 	updateTarget()
 end
 
+--[[
+    @summary  Knit lifecycle start — tracks member LifeStates, auto-
+              enters spectate on Eliminated/Downed, exits on respawn or
+              revive, and ticks target/team updates.
+]]
 function SpectateController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	lifeService = Knit.GetService("PlayerLifeService")
