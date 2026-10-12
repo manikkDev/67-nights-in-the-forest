@@ -86,6 +86,11 @@ local lastRequestAt: { [Player]: number } = {}
 -- // FUNCTIONS // --
 
 -- | Session Snapshots | --
+--[[
+    @summary  Whether a value is one of Constants.PARTY_QUEUE_IDS.
+    @param    queueId  any
+    @returns  boolean
+]]
 local function isQueueId(queueId: any): boolean
 	if typeof(queueId) ~= "string" then
 		return false
@@ -98,10 +103,20 @@ local function isQueueId(queueId: any): boolean
 	return false
 end
 
+--[[
+    @summary  Workspace:GetServerTimeNow shorthand for timer math.
+    @returns  number
+]]
 local function getServerNow(): number
 	return workspace:GetServerTimeNow()
 end
 
+--[[
+    @summary  Build the member roster array (userId, display name,
+              username, isHost) in join order.
+    @param    session  Session
+    @returns  { { userId: number, name: string, username: string, isHost: boolean } }
+]]
 local function rosterFor(session: Session): { { userId: number, name: string, username: string, isHost: boolean } }
 	local roster = {}
 	for _, player in ipairs(session.memberOrder) do
@@ -117,6 +132,13 @@ local function rosterFor(session: Session): { { userId: number, name: string, us
 	return roster
 end
 
+--[[
+    @summary  Build the per-viewer session snapshot sent over
+              SessionChanged (state, capacity, roster, timer, isHost).
+    @param    session  Session
+    @param    viewer   Player
+    @returns  { [string]: any }
+]]
 local function snapshotFor(session: Session, viewer: Player): { [string]: any }
 	return {
 		state = session.state,
@@ -131,6 +153,12 @@ local function snapshotFor(session: Session, viewer: Player): { [string]: any }
 	}
 end
 
+--[[
+    @summary  Fire a Knit signal to every connected session member.
+    @param    session  Session
+    @param    signal   Knit signal
+    @param    ...      forwarded payload
+]]
 local function fireToSession(session: Session, signal, ...)
 	for player in pairs(session.players) do
 		if player.Parent == Players then
@@ -139,6 +167,10 @@ local function fireToSession(session: Session, signal, ...)
 	end
 end
 
+--[[
+    @summary  Push RosterChanged + SessionChanged to every member.
+    @param    session  Session
+]]
 local function broadcastSession(session: Session)
 	local roster = rosterFor(session)
 	for player in pairs(session.players) do
