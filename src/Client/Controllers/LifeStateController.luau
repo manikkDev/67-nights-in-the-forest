@@ -328,6 +328,12 @@ local function refreshMarkers()
 	end
 end
 
+--[[
+    @summary  Apply a new local LifeState — shows the bleed-out UI and
+              heartbeat loop when Downed; hides everything otherwise.
+    @param    state    string  -- LifeState
+    @param    payload  any     -- may carry bleedOutAt
+]]
 local function applyState(state: string, payload: any)
 	selfState = state
 	buildUi()
@@ -342,6 +348,10 @@ local function applyState(state: string, payload: any)
 	end
 end
 
+--[[
+    @summary  Disable the CoreGui reset button with retries (the
+              SetCore call can fail before it registers).
+]]
 local function disableReset()
 	for _ = 1, 20 do
 		if pcall(function() StarterGui:SetCore("ResetButtonCallback", false) end) then return end
@@ -349,6 +359,11 @@ local function disableReset()
 	end
 end
 
+--[[
+    @summary  Knit lifecycle start — builds the UI, disables reset,
+              wires LifeStateChanged to self-state, notifications, and
+              teammate markers, and ticks bleed-out/marker refresh.
+]]
 function LifeStateController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	lifeService = Knit.GetService("PlayerLifeService")
@@ -356,6 +371,12 @@ function LifeStateController:KnitStart()
 	buildUi()
 	task.spawn(disableReset)
 	-- Teammate downed/revived notification
+	--[[
+	    @summary  Flash a banner when a teammate is downed, eliminated,
+	              or revived (state-colored, auto-fades).
+	    @param    displayName  string
+	    @param    state        string  -- LifeState
+	]]
 	local function showDownedNotification(displayName: string, state: string)
 		if not notifFrame or not notifLabel then return end
 		local TweenService = game:GetService("TweenService")
@@ -423,6 +444,11 @@ function LifeStateController:KnitStart()
 		memberStates[player.UserId] = nil
 	end), "Disconnect")
 	-- A downed teammate's character can respawn; re-pin the marker on the new body.
+	--[[
+	    @summary  Re-render a player's body marker when their character
+	              respawns while still Downed/Eliminated.
+	    @param    player  Player
+	]]
 	local function watchCharacterRespawns(player: Player)
 		janitor:Add(player.CharacterAdded:Connect(function()
 			local state = memberStates[player.UserId]
