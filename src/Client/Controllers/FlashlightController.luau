@@ -520,6 +520,10 @@ refreshPanelVisibility = function()
 	panelFrame.Visible = hasFlashlight
 end
 
+--[[
+    @summary  Build the stun-confirmation ScreenGui — full-screen flash
+              frame plus a world-positioned marker label.
+]]
 local function buildStunFeedback()
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "FlashlightStunFeedback"
@@ -553,6 +557,12 @@ local function buildStunFeedback()
 	stunMarker = marker
 end
 
+--[[
+    @summary  Play the stun flash + world marker at a position.
+    @param    position          Vector3  -- stun location
+    @param    showConfirmation  boolean  -- false dims the marker to a
+                              faint indicator instead of full flash
+]]
 local function playStunFeedback(position: Vector3, showConfirmation: boolean)
 	if not stunFlash or not stunMarker then
 		return
@@ -600,6 +610,11 @@ local function playStunFeedback(position: Vector3, showConfirmation: boolean)
 	Debris:AddItem(anchor, 3)
 end
 
+--[[
+    @summary  Heartbeat tick — while the beam is on, throttles (~0.1s)
+              aim updates sent to FlashlightService.
+    @param    dt  number
+]]
 local function updateAim(dt: number)
 	if not beamOn or not flashlightService or not getEquippedFlashlight() then
 		aimUpdateTimer = 0
@@ -620,6 +635,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — builds the battery panel and stun
+              feedback, watches for the Flashlight tool, wires service
+              signals and the aim heartbeat.
+]]
 function FlashlightController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	gameStateController = Knit.GetController("GameStateController")
