@@ -260,6 +260,20 @@ local function getDistanceText(worldPos: Vector3): string
 	return formatDistance(dist)
 end
 
+--[[
+    @summary  Create one minimap marker frame (circle or square) with
+              hover tooltip + group tracking.
+    @param    parent       Instance
+    @param    worldPos     Vector3
+    @param    color        Color3
+    @param    size         number
+    @param    shape        string   -- "square" or circle
+    @param    name         string
+    @param    subText      string
+    @param    description  string
+    @param    markerId     number
+    @param    group        string?
+]]
 local function createMarker(parent: Instance, worldPos: Vector3, color: Color3, size: number, shape: string, name: string, subText: string, description: string, markerId: number, group: string?)
 	local marker = Instance.new("Frame")
 	marker.Name = "Marker" .. tostring(markerId)
@@ -308,6 +322,10 @@ local function createMarker(parent: Instance, worldPos: Vector3, color: Color3, 
 	return marker
 end
 
+--[[
+    @summary  Draw the access-radius circle centred on the campfire.
+    @desc     Sized from mapData.accessRadius scaled to minimap pixels.
+]]
 local function buildRadiusCircles()
 	if not minimapFrame or not mapData then
 		return
@@ -356,6 +374,10 @@ local function buildRadiusCircles()
 	table.insert(staticMarkers, boundaryCircle)
 end
 
+--[[
+    @summary  Rebuild the rotating compass ring — cardinal labels and
+              tick marks around the minimap.
+]]
 local function buildCompassRing()
 	if not compassFrame then
 		return
@@ -414,6 +436,11 @@ local function buildCompassRing()
 	end
 end
 
+--[[
+    @summary  Rebuild all static minimap markers from mapData.
+    @desc     Destroys existing markers, resets group tracking, then
+              places campfire, cave, and POI markers.
+]]
 local function buildMarkers()
 	if not minimapFrame or not mapData then
 		return
@@ -509,6 +536,11 @@ type LegendEntryDef = {
 	group: string?, -- matches marker group names
 }
 
+--[[
+    @summary  Highlight one marker group and dim all others.
+    @param    group      string?  -- nil clears the highlight
+    @param    highlight  boolean
+]]
 local function setMarkerGroupHighlight(group: string?, highlight: boolean)
 	if highlightedGroup == group and highlight then
 		return
