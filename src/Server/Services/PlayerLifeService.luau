@@ -145,6 +145,11 @@ local function loadCharacter(player: Player): boolean
 	return ok
 end
 
+--[[
+    @summary  Destroy RevivePrompt/DragBodyPrompt ProximityPrompts on a
+              character.
+    @param    character  Model?
+]]
 local function removeRevivePrompts(character: Model?)
 	if not character then
 		return
@@ -158,6 +163,11 @@ local function removeRevivePrompts(character: Model?)
 	end
 end
 
+--[[
+    @summary  Rebuild the Revive (Bandage, 5s hold) and DragBody
+              prompts on a downed player's HumanoidRootPart.
+    @param    player  Player
+]]
 local function ensureRevivePrompt(player: Player)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -192,6 +202,12 @@ local RAGDOLL_PREFIX = "LifeRagdoll_"
 -- Hand the whole character assembly to the given network owner (nil = server).
 -- A downed body must be server-simulated on every client or the owning client
 -- keeps predicting it and fights the drag constraints.
+--[[
+    @summary  Set the network owner of every unanchored part in a
+              character (for smooth body dragging).
+    @param    character  Model
+    @param    owner      Player?
+]]
 local function setBodyNetworkOwner(character: Model, owner: Player?)
 	for _, d in ipairs(character:GetDescendants()) do
 		if d:IsA("BasePart") and not d.Anchored then
@@ -202,6 +218,13 @@ local function setBodyNetworkOwner(character: Model, owner: Player?)
 	end
 end
 
+--[[
+    @summary  Ragdoll a character — disables motors, swaps in ball-
+              socket constraints, and records collidability for
+              clearRagdoll.
+    @param    player     Player
+    @param    character  Model
+]]
 local function applyRagdoll(player: Player, character: Model)
 	local existing = ragdollData[player]
 	if existing then
@@ -265,6 +288,11 @@ local function applyRagdoll(player: Player, character: Model)
 	ragdollData[player] = data
 end
 
+--[[
+    @summary  Undo applyRagdoll — re-enables motors, removes ball-
+              socket joints, restores collision flags.
+    @param    player  Player
+]]
 local function clearRagdoll(player: Player)
 	local data = ragdollData[player]
 	ragdollData[player] = nil
