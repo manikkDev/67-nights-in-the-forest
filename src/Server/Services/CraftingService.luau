@@ -385,6 +385,12 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 	end
 
 	-- A count label shows a number (possibly with leading/trailing spaces).
+	--[[
+	    @summary  Whether a label's text is just a number (optionally
+	              signed, whitespace-padded).
+	    @param    text  string
+	    @returns  boolean
+	]]
 	local function isNumericText(text: string): boolean
 		return text and text:match("^%s*%-?%d+%s*$") ~= nil
 	end
@@ -392,6 +398,12 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 	-- Count labels have "ObjectParts" in their name OR show a number
 	-- but are not emoji/icon labels. Icon labels show emoji or short
 	-- text and have "Part|" (but not "ObjectParts") in their name.
+	--[[
+	    @summary  Whether a crafting-board label is a resource count —
+	              "ObjectParts" names or numeric "Part|xxxx" text.
+	    @param    label  TextLabel
+	    @returns  boolean
+	]]
 	local function isCountLabel(label: TextLabel): boolean
 		if label.Name:find("ObjectParts") then
 			return true
@@ -430,6 +442,11 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 	end
 
 	-- Helper: find the SurfaceGui ancestor of a label.
+	--[[
+	    @summary  Walk ancestors to find the SurfaceGui a label lives in.
+	    @param    label  TextLabel
+	    @returns  SurfaceGui?
+	]]
 	local function getSurfaceGui(label: TextLabel): SurfaceGui?
 		local current: Instance? = label
 		while current do
@@ -442,6 +459,12 @@ local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
 	end
 
 	-- Helper: check if a label's SurfaceGui contains an ImageLabel.
+	--[[
+	    @summary  Whether a label's SurfaceGui contains any ImageLabel —
+	              meaning the row already shows an icon.
+	    @param    label  TextLabel
+	    @returns  boolean
+	]]
 	local function hasImageIcon(label: TextLabel): boolean
 		local gui = getSurfaceGui(label)
 		if not gui then
