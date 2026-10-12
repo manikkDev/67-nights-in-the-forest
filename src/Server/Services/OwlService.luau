@@ -129,6 +129,12 @@ local function buildAnimationTracks(data)
 		animator.Parent = humanoid
 	end
 
+	--[[
+	    @summary  Load an Animation asset into the owl's animator.
+	    @param    id      string   -- rbxassetid
+	    @param    looped  boolean
+	    @returns  AnimationTrack?  -- nil when LoadAnimation fails
+	]]
 	local function loadTrack(id: string, looped: boolean): AnimationTrack?
 		local anim = Instance.new("Animation")
 		anim.AnimationId = id
@@ -291,6 +297,11 @@ local function isHuntablePlayer(player: Player): boolean
 		and not (campfireService and campfireService:IsInSafeZone(rootPart.Position))
 end
 
+--[[
+    @summary  Choose where the owl lands — picks from huntable players'
+              positions (or a fallback near the campfire).
+    @returns  Vector3?  -- nil when no valid target exists
+]]
 local function pickLandingPosition(): Vector3?
 	local players = Players:GetPlayers()
 	local valid = {}
@@ -338,6 +349,9 @@ local function flyTo(targetCFrame: CFrame, duration: number, callback: (() -> ()
 	-- Anchor the rootPart during flight so physics doesn't fight the tween
 	owl.rootPart.Anchored = true
 
+	--[[
+	    @summary  Unanchor the owl's root part when flight ends.
+	]]
 	local function cleanup()
 		if owl then
 			owl.rootPart.Anchored = false
@@ -878,6 +892,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Drop the owl's pursuit of a player — clears the target,
+              halts movement, and re-targets a replacement when chasing.
+    @param    player  Player
+]]
 local function releaseTarget(player: Player)
 	if not owl or owl.target ~= player then
 		return
@@ -896,6 +915,10 @@ local function releaseTarget(player: Player)
 	end
 end
 
+--[[
+    @summary  Knit lifecycle start — resolves services, releases targets
+              on downed/eliminated, and spawns the owl on the schedule.
+]]
 function OwlService:KnitStart()
 	worldService = Knit.GetService("WorldService")
 	timeService = Knit.GetService("TimeService")
