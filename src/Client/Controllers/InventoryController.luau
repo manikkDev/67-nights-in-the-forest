@@ -727,6 +727,10 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 
 	-- Row hover interactions (desktop only).
 	if useHover then
+		--[[
+		    @summary  Row MouseEnter — highlight tweens on row, icon,
+		              labels, and shows the tooltip.
+		]]
 		local function onEnter()
 			TweenService:Create(row, TWEEN_HOVER, { BackgroundColor3 = Color3.fromRGB(48, 48, 58), BackgroundTransparency = 0.3 }):Play()
 			TweenService:Create(icon, TWEEN_HOVER, { BackgroundTransparency = 0.05, Size = UDim2.new(0, ICON_SIZE + 4, 0, ICON_SIZE + 4), Position = UDim2.new(0, -2, 0.5, -(ICON_SIZE + 4) / 2) }):Play()
@@ -737,6 +741,10 @@ local function buildRow(resourceName: string, index: number, parent: Frame): Row
 			showTooltip(row, resourceName, entry.lastCount)
 		end
 
+		--[[
+		    @summary  Row MouseLeave — reverses the hover tweens and
+		              hides the tooltip.
+		]]
 		local function onLeave()
 			TweenService:Create(row, TWEEN_HOVER, { BackgroundColor3 = Color3.fromRGB(35, 35, 42), BackgroundTransparency = 0.3 }):Play()
 			TweenService:Create(icon, TWEEN_HOVER, { BackgroundTransparency = 0.15, Size = UDim2.new(0, ICON_SIZE, 0, ICON_SIZE), Position = UDim2.new(0, 0, 0.5, -ICON_SIZE / 2) }):Play()
@@ -839,6 +847,13 @@ local function buildBagGui(): ScreenGui
 	stroke.Parent = panel
 
 	local contentW = PANEL_WIDTH - 2 * PANEL_PADDING
+	--[[
+	    @summary  Vertical cursor helper — advances y past an element
+	              plus PANEL_GAP.
+	    @param    y  number  -- current offset in pixels
+	    @param    h  number  -- element height
+	    @returns  number
+	]]
 	local function nextY(y: number, h: number): number
 		return y + h + PANEL_GAP
 	end
