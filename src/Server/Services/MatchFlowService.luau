@@ -272,6 +272,11 @@ local function removePlayerFromSession(player: Player, returnToLobby: boolean?)
 	end
 end
 
+--[[
+    @summary  Connected member list for starting a run.
+    @param    session  Session
+    @returns  { Player }
+]]
 local function participantsFor(session: Session): { Player }
 	local participants = {}
 	for _, player in ipairs(session.memberOrder) do
@@ -283,6 +288,14 @@ local function participantsFor(session: Session): { Player }
 end
 
 -- | Run Start | --
+--[[
+    @summary  Hand participants to RunStateService:StartRun; on failure
+              restores the session to Countdown.
+    @param    participants  { Player }
+    @param    metadata      { [string]: any }
+    @param    session       Session?
+    @returns  boolean
+]]
 local function startRun(participants: { Player }, metadata: { [string]: any }, session: Session?): boolean
 	local startedRunId = runStateService and runStateService:StartRun(participants, metadata) or nil
 	if not startedRunId then
@@ -330,6 +343,11 @@ local function startRun(participants: { Player }, metadata: { [string]: any }, s
 	return true
 end
 
+--[[
+    @summary  Move a Countdown session into Story, then route players
+              into the run after the story fade+hold delay.
+    @param    session  Session
+]]
 local function beginStory(session: Session)
 	if session.state ~= "Countdown" then
 		return
@@ -355,6 +373,11 @@ local function beginStory(session: Session)
 	end)
 end
 
+--[[
+    @summary  (Re)schedule the countdown thread to call beginStory at
+              session.endsAt.
+    @param    session  Session
+]]
 local function scheduleTimer(session: Session)
 	cancelTimer(session)
 	session.timerThread = task.delay(math.max(0, session.endsAt - getServerNow()), function()
@@ -363,6 +386,12 @@ local function scheduleTimer(session: Session)
 	end)
 end
 
+--[[
+    @summary  Shorten a running countdown to newSeconds (never
+              lengthens); reschedules and rebroadcasts.
+    @param    session     Session
+    @param    newSeconds  number
+]]
 local function fastForwardTimer(session: Session, newSeconds: number)
 	if session.state ~= "Countdown" then return end
 	local currentLeft = session.endsAt - getServerNow()
