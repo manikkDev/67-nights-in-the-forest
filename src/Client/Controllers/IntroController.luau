@@ -833,6 +833,10 @@ local function destroyIntroGui()
 	sizeButtons = {}
 end
 
+--[[
+    @summary  Per-frame RenderStepped loop that updates the
+              "Starting in: Ns" countdown label from the server clock.
+]]
 local function startCountdownLoop()
 	waitingJanitor:Cleanup()
 	waitingJanitor:Add(RunService.RenderStepped:Connect(function()
@@ -843,6 +847,11 @@ local function startCountdownLoop()
 	end), "Disconnect")
 end
 
+--[[
+    @summary  Show the create-party frame — resets the countdown, shows
+              size buttons, and reveals the countdown label only in the
+              Countdown state.
+]]
 local function showCreateParty()
 	if not createPartyFrame then
 		return
@@ -883,10 +892,18 @@ local function showCreateParty()
 	lockCamera()
 end
 
+--[[
+    @summary  Legacy no-op — countdown UI is handled by
+              showCreateParty during the Countdown state.
+]]
 local function showCountdown()
 	-- Legacy function, UI is now handled by showCreateParty during Countdown
 end
 
+--[[
+    @summary  Fade out the create-party frame and play the story
+              sequence frame.
+]]
 local function showStory()
 	if not createPartyFrame then
 		return
@@ -909,6 +926,9 @@ local function showStory()
 	lockCamera()
 end
 
+--[[
+    @summary  Hide the story frame and fade in the "Day 1" card.
+]]
 local function showDayCard()
 	if storyFrame then
 		storyFrame.Visible = false
