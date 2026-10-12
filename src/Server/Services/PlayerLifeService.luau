@@ -322,6 +322,13 @@ local RAGDOLL_DISABLED_STATES = {
 	Enum.HumanoidStateType.GettingUp,
 }
 
+--[[
+    @summary  Apply the downed/eliminated body presentation — saves
+              movement stats, disables humanoid states, applies the
+              ragdoll, and rebuilds revive prompts.
+    @param    player  Player
+    @param    state   LifeState
+]]
 local function applyBodyPresentation(player: Player, state: LifeState)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -368,6 +375,12 @@ local function applyBodyPresentation(player: Player, state: LifeState)
 	ensureRevivePrompt(player)
 end
 
+--[[
+    @summary  Undo the downed presentation — removes prompts, clears
+              the ragdoll, re-enables humanoid states, and restores
+              saved movement stats.
+    @param    player  Player
+]]
 local function clearBodyPresentation(player: Player)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -395,6 +408,14 @@ local function clearBodyPresentation(player: Player)
 	savedMovement[player] = nil
 end
 
+--[[
+    @summary  Prepare a freshly spawned character — disables
+              BreakJointsOnDeath, applies StartingHealth, sets the
+              LifeState attribute, and re-applies downed presentation
+              if needed.
+    @param    player     Player
+    @param    character  Model
+]]
 local function configureCharacter(player: Player, character: Model)
 	local humanoid = character:WaitForChild("Humanoid", 10)
 	if not humanoid or not humanoid:IsA("Humanoid") then
@@ -412,6 +433,10 @@ local function configureCharacter(player: Player, character: Model)
 	end
 end
 
+--[[
+    @summary  Whether any connected run member is still Alive.
+    @returns  boolean
+]]
 local function hasConnectedAliveMember(): boolean
 	for _, member in ipairs(runMembers()) do
 		if member.Parent == Players and lifeStates[member] == "Alive" then
@@ -421,6 +446,10 @@ local function hasConnectedAliveMember(): boolean
 	return false
 end
 
+--[[
+    @summary  Trigger the ALL_PLAYERS_LOST ending when no connected
+              member is Alive during an active run.
+]]
 local function checkTeamLoss()
 	if runStateService and runStateService:IsActive() and not hasConnectedAliveMember() then
 		runStateService:BeginEnding("ALL_PLAYERS_LOST", {
