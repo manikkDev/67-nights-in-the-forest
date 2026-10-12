@@ -1192,6 +1192,10 @@ local function watchBagTool()
 	if not backpack then
 		return
 	end
+	--[[
+	    @summary  Hook the Bag tool when it lands in the Backpack.
+	    @param    child  Instance
+	]]
 	local function onChildAdded(child: Instance)
 		if child.Name == BAG_TOOL_NAME and child:IsA("Tool") then
 			hookTool(child)
@@ -1200,6 +1204,11 @@ local function watchBagTool()
 
 	backpack.ChildAdded:Connect(onChildAdded)
 
+	--[[
+	    @summary  On character spawn — hook a held Bag tool, show the
+	              bag UI, and hide it again when the tool is unequipped.
+	    @param    character  Model
+	]]
 	local function onCharacterAdded(character: Model)
 		local held = character:WaitForChild(BAG_TOOL_NAME, 5)
 		if held and held:IsA("Tool") then
@@ -1233,6 +1242,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle init — builds the bag GUI (guarded by
+              pcall; logs and bails when PlayerGui or the build fails).
+]]
 function InventoryController:KnitInit()
 	local playerGui = localPlayer:WaitForChild("PlayerGui")
 	if not playerGui then
@@ -1247,11 +1260,19 @@ function InventoryController:KnitInit()
 	gui.Parent = playerGui
 end
 
+--[[
+    @summary  Knit lifecycle start — resolves services and arms the
+              game-start hook (skipped on the lobby server).
+]]
 function InventoryController:KnitStart()
 	if ServerRole.IsLobby() then return end
 	gameStateController = Knit.GetController("GameStateController")
 	local inventoryService = Knit.GetService("InventoryService")
 
+	--[[
+	    @summary  Wire bag interactions, watch for the Bag tool, and
+	              subscribe to ResourcesChanged + initial snapshot.
+	]]
 	local function onGameStarted()
 		wireInteractions()
 		watchBagTool()
