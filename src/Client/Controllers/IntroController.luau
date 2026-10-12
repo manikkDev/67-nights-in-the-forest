@@ -953,6 +953,10 @@ local function showDayCard()
 	end
 end
 
+--[[
+    @summary  End the intro — fades the day card, then unlocks
+              movement/camera and tears the GUI down.
+]]
 local function finishIntro()
 	if introFinished then
 		return
@@ -974,6 +978,10 @@ local function finishIntro()
 	end)
 end
 
+--[[
+    @summary  Reset all intro state when returning to the lobby —
+              clears countdown, snapshot, and hides every frame.
+]]
 local function resetForLobby()
 	waitingJanitor:Cleanup()
 	countdownEndsAt = nil
@@ -1005,11 +1013,20 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle init — builds the intro GUI and title
+              screen before services start.
+]]
 function IntroController:KnitInit()
 	buildGui()
 	buildTitleScreen()
 end
 
+--[[
+    @summary  Knit lifecycle start — resolves services, wires the PLAY
+              button, leave/close buttons, session-state and flow-state
+              observers, and shows the title screen on lobby servers.
+]]
 function IntroController:KnitStart()
 	gameStateController = Knit.GetController("GameStateController")
 	local matchFlow = Knit.GetService("MatchFlowService")
@@ -1034,6 +1051,10 @@ function IntroController:KnitStart()
 		end)
 	end
 
+	--[[
+	    @summary  Play a click sound and fire RequestLeave when the
+	              session is in Waiting or Countdown.
+	]]
 	local function requestLeave()
 		UiSoundUtil.playClick()
 		if flowState == "Waiting" or flowState == "Countdown" then
