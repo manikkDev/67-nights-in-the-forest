@@ -131,6 +131,11 @@ local draggedBy: { [Model]: Player } = {}
 
 -- // FUNCTIONS // --
 
+--[[
+    @summary  PlayerDataService:GetData shorthand (nil until resolved).
+    @param    player  Player
+    @returns  any
+]]
 local function getPlayerData(player: Player): any
 	if not playerDataService then
 		return nil
@@ -138,6 +143,12 @@ local function getPlayerData(player: Player): any
 	return playerDataService:GetData(player)
 end
 
+--[[
+    @summary  Whether the player may interact (delegates to
+              PlayerLifeService:CanAct; false until it resolves).
+    @param    player  Player
+    @returns  boolean
+]]
 local function canAct(player: Player): boolean
 	return playerLifeService ~= nil and playerLifeService:CanAct(player)
 end
@@ -149,6 +160,12 @@ local function isModelDragged(model: Model): boolean
 	return draggedBy[model] ~= nil
 end
 
+--[[
+    @summary  PlayerDataService:UpdateData shorthand — mutates the
+              player's profile via the callback.
+    @param    player  Player
+    @param    fn      (data: any) -> ()
+]]
 local function updatePlayerData(player: Player, fn: (data: any) -> ())
 	if not playerDataService then
 		return
@@ -1528,6 +1545,11 @@ local function giveFlashlight(player: Player)
 	end
 end
 
+--[[
+    @summary  Grant the carry-bag tool to a spawned player whose data
+              still marks them bag-less; equips via their backpack.
+    @param    player  Player
+]]
 local function giveCarryBag(player: Player)
 	if not bagTemplate then
 		return
@@ -1578,6 +1600,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves services, caches the bag
+              template, wires drag/drop remotes, and spawns the junk
+              pile interactions.
+]]
 function InventoryService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 	worldService = Knit.GetService("WorldService")
@@ -1665,6 +1692,11 @@ function InventoryService:KnitStart()
 	end)
 
 	Players.PlayerRemoving:Connect(stopDrag)
+	--[[
+	    @summary  Stop any junk-drag the player holds when their
+	              character despawns.
+	    @param    player  Player
+	]]
 	local function onCharacterRemoving(player: Player)
 		stopDrag(player)
 	end
