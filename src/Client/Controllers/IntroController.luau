@@ -93,12 +93,26 @@ local gameStateController: any = nil
 
 -- // FUNCTIONS // --
 
+--[[
+    @summary  Create and play a tween, returning it.
+    @param    instance  Instance
+    @param    info      TweenInfo
+    @param    props     { [string]: any }
+    @returns  Tween
+]]
 local function tween(instance: Instance, info: TweenInfo, props: { [string]: any })
 	local t = TweenService:Create(instance, info, props)
 	t:Play()
 	return t
 end
 
+--[[
+    @summary  Tween a text object's TextTransparency and stroke
+              transparency toward a target.
+    @param    textObject     TextLabel | TextButton
+    @param    transparency   number
+    @param    duration       number  -- seconds
+]]
 local function fadeText(textObject: TextLabel | TextButton, transparency: number, duration: number)
 	tween(textObject, TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
 		TextTransparency = transparency,
@@ -106,6 +120,13 @@ local function fadeText(textObject: TextLabel | TextButton, transparency: number
 	})
 end
 
+--[[
+    @summary  Fade a GuiObject's background plus all text/image
+              descendants to a target transparency.
+    @param    guiObject      GuiObject
+    @param    transparency   number
+    @param    duration       number  -- seconds
+]]
 local function fadeGui(guiObject: GuiObject, transparency: number, duration: number)
 	tween(guiObject, TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
 		BackgroundTransparency = transparency,
@@ -131,6 +152,13 @@ local function fadeGui(guiObject: GuiObject, transparency: number, duration: num
 	end
 end
 
+--[[
+    @summary  Snap a GuiObject and its text/image descendants to a
+              transparency (no tween). Leaves fully-hidden backgrounds
+              hidden.
+    @param    guiObject      GuiObject
+    @param    transparency   number
+]]
 local function setGroupTransparency(guiObject: GuiObject, transparency: number)
 	guiObject.BackgroundTransparency = if guiObject.BackgroundTransparency < 1 then transparency else 1
 	for _, desc in ipairs(guiObject:GetDescendants()) do
