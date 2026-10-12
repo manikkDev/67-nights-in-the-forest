@@ -409,6 +409,10 @@ local function renderSession(snapshot: { [string]: any })
 	updateSizeButtons()
 end
 
+--[[
+    @summary  Build the intro ScreenGui — create-party frame, size
+              buttons, roster, countdown label, and leave/close wiring.
+]]
 local function buildGui()
 	local playerGui = player:WaitForChild("PlayerGui")
 	if not playerGui then
@@ -560,6 +564,11 @@ local function buildGui()
 	updateSizeButtons()
 end
 
+--[[
+    @summary  Build the hidden title-screen frame — logo, subtitle,
+              and the PLAY button.
+    @desc     No-op until the intro ScreenGui exists.
+]]
 local function buildTitleScreen()
 	if not screenGui then
 		return
@@ -701,6 +710,10 @@ local function buildTitleScreen()
 	playCorner.Parent = play
 end
 
+--[[
+    @summary  Fade in the title screen and raise the intro GUI's
+              DisplayOrder above everything else.
+]]
 local function showTitleScreen()
 	if not titleScreen or titleDismissed then
 		return
@@ -755,6 +768,11 @@ local function showTitleScreen()
 	end
 end
 
+--[[
+    @summary  Fade out and dismiss the title screen.
+    @param    fromPlay  boolean?  -- also unlocks the camera when the
+                        PLAY button triggered the dismiss
+]]
 local function hideTitleScreen(fromPlay: boolean?)
 	if not titleScreen or titleDismissed then
 		return
@@ -790,6 +808,10 @@ local function hideTitleScreen(fromPlay: boolean?)
 	end)
 end
 
+--[[
+    @summary  Tear down the whole intro — cleans janitors, unlocks
+              movement/camera, restores CoreGui, and destroys the GUI.
+]]
 local function destroyIntroGui()
 	waitingJanitor:Cleanup()
 	janitor:Cleanup()
