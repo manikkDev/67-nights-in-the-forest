@@ -187,6 +187,10 @@ local function updateFlashlightBeam(percent: number)
 	end
 end
 
+--[[
+    @summary  Refresh the battery panel — percent text, ON/OFF status,
+              fill width, and low-battery warning visibility.
+]]
 local function updateBatteryUI()
 	if not panelFrame or not batteryBar or not batteryFill or not batteryText or not statusText or not warningLabel then
 		return
@@ -307,10 +311,18 @@ end
     @param    player  Player
 ]]
 local function watchForFlashlight(player: Player)
+	--[[
+	    @summary  Re-evaluate panel visibility after the tool set changes.
+	]]
 	local function onToolSetChanged()
 		refreshPanelVisibility()
 	end
 
+	--[[
+	    @summary  Reset per-character janitors and wire the Flashlight
+	              tool when it appears, syncing the beam visual state.
+	    @param    character  Model
+	]]
 	local function checkCharacter(character: Model)
 		toolJanitor:Cleanup()
 		charJanitor:Cleanup()
