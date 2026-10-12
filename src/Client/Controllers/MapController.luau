@@ -1377,6 +1377,15 @@ local function updateAccessibleAreaInfo()
 	end
 end
 
+--[[
+    @summary  Convert a world position to a UDim2 on the physical
+              MapBoard minimap.
+    @desc     Like worldToMap but mirrors X — the board's back face
+              flips the axis — and clamps to a 6px inset.
+    @param    worldPos   Vector3
+    @param    boardSize  number  -- minimap size in pixels
+    @returns  UDim2
+]]
 local function boardWorldToMap(worldPos: Vector3, boardSize: number): UDim2
 	if not campfireWorldPos then
 		return UDim2.fromScale(0.5, 0.5)
@@ -1393,6 +1402,12 @@ local function boardWorldToMap(worldPos: Vector3, boardSize: number): UDim2
 	return UDim2.new(0.5, px, 0.5, py)
 end
 
+--[[
+    @summary  Populate the physical MapBoard's SurfaceGui minimap with
+              markers and the player indicator.
+    @desc     No-op while the MapBoard model or its BoardGui is missing.
+    @param    data  { [string]: any }  -- map data (caves, POIs, radii)
+]]
 local function buildBoardMinimap(data: { [string]: any })
 	local boards = workspace:FindFirstChild("Boards")
 	if not boards then
@@ -1505,6 +1520,13 @@ local function buildBoardMinimap(data: { [string]: any })
 	bndStroke.Parent = boundaryCircle
 	table.insert(boardMarkerItems, boundaryCircle)
 
+	--[[
+	    @summary  Add one marker to the physical board minimap.
+	    @param    worldPos  Vector3
+	    @param    color     Color3
+	    @param    size      number
+	    @param    shape     string  -- "square" or circle
+	]]
 	local function addBoardMarker(worldPos: Vector3, color: Color3, size: number, shape: string)
 		local marker = Instance.new("Frame")
 		marker.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -1607,6 +1629,11 @@ local function buildBoardMinimap(data: { [string]: any })
 	end
 end
 
+--[[
+    @summary  Tick update for the player marker on the physical board —
+              moves the dot and rotates the heading arrow from the
+              camera or movement direction.
+]]
 local function updateBoardPlayerMarker()
 	if not boardMinimapFrame or not boardPlayerMarker or not boardPlayerArrow or not campfireWorldPos then
 		return
@@ -1648,6 +1675,10 @@ local function updateBoardPlayerMarker()
 	end
 end
 
+--[[
+    @summary  Tick update for the player marker on the open map —
+              tracks position and rotates the arrow to the heading.
+]]
 local function updatePlayerMarker()
 	if mapOpen and playerMarker and playerArrow and campfireWorldPos then
 		local character = Players.LocalPlayer.Character
