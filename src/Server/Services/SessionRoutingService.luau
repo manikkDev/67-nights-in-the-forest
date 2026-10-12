@@ -313,11 +313,24 @@ function SessionRoutingService:RouteParty(partyId: string, hostUserId: number, p
 end
 
 -- | Destination Assembly | --
+--[[
+    @summary  Kick a player whose reserved-server arrival failed
+              validation.
+    @param    player  Player
+    @param    reason  string  -- logged for diagnostics
+]]
 local function rejectArrival(player: Player, reason: string)
 	warn(("[SessionRoutingService] Rejected %s: %s"):format(player.Name, reason))
 	player:Kick("This reserved run invitation is invalid or expired.")
 end
 
+--[[
+    @summary  Validate a joining player's teleport metadata on the
+              destination server and track them for assembly.
+    @desc     Rejects late arrivals and players whose metadata is
+              invalid or not in expectedUserIds.
+    @param    player  Player
+]]
 local function registerDestinationPlayer(player: Player)
 	if destinationStarted then
 		rejectArrival(player, "run already started")
@@ -338,6 +351,10 @@ local function registerDestinationPlayer(player: Player)
 	SessionRoutingService:ConsumeReconnectTicket(metadata.partyId, player.UserId)
 end
 
+--[[
+    @summary  Wait up to DESTINATION_WAIT for every expected player to
+              arrive with a loaded data profile, then start the run.
+]]
 local function assembleDestination()
 	local deadline = os.clock() + DESTINATION_WAIT
 	while not destinationStarted and os.clock() < deadline do
@@ -376,6 +393,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — resolves PlayerDataService, wires
+              TeleportInitFailed reporting, and registers destination
+              players on reserved run servers.
+]]
 function SessionRoutingService:KnitStart()
 	playerDataService = Knit.GetService("PlayerDataService")
 
