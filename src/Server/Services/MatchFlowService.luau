@@ -181,6 +181,11 @@ local function broadcastSession(session: Session)
 	end
 end
 
+--[[
+    @summary  Per-player REQUEST_COOLDOWN gate for client remotes.
+    @param    player  Player
+    @returns  boolean  -- true when the request should be dropped
+]]
 local function rateLimited(player: Player): boolean
 	local now = os.clock()
 	local previous = lastRequestAt[player] or 0
@@ -192,6 +197,10 @@ local function rateLimited(player: Player): boolean
 end
 
 -- | Queue Lifecycle | --
+--[[
+    @summary  Cancel the session's countdown timer thread if running.
+    @param    session  Session
+]]
 local function cancelTimer(session: Session)
 	if session.timerThread then
 		pcall(task.cancel, session.timerThread)
@@ -199,12 +208,23 @@ local function cancelTimer(session: Session)
 	end
 end
 
+--[[
+    @summary  Set the session flow state and broadcast it plus fresh
+              snapshots to all members.
+    @param    session  Session
+    @param    state    FlowState
+]]
 local function setState(session: Session, state: FlowState)
 	session.state = state
 	fireToSession(session, MatchFlowService.Client.FlowStateChanged, state)
 	broadcastSession(session)
 end
 
+--[[
+    @summary  Pick the next connected member in join order as host.
+    @param    session  Session
+    @returns  Player?  -- nil when the session is empty
+]]
 local function selectNextHost(session: Session): Player?
 	for _, candidate in ipairs(session.memberOrder) do
 		if session.players[candidate] and candidate.Parent == Players then
@@ -214,6 +234,13 @@ local function selectNextHost(session: Session): Player?
 	return nil
 end
 
+--[[
+    @summary  Remove a player from their session — dissolves an empty
+              session, migrates host, optionally returns the player to
+              the lobby queue.
+    @param    player         Player
+    @param    returnToLobby  boolean?
+]]
 local function removePlayerFromSession(player: Player, returnToLobby: boolean?)
 	local session = sessionsByPlayer[player]
 	if not session then
