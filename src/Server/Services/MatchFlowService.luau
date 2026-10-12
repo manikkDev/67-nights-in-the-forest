@@ -487,6 +487,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle init — defensively creates the Client
+              signals via KnitComm when this Knit build hasn't
+              converted the marker fields yet.
+]]
 function MatchFlowService:KnitInit()
 	-- Preserve compatibility with this project's Knit build when signal markers
 	-- have not yet been converted during service construction.
@@ -502,6 +507,10 @@ function MatchFlowService:KnitInit()
 	end
 end
 
+--[[
+    @summary  Knit lifecycle start — resolves services and wires the
+              RequestSetCapacity / RequestStart / RequestLeave remotes.
+]]
 function MatchFlowService:KnitStart()
 	spawnService = Knit.GetService("SpawnService")
 	timeService = Knit.GetService("TimeService")
