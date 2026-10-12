@@ -248,6 +248,17 @@ local function formatCountdown(seconds: number): string
 	return tostring(math.max(0, math.floor(seconds + 0.5)))
 end
 
+--[[
+    @summary  Create a styled TextLabel for the intro screens.
+    @param    parent    Instance
+    @param    name      string
+    @param    text      string
+    @param    size      number   -- TextSize
+    @param    color     Color3
+    @param    position  UDim2
+    @param    sizeDim   UDim2
+    @returns  TextLabel
+]]
 local function makeLabel(parent: Instance, name: string, text: string, size: number, color: Color3, position: UDim2, sizeDim: UDim2): TextLabel
 	local label = Instance.new("TextLabel")
 	label.Name = name
@@ -264,6 +275,18 @@ local function makeLabel(parent: Instance, name: string, text: string, size: num
 	return label
 end
 
+--[[
+    @summary  Create a styled TextButton for the intro screens.
+    @param    parent    Instance
+    @param    name      string
+    @param    text      string
+    @param    textSize  number
+    @param    color     Color3
+    @param    position  UDim2
+    @param    sizeDim   UDim2
+    @param    radius    number?  -- corner radius
+    @returns  TextButton
+]]
 local function makeButton(parent: Instance, name: string, text: string, textSize: number, color: Color3, position: UDim2, sizeDim: UDim2, radius: number?): TextButton
 	local button = Instance.new("TextButton")
 	button.Name = name
@@ -284,6 +307,16 @@ local function makeButton(parent: Instance, name: string, text: string, textSize
 	return button
 end
 
+--[[
+    @summary  Create a circular party-size TextButton.
+    @param    parent    Instance
+    @param    name      string
+    @param    text      string
+    @param    color     Color3
+    @param    position  UDim2
+    @param    sizeDim   UDim2
+    @returns  TextButton
+]]
 local function makeCircleButton(parent: Instance, name: string, text: string, color: Color3, position: UDim2, sizeDim: UDim2): TextButton
 	local button = Instance.new("TextButton")
 	button.Name = name
@@ -304,6 +337,11 @@ local function makeCircleButton(parent: Instance, name: string, text: string, co
 	return button
 end
 
+--[[
+    @summary  Refresh party-size button states — interactive only for
+              the host while the session is in Waiting; locked during
+              Countdown.
+]]
 local function updateSizeButtons()
 	-- Size buttons are only interactive for the HOST during setup (Waiting state).
 	-- Once the lobby is opened (Countdown), capacity is locked — no changes allowed.
@@ -341,6 +379,12 @@ local function updateSizeButtons()
 	end
 end
 
+--[[
+    @summary  Render a session snapshot — syncs selectedSize from
+              capacity and rebuilds the roster lines with host/member
+              badges.
+    @param    snapshot  { [string]: any }
+]]
 local function renderSession(snapshot: { [string]: any })
 	sessionSnapshot = snapshot
 	if typeof(snapshot.capacity) == "number" then
