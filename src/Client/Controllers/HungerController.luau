@@ -246,6 +246,10 @@ end
 ]]
 local function bindHumanoid(character: Model)
 	local humanoid = character:WaitForChild("Humanoid") :: Humanoid
+	--[[
+	    @summary  Refresh the health row from the humanoid's Health/
+	              MaxHealth.
+	]]
 	local function updateHealth()
 		setFillAndLabel(healthFill, healthValueLabel, humanoid.Health, humanoid.MaxHealth, HEALTH_COLOR)
 	end
@@ -255,6 +259,10 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle init — builds the survival GUI, binds the
+              humanoid for health updates, and pre-fills the hunger bar.
+]]
 function HungerController:KnitInit()
 	buildSurvivalGui()
 
@@ -272,12 +280,19 @@ function HungerController:KnitInit()
 	end
 end
 
+--[[
+    @summary  Knit lifecycle start — shows the GUI on game start and
+              wires HungerService updates to the hunger bar.
+]]
 function HungerController:KnitStart()
 	if ServerRole.IsLobby() then return end
 	local gameStateController = Knit.GetController("GameStateController")
 	local hungerService = Knit.GetService("HungerService")
 	local runStateService = Knit.GetService("RunStateService")
 
+	--[[
+	    @summary  Enable the survival GUI when the run begins.
+	]]
 	local function showGui()
 		if survivalGui then
 			survivalGui.Enabled = true
