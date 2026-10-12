@@ -985,6 +985,11 @@ local function buildTooltip(parent: Instance)
 	tooltipFrame = tooltip
 end
 
+--[[
+    @summary  Build the full map panel GUI — background, minimap,
+              compass, sidebar area, tooltip, and close handling.
+    @desc     No-op if already built; starts disabled.
+]]
 function buildGui()
 	if gui then
 		return
@@ -1172,6 +1177,11 @@ function buildGui()
 end
 
 -- Map quick-access icon that stays on screen when the full map is closed
+--[[
+    @summary  Build the small always-on map icon button that opens the
+              map panel.
+    @desc     No-op if already built.
+]]
 function buildMapIcon()
 	if mapIconGui then
 		return
@@ -1279,6 +1289,11 @@ function buildMapIcon()
 	TweenService:Create(iconBtn, TweenInfo.new(0.3, Enum.EasingStyle.Back), { Size = UDim2.fromOffset(56, 56) }):Play()
 end
 
+--[[
+    @summary  Toggle the map icon GUI; plays a pop-in size tween when
+              showing.
+    @param    visible  boolean
+]]
 function setMapIconVisible(visible: boolean)
 	if not mapIconGui then
 		buildMapIcon()
@@ -1292,6 +1307,11 @@ function setMapIconVisible(visible: boolean)
 	end
 end
 
+--[[
+    @summary  Tally per-category marker counts (caves, POIs) from
+              mapData for the sidebar badges.
+    @returns  { [string]: number }
+]]
 local function computeSidebarCounts(): { [string]: number }
 	local counts = {
 		caveAvailable = 0,
@@ -1327,6 +1347,11 @@ local function computeSidebarCounts(): { [string]: number }
 	return counts
 end
 
+--[[
+    @summary  Refresh the accessible-area sidebar line — maps the
+              current access radius to a campfire level and shows the
+              radius in studs.
+]]
 local function updateAccessibleAreaInfo()
 	if not mapData then
 		return
