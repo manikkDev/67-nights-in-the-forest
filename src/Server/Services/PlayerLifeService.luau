@@ -98,10 +98,21 @@ local bodyDrags: { [Player]: BodyDrag } = {}
 local bodyDraggedBy: { [Player]: Player } = {}
 local ragdollData: { [Player]: RagdollData } = {}
 
+--[[
+    @summary  Current run member list via RunStateService.
+    @returns  { Player }  -- empty until RunStateService resolves
+]]
 local function runMembers(): { Player }
 	return if runStateService then runStateService:GetMembers() else {}
 end
 
+--[[
+    @summary  Fire LifeStateChanged to every run member for a state
+              transition.
+    @param    player   Player   -- subject of the change
+    @param    state    LifeState
+    @param    payload  { [string]: any }?  -- merged with userId/state
+]]
 local function broadcastState(player: Player, state: LifeState, payload: { [string]: any }?)
 	if not runStateService or not runStateService:IsMember(player) then
 		return
@@ -114,6 +125,11 @@ local function broadcastState(player: Player, state: LifeState, payload: { [stri
 	end
 end
 
+--[[
+    @summary  LoadCharacterAsync with a re-entrancy guard.
+    @param    player  Player
+    @returns  boolean  -- false if already loading or the call failed
+]]
 local function loadCharacter(player: Player): boolean
 	if loadingCharacters[player] or player.Parent ~= Players then
 		return false
