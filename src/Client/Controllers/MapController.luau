@@ -138,6 +138,13 @@ local setMapIconVisible: (visible: boolean) -> () = nil
 local openMap: (data: { [string]: any }) -> () = nil
 local closeMap: () -> () = nil
 
+--[[
+    @summary  Convert a world position to a UDim2 on the minimap.
+    @desc     Campfire-centred; north (-Z) maps to up. Clamps to the
+              minimap bounds with an 8px inset.
+    @param    worldPos  Vector3
+    @returns  UDim2
+]]
 local function worldToMap(worldPos: Vector3): UDim2
 	if not campfireWorldPos then
 		return UDim2.fromScale(0.5, 0.5)
@@ -153,6 +160,11 @@ local function worldToMap(worldPos: Vector3): UDim2
 	return UDim2.new(0.5, px, 0.5, py)
 end
 
+--[[
+    @summary  Humanize a stud distance ("very close" / "N studs away").
+    @param    dist  number
+    @returns  string
+]]
 local function formatDistance(dist: number): string
 	if dist < 50 then
 		return "very close"
@@ -163,6 +175,14 @@ local function formatDistance(dist: number): string
 	end
 end
 
+--[[
+    @summary  Show the marker tooltip near a minimap-local position.
+    @desc     Sizes the frame to the title width and converts the
+              minimap-local offset into panel coordinates.
+    @param    pos          UDim2  -- minimap-local offset
+    @param    title        string
+    @param    description  string
+]]
 local function showTooltip(pos: UDim2, title: string, description: string)
 	if not tooltipFrame or not tooltipTitle or not tooltipDesc then
 		return
@@ -183,6 +203,10 @@ local function showTooltip(pos: UDim2, title: string, description: string)
 	tooltipFrame.Visible = true
 end
 
+--[[
+    @summary  Hide the tooltip and reset the hovered-info labels to
+              their dimmed placeholder text.
+]]
 local function hideTooltip()
 	if tooltipFrame then
 		tooltipFrame.Visible = false
@@ -201,6 +225,13 @@ local function hideTooltip()
 	end
 end
 
+--[[
+    @summary  Populate the hovered-info labels (name, subtitle,
+              distance) with active text colours.
+    @param    name          string
+    @param    subText       string
+    @param    distanceText  string
+]]
 local function setHoveredInfo(name: string, subText: string, distanceText: string)
 	if hoveredLabel then
 		hoveredLabel.Text = name
@@ -216,6 +247,11 @@ local function setHoveredInfo(name: string, subText: string, distanceText: strin
 	end
 end
 
+--[[
+    @summary  Distance text from the player to a world position (XZ only).
+    @param    worldPos  Vector3
+    @returns  string  -- "" when the player position is unknown
+]]
 local function getDistanceText(worldPos: Vector3): string
 	if not currentPlayerPos then
 		return ""
