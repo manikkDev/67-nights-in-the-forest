@@ -172,6 +172,10 @@ local function setGroupTransparency(guiObject: GuiObject, transparency: number)
 	end
 end
 
+--[[
+    @summary  Freeze the player during the intro — saves WalkSpeed/
+              JumpPower/JumpHeight then zeroes them.
+]]
 local function lockMovement()
 	if movementLocked then
 		return
@@ -190,6 +194,9 @@ local function lockMovement()
 	movementLocked = true
 end
 
+--[[
+    @summary  Restore the saved WalkSpeed/JumpPower/JumpHeight.
+]]
 local function unlockMovement()
 	if not movementLocked then
 		return
@@ -204,6 +211,9 @@ local function unlockMovement()
 	movementLocked = false
 end
 
+--[[
+    @summary  Switch the camera to Scriptable for intro cinematics.
+]]
 local function lockCamera()
 	local camera = Workspace.CurrentCamera
 	if not camera then
@@ -212,6 +222,10 @@ local function lockCamera()
 	camera.CameraType = Enum.CameraType.Scriptable
 end
 
+--[[
+    @summary  Restore the camera to Custom targeting the player's
+              humanoid.
+]]
 local function unlockCamera()
 	local camera = Workspace.CurrentCamera
 	if not camera then
@@ -225,6 +239,11 @@ local function unlockCamera()
 	end
 end
 
+--[[
+    @summary  Format a countdown as a whole-second string (min 0).
+    @param    seconds  number
+    @returns  string
+]]
 local function formatCountdown(seconds: number): string
 	return tostring(math.max(0, math.floor(seconds + 0.5)))
 end
