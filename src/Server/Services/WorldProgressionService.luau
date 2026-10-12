@@ -50,6 +50,11 @@ local boundaryTrims: { Part } = {}
 local accessRadius = WorldProgressionConfig.GetAccessRadius(1)
 local checkTimer = 0
 
+--[[
+    @summary  Push the new access radius to all clients — sets the
+              AccessRadius attribute and fires BoundaryExpanded.
+    @param    level  number  -- new campfire level
+]]
 local function broadcastExpansion(level: number)
 	WorldProgressionService.Client.AccessRadius:Set(accessRadius)
 	for _, player in ipairs(Players:GetPlayers()) do
@@ -205,6 +210,10 @@ local function relocateBuildings()
 	print(("[WorldProgressionService] Redistributed %d/%d buildings across the map"):format(moved, #buildings))
 end
 
+--[[
+    @summary  Lazily create the WorldBoundary folder (and per-side wall
+              parts) inside the run's runtime folder.
+]]
 local function ensureBoundary()
 	if boundaryFolder and boundaryFolder.Parent then
 		return
@@ -252,6 +261,10 @@ local function ensureBoundary()
 	end
 end
 
+--[[
+    @summary  Reposition the boundary walls to the current accessRadius
+              square around the campfire (early-out without map data).
+]]
 local function updateBoundary()
 	ensureBoundary()
 	local campfireCFrame = worldService:GetCampfireCFrame()
@@ -351,6 +364,12 @@ local function updateBoundary()
 	end
 end
 
+--[[
+    @summary  Expand the accessible area for a new campfire level —
+              updates accessRadius, rebuilds the boundary, and
+              broadcasts the change. Skips non-expansions.
+    @param    level  number
+]]
 local function setLevel(level: number)
 	local nextRadius = WorldProgressionConfig.GetAccessRadius(level)
 	print(("[WorldProgressionService] setLevel(%d): nextRadius=%.0f, currentAccessRadius=%.0f, boundaryFolder=%s, boundaryParts=%d")
@@ -366,6 +385,11 @@ local function setLevel(level: number)
 	broadcastExpansion(level)
 end
 
+--[[
+    @summary  Throttled Heartbeat check (Boundary.CheckInterval) that
+              clamps players back inside the access radius.
+    @param    dt  number
+]]
 local function constrainPlayers(dt: number)
 	checkTimer += dt
 	if checkTimer < WorldProgressionConfig.Boundary.CheckInterval then
@@ -486,6 +510,11 @@ function WorldProgressionService.Client:GetState(_player: Player): { level: numb
 	}
 end
 
+--[[
+    @summary  Knit lifecycle start — on RunStarted seeds the radius
+              from campfire level, reserves boundary rings for world
+              placement, and expands on every LevelChangedServer.
+]]
 function WorldProgressionService:KnitStart()
 	runStateService = Knit.GetService("RunStateService")
 	worldService = Knit.GetService("WorldService")
