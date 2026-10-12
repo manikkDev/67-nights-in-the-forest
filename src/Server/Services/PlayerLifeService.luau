@@ -459,6 +459,11 @@ local function checkTeamLoss()
 	end
 end
 
+--[[
+    @summary  End a player's body drag — destroys the AlignPosition/
+              attachment rig and clears the dragger/target maps.
+    @param    dragger  Player
+]]
 local function stopBodyDrag(dragger: Player)
 	local entry = bodyDrags[dragger]
 	if not entry then
@@ -480,6 +485,11 @@ local function stopBodyDrag(dragger: Player)
 	end
 end
 
+--[[
+    @summary  Stop any drag the player is performing plus any drag
+              targeting them.
+    @param    player  Player
+]]
 local function stopBodyDragsFor(player: Player)
 	stopBodyDrag(player)
 	local dragger = bodyDraggedBy[player]
@@ -488,6 +498,16 @@ local function stopBodyDragsFor(player: Player)
 	end
 end
 
+--[[
+    @summary  Validate a body drag and return both HumanoidRootParts.
+    @desc     Requires the dragger to be Alive, the target Downed or
+              Eliminated, both to be run members, and the start range
+              to hold.
+    @param    dragger     Player
+    @param    target      Player
+    @param    startRange  number  -- max allowed distance in studs
+    @returns  BasePart?, BasePart?  -- dragger root, target root (nil,nil when invalid)
+]]
 local function validateBodyDrag(dragger: Player, target: Player, startRange: number): (BasePart?, BasePart?)
 	if dragger == target or lifeStates[dragger] ~= "Alive" then
 		return nil, nil
