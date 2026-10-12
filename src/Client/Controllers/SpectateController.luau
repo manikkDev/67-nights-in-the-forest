@@ -54,6 +54,14 @@ local targetIndex = 1
 local currentTarget: Player? = nil
 local spectating = false
 
+--[[
+    @summary  Create a styled bottom-bar TextButton for the spectate UI.
+    @param    parent    Instance
+    @param    name      string
+    @param    text      string
+    @param    position  UDim2
+    @returns  TextButton
+]]
 local function makeButton(parent: Instance, name: string, text: string, position: UDim2): TextButton
 	local button = Instance.new("TextButton")
 	button.Name = name
@@ -88,6 +96,10 @@ local STATE_COLORS = {
 }
 local STATE_LABELS = { Alive = "Alive", Downed = "Down", Eliminated = "Gone", Lobby = "Lobby" }
 
+--[[
+    @summary  Rebuild the teammate list — one row per other player
+              with their LifeState-colored status.
+]]
 local function updateTeamPanel()
 	if not teamPanel then return end
 	for _, row in ipairs(teamPanel:GetChildren()) do
@@ -151,6 +163,11 @@ local function updateTeamPanel()
 	end
 end
 
+--[[
+    @summary  Build the spectate ScreenGui — eyebrow label, target
+              name/health bar, team panel, and prev/next buttons.
+    @desc     No-op if already built; starts disabled.
+]]
 local function buildUi()
 	if gui then return end
 	local screenGui = Instance.new("ScreenGui")
