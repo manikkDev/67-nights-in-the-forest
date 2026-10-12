@@ -576,6 +576,15 @@ local function setMarkerGroupHighlight(group: string?, highlight: boolean)
 	end
 end
 
+--[[
+    @summary  Create one sidebar legend row — symbol, title,
+              description, optional count badge, and hover highlight
+              wired to the marker group.
+    @param    parent  Instance
+    @param    order   number   -- LayoutOrder
+    @param    entry   LegendEntryDef
+    @param    count   number?
+]]
 local function createLegendEntry(parent: Instance, order: number, entry: LegendEntryDef, count: number?)
 	local row = Instance.new("TextButton")
 	row.Name = "Entry" .. tostring(order)
@@ -674,6 +683,12 @@ local function createLegendEntry(parent: Instance, order: number, entry: LegendE
 	desc.Parent = row
 end
 
+--[[
+    @summary  Create a sidebar section header label.
+    @param    parent      Instance
+    @param    order       number   -- LayoutOrder
+    @param    headerText  string
+]]
 local function createSectionHeader(parent: Instance, order: number, headerText: string)
 	local header = Instance.new("TextLabel")
 	header.Name = "Header" .. tostring(order)
@@ -691,6 +706,12 @@ local function createSectionHeader(parent: Instance, order: number, headerText: 
 	header.Parent = parent
 end
 
+--[[
+    @summary  Rebuild the right-hand sidebar — legend, accessible-area
+              info, and per-POI sections with counts.
+    @param    parent  Frame
+    @param    counts  { [string]: number }
+]]
 local function buildSidebar(parent: Frame, counts: { [string]: number })
 	if sidebarFrame then
 		sidebarFrame:Destroy()
@@ -736,6 +757,10 @@ local function buildSidebar(parent: Frame, counts: { [string]: number })
 	layout.Parent = content
 
 	local order = 0
+	--[[
+	    @summary  Incrementing LayoutOrder generator for sidebar rows.
+	    @returns  number
+	]]
 	local function nextOrder()
 		order += 1
 		return order
@@ -900,6 +925,11 @@ local function buildSidebar(parent: Frame, counts: { [string]: number })
 	hoveredDistance.Parent = content
 end
 
+--[[
+    @summary  Build the hidden tooltip frame (title + description)
+              anchored above a minimap position.
+    @param    parent  Instance
+]]
 local function buildTooltip(parent: Instance)
 	local tooltip = Instance.new("Frame")
 	tooltip.Name = "Tooltip"
