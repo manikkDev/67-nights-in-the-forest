@@ -530,6 +530,13 @@ local function validateBodyDrag(dragger: Player, target: Player, startRange: num
 	return draggerRoot, targetRoot
 end
 
+--[[
+    @summary  Deferred bleed-out timer — after DownedDuration, marks
+              the player Eliminated if the down token still matches and
+              they were never revived.
+    @param    player  Player
+    @param    token   string  -- GUID issued by downPlayer
+]]
 local function eliminateAfterBleedout(player: Player, token: string)
 	task.wait(RunConfig.DownedDuration)
 	if player.Parent ~= Players or downTokens[player] ~= token or lifeStates[player] ~= "Downed" then
@@ -546,6 +553,13 @@ local function eliminateAfterBleedout(player: Player, token: string)
 	checkTeamLoss()
 end
 
+--[[
+    @summary  Transition a player to Downed — stops their drags,
+              issues a bleed-out token, applies the body presentation,
+              broadcasts the state, and schedules elimination.
+    @param    player  Player
+    @param    source  string  -- what downed them (damage source label)
+]]
 local function downPlayer(player: Player, source: string)
 	if lifeStates[player] ~= "Alive" then
 		return
@@ -653,6 +667,13 @@ function PlayerLifeService:ApplyDamage(player: Player, amount: number, source: s
 	return { applied = applied, downed = false }
 end
 
+--[[
+    @summary  Whether a revive attempt is legal — reviver Alive, target
+              Downed/Eliminated, both active run members, in range.
+    @param    reviver  Player
+    @param    target   Player
+    @returns  boolean
+]]
 local function validRevive(reviver: Player, target: Player): boolean
 	if reviver == target or lifeStates[reviver] ~= "Alive" then
 		return false
@@ -726,6 +747,12 @@ function PlayerLifeService:TryRevive(reviver: Player, target: Player): boolean
 end
 
 -- | Client Remote: Use Bandage from Inventory to revive nearest downed teammate |
+--[[
+    @summary  Remote — revive the nearest downed member within range.
+    @desc     Consumes a Bandage from the reviver's inventory on success.
+    @param    player  Player  -- the reviver
+    @returns  boolean
+]]
 function PlayerLifeService.Client:RequestBandageRevive(player: Player): boolean
 	if lifeStates[player] ~= "Alive" then return false end
 	if not runStateService or not runStateService:IsActive() or not runStateService:IsMember(player) then return false end
@@ -840,6 +867,10 @@ function PlayerLifeService.Client:GetSnapshot(player: Player): { [string]: any }
 	return { selfState = lifeStates[player] or "Lobby", states = states }
 end
 
+--[[
+    @summary  Sweep bodyDrags and stop any that fail validation or have
+              drifted beyond BodyDragMaxDistance.
+]]
 local function cleanupInvalidBodyDrags()
 	local toStop = {}
 	for dragger, entry in pairs(bodyDrags) do
@@ -857,12 +888,22 @@ end
 
 Players.CharacterAutoLoads = false
 
+--[[
+    @summary  Knit lifecycle start — resolves services, seeds per-player
+              life state, wires character spawn/removal and respawn
+              handling, and binds the drag-cleanup loop.
+]]
 function PlayerLifeService:KnitStart()
 	if ServerRole.IsLobby() then return end
 	runStateService = Knit.GetService("RunStateService")
 	inventoryService = Knit.GetService("InventoryService")
 	spawnService = Knit.GetService("SpawnService")
 
+	--[[
+	    @summary  Initialize a joining player — sets Lobby state and
+	              wires CharacterAdded/CharacterRemoving.
+	    @param    player  Player
+	]]
 	local function onPlayerAdded(player: Player)
 		lifeStates[player] = "Lobby"
 		player.CharacterAdded:Connect(function(character)
