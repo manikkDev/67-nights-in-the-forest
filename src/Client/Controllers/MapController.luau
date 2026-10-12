@@ -1720,6 +1720,11 @@ local function updatePlayerMarker()
 	updateBoardPlayerMarker()
 end
 
+--[[
+    @summary  Open the map panel — stores mapData, rebuilds markers and
+              sidebar, and plays the scale/fade open animation.
+    @param    data  { [string]: any }  -- MapService map data payload
+]]
 function openMap(data: { [string]: any })
 	buildGui()
 	buildMapIcon()
@@ -1759,6 +1764,10 @@ function openMap(data: { [string]: any })
 	end
 end
 
+--[[
+    @summary  Close the map panel with a shrink/fade tween and mark it
+              closed.
+]]
 function closeMap()
 	if not gui or not bgFrame or not panelScale then
 		if gui then
@@ -1786,6 +1795,10 @@ function closeMap()
 	end)
 end
 
+--[[
+    @summary  Flash a "map locked" message on the panel when the player
+              tries to open the map before it's unlocked.
+]]
 local function showLockedMessage()
 	buildGui()
 	buildMapIcon()
@@ -1843,6 +1856,11 @@ end
 
 -- // INITIALIZATION // --
 
+--[[
+    @summary  Knit lifecycle start — builds the GUI and icon, fetches
+              map data for the board minimap, and wires open/close,
+              marker updates, and run-state signals.
+]]
 function MapController:KnitStart()
 	if not ServerRole.IsGameServer() then return end
 	mapService = Knit.GetService("MapService")
