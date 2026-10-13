@@ -185,6 +185,7 @@ end
 
 --[[
     @summary  Tween the screen and warning to the appropriate visual state.
+    @param    state  "day" | "safeNight" | "unsafeNight" | "fireOut"
 ]]
 local function updateVisuals(state: "day" | "safeNight" | "unsafeNight" | "fireOut")
 	if not colorCorrection or not warningLabel then
