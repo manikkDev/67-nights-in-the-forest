@@ -12,4 +12,7 @@
     Script instance in the built place. The actual bootstrap logic
     (Knit service loading) lives in `Server.server.luau`; this file
     must stay comment-only.
+
+    @exports
+    - none — Rojo placeholder, not a ModuleScript
 ]]
