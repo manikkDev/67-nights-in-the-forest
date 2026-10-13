@@ -501,10 +501,10 @@ local function playStalkerSound(stalker, kind: string)
 end
 
 --[[
-    @summary  Pick the nearest in-game player who is currently outside
-              the campfire's safe zone.
-    @param    fromPosition  Vector3  -- the stalker's current position
-    @returns  Player?, Vector3?
+    @summary  Whether a player is huntable — spawned, alive, outside
+              the campfire's safe zone, with a live humanoid.
+    @param    player  Player
+    @returns  boolean
 ]]
 local function isHuntablePlayer(player: Player): boolean
 	if player.Parent ~= Players then
@@ -1265,6 +1265,7 @@ end
 
 --[[
     @summary  Heartbeat-driven tick for every registered stalker.
+    @param    dt  number  -- frame delta
 ]]
 local function onHeartbeat(dt: number)
 	local now = os.clock()
