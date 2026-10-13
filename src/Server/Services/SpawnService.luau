@@ -211,6 +211,7 @@ end
     @summary  Move an existing revivable character to a safe campfire position.
     @desc     Unlike SpawnPlayer, this deliberately preserves the in-world body
               and does not reload the character.
+    @param    player  Player
 ]]
 function SpawnService:ReviveAtCampfire(player: Player): boolean
 	if player.Parent ~= Players or not runStateService or not runStateService:IsActive() or not runStateService:IsMember(player) then
