@@ -158,6 +158,7 @@ end
 
 --[[
     @summary  Update the on-screen battery bar and percentage text.
+    @param    percent  number  -- battery charge 0-100
 ]]
 local function updateFlashlightBeam(percent: number)
 	local tool = getEquippedFlashlight()
