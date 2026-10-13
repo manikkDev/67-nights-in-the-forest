@@ -14,6 +14,11 @@
     skeleton supports: "R15" and "R6" models reuse Roblox's public
     default Animate-script animation ids, "Procedural" models are
     driven frame-by-frame via Motor6D offsets.
+
+    @exports
+    - LootEntry (type)
+    - SpeciesConfig (type)
+    - NpcConfig (table of SpeciesConfig keyed by species id)
 ]]
 
 export type LootEntry = { Resource: string, Min: number, Max: number, Chance: number }
