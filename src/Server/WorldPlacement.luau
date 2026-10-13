@@ -92,6 +92,10 @@ end
     @desc    Prevents placement within `thickness` studs of the ring
               radius.  Used to keep buildings/facilities/caves away
               from where the boundary wall will expand to.
+    @param    center      Vector3  -- ring centre (campfire position)
+    @param    ringRadius  number   -- ring radius in studs
+    @param    thickness   number   -- exclusion band around the ring
+    @param    category    string   -- reservation category label
 ]]
 function WorldPlacement.ReserveRing(center: Vector3, ringRadius: number, thickness: number, category: string)
 	table.insert(reservations, {
