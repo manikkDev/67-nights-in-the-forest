@@ -162,6 +162,7 @@ end
 --[[
     @summary  Pick a random ground position near a random tree or anywhere
               on the map, using the true ground height.
+    @param    unlockLevel  number  -- campfire level bounding the ring
     @returns  Vector3?
 ]]
 local function randomForagePosition(unlockLevel: number): Vector3?
@@ -261,6 +262,7 @@ end
     @summary  Spawn one forage pickup of the given resource type and
               schedule its respawn after it's collected.
     @param    resourceName  string  -- "Berries" or "Mushrooms"
+    @param    unlockLevel   number?  -- campfire level ring to spawn in
 ]]
 local function spawnForagePickup(resourceName: string, unlockLevel: number?)
 	local level = unlockLevel or math.random(1, #WorldProgressionConfig.AccessRadiusByLevel)
@@ -376,12 +378,13 @@ end
 -- // CLIENT REMOTES // --
 
 --[[
-    @summary  Client-to-server remote for eating a carried food resource.
-    @desc     Consumes 1 unit of the resource and restores Hunger by a
-              fixed amount per resource type.
+    @summary  Client-to-server remote for picking up a forage resource.
+    @desc     Validates the model lives in the base map and carries a
+              ForageResource attribute, then delegates to
+              tryForagePickup.
     @param    player        Player  -- injected by Knit
-    @param    resourceName  string  -- one of EAT_HUNGER_RESTORE's keys
-    @returns  boolean               -- true if eaten successfully
+    @param    model         Model   -- the forage pickup model
+    @returns  boolean               -- true if picked up successfully
 ]]
 function ForageService.Client:RequestPickup(player: Player, model: Model): boolean
 	if not model or not model:IsA("Model") or not model.Parent then
