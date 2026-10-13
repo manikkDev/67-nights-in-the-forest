@@ -12,6 +12,9 @@
     and controllers reference semantic names instead of raw asset ids.
     Entries are grouped by category and table.freeze'd so they cannot
     be accidentally mutated at runtime.
+
+    @exports
+    - AssetCatalog (frozen table: Audio, Animations, Images)
 ]]
 
 return table.freeze({
