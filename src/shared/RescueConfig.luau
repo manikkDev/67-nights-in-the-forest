@@ -13,6 +13,10 @@
     rescue-tent data. Pure data module with no runtime state; consumed
     by RescueService on the server and by RescueController for the
     missing-children UI and portraits.
+
+    @exports
+    - RescueDefinition (type)
+    - RescueConfig (frozen table of RescueDefinition keyed by rescue id)
 ]]
 
 export type RescueDefinition = {
