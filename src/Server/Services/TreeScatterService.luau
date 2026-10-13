@@ -138,8 +138,8 @@ end
 
 --[[
     @summary  Clone a tree template and place it at the given position.
-    @param    template  Model    -- the tree template to clone
-    @param    position  Vector3  -- ground position
+    @param    template   Model   -- the tree template to clone
+    @param    placement  CFrame  -- ground placement transform
     @returns  Model?
 ]]
 local function cloneTreeAt(template: Model, placement: CFrame): Model?
