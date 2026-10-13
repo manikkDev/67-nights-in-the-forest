@@ -277,8 +277,10 @@ local function spawnOwl()
 end
 
 --[[
-    @summary  Pick a landing position near a random player, not near campfire.
-    @returns  Vector3?
+    @summary  Whether a player is huntable — spawned, alive, outside
+              the campfire's safe zone, with a live humanoid.
+    @param    player  Player
+    @returns  boolean
 ]]
 local function isHuntablePlayer(player: Player): boolean
 	if player.Parent ~= Players then
@@ -525,6 +527,7 @@ end
 --[[
     @summary  Compute the movement-based detection meter while perched.
               Fills when nearby players move, decays when all are still.
+    @param    dt  number  -- frame delta
 ]]
 local function updateDetection(dt: number)
 	if not owl or owl.state ~= "Perched" then
@@ -688,6 +691,7 @@ end
 
 --[[
     @summary  Execute movement/behavior for the Owl's current state.
+    @param    dt  number  -- frame delta
 ]]
 local function runOwlBehavior(dt: number)
 	if not owl then
