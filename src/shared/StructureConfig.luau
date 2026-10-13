@@ -12,6 +12,10 @@
     multiplier points — keyed by structure id. Pure data module with
     no runtime state; consumed by CraftingService for recipe unlocks
     and by BuildingService for placement validation and health.
+
+    @exports
+    - StructureDefinition (type)
+    - StructureConfig (frozen table of StructureDefinition keyed by id)
 ]]
 
 export type StructureDefinition = {
