@@ -17,6 +17,10 @@
       🔩       = 1 Scrap   (Bolt, Sheet Metal)
       🔩🔩     = 2 Scrap   (Old Radio, Broken Fan)
       🔩🔩🔩   = 3 Scrap   (Broken Microwave, Tyre)
+
+    @exports
+    - JunkItem (type)
+    - JunkItemConfig (frozen table of JunkItem defs keyed by id)
 ]]
 
 export type JunkItem = {
