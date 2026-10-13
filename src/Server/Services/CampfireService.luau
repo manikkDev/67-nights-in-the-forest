@@ -437,8 +437,9 @@ local function updateSafeZone()
 end
 
 --[[
-    @summary  Broadcast the current fuel state to a player (or all players if omitted).
-    @param    target  Player?  -- nil to broadcast to all
+    @summary  Whether the player has been spawned into the run.
+    @param    player  Player
+    @returns  boolean  -- false until SpawnService resolves/spawns them
 ]]
 local function isPlayerInGame(player: Player): boolean
 	if not spawnService then
@@ -605,6 +606,7 @@ end
 --[[
     @summary  Convert a dropped RawMeat model into CookedMeat, either adding
               it to the original owner's inventory or spawning a pickup.
+    @param    model  Model  -- the dropped raw meat
 ]]
 local function cookRawMeat(model: Model)
 	if not isLit or fuel <= 0 or not inventoryService then
@@ -895,6 +897,7 @@ end
     @summary  Client-facing remote returning the current safe-zone radius
               and whether the fire is lit, so the client can initialise
               its state even if it missed the SafeZoneChanged signal.
+    @param    player  Player  -- injected by Knit
     @returns  number, boolean  -- radius, isLit
 ]]
 function CampfireService.Client:GetSafeZoneInfo(player: Player): (number, boolean)
