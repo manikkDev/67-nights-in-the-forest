@@ -103,6 +103,7 @@ end
 
 --[[
     @summary  Walk up an instance's parent chain to find the pickup model.
+    @param    instance  Instance  -- mouse-hit instance
     @returns  Model?, string?  -- the pickup model and the resource name
 ]]
 local function findPickupModel(instance: Instance): (Model?, string?)
@@ -127,6 +128,7 @@ end
 --[[
     @summary  Resolve the ancestor character model and player for an
               instance hit by the mouse.
+    @param    instance  Instance  -- mouse-hit instance
     @returns  Model?, Player?  -- only when that player's LifeState is
               Downed or Eliminated (never the local player)
 ]]
@@ -211,6 +213,7 @@ end
 
 --[[
     @summary  Check whether the player is close enough to the pickup target.
+    @param    model  Model  -- the hovered pickup model
     @returns  boolean
 ]]
 local function isInRange(model: Model): boolean
@@ -226,6 +229,7 @@ end
 
 --[[
     @summary  Find the best BasePart in a model to use as the hover anchor.
+    @param    model  Model
     @returns  BasePart?
 ]]
 local function getModelAnchor(model: Model): BasePart?
@@ -254,6 +258,7 @@ end
     @summary  Show a soft blue outline and a floating name label on a model.
     @param    model        Model    -- the model to highlight
     @param    resourceName string   -- the display name
+    @param    promptText   string?  -- action text for the label
 ]]
 local function setHover(model: Model, resourceName: string, promptText: string?)
 	promptText = promptText or "[F] Pickup"
@@ -367,6 +372,8 @@ end
               raycasting from below that item until real ground is found.
               This prevents standing on item stacks from inflating the
               ground height, without scanning all workspace descendants.
+    @param    rootPosition  Vector3  -- player XZ position to probe
+    @param    character     Model    -- excluded from the raycast
     @returns  number  -- the ground Y, or the player's Y as fallback
 ]]
 local function findGroundY(rootPosition: Vector3, character: Model): number
@@ -475,6 +482,7 @@ end
 
 --[[
     @summary  Per-frame hover check so items highlight as the cursor moves.
+    @param    dt  number  -- frame delta
 ]]
 local function updateHover(dt)
 	if not gameStateController or not gameStateController:IsInGame() then
@@ -668,6 +676,8 @@ end
 
 --[[
     @summary  Handle keyboard input for the pickup/drop key.
+    @param    input          InputObject
+    @param    gameProcessed  boolean  -- ignored when the game consumed it
 ]]
 local function onInputBegan(input: InputObject, gameProcessed: boolean)
 	if gameProcessed then
@@ -737,6 +747,7 @@ end
 
 --[[
     @summary  Release LMB drag.
+    @param    input  InputObject
 ]]
 local function onInputEnded(input: InputObject)
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
