@@ -16,6 +16,9 @@
     and `Internal` survive between sessions.  Every other table is
     run-scoped: RunStateService clears it when a run starts and again
     when a run ends, so a finished camp never carries into a new run.
+
+    @exports
+    - ProfileTemplate (plain table: the new-profile data shape)
 ]]
 
 return {
