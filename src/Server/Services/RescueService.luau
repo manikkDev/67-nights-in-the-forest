@@ -280,7 +280,7 @@ end
 --[[
     @summary  Clone and prepare one child inside its cave.
     @param    definition  table
-    @param    center      Vector3
+    @param    caveCFrame  CFrame  -- cave center transform
     @returns  Model?
 ]]
 local function createChild(definition, caveCFrame: CFrame): Model?
