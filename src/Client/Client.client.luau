@@ -10,6 +10,9 @@
     Requires every ModuleScript inside `src/Client/Controllers`, then
     starts the Knit framework.  Each controller registers itself with
     Knit at require-time, so order does not matter.
+
+    @exports
+    - none — client entry script, not a ModuleScript
 ]]
 
 -- // VARIABLES // --
