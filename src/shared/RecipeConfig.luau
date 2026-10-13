@@ -10,6 +10,10 @@
     Costs, tier requirements, caps, and output kinds are server-read data.
     The client may use display fields, but CraftingService independently
     validates every transaction against this catalog.
+
+    @exports
+    - Recipe (type)
+    - RecipeConfig (frozen table of Recipe defs keyed by recipe id)
 ]]
 
 export type Recipe = {
