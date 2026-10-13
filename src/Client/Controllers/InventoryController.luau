@@ -172,6 +172,7 @@ local gameStateController: any = nil
 
 --[[
     @summary  Build the hover tooltip that appears to the left of a row.
+    @param    parent  ScreenGui
 ]]
 local function buildTooltip(parent: ScreenGui): Frame
 	local tooltip = Instance.new("Frame")
@@ -272,6 +273,9 @@ end
 
 --[[
     @summary  Show the tooltip anchored to the left of the given row.
+    @param    row           Frame
+    @param    resourceName  string
+    @param    count         number
 ]]
 local function showTooltip(row: Frame, resourceName: string, count: number)
 	if not tooltipFrame or not tooltipTitle or not tooltipCount or not tooltipDesc then
@@ -329,6 +333,11 @@ end
 
 --[[
     @summary  Build a small pill-style action button.
+    @param    name        string
+    @param    text        string
+    @param    color       Color3
+    @param    hoverColor  Color3
+    @param    parent      Frame
 ]]
 local function buildPillButton(name: string, text: string, color: Color3, hoverColor: Color3, parent: Frame): TextButton
 	local button = Instance.new("TextButton")
@@ -374,6 +383,8 @@ end
 
 --[[
     @summary  Build the capacity bar with numeric label at the bottom of the panel.
+    @param    parent  Frame
+    @param    y       number  -- vertical offset in pixels
 ]]
 local function buildCapacityBar(parent: Frame, y: number)
 	local contentW = PANEL_WIDTH - 2 * PANEL_PADDING
@@ -465,6 +476,8 @@ end
 
 --[[
     @summary  Build the Drop All button that lives at the bottom of the panel.
+    @param    parent  Frame
+    @param    y       number  -- vertical offset in pixels
 ]]
 local function buildDropAllButton(parent: Frame, y: number): TextButton
 	local contentW = PANEL_WIDTH - 2 * PANEL_PADDING
@@ -533,6 +546,9 @@ end
 
 --[[
     @summary  Build a single resource row with icon, labels, and action pills.
+    @param    resourceName  string
+    @param    index         number  -- LayoutOrder within the list
+    @param    parent        Frame
 ]]
 local function buildRow(resourceName: string, index: number, parent: Frame): RowEntry
 	local color = ROW_COLORS[resourceName] or Color3.fromRGB(120, 120, 120)
@@ -923,6 +939,8 @@ end
 
 --[[
     @summary  Update capacity bar fill, colour, and label.
+    @param    total     number  -- carried units
+    @param    capacity  number  -- max units
 ]]
 local function updateCapacity(total: number, capacity: number)
 	if not capacityFill or not capacityText then
@@ -957,6 +975,8 @@ end
 
 --[[
     @summary  Update all count labels, badges, capacity, and play count pop.
+    @param    resources  { [string]: number }?  -- resource -> count
+    @param    capacity   number?
 ]]
 local function updateDisplay(resources: { [string]: number }?, capacity: number?)
 	local resourceCounts = resources or {}
@@ -1147,6 +1167,7 @@ end
 
 --[[
     @summary  Attach equip/unequip listeners to a Carry Bag tool.
+    @param    tool  Tool
 ]]
 local function hookTool(tool: Tool)
 	tool.Equipped:Connect(showBag)
