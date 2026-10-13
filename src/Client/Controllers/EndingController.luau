@@ -175,6 +175,7 @@ end
 
 --[[
     @summary  Build support functions for the defeat team-status panel.
+    @param    parent  Frame  -- panel the member rows parent into
 ]]
 local function buildDefeatPanel(parent: Frame): Frame
 	local panel = Instance.new("Frame")
