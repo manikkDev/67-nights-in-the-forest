@@ -357,6 +357,7 @@ end
               TextLabels. The panel with an ImageLabel shows the
               WoodenSheet count. The panel with an emoji (🔩) shows
               the Scrap count.
+    @param    model  Model  -- the crafting table model
     @returns  TextLabel? woodenSheetCounter, TextLabel? scrapCounter
 ]]
 local function findTableCounters(model: Model): (TextLabel?, TextLabel?)
