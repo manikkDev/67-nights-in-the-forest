@@ -155,6 +155,7 @@ end
 
 --[[
     @summary  Returns true if the given model is already being dragged.
+    @param    model  Model
 ]]
 local function isModelDragged(model: Model): boolean
 	return draggedBy[model] ~= nil
@@ -191,9 +192,9 @@ function InventoryService:GetCapacity(player: Player): number
 end
 
 --[[
-    @summary  Sum every resource field into one carried total.
-    @param    player  Player  -- the Roblox player
-    @returns  number
+    @summary  Public check — whether a junk model is being dragged.
+    @param    model  Model
+    @returns  boolean
 ]]
 function InventoryService:IsModelDragged(model: Model): boolean
 	return draggedBy[model] ~= nil
