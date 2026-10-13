@@ -9,6 +9,10 @@
     @description
     Central place for game-wide constants that both sides need.
     Add values here as the codebase grows across phases.
+
+    @exports
+    - Constants (table: store/place ids, party limits, queue ids,
+      cooldowns, and match timing values)
 ]]
 
 return {
