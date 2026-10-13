@@ -17,6 +17,9 @@
     boards live in the place file rather than Rojo-synced source, they
     must be created (or recreated) by running this file manually.
 
+    @exports
+    - none — standalone command-bar snippet, not a ModuleScript
+
     @usage
     1. Open the place in Studio (build.rbxl or 67nights-phase4-final.rbxlx).
     2. Make sure the Base-map (with the Bonfire / campfire) is loaded.
