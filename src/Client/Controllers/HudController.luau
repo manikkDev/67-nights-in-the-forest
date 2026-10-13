@@ -146,7 +146,8 @@ end
 
 --[[
     @summary  Update banner colors and text for the current phase.
-    @param   phase  string  -- "Day" or "Night"
+    @param   phase      string  -- "Day" or "Night"
+    @param   dayNumber  number  -- displayed day count
 ]]
 local function updateBanner(phase: string, dayNumber: number)
 	if not banner or not phaseText or not stroke or not gradient then
