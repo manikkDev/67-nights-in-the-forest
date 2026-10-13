@@ -174,6 +174,7 @@ end
 
 --[[
     @summary  Wire Tool.Activated on the given tool.
+    @param    tool  Tool  -- the Axe tool instance
 ]]
 local function wireTool(tool: Tool)
 	toolJanitor:Cleanup()
@@ -183,6 +184,7 @@ end
 --[[
     @summary  Watch the player's Backpack and Character for the Axe tool
               being equipped.
+    @param    player  Player  -- the local player
 ]]
 local function watchForAxe(player: Player)
 	--[[
