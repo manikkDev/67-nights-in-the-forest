@@ -9,6 +9,9 @@
     @description
     Leave image ids empty to use the procedural silhouette placeholder.
     Drop rbxassetid values here later without changing flow code.
+
+    @exports
+    - IntroAssets (table: image id slots, colors, and story captions)
 ]]
 
 return {
