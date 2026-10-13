@@ -83,8 +83,14 @@ local campfirePosition: Vector3? = nil
 -- | Private | --
 
 --[[
-    @summary  Find a random ground position outside the camp radius.
-    @returns  Vector3?
+    @summary  Find a random ground position for a facility, ringed
+              between the previous and current unlock-level radii.
+    @desc     Delegates to WorldPlacement.FindPosition with a footprint
+              padded from the model's extents.
+    @param    model        Model   -- facility model being placed
+    @param    unlockLevel  number  -- campfire level that unlocks it
+    @param    seed         number  -- deterministic placement seed
+    @returns  CFrame?, number?  -- placement CFrame and clearance radius
 ]]
 local function randomFacilityPosition(model: Model, unlockLevel: number, seed: number): CFrame?
 	if not groundBounds or not campfirePosition then
