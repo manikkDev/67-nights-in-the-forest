@@ -10,6 +10,9 @@
     Requires every ModuleScript inside `src/Server/Services`, then
     starts the Knit framework.  Each service registers itself with
     Knit at require-time, so order does not matter.
+
+    @exports
+    - none — server entry script, not a ModuleScript
 ]]
 
 -- // VARIABLES // --
