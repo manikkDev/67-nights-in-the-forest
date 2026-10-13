@@ -148,6 +148,8 @@ end
 --[[
     @summary  Pick a random ground position between MIN_SPAWN_DIST and
               MAX_SPAWN_DIST studs from the campfire.
+    @param    minDist  number?  -- override minimum radius in studs
+    @param    maxDist  number?  -- override maximum radius in studs
     @returns  Vector3?
 ]]
 local function pickSpawnPosition(minDist: number?, maxDist: number?): Vector3?
@@ -406,8 +408,8 @@ end
 
 --[[
     @summary  Roll loot from a species' loot table and grant it to the killer.
-    @param    player  Player
-    @param    loot    { NpcConfig.LootEntry }
+    @param    record  table   -- the dead NPC's active record (config.Loot)
+    @param    player  Player  -- the killer receiving the loot
 ]]
 local function grantLoot(record, player: Player)
 	if not inventoryService then
@@ -604,10 +606,10 @@ local function applyDamageToRecord(record, amount: number, attacker: Player?): (
 end
 
 --[[
-    @summary  Return the nearest in-game player within range of a position.
-    @param    position  Vector3
-    @param    range     number
-    @returns  Player?, number?  -- player and distance
+    @summary  Whether a player is a valid AI target — spawned, alive,
+              and with a live humanoid and root part.
+    @param    player  Player
+    @returns  boolean
 ]]
 local function isPlayerTargetable(player: Player): boolean
 	if player.Parent ~= Players then
@@ -938,6 +940,7 @@ end
               generic AI tick and combat targeting.
     @param    speciesKey  string          -- key into NpcConfig
     @param    cframe      CFrame          -- spawn CFrame
+    @param    options     { isRaidCultist: boolean? }?
     @returns  Model?
 ]]
 function AnimalAIService:SpawnNpc(speciesKey: string, cframe: CFrame, options: { isRaidCultist: boolean? }?): Model?
@@ -1182,6 +1185,7 @@ end
 --[[
     @summary  Watch for day/night transitions and spawn/despawn the
               night predator population accordingly.
+    @param    dt  number  -- frame delta
 ]]
 local function onHeartbeat(dt: number)
 	if timeService and timeService:IsRunning() then
