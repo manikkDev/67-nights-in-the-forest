@@ -83,7 +83,7 @@ local campfireService: any = nil
     @summary  Update the fuel bar colour and fill size.
     @param    fuel     number
     @param    maxFuel  number
-    @param    isLit    boolean
+    @param    lit      boolean
 ]]
 local function setFuelBar(fuel: number, maxFuel: number, lit: boolean)
 	isLit = lit
@@ -133,6 +133,7 @@ end
 
 --[[
     @summary  Update visibility of the world-space level progress billboard.
+    @param    dt  number  -- frame delta
 ]]
 local function onHeartbeat(dt: number)
 	-- State variables (isLit, currentSafeZoneRadius) are kept up-to-date by
@@ -170,6 +171,8 @@ end
 
 --[[
     @summary  Track safe zone radius for the billboard show range.
+    @param    radius  number   -- current safe-zone radius
+    @param    active  boolean  -- whether the fire is lit
 ]]
 local function onSafeZoneChanged(radius: number, active: boolean)
 	currentSafeZoneRadius = radius
@@ -364,9 +367,11 @@ end
 
 --[[
     @summary  Build a single progress bar (background + fill).
-    @param    name   string
-    @param    y      number
-    @param    color  Color3
+    @param    parent     Frame
+    @param    name       string
+    @param    y          number
+    @param    labelText  string
+    @param    color      Color3
     @returns  Frame
 ]]
 local function buildStatRow(parent: Frame, name: string, y: number, labelText: string, color: Color3): (Frame, TextLabel)
@@ -684,6 +689,10 @@ end
 
 --[[
     @summary  Handler for FuelChanged signal.
+    @param    fuel      number
+    @param    maxFuel   number
+    @param    fraction  number
+    @param    isLit     boolean
 ]]
 local function onFuelChanged(fuel: number, maxFuel: number, fraction: number, isLit: boolean)
 	setFuelBar(fuel, maxFuel, isLit)
@@ -699,6 +708,10 @@ end
 
 --[[
     @summary  Handler for LevelChanged signal.
+    @param    level          number
+    @param    progress       number
+    @param    requirement    number
+    @param    levelFraction  number
 ]]
 local function onLevelChanged(level: number, progress: number, requirement: number, levelFraction: number)
 	setLevelBar(level, progress, requirement)
@@ -800,6 +813,10 @@ end
 
 --[[
     @summary  Handler for the LevelUp signal.
+    @param    level          number
+    @param    previousLevel  number
+    @param    radius         number
+    @param    maxFuel        number
 ]]
 local function onLevelUp(level: number, previousLevel: number, radius: number, maxFuel: number)
 	showLevelUp(level, previousLevel, radius, maxFuel)
