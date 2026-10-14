@@ -46,14 +46,17 @@ local HarvestService = Knit.CreateService({
 })
 
 -- | Configuration | --
+-- Chop rules and tree health
 local TREE_HEALTH = 6
 local GIANT_TREE_HEALTH = 12
 local CHOP_COOLDOWN = 0.5
 local CHOP_RANGE = 12
+-- Felled-tree animation and respawn timing
 local FELL_TWEEN_DURATION = 1.2
 local FELL_LIE_DURATION = 3
 local FELL_FADE_DURATION = 2
 local TREE_RESPAWN_TIME = 45
+-- Wood log drop counts by tree size
 local WOOD_SCATTER_RADIUS = 4
 local SMALL_WOOD_DROP_MIN = 3
 local SMALL_WOOD_DROP_MAX = 5
@@ -63,6 +66,7 @@ local GIANT_WOOD_DROP_MIN = 10
 local GIANT_WOOD_DROP_MAX = 15
 local PICKUP_RANGE = 12
 local LOG_LIFETIME = 300
+-- Asset/model references
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local TREE_MODEL_NAMES = { "Tree", "bigtree", "GiantTree" }
 local AXE_TOOL_NAME = "Axe"
