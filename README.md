@@ -11,6 +11,7 @@ A survival game where players must endure 67 nights in a hostile forest. Each ni
 - **Janitor** — Resource cleanup
 - **Signal** — Event handling
 - **Promise** — Async operations
+- **ZonePlus** — Zone detection (safe zones, aggro areas)
 
 ## Project Structure
 
