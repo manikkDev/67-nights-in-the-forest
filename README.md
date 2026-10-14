@@ -23,18 +23,14 @@ A survival game where players must endure 67 nights in a hostile forest. Each ni
 ├── src/
 │   ├── Server/
 │   │   ├── Server.server.luau        # Knit server bootstrapper
+│   │   ├── WorldPlacement.luau       # Collision-aware placement helper
 │   │   ├── Data/
 │   │   │   └── ProfileTemplate.luau  # Default player data schema
-│   │   └── Services/
-│   │       ├── PlayerDataService.luau  # Session-locked data (ProfileService)
-│   │       ├── WorldService.luau       # Map cloning & campfire anchor
-│   │       ├── SpawnService.luau       # Lobby-to-game teleportation
-│   │       └── TimeService.luau        # Day/night cycle controller
+│   │   └── Services/                 # 31 Knit services (server authority)
 │   ├── Client/
-│   │   ├── Client.client.luau         # Knit client bootstrapper
-│   │   └── Controllers/
-│   │       └── TimeController.luau     # Client-side day/night listener
-│   └── shared/                        # Shared modules (future)
+│   │   ├── Client.client.luau        # Knit client bootstrapper
+│   │   └── Controllers/              # 27 Knit controllers (UI/input)
+│   └── shared/                       # Shared config modules & utilities
 ├── Packages/                  # Wally shared packages (gitignored)
 ├── ServerPackages/            # Wally server-only packages (gitignored)
 └── ServerStorage.Assets/      # Maps, NPCs, items (managed in Studio)
