@@ -1,5 +1,7 @@
 # 67 Nights — Technical Architecture
 
+> **Status:** this document was written during Phase 1 planning. Sections 2–7 describe the _initial_ service/controller inventory and open decisions, not the current codebase — `src/` now contains 32 services, 28 controllers, and 14 shared modules. See `README.md` for the current module overview and `AGENTS.md` for live conventions.
+
 ## 1. Reference Indexing Summary
 
 **Skills read:** `Skills/AI Roblox Game Development Guide.md`, `Skills/roblox-best-practices-skill-blob.md` (both fully ingested; no `references/*.md` sub-files exist in this repo, so the top-level blob is the complete ruleset — script section layout, UDD doc comments, server authority, memory/network rules all apply as written).
