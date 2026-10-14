@@ -65,21 +65,27 @@ end
 if not CampfireService.Client then
 	CampfireService.Client = {}
 end
+-- Fuel/maxFuel/fraction/isLit pushed on every change.
 if not CampfireService.Client.FuelChanged then
 	CampfireService.Client.FuelChanged = Knit.CreateSignal()
 end
+-- Level/progress/requirement/levelFraction pushed on every change.
 if not CampfireService.Client.LevelChanged then
 	CampfireService.Client.LevelChanged = Knit.CreateSignal()
 end
+-- radius/active pushed when the safe zone toggles or expands.
 if not CampfireService.Client.SafeZoneChanged then
 	CampfireService.Client.SafeZoneChanged = Knit.CreateSignal()
 end
+-- level/previousLevel/radius/maxFuel fired once per level-up.
 if not CampfireService.Client.LevelUp then
 	CampfireService.Client.LevelUp = Knit.CreateSignal()
 end
+-- Replicated property mirroring the current access radius.
 if not CampfireService.Client.SafeZoneRadius then
 	CampfireService.Client.SafeZoneRadius = Knit.CreateProperty(0)
 end
+-- Replicated property mirroring whether the fire is lit.
 if not CampfireService.Client.IsLit then
 	CampfireService.Client.IsLit = Knit.CreateProperty(false)
 end
