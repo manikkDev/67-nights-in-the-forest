@@ -93,17 +93,20 @@ end
 CampfireService.LevelChangedServer = CampfireService.LevelChangedServer or Signal.new()
 
 -- | Configuration | --
+-- Feeding rules
 local FEED_RANGE = 10
 local FEED_COOLDOWN = 1
 local WOOD_FUEL_VALUE = 25
 local WOOD_LEVEL_VALUE_BASE = 10
 
+-- Fuel capacity, drain rate, and level-up costs
 local MAX_FUEL_BY_LEVEL = { 100, 140, 190, 250, 320, 400 }
 local SAFE_ZONE_RADIUS_BY_LEVEL = WorldProgressionConfig.SafeZoneRadiusByLevel
 local FUEL_DRAIN_BASE = 100 / 600
 local FUEL_DRAIN_MULTIPLIER_BY_LEVEL = { 1.0, 0.9, 0.82, 0.75, 0.68, 0.6 }
 local LEVEL_REQUIREMENTS = { 50, 100, 180, 300, 450, 450 }
 
+-- Fire & light visual scaling with fuel/level
 local FIRE_SIZE_MIN = 0.5
 local FIRE_SIZE_MAX = 12
 local FIRE_SIZE_LEVEL_MULTIPLIER = { 0.85, 1.0, 1.08, 1.16, 1.24, 1.4 }
@@ -115,6 +118,7 @@ local LIGHT_RANGE_LEVEL_MULTIPLIER = { 0.85, 1.0, 1.08, 1.16, 1.24, 1.4 }
 local LIGHT_BRIGHTNESS_MIN = 0.8
 local LIGHT_BRIGHTNESS_MAX = 2
 local FUEL_BROADCAST_INTERVAL = 1
+-- Safe-zone boundary ring visuals
 local SAFE_ZONE_LINE_COUNT = 40
 local SAFE_ZONE_LINE_THICKNESS = 0.8
 local SAFE_ZONE_LINE_HEIGHT = 0.05
@@ -124,6 +128,7 @@ local SAFE_ZONE_LINE_MATERIAL = Enum.Material.Neon
 local SAFE_ZONE_LINE_TRANSPARENCY = 0
 local SAFE_ZONE_LINE_OFF_TRANSPARENCY = 1
 local SAFE_ZONE_BROADCAST_THRESHOLD = 0.5
+-- Stray-log pickup scanning
 local LOG_SCAN_INTERVAL = 0.2
 local LOG_SCAN_RADIUS = 14
 
