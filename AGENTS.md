@@ -79,6 +79,15 @@ Spear (Model)
 
 - Removed. `WorldBoundaryController` now only handles the proximity warning HUD + ColorCorrection effect. No particle emitters or panels.
 
+## Docs Index
+
+- `README.md` — quickstart, current module overview
+- `ARCHITECTURE.md` — Phase 1 planning doc (stale; see the status banner at the top)
+- `ROADMAP.md` — phase breakdown and feature plans
+- `SETUP_MAC.md` — macOS toolchain setup walkthrough
+- `TASKS.md` — pending task list
+- `Skills/` — ingested Roblox/Luau best-practices references
+
 ## UI Readability
 
 - Use `Enum.Font.GothamBold` for body text, `Enum.Font.PermanentMarker` for titles/stamps.
