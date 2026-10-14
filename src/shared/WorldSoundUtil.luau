@@ -20,6 +20,7 @@
 
 local Debris = game:GetService("Debris")
 
+-- Optional tweaks for a positioned sound playback.
 export type PlayOptions = {
 	volume: number?,
 	minDistance: number?,
