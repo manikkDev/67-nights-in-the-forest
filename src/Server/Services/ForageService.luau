@@ -38,6 +38,7 @@ local ForageService = Knit.CreateService({
 -- | Configuration | --
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local TREE_MODEL_NAMES = { "Tree", "bigtree", "GiantTree" }
+-- Scatter targets: bushes under trees, some chance across the map
 local BERRY_TARGET_COUNT = 35
 local MUSHROOM_TARGET_COUNT = 25
 local MIN_TREE_SCATTER_RADIUS = 4
@@ -45,9 +46,11 @@ local MAX_TREE_SCATTER_RADIUS = 45
 local MAP_SCATTER_CHANCE = 0.4
 local PICKUP_RANGE = 12
 local RESPAWN_TIME = 60
+-- How deep each pickup sinks into foliage
 local MIN_SUBMERGE = 0.65
 local MAX_SUBMERGE = 1.15
 local MUSHROOM_SUBMERGE_MAX = 0.15
+-- Hunger restored per food type
 local BERRY_HUNGER_RESTORE = 12
 local MUSHROOM_HUNGER_RESTORE = 10
 local RAW_MEAT_HUNGER_RESTORE = 15
