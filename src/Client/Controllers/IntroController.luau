@@ -39,10 +39,12 @@ local IntroController = Knit.CreateController({
 })
 
 -- | Configuration | --
+-- Fade/reveal timing
 local PANEL_FADE = 0.3
 local STORY_FADE = Constants.MATCH_STORY_FADE_SECONDS or 1.2
 local REVEAL_SECONDS = Constants.MATCH_REVEAL_SECONDS or 2.5
 
+-- Title-screen palette (IntroAssets colors with inline fallbacks)
 local PANEL = IntroAssets.PanelBackdrop or Color3.fromRGB(25, 25, 25)
 local PANEL_ALPHA = IntroAssets.PanelBackgroundTransparency or 0.25
 local CREAM = IntroAssets.TitleColor or Color3.fromRGB(232, 220, 190)
@@ -56,6 +58,7 @@ local CLOSE = IntroAssets.CloseButton or Color3.fromRGB(220, 60, 60)
 local CUSTOMIZE = IntroAssets.CustomizeButton or Color3.fromRGB(80, 80, 80)
 local STORY = IntroAssets.StoryText or Color3.fromRGB(170, 90, 90)
 
+-- Story-screen palette
 local TITLE_OUT = 1.0
 local STORY_BACK = IntroAssets.StoryScreenBackdrop or Color3.fromRGB(10, 10, 10)
 local STORY_HEADER = IntroAssets.StoryHeaderColor or Color3.fromRGB(220, 60, 60)
