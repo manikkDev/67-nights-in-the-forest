@@ -49,6 +49,8 @@ local MatchFlowService = Knit.CreateService({
 	},
 })
 
+-- Session lifecycle: Lobby (idle) -> Waiting (party forming) ->
+-- Countdown -> Story -> Day1 reveal -> InGame.
 export type FlowState = "Lobby" | "Waiting" | "Countdown" | "Story" | "Day1" | "InGame"
 
 type Session = {
