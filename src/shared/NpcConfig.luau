@@ -21,8 +21,10 @@
     - NpcConfig (table of SpeciesConfig keyed by species id)
 ]]
 
+-- One loot-table row: Chance roll to drop Min-Max of a Resource.
 export type LootEntry = { Resource: string, Min: number, Max: number, Chance: number }
 
+-- Per-species stat/behaviour block read by the AI and combat services.
 export type SpeciesConfig = {
 	ModelName: string,
 	Tier: "Passive" | "Predator" | "Solitary",
