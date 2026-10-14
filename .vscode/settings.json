@@ -1,0 +1,13 @@
+{
+	// Luau-lsp picks up .luaurc for analysis settings.
+	"luau-lsp.sourcemap.rojoProjectFile": "default.project.json",
+	// Format .luau files with StyLua using the repo's stylua.toml.
+	"[luau]": {
+		"editor.defaultFormatter": "JohnnyMorganz.stylua"
+	},
+	// Rojo / Studio artifacts are generated — hide from the explorer.
+	"files.exclude": {
+		"*.rbxl": true,
+		"*.rbxlx": true
+	}
+}
