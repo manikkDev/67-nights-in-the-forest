@@ -125,7 +125,7 @@ All Luau scripts follow a strict 3-section layout:
 -- // INITIALIZATION // --
 ```
 
-UDD-style doc-comments are used on every function. No in-body comments.
+UDD-style doc-comments are used on every function. In-body comments are kept sparse and only explain non-obvious ordering or timing.
 
 ## License
 
