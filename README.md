@@ -26,10 +26,10 @@ A survival game where players must endure 67 nights in a hostile forest. Each ni
 │   │   ├── WorldPlacement.luau       # Collision-aware placement helper
 │   │   ├── Data/
 │   │   │   └── ProfileTemplate.luau  # Default player data schema
-│   │   └── Services/                 # 31 Knit services (server authority)
+│   │   └── Services/                 # 32 Knit services (server authority)
 │   ├── Client/
 │   │   ├── Client.client.luau        # Knit client bootstrapper
-│   │   └── Controllers/              # 27 Knit controllers (UI/input)
+│   │   └── Controllers/              # 28 Knit controllers (UI/input)
 │   └── shared/                       # Shared config modules & utilities
 ├── Packages/                  # Wally shared packages (gitignored)
 ├── ServerPackages/            # Wally server-only packages (gitignored)
@@ -73,18 +73,25 @@ rojo serve
 
 ### Knit Services (Server)
 
-| Service             | Responsibility                                                                                                                            |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `PlayerDataService` | Loads and releases player profiles via ProfileService with session-locking. Exposes read-only data access to clients.                     |
-| `WorldService`      | Clones `lobby-map` and `base-map` from `ServerStorage.Assets` into `Workspace`. Creates a Campfire anchor part at the base-map centre.    |
-| `SpawnService`      | Server-authoritative teleportation from lobby to game map. Players are placed at random positions around the Campfire.                    |
-| `TimeService`       | Drives the day/night cycle via `RunService.Heartbeat`. Fires `DayStarted` / `NightStarted` Knit signals and tweens `Lighting` properties. |
+One service per bounded context; every client-facing remote is validated server-side. Highlights:
+
+| Service                                                              | Responsibility                                                                   |
+| -------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `RunStateService`                                                    | Authoritative run lifecycle (Lobby → Starting → Active → Ending → Ended)         |
+| `MatchFlowService`                                                   | Party queue, session routing, countdown/story gating before `InGame`             |
+| `PlayerDataService`                                                  | Session-locked ProfileService profiles; read-only data access for other services |
+| `PlayerLifeService`                                                  | Life states (Alive/Downed/Eliminated), revive/drag/spectate flow                 |
+| `TimeService`                                                        | Day/night clock, `DayStarted`/`NightStarted` signals, `Lighting` tweens          |
+| `CampfireService`                                                    | Fuel decay, campfire levels, safe-zone radius                                    |
+| `WorldService`/`WorldPlacement`                                      | Map lookup, bonfire placement, reservation-based scatter positioning             |
+| `RescueService`                                                      | Missing-children caves, rescue unlocks (Dino Lv2 → Koala Lv5)                    |
+| `AnimalAIService`/`DeerService`/`OwlService`                         | Species AI, hunts, flee/aggro behaviour                                          |
+| `CombatService`/`FlashlightService`                                  | Weapon tools (Axe/Spear), flashlight stun                                        |
+| `LootService`/`InventoryService`/`CraftingService`/`BuildingService` | Chests, carry bags, recipes, structure placement                                 |
 
 ### Knit Controllers (Client)
 
-| Controller       | Responsibility                                                                                                    |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `TimeController` | Subscribes to server `DayStarted` / `NightStarted` signals. Placeholder for UI indicators and ambient audio cues. |
+One controller per matching client concern — HUD/bars (`Hud`, `Hunger`, `HealthBar`, `Campfire`, `CampSafety`), interaction (`Harvest`, `Carry`, `Loot`, `Crafting`, `Building`, `Rescue`), presentation (`Intro`, `GameState`, `Spectate`, `Map`, `Ending`), and creature/VFX (`Deer`, `Owl`, `Combat`, `Flashlight`, `ProceduralAnim`, `Phase4Effects`, `RaidBanner`, `Time`, `Grinder`, `WorldBoundary`, `Inventory`, `LifeState`).
 
 ### Player Data Schema
 
