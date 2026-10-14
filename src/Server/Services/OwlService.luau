@@ -55,7 +55,8 @@ local OwlService = Knit.CreateService({
 -- | Configuration | --
 local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
 local OWL_MODEL_NAME = "Owl"
-local DORMANT_HOLDING_POSITION = Vector3.new(0, -500, 0)
+local DORMANT_HOLDING_POSITION = Vector3.new(0, -500, 0) -- park dormant owls below the map
+-- Hunt behaviour tuning
 local DECISION_INTERVAL = 0.15
 local CONTACT_RANGE = 5
 local CONTACT_COOLDOWN = 1.0
@@ -68,8 +69,10 @@ local MIN_STUN_DURATION = 1
 local STUN_RESISTANCE_RECOVERY_TIME = 45
 local RETREAT_HOLD_TIME = 3
 
+-- Spawn gating: owl starts appearing on night 10 with a 35% chance
 local OWL_START_DAY = 10
 local OWL_SPAWN_CHANCE = 0.35
+-- Perch/fly movement
 local PERCH_DURATION_MIN = 8
 local PERCH_DURATION_MAX = 20
 local PERCH_LAND_DISTANCE = 25
@@ -77,13 +80,16 @@ local PERCH_LAND_HEIGHT = 60
 local FLY_TWEEN_TIME = 2.5
 local FLY_AWAY_HEIGHT = 200
 
+-- Freeze-detection meter: fills while a detected player keeps moving
 local DETECTION_RANGE = 60
 local MOVEMENT_THRESHOLD = 2
 local DETECTION_FILL_RATE = 0.8
 local DETECTION_DECAY_RATE = 0.4
+-- Wolf summon triggered when the meter fills
 local WOLF_SUMMON_CHANCE = 0.3
 local WOLF_SUMMON_DISTANCE = 35
 
+-- Fallback anims if the model ships none of its own
 local DEFAULT_R15_WALK_ID = "rbxassetid://913402848"
 local DEFAULT_R15_IDLE_ID = "rbxassetid://507766388"
 
