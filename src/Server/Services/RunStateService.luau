@@ -52,6 +52,8 @@ local RunStateService = Knit.CreateService({
 	},
 })
 
+-- Authoritative run lifecycle: Lobby -> Starting -> Active -> Ending
+-- -> Ended (then back to Lobby for the next run).
 export type RunPhase = "Lobby" | "Starting" | "Active" | "Ending" | "Ended"
 
 RunStateService.PhaseChanged = Signal.new()
