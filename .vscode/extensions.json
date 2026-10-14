@@ -1,0 +1,8 @@
+{
+	// Recommended extensions for Roblox/Luau development in this repo.
+	"recommendations": [
+		"JohnnyMorganz.luau-lsp", // Luau language server (intellisense, diagnostics)
+		"JohnnyMorganz.stylua", // StyLua formatter (see stylua.toml)
+		"ops.markdown-all-in-one" // Markdown support for repo docs
+	]
+}
