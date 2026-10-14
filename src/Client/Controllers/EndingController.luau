@@ -36,6 +36,7 @@ local EndingController = Knit.CreateController({
 })
 
 -- | Configuration | --
+-- Palette: backdrop, victory/defeat accents, stat cards, buttons
 local BACKDROP_COLOR = Color3.fromRGB(5, 7, 9)
 local VICTORY_COLOR = Color3.fromRGB(240, 220, 165)
 local DEFEAT_COLOR = Color3.fromRGB(210, 55, 50)
@@ -53,6 +54,7 @@ local DEFEAT_MEMBER_ALIVE = Color3.fromRGB(80, 200, 100)
 local DEFEAT_MEMBER_DOWNED = Color3.fromRGB(210, 160, 50)
 local DEFEAT_MEMBER_ELIM = Color3.fromRGB(180, 65, 60)
 
+-- Stat-card grid layout (2 columns x 4 rows)
 local CARD_WIDTH = 180
 local CARD_HEIGHT = 90
 local CARD_GAP = 14
