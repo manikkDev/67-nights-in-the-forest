@@ -52,7 +52,8 @@ local DeerService = Knit.CreateService({
 
 -- | Configuration | --
 local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
-local DORMANT_HOLDING_POSITION = Vector3.new(0, 300, 0)
+local DORMANT_HOLDING_POSITION = Vector3.new(0, 300, 0) -- park dormant stalkers above the map
+-- Hunt behaviour tuning
 local DECISION_INTERVAL = 0.2
 local CONTACT_RANGE = 14
 local CONTACT_COOLDOWN = 2.5
@@ -66,6 +67,7 @@ local STUN_RESISTANCE_RECOVERY_TIME = 30
 local MAX_CONTINUOUS_STUN = 5 -- max total seconds the deer can stay stunned from continuous beam refresh
 local STUN_COOLDOWN = 3 -- seconds after a stun expires before the deer can be re-stunned
 local RETREAT_HOLD_TIME = 3
+
 -- Pathfinding configuration
 local PATH_RECOMPUTE_INTERVAL = 0.3 -- recompute path every 0.3s for responsive chasing
 local PATH_AGENT_RADIUS = 3
@@ -79,6 +81,7 @@ local LOS_RAY_OFFSET = 2 -- raycast from 2 studs above root part
 local DIRECT_CHASE_DIST = 60 -- if player within this dist and visible, run straight at them
 local OBSTACLE_AVOID_DIST = 12 -- how far to steer around an obstacle when stuck
 local PATH_COMPUTING_TIMEOUT = 1.5 -- max time to wait for a path computation before giving up
+-- Procedural gait animation
 local GAIT_AMPLITUDE = math.rad(35)
 local GAIT_ARM_AMPLITUDE = math.rad(22)
 local IDLE_LERP_SPEED = 6
