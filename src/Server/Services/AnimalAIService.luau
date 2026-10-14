@@ -64,22 +64,28 @@ local BUNNY_MAX_SPAWN_DIST = 200
 -- Bears spawn at level 3+ distance (far out)
 local BEAR_MIN_SPAWN_DIST = 250
 local BEAR_MAX_SPAWN_DIST = 400
+-- Procedural gait animation
 local GAIT_AMPLITUDE = math.rad(35)
 local GAIT_ARM_AMPLITUDE = math.rad(22)
 local IDLE_LERP_SPEED = 6
+-- Pathfinding
 local PATH_RECOMPUTE_INTERVAL = 0.6
 local PATH_AGENT_RADIUS = 3.5
 local PATH_AGENT_HEIGHT = 6
+-- Attack lunge
 local LUNGE_DISTANCE = 2.5
 local LUNGE_DURATION = 0.18
+-- Combat feedback effects
 local DEATH_FADE_DELAY = 4
 local HIT_FLASH_DURATION = 0.12
+-- Wolf pack tuning
 local WOLF_BASE_COUNT = 3
 local WOLF_DAY_SCALING = 3
 local ALPHA_START_DAY = 3
 -- Wolves spawn at level 2+ distance
 local WOLF_MIN_SPAWN_DIST = 150
 local WOLF_MAX_SPAWN_DIST = 250
+-- Population upkeep: target live counts per species
 local PERSISTENT_TARGET_COUNTS = { Bunny = 8, Bear = 2, WolfModel = 3 }
 local RESPAWN_CHECK_INTERVAL = 10
 
