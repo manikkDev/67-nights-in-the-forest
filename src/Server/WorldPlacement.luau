@@ -27,6 +27,7 @@ local Workspace = game:GetService("Workspace")
 
 local WorldPlacement = {}
 
+-- Axis-aligned rectangle on the XZ plane that bounds valid placement.
 export type Bounds = {
 	minX: number,
 	maxX: number,
@@ -34,6 +35,7 @@ export type Bounds = {
 	maxZ: number,
 }
 
+-- A claimed circular area other placements must not overlap.
 export type Reservation = {
 	position: Vector3,
 	radius: number,
