@@ -58,6 +58,8 @@ PlayerLifeService.PlayerDowned = Signal.new()
 PlayerLifeService.PlayerRevived = Signal.new()
 PlayerLifeService.PlayerEliminated = Signal.new()
 
+-- Per-player life state: Lobby until spawn, Alive -> Downed (bleed-out
+-- timer, revivable) -> Eliminated (spectate only).
 export type LifeState = "Lobby" | "Alive" | "Downed" | "Eliminated"
 
 type MovementState = {
