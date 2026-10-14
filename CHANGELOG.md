@@ -13,6 +13,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `.editorconfig`, `stylua.toml`, and `selene.toml` tooling configs
 - Community files: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
   `SECURITY.md`, issue templates, and a PR template
+- Doc comments on exported type unions (`FlowState`, `LifeState`,
+  `RunPhase`, `Bounds`, `Reservation`, `SpeciesConfig`, `PlayOptions`)
+- `.vscode` recommended extensions and Luau/StyLua workspace settings
 
 ### Changed
 
