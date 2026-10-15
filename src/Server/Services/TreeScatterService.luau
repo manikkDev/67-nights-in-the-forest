@@ -40,6 +40,7 @@ local TreeScatterService = Knit.CreateService({
 })
 
 -- | Configuration | --
+-- Scatter targets and spacing rules
 local SCATTER_TREE_COUNT = 120 -- number of regular trees to scatter
 local SCATTER_BIGTREE_COUNT = 40 -- number of bigtrees to scatter
 local MIN_DISTANCE = 40 -- minimum distance from campfire
