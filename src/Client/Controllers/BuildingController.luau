@@ -46,12 +46,14 @@ local janitor = Janitor.new()
 local placementJanitor = Janitor.new()
 
 -- | Configuration | --
+-- Bound ContextActionService names for placement inputs
 local ACTION_ROTATE_CW = "RotateStructureCW"
 local ACTION_ROTATE_CCW = "RotateStructureCCW"
 local ACTION_PLACE = "PlaceStructure"
 local ACTION_CANCEL = "CancelStructure"
 local ROTATION_STEP = math.rad(15)
 local RAY_DISTANCE = 500
+-- Ghost preview tinting
 local VALID_COLOR = Color3.fromRGB(85, 210, 105)
 local INVALID_COLOR = Color3.fromRGB(225, 70, 65)
 local ARROW_COLOR = Color3.fromRGB(255, 220, 60)
