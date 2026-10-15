@@ -36,11 +36,13 @@ local HealthBarController = Knit.CreateController({
 })
 
 -- | Configuration | --
+-- Floating overhead bar: size and auto-hide behaviour
 local BAR_WIDTH = 6
 local BAR_HEIGHT = 0.7
 local BAR_OFFSET = Vector3.new(0, 4, 0)
 local BAR_HIDE_DELAY = 5
 local BAR_FADE_DURATION = 0.4
+-- Rising damage-number popups
 local DAMAGE_NUMBER_LIFETIME = 1.2
 local DAMAGE_NUMBER_RISE = 3
 local DAMAGE_NUMBER_MAX_OFFSET = 1.5
