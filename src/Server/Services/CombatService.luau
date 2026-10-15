@@ -45,9 +45,11 @@ local CombatService = Knit.CreateService({
 })
 
 -- | Configuration | --
+-- Weapon tool references
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local AXE_TOOL_NAME = "Axe"
 local SPEAR_TOOL_NAME = "Spear"
+-- Melee hit-check cone and per-weapon tuning
 local ATTACK_RANGE = 8
 local ATTACK_HALF_ANGLE = math.rad(60)
 local WEAPON_DAMAGE = { Axe = 15, Spear = 25 }
