@@ -44,10 +44,12 @@ local LootService = Knit.CreateService({
 })
 
 -- | Configuration | --
+-- Chest interaction rules and placement counts
 local OPEN_RANGE = 12
 local OPEN_COOLDOWN = 0.5
 local BASIC_CHEST_COUNT = 6
 local GOLD_CHEST_COUNT = 2
+-- Landmarks that get a chest placed nearby
 local LANDMARK_NAMES = { "cabin", "Hunters Lodge", "Tower", "Treehouse", "Crashed Plane", "modern-house" }
 
 -- Chest open sound (wooden chest open/close SFX from Creator Store).
