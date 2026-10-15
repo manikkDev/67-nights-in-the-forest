@@ -39,6 +39,7 @@ local CombatController = Knit.CreateController({
 -- | Configuration | --
 local SPEAR_TOOL_NAME = "Spear"
 local SPEAR_COOLDOWN = 0.9
+-- Hit feedback: camera shake + red screen flash
 local SHAKE_DURATION = 0.15
 local SHAKE_MAGNITUDE = 0.16
 local DAMAGE_FLASH_DURATION = 0.35
