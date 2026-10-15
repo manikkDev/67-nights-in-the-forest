@@ -45,12 +45,14 @@ local MapController = Knit.CreateController({
 })
 
 -- | Configuration | --
+-- Panel/minimap layout dimensions (pixels)
 local PANEL_WIDTH = 980
 local PANEL_HEIGHT = 660
 local TITLE_BAR_HEIGHT = 52
 local SIDEBAR_WIDTH = 340
 local MINIMAP_SIZE = 520
 local COMPASS_RING_SIZE = 560
+-- Marker sizes per landmark type
 local MARKER_SIZE_CAVE = 16
 local MARKER_SIZE_BUILDING = 14
 local MARKER_SIZE_FACILITY = 12
