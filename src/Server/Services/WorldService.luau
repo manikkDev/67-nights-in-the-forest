@@ -39,6 +39,7 @@ local WorldService = Knit.CreateService({
 
 -- | Configuration | --
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
+-- Campfire anchor part + bonfire model placement
 local CAMPFIRE_SIZE = Vector3.new(6, 3, 6)
 local GROUND_RAY_HEIGHT = 500
 local BONFIRE_SCALE = 2
