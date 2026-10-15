@@ -47,8 +47,10 @@ local TimeService = Knit.CreateService({
 })
 
 -- | Configuration | --
+-- Clock-window for the "day" half of the cycle (from RunConfig)
 local DAY_START_CLOCK = RunConfig.DayStartClock
 local DAY_END_CLOCK = RunConfig.DayEndClock
+-- Lighting ambience per phase
 local DAY_AMBIENT = Color3.fromRGB(128, 128, 128)
 local NIGHT_AMBIENT = Color3.fromRGB(20, 22, 32)
 local DAY_OUTDOOR_AMBIENT = Color3.fromRGB(128, 128, 128)
