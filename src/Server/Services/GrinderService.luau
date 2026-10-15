@@ -48,6 +48,7 @@ local GRINDER_OFFSET = CFrame.new(14, 0, 18)
 local GRIND_RANGE = 10
 local GRIND_COOLDOWN = 0.15
 local SHREDDER_ASSET_NAME = "Shredder"
+-- Blade spin speeds and feed sound
 local IDLE_SPIN_SPEED = 8      -- rad/s, slow idle rotation
 local GRIND_SPIN_SPEED = 35    -- rad/s, fast grinding rotation
 local GRIND_SOUND_ID = "rbxassetid://9116635756"
