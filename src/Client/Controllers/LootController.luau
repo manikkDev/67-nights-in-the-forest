@@ -35,6 +35,7 @@ local LootController = Knit.CreateController({
 })
 
 -- | Configuration | --
+-- Open SFX and loot-panel auto-dismiss delay
 local CHEST_OPEN_SOUND_ID = "rbxassetid://9120873624"
 local PANEL_AUTO_DISMISS = 8
 
