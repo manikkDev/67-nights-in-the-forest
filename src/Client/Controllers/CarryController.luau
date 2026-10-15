@@ -39,10 +39,12 @@ local CarryController = Knit.CreateController({
 })
 
 -- | Configuration | --
+-- Pickup interaction rules
 local PICKUP_KEY = Enum.KeyCode.F
 local PICKUP_RANGE = 12
 local PICKUP_COOLDOWN = 0.2
 local RAY_LENGTH = 128
+-- Drag bounds: how far/between which heights a target may be dragged
 local ITEM_DRAG_MAX_HORIZONTAL_DISTANCE = 20
 local BODY_DRAG_MAX_HORIZONTAL_DISTANCE = 24
 local DRAG_MIN_HEIGHT_FROM_ROOT = -3
