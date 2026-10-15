@@ -140,6 +140,7 @@ local ROW_DESCRIPTIONS = {
 -- | State Management | --
 local localPlayer = Players.LocalPlayer
 
+-- Cached references to one inventory row's widgets, for cheap updates.
 type RowEntry = {
 	row: Frame,
 	icon: Frame,
