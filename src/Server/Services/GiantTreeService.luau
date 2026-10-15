@@ -37,6 +37,7 @@ local GiantTreeService = Knit.CreateService({
 })
 
 -- | Configuration | --
+-- Scatter targets: count, scale-up, and placement spacing
 local GIANT_TREE_COUNT = 20
 local GIANT_TREE_SCALE = 2
 local MIN_DISTANCE = 100
