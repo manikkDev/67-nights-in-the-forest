@@ -50,8 +50,10 @@ local BuildingService = Knit.CreateService({
 })
 
 -- | Configuration | --
+-- Placement throttling and interact reach
 local PLACE_COOLDOWN = 0.2
 local INTERACT_RANGE = 12
+-- Structure behaviours: farm cycles/yield, trap damage
 local FARM_GROWTH_CYCLES = 2
 local FARM_YIELD = 2
 local TRAP_DAMAGE = 40
