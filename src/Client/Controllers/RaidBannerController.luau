@@ -43,6 +43,7 @@ local RaidBannerController = Knit.CreateController({
 })
 
 -- | Configuration | --
+-- Banner/tracker palette: warning, cleared, and panel tones
 local WARNING_COLOR = Color3.fromRGB(220, 50, 50)
 local CLEARED_COLOR = Color3.fromRGB(80, 200, 100)
 local FAILED_COLOR = Color3.fromRGB(220, 60, 50)
