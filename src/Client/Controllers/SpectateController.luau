@@ -35,6 +35,7 @@ local UiSoundUtil = require(ReplicatedStorage.Shared.UiSoundUtil)
 local SpectateController = Knit.CreateController({ Name = "SpectateController" })
 local janitor = Janitor.new()
 local localPlayer = Players.LocalPlayer
+-- ContextActionService names for cycling spectate targets
 local NEXT_ACTION = "LifeSpectateNext"
 local PREVIOUS_ACTION = "LifeSpectatePrevious"
 
