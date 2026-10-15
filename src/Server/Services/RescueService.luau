@@ -53,6 +53,7 @@ local RescueService = Knit.CreateService({
 })
 
 -- | Configuration | --
+-- Rescue ordering + per-kid tent colors (Dino, Kraken, Squid, Koala)
 local CAVE_ORDER = { "Dino", "Kraken", "Squid", "Koala" }
 local TENT_COLORS = {
 	Color3.fromRGB(185, 55, 50),
@@ -60,10 +61,12 @@ local TENT_COLORS = {
 	Color3.fromRGB(225, 190, 55),
 	Color3.fromRGB(135, 75, 160),
 }
+-- Carry rules for transporting a kid back to camp
 local PICKUP_RANGE = 10
 local DROP_COOLDOWN = 0.35
 local CARRY_WALK_SPEED = 10
 local RESCUE_CHECK_INTERVAL = 0.2
+-- Rescued-kid wander behaviour around their tent
 local WANDER_RADIUS = 18 -- How far from their tent a rescued kid will walk.
 local WANDER_INTERVAL = 4 -- Seconds before picking a new wander target.
 local KID_WALK_SPEED = 8
