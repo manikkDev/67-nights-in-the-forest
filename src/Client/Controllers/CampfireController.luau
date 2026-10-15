@@ -35,6 +35,7 @@ local CampfireController = Knit.CreateController({
 })
 
 -- | Configuration | --
+-- Fuel/level panel and BillboardGui sizing
 local PANEL_WIDTH = 250
 local PANEL_HEIGHT = 130
 local PANEL_MARGIN = 14
@@ -43,6 +44,7 @@ local BILLBOARD_WIDTH = 8
 local BILLBOARD_HEIGHT = 1.2
 local BILLBOARD_Y_OFFSET = 3.5
 local TOP_BAR_COLOR = Color3.fromRGB(245, 220, 0)
+-- Proximity checks: show UI only near the campfire
 local BASE_CAMP_RANGE = 18
 local SHOW_RANGE_BONUS = 8
 local BAR_TWEEN_INFO = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
