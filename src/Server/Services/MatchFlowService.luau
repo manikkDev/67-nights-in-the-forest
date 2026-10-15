@@ -69,10 +69,12 @@ type Session = {
 }
 
 -- | Configuration | --
+-- Lobby → game flow timing (shared Constants with fallbacks)
 local COUNTDOWN_SECONDS = Constants.MATCH_COUNTDOWN_SECONDS or 5
 local STORY_FADE_SECONDS = Constants.MATCH_STORY_FADE_SECONDS or 1.2
 local STORY_HOLD_SECONDS = Constants.MATCH_STORY_HOLD_SECONDS or 5
 local DAY1_HOLD_SECONDS = Constants.MATCH_DAY1_HOLD_SECONDS or 2
+-- Party size limits and remote-rate limit
 local MIN_PARTY = Constants.PARTY_MIN_PLAYERS or 1
 local MAX_PARTY = Constants.PARTY_MAX_PLAYERS or 5
 local REQUEST_COOLDOWN = Constants.PARTY_REQUEST_COOLDOWN or 0.35
