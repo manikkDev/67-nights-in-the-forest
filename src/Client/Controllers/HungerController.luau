@@ -32,6 +32,7 @@ local HungerController = Knit.CreateController({
 })
 
 -- | Configuration | --
+-- Bar fill tween
 local TWEEN_INFO = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 local CARD_BG = Color3.fromRGB(38, 40, 48)
@@ -41,6 +42,7 @@ local TEXT_DIM = Color3.fromRGB(170, 170, 180)
 local BAR_BG = Color3.fromRGB(28, 28, 34)
 local BAR_STROKE = Color3.fromRGB(80, 80, 90)
 
+-- Bar fill colors
 local HEALTH_COLOR = Color3.fromRGB(230, 75, 75)
 local HUNGER_COLOR = Color3.fromRGB(230, 170, 50)
 
