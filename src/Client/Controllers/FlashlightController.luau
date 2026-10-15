@@ -43,6 +43,7 @@ local FlashlightController = Knit.CreateController({
 
 -- | Configuration | --
 local FLASHLIGHT_TOOL_NAME = "Flashlight"
+-- Battery-panel sizing and low-battery warning flash
 local PANEL_WIDTH = 160
 local PANEL_HEIGHT = 58
 local PANEL_MARGIN = 12
