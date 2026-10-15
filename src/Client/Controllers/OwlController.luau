@@ -36,12 +36,15 @@ local OwlController = Knit.CreateController({
 })
 
 -- | Configuration | --
+-- Screech-banner timing
 local BANNER_FADE_IN = 0.4
 local BANNER_HOLD = 3.5
 local BANNER_FADE_OUT = 0.8
 local BANNER_COLOR = Color3.fromRGB(180, 200, 255)
+-- Screen-flash effects
 local SCREAM_FLASH_DURATION = 0.4
 local DAMAGE_FLASH_DURATION = 0.35
+-- Owl eye tint: whites -> red when it locks on
 local EYE_BASE_COLOR = Color3.fromRGB(220, 220, 220)
 local EYE_DANGER_COLOR = Color3.fromRGB(220, 40, 40)
 
