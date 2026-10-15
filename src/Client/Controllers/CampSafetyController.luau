@@ -39,6 +39,7 @@ local CampSafetyController = Knit.CreateController({
 
 -- | Configuration | --
 local CHECK_INTERVAL = 0.25
+-- ColorCorrection tweens: slow ease-in to safe, faster snap to unsafe
 local SAFE_TWEEN_INFO = TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 local UNSAFE_TWEEN_INFO = TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 local SAFE_BRIGHTNESS = 0.12
@@ -47,6 +48,7 @@ local UNSAFE_BRIGHTNESS = -0.05
 local UNSAFE_SATURATION = 0
 local UNSAFE_TINT = Color3.fromRGB(255, 255, 255)
 
+-- Small light boost near the player when the night is safe
 local NIGHT_VISIBILITY_COLOR = Color3.fromRGB(200, 210, 230)
 local NIGHT_VISIBILITY_BRIGHTNESS = 0.5
 local NIGHT_VISIBILITY_RANGE = 38
