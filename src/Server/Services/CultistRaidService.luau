@@ -46,11 +46,13 @@ local CultistRaidService = Knit.CreateService({
 })
 
 -- | Configuration | --
+-- Raid cadence: every N nights, size grows with each raid
 local RAID_INTERVAL_DAYS = 4
 local BASE_RAID_SIZE = 3
 local RAID_SIZE_GROWTH_PER_INTERVAL = 1
 local MAX_RAID_SIZE = 8
 local SPAWN_RADIUS = 55
+-- Survivor penalty reduces the next raid's size
 local RAID_PENALTY_PER_SURVIVOR = 0.6
 local RAID_CLEANUP_DELAY = 30
 local CULTIST_MODEL_KEYS = { "Cultist", "Cultist2" }
