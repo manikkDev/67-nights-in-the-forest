@@ -47,6 +47,7 @@ SessionRoutingService.DestinationReady = Signal.new()
 SessionRoutingService.PartyTeleportFailed = Signal.new()
 
 -- | Configuration | --
+-- Cross-server party teleport tuning (shared Constants with fallbacks)
 local DATA_VERSION = Constants.PARTY_TELEPORT_DATA_VERSION or 1
 local MAX_DATA_AGE = Constants.PARTY_TELEPORT_DATA_MAX_AGE or 120
 local DESTINATION_WAIT = Constants.PARTY_DESTINATION_WAIT_SECONDS or 30
