@@ -48,8 +48,10 @@ local SpawnService = Knit.CreateService({
 SpawnService.PlayerSpawned = Signal.new()
 
 -- | Configuration | --
+-- Players land in a ring around the campfire anchor
 local SPAWN_RADIUS = 12
 local SPAWN_HEIGHT = 5
+-- Teleporter-pad touch debounce and character-load timeout
 local TOUCH_COOLDOWN = 1
 local CHARACTER_TIMEOUT = 12
 
