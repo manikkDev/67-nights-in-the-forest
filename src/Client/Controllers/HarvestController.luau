@@ -33,6 +33,7 @@ local HarvestController = Knit.CreateController({
 })
 
 -- | Configuration | --
+-- Chop camera-shake and tool reference
 local SHAKE_DURATION = 0.15
 local SHAKE_MAGNITUDE = 0.12
 local AXE_TOOL_NAME = "Axe"
