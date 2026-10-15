@@ -53,6 +53,7 @@ local MatchFlowService = Knit.CreateService({
 -- Countdown -> Story -> Day1 reveal -> InGame.
 export type FlowState = "Lobby" | "Waiting" | "Countdown" | "Story" | "Day1" | "InGame"
 
+-- One queued party run: members, timing, and routing state.
 type Session = {
 	queueId: string,
 	partyId: string,
