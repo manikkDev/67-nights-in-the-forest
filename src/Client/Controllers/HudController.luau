@@ -31,6 +31,7 @@ local HudController = Knit.CreateController({
 })
 
 -- | Configuration | --
+-- Phase-tinted label strokes and background gradients
 local DAY_STROKE_COLOR = Color3.fromRGB(255, 180, 60)
 local NIGHT_STROKE_COLOR = Color3.fromRGB(100, 130, 220)
 local DAY_GRADIENT = ColorSequence.new({
