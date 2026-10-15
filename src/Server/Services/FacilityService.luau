@@ -42,6 +42,7 @@ local FacilityService = Knit.CreateService({
 })
 
 -- | Configuration | --
+-- Placement band: facilities spawn outside the camp ring
 local CAMP_RADIUS = 80
 local MIN_FACILITY_DISTANCE = 60
 local MAX_FACILITY_DISTANCE = 950
@@ -49,6 +50,7 @@ local RESPAWN_TIME = 90
 local JUNK_LIFETIME = 600
 local GROUND_RAY_HEIGHT = 500
 
+-- How many of each facility type to place
 local FACILITY_COUNTS = {
 	Playground = { min = 4, max = 6 },
 	Restroom = { min = 2, max = 3 },
