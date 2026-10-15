@@ -62,6 +62,7 @@ PlayerLifeService.PlayerEliminated = Signal.new()
 -- timer, revivable) -> Eliminated (spectate only).
 export type LifeState = "Lobby" | "Alive" | "Downed" | "Eliminated"
 
+-- Humanoid movement props saved while a player is downed.
 type MovementState = {
 	walkSpeed: number,
 	jumpPower: number,
@@ -69,6 +70,7 @@ type MovementState = {
 	platformStand: boolean,
 }
 
+-- One active body-drag constraint pair and its refresh bookkeeping.
 type BodyDrag = {
 	target: Player,
 	root: BasePart,
@@ -79,6 +81,7 @@ type BodyDrag = {
 	lastUpdate: number,
 }
 
+-- Replaced joints + collidability snapshot so ragdoll can be undone.
 type RagdollData = {
 	character: Model,
 	motors: { Motor6D },
