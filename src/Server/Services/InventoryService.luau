@@ -43,7 +43,9 @@ local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
 local InventoryService = Knit.CreateService({
 	Name = "InventoryService",
 	Client = {
+		-- (resources, capacity) — bag contents changed; refresh the inventory UI
 		ResourcesChanged = Knit.CreateSignal(),
+		-- client -> server: (targetPos) — streamed drag target while dragging
 		DragTargetMoved = Knit.CreateSignal(),
 	},
 })
