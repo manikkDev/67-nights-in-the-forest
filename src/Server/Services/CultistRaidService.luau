@@ -37,10 +37,15 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 local CultistRaidService = Knit.CreateService({
 	Name = "CultistRaidService",
 	Client = {
+		-- (dayNumber, phase) — warning banner before the raid night
 		RaidWarning = Knit.CreateSignal(),
+		-- (dayNumber, cultistCount) — raid spawned; triggers the cutscene
 		RaidStarted = Knit.CreateSignal(),
+		-- (raidDayNumber) — all cultists killed before dawn
 		RaidCleared = Knit.CreateSignal(),
+		-- (raidDayNumber, survivors) — cultists survived to dawn
 		RaidFailed = Knit.CreateSignal(),
+		-- (alive, total, fraction) — periodic tracker update during the raid
 		RaidStatusUpdate = Knit.CreateSignal(),
 	},
 })
