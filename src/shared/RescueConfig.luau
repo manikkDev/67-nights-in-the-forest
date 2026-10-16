@@ -31,6 +31,8 @@ export type RescueDefinition = {
 	KeyName: string,
 }
 
+-- Rescue order and unlock levels mirror the 99 Nights reference:
+-- Dino (Lv2) -> Kraken (Lv3) -> Squid (Lv4) -> Koala (Lv5).
 local Rescues: { [string]: RescueDefinition } = {
 	Dino = {
 		Id = "Dino",
