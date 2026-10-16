@@ -46,8 +46,11 @@ local WorldPlacement = require(script.Parent.Parent.WorldPlacement)
 local RunStateService = Knit.CreateService({
 	Name = "RunStateService",
 	Client = {
+		-- (phase, data) — run phase transition for client UI
 		RunPhaseChanged = Knit.CreateSignal(),
+		-- ({multiplier, sources}) — run multiplier value/split changed
 		MultiplierChanged = Knit.CreateSignal(),
+		-- Reserved client signal (server uses RunEnding/RunCleaned instead).
 		RunEnded = Knit.CreateSignal(),
 	},
 })
@@ -56,10 +59,11 @@ local RunStateService = Knit.CreateService({
 -- -> Ended (then back to Lobby for the next run).
 export type RunPhase = "Lobby" | "Starting" | "Active" | "Ending" | "Ended"
 
-RunStateService.PhaseChanged = Signal.new()
-RunStateService.RunStarted = Signal.new()
-RunStateService.RunEnding = Signal.new()
-RunStateService.RunCleaned = Signal.new()
+-- Server-side run lifecycle signals for other services.
+RunStateService.PhaseChanged = Signal.new()  -- (phase, data)
+RunStateService.RunStarted = Signal.new()    -- (runId)
+RunStateService.RunEnding = Signal.new()     -- (reason, data)
+RunStateService.RunCleaned = Signal.new()    -- (reason)
 
 -- | Configuration | --
 local RUNTIME_FOLDER_NAME = "Runtime"
