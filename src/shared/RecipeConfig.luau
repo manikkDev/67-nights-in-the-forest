@@ -28,6 +28,7 @@ export type Recipe = {
 }
 
 local Recipes: { [string]: Recipe } = {
+	-- Tier 1 — starting bench
 	Map = {
 		Id = "Map",
 		DisplayName = "Map",
@@ -78,6 +79,7 @@ local Recipes: { [string]: Recipe } = {
 		OutputId = "2",
 		Description = "Unlocks utility, healing, and stronger defenses.",
 	},
+	-- Tier 2 — requires the Crafting Bench II upgrade
 	Compass = {
 		Id = "Compass",
 		DisplayName = "Compass",
@@ -147,6 +149,7 @@ local Recipes: { [string]: Recipe } = {
 		OutputId = "3",
 		Description = "Unlocks the final two beds.",
 	},
+	-- Tier 3 — top bench tier (endgame beds)
 	GoodBed = {
 		Id = "GoodBed",
 		DisplayName = "Good Bed",
