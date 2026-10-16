@@ -43,9 +43,13 @@ local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 local DeerService = Knit.CreateService({
 	Name = "DeerService",
 	Client = {
+		-- (position, stalkerKey, duration, stunnerUserId) — flashlight stun applied
 		StalkerStunned = Knit.CreateSignal(),
+		-- (position, stalkerKey) — stalker made contact with a player
 		StalkerContact = Knit.CreateSignal(),
+		-- (stalkerKey) — a Deer/Ram Monster spawned for the night
 		StalkerActive = Knit.CreateSignal(),
+		-- (stalkerKey, animName) — animation switch ("StopAll", "Attack", stun phases)
 		AnimationStateChanged = Knit.CreateSignal(),
 	},
 })
