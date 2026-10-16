@@ -39,6 +39,7 @@ local WorldSoundUtil = require(ReplicatedStorage.Shared.WorldSoundUtil)
 local LootService = Knit.CreateService({
 	Name = "LootService",
 	Client = {
+		-- (chestPosition, tier, granted, userId) — fired only to the opener
 		ChestOpened = Knit.CreateSignal(),
 	},
 })
