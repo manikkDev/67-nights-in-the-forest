@@ -37,6 +37,7 @@ local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 local FlashlightService = Knit.CreateService({
 	Name = "FlashlightService",
 	Client = {
+		-- (percent, isOn) — battery level update for the flashlight HUD
 		BatteryChanged = Knit.CreateSignal(),
 	},
 })
