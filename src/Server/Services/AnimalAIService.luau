@@ -45,12 +45,16 @@ local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 local AnimalAIService = Knit.CreateService({
 	Name = "AnimalAIService",
 	Client = {
+		-- (model, position) — an NPC struck a player; VFX hook
 		NpcAttacked = Knit.CreateSignal(),
+		-- (model, position, speciesKey) — an NPC died; loot/VFX hook
 		NpcDied = Knit.CreateSignal(),
+		-- (model, healthRatio, amount, position, speciesKey) — health bar feed
 		NpcHealthChanged = Knit.CreateSignal(),
 	},
 })
 
+-- Server-side mirror of NpcDied for other services (loot, raids).
 AnimalAIService.NpcDiedServer = Signal.new()
 
 -- | Configuration | --
