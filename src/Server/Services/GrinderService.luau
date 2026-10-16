@@ -37,7 +37,9 @@ local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
 local GrinderService = Knit.CreateService({
 	Name = "GrinderService",
 	Client = {
+		-- () — player triggered the grinder prompt; open the UI
 		OpenGrinder = Knit.CreateSignal(),
+		-- ({position, scrapAmount, junkId}) — a junk item was shredded
 		GrinderProcessed = Knit.CreateSignal(),
 	},
 })
