@@ -87,6 +87,7 @@ Spear (Model)
 - `SETUP_MAC.md` — macOS toolchain setup walkthrough
 - `TASKS.md` — pending task list
 - `Skills/` — ingested Roblox/Luau best-practices references
+- `docs/` — controls, state-model, and networking-surface references
 
 ## UI Readability
 
