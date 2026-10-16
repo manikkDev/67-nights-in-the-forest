@@ -16,6 +16,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Doc comments on exported type unions (`FlowState`, `LifeState`,
   `RunPhase`, `Bounds`, `Reservation`, `SpeciesConfig`, `PlayOptions`)
 - `.vscode` recommended extensions and Luau/StyLua workspace settings
+- `docs/` — controls, state-model, and networking-surface references
+- Inline comments on every Knit remote/signal declaration and the
+  constants groups across all services and controllers
 
 ### Changed
 
