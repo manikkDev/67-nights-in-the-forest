@@ -20,3 +20,6 @@ TASKS.md
 *.orig
 *.bak
 *~
+
+# One-off Rojo verification outputs (build.rbxl itself is tracked)
+verify-build*.rbxl
