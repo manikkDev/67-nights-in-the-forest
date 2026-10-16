@@ -43,11 +43,17 @@ local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 local OwlService = Knit.CreateService({
 	Name = "OwlService",
 	Client = {
+		-- () — the owl spawned for the night
 		OwlActive = Knit.CreateSignal(),
+		-- (meter) — freeze-detection meter value while watching a player
 		OwlDetection = Knit.CreateSignal(),
+		-- (position) — owl screamed (detection filled); SFX/banner hook
 		OwlScream = Knit.CreateSignal(),
+		-- (position) — owl made contact with a player
 		OwlContact = Knit.CreateSignal(),
+		-- (position, duration) — flashlight stun applied
 		OwlStunned = Knit.CreateSignal(),
+		-- () — owl retreated for the night
 		OwlRetreated = Knit.CreateSignal(),
 	},
 })
