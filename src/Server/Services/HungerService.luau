@@ -33,6 +33,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 local HungerService = Knit.CreateService({
 	Name = "HungerService",
 	Client = {
+		-- (hunger, maxHunger) — hunger tick/update for the HUD
 		HungerChanged = Knit.CreateSignal(),
 	},
 })
