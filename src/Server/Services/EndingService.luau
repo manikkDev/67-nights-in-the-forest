@@ -35,8 +35,11 @@ local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 local EndingService = Knit.CreateService({
 	Name = "EndingService",
 	Client = {
+		-- (presentation) — win/lose sequence begins; client plays the intro
 		EndingStarted = Knit.CreateSignal(),
+		-- (result) — final stats payload for the results screen
 		ResultsReady = Knit.CreateSignal(),
+		-- () — client remote to skip the ending presentation and return to lobby
 		RequestEarlyReturn = Knit.CreateSignal(),
 	},
 })
