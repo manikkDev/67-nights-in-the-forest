@@ -37,6 +37,7 @@ local JunkItemConfig = require(ReplicatedStorage.Shared.JunkItemConfig)
 local FacilityService = Knit.CreateService({
 	Name = "FacilityService",
 	Client = {
+		-- () — a facility model spawned in the world; optional VFX hook
 		FacilitySpawned = Knit.CreateSignal(),
 	},
 })
