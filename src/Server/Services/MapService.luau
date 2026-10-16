@@ -37,6 +37,7 @@ local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgression
 local MapService = Knit.CreateService({
 	Name = "MapService",
 	Client = {
+		-- ({locked}) — player used the map board; open/lock the map UI
 		MapOpened = Knit.CreateSignal(),
 	},
 })
