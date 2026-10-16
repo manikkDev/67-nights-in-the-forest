@@ -33,6 +33,9 @@ export type JunkItem = {
 	Description: string,
 }
 
+-- Junk entries are ordered by grind yield: 1 Scrap (common pickups)
+-- up to 3 Scrap (bulky items). BoltCount mirrors ScrapYield — both are
+-- consumed by the grinder flow and bench-tier recipes.
 local JunkItems: { [string]: JunkItem } = {
 	Bolt = {
 		Id = "Bolt",
