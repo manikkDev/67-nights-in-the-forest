@@ -46,17 +46,23 @@ local WorldSoundUtil = require(ReplicatedStorage.Shared.WorldSoundUtil)
 local PlayerLifeService = Knit.CreateService({
 	Name = "PlayerLifeService",
 	Client = {
+		-- (state payload) — a member's life state changed; HUD feed
 		LifeStateChanged = Knit.CreateSignal(),
+		-- (userId, bleedOutAt) — a teammate was downed; revive-prompt hook
 		TeammateDowned = Knit.CreateSignal(),
+		-- (targetUserId, reviverUserId) — a revive completed
 		ReviveCompleted = Knit.CreateSignal(),
+		-- client -> server: (position) — streamed drag target while dragging a body
 		BodyDragTargetMoved = Knit.CreateSignal(),
+		-- client -> server remote: (target Player) — start dragging a downed teammate
 		RequestBodyDragStart = Knit.CreateSignal(),
 	},
 })
 
-PlayerLifeService.PlayerDowned = Signal.new()
-PlayerLifeService.PlayerRevived = Signal.new()
-PlayerLifeService.PlayerEliminated = Signal.new()
+-- Server-side lifecycle signals for other services (match/end logic).
+PlayerLifeService.PlayerDowned = Signal.new()      -- (player, source)
+PlayerLifeService.PlayerRevived = Signal.new()     -- (reviver, target)
+PlayerLifeService.PlayerEliminated = Signal.new()  -- (player)
 
 -- Per-player life state: Lobby until spawn, Alive -> Downed (bleed-out
 -- timer, revivable) -> Eliminated (spectate only).
