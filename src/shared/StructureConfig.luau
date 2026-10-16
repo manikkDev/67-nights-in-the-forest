@@ -30,6 +30,7 @@ export type StructureDefinition = {
 }
 
 local Structures: { [string]: StructureDefinition } = {
+	-- Beds — each grants +1 multiplier day per night survived
 	OldBed = {
 		Id = "OldBed",
 		DisplayName = "Old Bed",
@@ -70,6 +71,7 @@ local Structures: { [string]: StructureDefinition } = {
 		MaxSlope = 8,
 		MultiplierPoints = 1,
 	},
+	-- Defenses — walls/gates block raiders, traps damage them
 	LogWall = {
 		Id = "LogWall",
 		DisplayName = "Log Wall",
@@ -88,6 +90,7 @@ local Structures: { [string]: StructureDefinition } = {
 		MaxHealth = 220,
 		MaxSlope = 15,
 	},
+	-- Utility — food production and storage
 	FarmPlot = {
 		Id = "FarmPlot",
 		DisplayName = "Farm Plot",
