@@ -70,6 +70,14 @@ rojo serve
 
 5. Connect Roblox Studio to the Rojo server (one-time setup per session).
 
+## Documentation
+
+- `docs/controls.md` — player key bindings
+- `docs/state-model.md` — FlowState / RunPhase / LifeState state machines
+- `docs/networking.md` — full Knit remote/signal inventory
+- `ARCHITECTURE.md` — Phase 1 planning doc (stale; see banner)
+- `ROADMAP.md`, `TASKS.md`, `SETUP_MAC.md` — planning/setup notes
+
 ## Architecture
 
 ### Knit Services (Server)
