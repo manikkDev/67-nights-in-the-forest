@@ -26,14 +26,17 @@ return {
 	LOBBY_PLACE_ID = 84560195693908,
 	GAME_PLACE_ID = 106278588126757,
 
+	-- Party queue/teleport tuning
 	PARTY_MIN_PLAYERS = 1,
 	PARTY_MAX_PLAYERS = 5,
 	PARTY_QUEUE_IDS = { "Teleporter1", "Teleporter2", "Teleporter3" },
 	PARTY_REQUEST_COOLDOWN = 0.35,
+	-- Cross-server teleport data: schema version + staleness limits
 	PARTY_TELEPORT_DATA_VERSION = 1,
 	PARTY_TELEPORT_DATA_MAX_AGE = 120,
 	PARTY_DESTINATION_WAIT_SECONDS = 30,
 	PARTY_RECONNECT_TICKET_SECONDS = 120,
+	-- Asset path + lobby wait cap
 	ITEMS_PATH = "Assets Items",
 	MATCH_WAIT_SECONDS = 3599,
 	MATCH_START_FADE_SECONDS = 0.6,
