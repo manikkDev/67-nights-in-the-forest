@@ -43,8 +43,11 @@ local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 local BuildingService = Knit.CreateService({
 	Name = "BuildingService",
 	Client = {
+		-- (structureRecord) — a structure finished placing
 		StructurePlaced = Knit.CreateSignal(),
+		-- (structureRecord) — a structure's state changed (damage, farm growth)
 		StructureChanged = Knit.CreateSignal(),
+		-- (structureRecord) — a structure was destroyed
 		StructureDestroyed = Knit.CreateSignal(),
 	},
 })
