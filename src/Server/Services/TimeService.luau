@@ -39,9 +39,13 @@ local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 local TimeService = Knit.CreateService({
 	Name = "TimeService",
 	Client = {
+		-- (cycleIndex) — dawn: a new day begins
 		DayStarted = Knit.CreateSignal(),
+		-- (cycleIndex) — dusk: night phase begins
 		NightStarted = Knit.CreateSignal(),
+		-- (payload) — the displayed day number advanced
 		DawnAdvanced = Knit.CreateSignal(),
+		-- Replicated current phase ("Day"/"Night") for late joiners
 		GetPhaseState = Knit.CreateProperty("Day"),
 	},
 })
