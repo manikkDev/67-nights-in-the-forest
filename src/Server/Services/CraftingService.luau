@@ -40,8 +40,11 @@ local RecipeConfig = require(ReplicatedStorage.Shared.RecipeConfig)
 local CraftingService = Knit.CreateService({
 	Name = "CraftingService",
 	Client = {
+		-- () — player triggered the bench prompt; show the crafting UI
 		OpenCrafting = Knit.CreateSignal(),
+		-- (snapshot) — crafting state payload refresh for the UI
 		CraftingStateChanged = Knit.CreateSignal(),
+		-- (recipeId, response) — a craft completed; SFX/confetti hook
 		CraftSucceeded = Knit.CreateSignal(),
 	},
 })
