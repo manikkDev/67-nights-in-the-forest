@@ -48,11 +48,17 @@ local WorldProgressionConfig = require(ReplicatedStorage.Shared.WorldProgression
 local createSuccess, CampfireService = pcall(Knit.CreateService, {
 	Name = "CampfireService",
 	Client = {
+		-- (fuel, maxFuel, fraction, isLit) — fuel state push
 		FuelChanged = Knit.CreateSignal(),
+		-- (level, progress, requirement, levelFraction) — level progress push
 		LevelChanged = Knit.CreateSignal(),
+		-- (radius, isActive) — safe-zone toggle/expansion push
 		SafeZoneChanged = Knit.CreateSignal(),
+		-- (level, previousLevel, radius, maxFuel) — one-shot level-up event
 		LevelUp = Knit.CreateSignal(),
+		-- Replicated current safe-zone radius for late joiners
 		SafeZoneRadius = Knit.CreateProperty(0),
+		-- Replicated lit state for late joiners
 		IsLit = Knit.CreateProperty(false),
 	},
 })
@@ -90,6 +96,8 @@ if not CampfireService.Client.IsLit then
 	CampfireService.Client.IsLit = Knit.CreateProperty(false)
 end
 
+-- Server-side signal: (level, previousLevel) — for other services (rescue
+-- unlocks, world progression) reacting to campfire level-ups.
 CampfireService.LevelChangedServer = CampfireService.LevelChangedServer or Signal.new()
 
 -- | Configuration | --
@@ -995,6 +1003,8 @@ if not createSuccess then
 	if not CampfireService.Client then
 		CampfireService.Client = {}
 	end
+	-- Recreate any remotes Knit dropped on hot-reload (payloads documented
+	-- on the service table at the top of this file).
 	if not CampfireService.Client.FuelChanged then
 		CampfireService.Client.FuelChanged = Knit.CreateSignal()
 	end
