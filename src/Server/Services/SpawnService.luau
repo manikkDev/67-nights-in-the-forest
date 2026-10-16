@@ -40,11 +40,14 @@ local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 local SpawnService = Knit.CreateService({
 	Name = "SpawnService",
 	Client = {
+		-- client -> server remote: () — teleport from lobby to the base map
 		RequestSpawn = Knit.CreateSignal(),
+		-- () — the player finished spawning
 		PlayerSpawned = Knit.CreateSignal(),
 	},
 })
 
+-- Server-side mirror of PlayerSpawned for other services.
 SpawnService.PlayerSpawned = Signal.new()
 
 -- | Configuration | --
