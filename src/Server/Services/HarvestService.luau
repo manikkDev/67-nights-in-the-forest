@@ -41,6 +41,7 @@ local WorldSoundUtil = require(ReplicatedStorage.Shared.WorldSoundUtil)
 local HarvestService = Knit.CreateService({
 	Name = "HarvestService",
 	Client = {
+		-- (position) — a tree was felled; chop VFX/SFX hook
 		TreeChopped = Knit.CreateSignal(),
 	},
 })
