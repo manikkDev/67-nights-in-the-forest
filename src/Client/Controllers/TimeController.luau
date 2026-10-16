@@ -33,6 +33,7 @@ local TimeController = Knit.CreateController({
 })
 
 -- | State Management | --
+-- Local mirrors of the server's day/night signals for client listeners.
 local dayStarted = Signal.new()
 local nightStarted = Signal.new()
 
