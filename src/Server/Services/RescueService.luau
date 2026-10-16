@@ -43,11 +43,17 @@ local WorldPlacement = require(script.Parent.Parent.WorldPlacement)
 local RescueService = Knit.CreateService({
 	Name = "RescueService",
 	Client = {
+		-- (state payload) — rescue progress changed; board/map refresh
 		RescueChanged = Knit.CreateSignal(),
+		-- ({cleared|position...}) — the player's tracked waypoint changed
 		WaypointChanged = Knit.CreateSignal(),
+		-- ({userId, childId, carrying}) — a player picked up/dropped a kid
 		ChildCarryChanged = Knit.CreateSignal(),
+		-- (payload) — a cave unlocked at a new campfire level
 		CaveUnlocked = Knit.CreateSignal(),
+		-- (snapshot) — player opened the rescue board UI
 		BoardOpened = Knit.CreateSignal(),
+		-- ({states, rescuedCount}) — missing-poster board state refresh
 		PosterStateUpdated = Knit.CreateSignal(),
 	},
 })
