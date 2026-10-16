@@ -42,9 +42,10 @@ local SessionRoutingService = Knit.CreateService({
 	Client = {},
 })
 
-SessionRoutingService.LocalPartyReady = Signal.new()
-SessionRoutingService.DestinationReady = Signal.new()
-SessionRoutingService.PartyTeleportFailed = Signal.new()
+-- Server-side routing signals for other services.
+SessionRoutingService.LocalPartyReady = Signal.new()       -- (livePlayers, metadata)
+SessionRoutingService.DestinationReady = Signal.new()      -- (participants, destinationMetadata)
+SessionRoutingService.PartyTeleportFailed = Signal.new()   -- (partyId, players, reason)
 
 -- | Configuration | --
 -- Cross-server party teleport tuning (shared Constants with fallbacks)
