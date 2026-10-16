@@ -39,12 +39,19 @@ local Constants = require(ReplicatedStorage.Shared.Constants)
 local MatchFlowService = Knit.CreateService({
 	Name = "MatchFlowService",
 	Client = {
+		-- client -> server remote: () — queue for/launch a run
 		RequestStart = Knit.CreateSignal(),
+		-- client -> server remote: () — leave the queue/session
 		RequestLeave = Knit.CreateSignal(),
+		-- client -> server remote: (capacity) — host sets party size cap
 		RequestSetCapacity = Knit.CreateSignal(),
+		-- (state) — flow state transition (Waiting, Countdown, ...)
 		FlowStateChanged = Knit.CreateSignal(),
+		-- (payload) — countdown tick for the lobby UI
 		Countdown = Knit.CreateSignal(),
+		-- (roster) — session member list changed
 		RosterChanged = Knit.CreateSignal(),
+		-- (snapshot) — per-player session view changed
 		SessionChanged = Knit.CreateSignal(),
 	},
 })
