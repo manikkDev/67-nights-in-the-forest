@@ -40,6 +40,7 @@ local CombatTargetRegistry = require(script.Parent.Parent.CombatTargetRegistry)
 local CombatService = Knit.CreateService({
 	Name = "CombatService",
 	Client = {
+		-- (position, weaponName, wasImmune) — a melee swing connected; VFX/SFX hook
 		AttackLanded = Knit.CreateSignal(),
 	},
 })
