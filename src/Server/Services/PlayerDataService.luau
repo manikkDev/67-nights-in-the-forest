@@ -41,6 +41,7 @@ local PlayerDataService = Knit.CreateService({
 	Client = {},
 })
 
+-- Server-side signal: (player) — profile finished loading/session-locking.
 PlayerDataService.ProfileLoaded = Signal.new()
 
 -- | State Management | --
