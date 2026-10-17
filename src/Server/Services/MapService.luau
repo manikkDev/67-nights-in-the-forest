@@ -47,6 +47,7 @@ local PICKUP_RANGE = 10
 local BOARD_OFFSET = -28 -- opposite side from the rescue board (which is at +28)
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local runStateService: any = nil
 local worldService: any = nil
 local rescueService: any = nil
@@ -54,6 +55,7 @@ local facilityService: any = nil
 local worldProgressionService: any = nil
 local campfireService: any = nil
 local craftingService: any = nil
+-- In-world map board and the cached landmark dataset
 local mapBoard: Part? = nil
 local mapData: { [string]: any } = {}
 
