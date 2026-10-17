@@ -56,14 +56,17 @@ local GRIND_SPIN_SPEED = 35    -- rad/s, fast grinding rotation
 local GRIND_SOUND_ID = "rbxassetid://9116635756"
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local runStateService: any = nil
 local inventoryService: any = nil
 local playerLifeService: any = nil
+-- Grinder model handles (placed at runtime or found in the map)
 local grinderModel: Model? = nil
 local grinderPosition: Vector3? = nil
 local grinderPrimaryPart: BasePart? = nil
 local isManualModel = false
 local cooldowns: { [Player]: number } = {}
+-- Blade spin rig: part, hinge, angular velocity, attachments, SFX
 local bladePart: BasePart? = nil
 local bladeHinge: HingeConstraint? = nil
 local bladeAngularVel: AngularVelocity? = nil
