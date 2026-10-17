@@ -121,15 +121,18 @@ local DROP_ASSETS: { [string]: string? } = {
 local MUSHROOM_ASSET_NAME = "Mushroom"
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local playerDataService: any = nil
 local worldService: any = nil
 local spawnService: any = nil
 local playerLifeService: any = nil
+-- Cached tool/model templates cloned for pickups
 local bagTemplate: Tool? = nil
 local flashlightTemplate: Tool? = nil
 local mushroomSource: Model? = nil
 local mushroomBaseOffset: number? = nil
 
+-- Active drags: per-player constraint record; reverse index model -> player
 local dragging: { [Player]: { model: Model, alignPos: AlignPosition, alignOri: AlignOrientation?, dragTarget: BasePart, dragTargetAttach: Attachment, itemAttach: Attachment, originalCanCollide: { [BasePart]: boolean }, originalAnchored: { [BasePart]: boolean }, noCollisionConstraints: { NoCollisionConstraint } } } = {}
 local draggedBy: { [Model]: Player } = {}
 
