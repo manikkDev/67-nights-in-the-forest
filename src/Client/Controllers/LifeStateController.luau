@@ -35,12 +35,14 @@ local janitor = Janitor.new()
 local localPlayer = Players.LocalPlayer
 
 local lifeService: any = nil
+-- Downed card + notification banner handles
 local gui: ScreenGui? = nil
 local card: Frame? = nil
 local timerLabel: TextLabel? = nil
 local notifFrame: Frame? = nil
 local notifLabel: TextLabel? = nil
 local notifJanitor = Janitor.new()
+-- Self/team life-state snapshot and per-member body markers
 local selfState = "Lobby"
 local bleedOutAt = 0
 local memberStates: { [number]: string } = {}
