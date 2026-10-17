@@ -49,11 +49,13 @@ local MAX_RETRIES = 200
 local ALL_JUNK_IDS = { "Bolt", "SheetMetal", "OldRadio", "BrokenFan", "BrokenMicrowave", "Tyre", "MetalChair" }
 
 -- | State | --
+-- Service refs resolved at KnitStart
 local runStateService: any = nil
 local worldService: any = nil
 local inventoryService: any = nil
 local worldProgressionService: any = nil
 local campfireService: any = nil
+-- Scatter registry and the level they were last placed for
 local scatteredItems: { Model } = {}
 local scatteredPositions: { Vector3 } = {}
 local lastScatteredLevel = 1
