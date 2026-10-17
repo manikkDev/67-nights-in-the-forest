@@ -53,6 +53,7 @@ local LEVELUP_TWEEN_INFO = TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.Easin
 local LEVELUP_HOLD_TIME = 3
 
 -- | State Management | --
+-- Main panel handles: fuel/level bars, labels, warning
 local campfireGui: ScreenGui? = nil
 local warningGui: ScreenGui? = nil
 local fuelFill: Frame? = nil
@@ -64,6 +65,7 @@ local statusLabel: TextLabel? = nil
 local warningLabel: TextLabel? = nil
 local hasFuelState = false
 
+-- Level-up banner widgets
 local levelUpGui: ScreenGui? = nil
 local levelUpBanner: Frame? = nil
 local levelUpBackground: Frame? = nil
