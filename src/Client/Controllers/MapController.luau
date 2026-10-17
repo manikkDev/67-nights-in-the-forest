@@ -97,6 +97,7 @@ local COLOR = {
 
 -- | State Management | --
 local mapService: any = nil
+-- Widget handles: map panel, minimap, compass, sidebar, tooltip
 local gui: ScreenGui? = nil
 local mapIconGui: ScreenGui? = nil
 local mapIconButton: TextButton? = nil
