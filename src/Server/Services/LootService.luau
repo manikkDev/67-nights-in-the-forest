@@ -91,12 +91,14 @@ local CAVE_CHESTS = {
 }
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local runStateService: any = nil
 local inventoryService: any = nil
 local worldService: any = nil
 local rescueService: any = nil
 local combatService: any = nil
 local playerLifeService: any = nil
+-- Opened-chest tracking: global for landmarks, per-player for caves
 local openedChests: { [string]: boolean } = {}
 local openedCaveChests: { [Player]: { [string]: boolean } } = {}
 local cooldowns: { [Player]: number } = {}
