@@ -78,12 +78,14 @@ local WANDER_INTERVAL = 4 -- Seconds before picking a new wander target.
 local KID_WALK_SPEED = 8
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local runStateService: any = nil
 local worldService: any = nil
 local campfireService: any = nil
 local animalAIService: any = nil
 local playerLifeService: any = nil
 
+-- Cave/kid registry, carry tracking, and key ownership
 local caveRecords: { [string]: any } = {}
 local carriedBy: { [Player]: string } = {}
 local keyOwners: { [Player]: { [string]: boolean } } = {}
@@ -91,6 +93,7 @@ local dropCooldowns: { [Player]: number } = {}
 local rescuedCount = 0
 local rescueOrder = 0
 local rescueCheckTimer = 0
+-- World object handles: cave/tent folders, poster board + slot widgets
 local cavesFolder: Folder? = nil
 local tentsFolder: Folder? = nil
 local posterBoard: Part? = nil
