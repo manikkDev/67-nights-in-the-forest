@@ -55,6 +55,7 @@ local CRAFT_COOLDOWN = 0.2
 local BENCH_OFFSET = CFrame.new(14, 0, 0)
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local runStateService: any = nil
 local playerDataService: any = nil
 local inventoryService: any = nil
@@ -62,6 +63,7 @@ local worldService: any = nil
 local grinderService: any = nil
 local playerLifeService: any = nil
 
+-- Bench state: current tier, placed model, per-run craft ledger
 local benchTier = 1
 local benchModel: Model? = nil
 local isManualBench = false
