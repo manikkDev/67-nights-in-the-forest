@@ -54,19 +54,23 @@ local NIGHT_VISIBILITY_BRIGHTNESS = 0.5
 local NIGHT_VISIBILITY_RANGE = 38
 
 -- | State Management | --
+-- Effect + warning UI handles
 local colorCorrection: ColorCorrectionEffect? = nil
 local warningGui: ScreenGui? = nil
 local warningLabel: TextLabel? = nil
+-- Service/controller refs resolved at KnitStart
 local worldService: any = nil
 local gameStateController: any = nil
 local campfireService: any = nil
 local timeService: any = nil
+-- Current safety evaluation inputs and resulting state
 local campfirePosition: Vector3? = nil
 local campfirePositionPending = false
 local safeZoneRadius = 0
 local isNight = false
 local isFireActive = false
 local currentState: "day" | "safeNight" | "unsafeNight" | "fireOut" = "day"
+-- Running tweens and loop handles
 local currentCcTween: Tween? = nil
 local currentWarningTween: Tween? = nil
 local checkTimer = 0
