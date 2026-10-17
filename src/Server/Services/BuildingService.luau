@@ -64,6 +64,7 @@ local STRUCTURE_TAG = "RunStructure"
 local GROUND_LIFT = 0.05 -- tiny lift so the model sits almost exactly on the ground
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local runStateService: any = nil
 local craftingService: any = nil
 local worldService: any = nil
@@ -71,6 +72,7 @@ local inventoryService: any = nil
 local timeService: any = nil
 local playerLifeService: any = nil
 
+-- Placed-structure registry, placement debounce, runtime folder
 local structures: { [string]: { model: Model, definition: any, ownerUserId: number, placedCycle: number } } = {}
 local placementCooldowns: { [Player]: number } = {}
 local structuresFolder: Folder? = nil
