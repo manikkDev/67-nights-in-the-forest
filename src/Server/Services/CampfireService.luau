@@ -141,22 +141,26 @@ local LOG_SCAN_INTERVAL = 0.2
 local LOG_SCAN_RADIUS = 14
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local worldService: any = nil
 local playerDataService: any = nil
 local inventoryService: any = nil
 local spawnService: any = nil
+-- Campfire progression state
 local stateLoaded = false
 local level = 1
 local levelProgress = 0
 local maxFuel = MAX_FUEL_BY_LEVEL[1]
 local fuel = 0
 local isLit = false
+-- World object handles
 local campfirePart: BasePart? = nil
 local fireCenter: BasePart? = nil
 local groundPart: BasePart? = nil
 local fireInstance: Fire? = nil
 local pointLight: PointLight? = nil
 local fireSound: Sound? = nil
+-- Debounce + broadcast timers
 local feedCooldowns: { [Player]: number } = {}
 local fuelBroadcastTimer = 0
 local logScanTimer = 0
