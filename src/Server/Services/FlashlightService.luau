@@ -58,9 +58,11 @@ local BATTERY_RECHARGE_PER_SECOND = 3 -- faster passive recharge
 local STALKER_MODEL_NAMES = { "Deer", "Ram Monster", "Owl" }
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local deerService: any = nil
 local owlService: any = nil
 local playerLifeService: any = nil
+-- Per-player beam/battery/aim state and rate-limit stamps
 local beamActive: { [Player]: boolean } = {}
 local battery: { [Player]: number } = {}
 local aimDirections: { [Player]: Vector3 } = {}
