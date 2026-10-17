@@ -108,6 +108,7 @@ local SPECIES_SOUNDS: { [string]: { aggro: string?, attack: string?, hurt: strin
 local NPC_SOUND_MAX_DISTANCE = 90
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local worldService: any = nil
 local timeService: any = nil
 local spawnService: any = nil
@@ -116,6 +117,7 @@ local playerDataService: any = nil
 local playerLifeService: any = nil
 local runStateService: any = nil
 local worldProgressionService: any = nil
+-- Live NPC registry and per-species population tracking
 local activeNpcs: { [Model]: any } = {}
 local speciesCounts: { [string]: number } = {}
 local lastPhase: string = "Day"
