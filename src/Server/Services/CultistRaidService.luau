@@ -63,11 +63,13 @@ local RAID_CLEANUP_DELAY = 30
 local CULTIST_MODEL_KEYS = { "Cultist", "Cultist2" }
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local timeService: any = nil
 local worldService: any = nil
 local animalAIService: any = nil
 local campfireService: any = nil
 local deerService: any = nil
+-- Raid state: active cultists, day number, tally for status updates
 local lastPhase: string = "Day"
 local raidActive = false
 local raidCultists: { Model } = {}
