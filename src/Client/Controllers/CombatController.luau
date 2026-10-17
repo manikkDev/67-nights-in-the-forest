@@ -46,10 +46,12 @@ local DAMAGE_FLASH_DURATION = 0.35
 local DAMAGE_FLASH_TINT = Color3.fromRGB(160, 0, 0)
 
 -- | State Management | --
+-- Janitors: controller lifetime, per-tool equip, per-character spawn
 local janitor = Janitor.new()
 local toolJanitor = Janitor.new()
 local charJanitor = Janitor.new()
 local gameStateController: any = nil
+-- Damage-flash effect and cached spear swing animation
 local damageCorrection: ColorCorrectionEffect? = nil
 local spearAnimId: string? = nil
 local cachedSpearTrack: AnimationTrack? = nil
