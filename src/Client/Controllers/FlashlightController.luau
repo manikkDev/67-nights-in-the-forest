@@ -51,16 +51,19 @@ local LOW_BATTERY_THRESHOLD = 20
 local WARNING_FLASH_INTERVAL = 0.35
 
 -- | State Management | --
+-- Janitors: controller lifetime, per-tool equip, per-character spawn
 local janitor = Janitor.new()
 local toolJanitor = Janitor.new()
 local charJanitor = Janitor.new()
 local gameStateController: any = nil
 local flashlightService: any = nil
 
+-- Beam/battery state pushed by the server
 local beamOn = false
 local batteryPercent = 100
 local lowBatteryWarning = false
 
+-- Battery-panel widget handles
 local panelFrame: Frame? = nil
 local batteryBar: Frame? = nil
 local batteryFill: Frame? = nil
