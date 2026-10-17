@@ -100,6 +100,7 @@ local DEFAULT_R15_WALK_ID = "rbxassetid://913402848"
 local DEFAULT_R15_IDLE_ID = "rbxassetid://507766388"
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local worldService: any = nil
 local timeService: any = nil
 local campfireService: any = nil
@@ -109,6 +110,7 @@ local inventoryService: any = nil
 local deerService: any = nil
 local playerLifeService: any = nil
 
+-- Single active owl: record, phase tracking, summon debounce
 local owl: any = nil
 local lastPhase = ""
 local owlActiveTonight = false
