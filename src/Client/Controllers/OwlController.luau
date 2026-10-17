@@ -49,6 +49,7 @@ local EYE_BASE_COLOR = Color3.fromRGB(220, 220, 220)
 local EYE_DANGER_COLOR = Color3.fromRGB(220, 40, 40)
 
 -- | State Management | --
+-- Widgets: screech banner, owl eyes overlay, screen flashes
 local screenGui: ScreenGui? = nil
 local banner: TextLabel? = nil
 local bannerThread: thread? = nil
