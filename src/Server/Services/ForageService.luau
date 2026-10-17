@@ -65,11 +65,13 @@ local EAT_HUNGER_RESTORE = {
 }
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local worldService: any = nil
 local inventoryService: any = nil
 local hungerService: any = nil
 local playerLifeService: any = nil
 local runStateService: any = nil
+-- Scatter anchors: tree positions + ground bounds, live pickup count
 local treePivots: { CFrame } = {}
 local groundPart: BasePart? = nil
 local groundBounds: { minX: number, maxX: number, minZ: number, maxZ: number }? = nil
