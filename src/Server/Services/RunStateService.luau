@@ -73,12 +73,14 @@ local RUNTIME_FOLDER_NAME = "Runtime"
 local RUN_SCOPED_PROFILE_KEYS = { "Base", "Rescue", "Stats", "Campfire" }
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local playerDataService: any = nil
 local timeService: any = nil
 local spawnService: any = nil
 local campfireService: any = nil
 local animalAIService: any = nil
 
+-- Run identity, phase, membership, and multiplier ledger
 local runId = ""
 local phase: RunPhase = "Lobby"
 local runStartedAt = 0
