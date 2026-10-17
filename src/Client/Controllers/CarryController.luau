@@ -63,16 +63,19 @@ local BAG_TOOL_NAME = "Carry Bag"
 
 -- | State Management | --
 local localPlayer = Players.LocalPlayer
+-- Service/controller refs resolved at KnitStart
 local gameStateController: any = nil
 local harvestService: any = nil
 local forageService: any = nil
 local inventoryService: any = nil
 local lifeService: any = nil
+-- Hover state: what the cursor is over + its highlight/name tag
 local lastPickupTime = 0
 local hoveredModel: Model? = nil
 local hoverHighlight: Highlight? = nil
 local hoverNameGui: BillboardGui? = nil
 
+-- Active drag: the model/resource/body being dragged and its target part
 local draggingModel: Model? = nil
 local draggingResourceName: string? = nil
 local draggingBodyPlayer: Player? = nil
