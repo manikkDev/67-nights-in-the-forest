@@ -40,9 +40,11 @@ local AXE_TOOL_NAME = "Axe"
 local CHOP_COOLDOWN = 0.5
 
 -- | State Management | --
+-- Janitors: controller lifetime, per-tool equip, per-character spawn
 local janitor = Janitor.new()
 local toolJanitor = Janitor.new()
 local charJanitor = Janitor.new()
+-- Chop debounce and cached swing animation track
 local lastChopTime = 0
 local swingAnimationId: string? = nil
 local cachedAnimTrack: AnimationTrack? = nil
