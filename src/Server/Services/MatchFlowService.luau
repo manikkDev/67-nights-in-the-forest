@@ -87,10 +87,12 @@ local MAX_PARTY = Constants.PARTY_MAX_PLAYERS or 5
 local REQUEST_COOLDOWN = Constants.PARTY_REQUEST_COOLDOWN or 0.35
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local spawnService: any = nil
 local timeService: any = nil
 local runStateService: any = nil
 local sessionRoutingService: any = nil
+-- Session indexes (by member, by queue pad) + request rate limit
 local sessionsByPlayer: { [Player]: Session } = {}
 local sessionsByQueue: { [string]: Session } = {}
 local lastRequestAt: { [Player]: number } = {}
