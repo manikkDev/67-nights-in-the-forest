@@ -45,6 +45,7 @@ local EndingService = Knit.CreateService({
 })
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local runStateService: any = nil
 local timeService: any = nil
 local playerDataService: any = nil
@@ -53,6 +54,7 @@ local rescueService: any = nil
 local animalAIService: any = nil
 local deerService: any = nil
 local owlService: any = nil
+-- Run being ended, and which members have acknowledged the results
 local endingRunId = ""
 -- Return-to-lobby is an acknowledgement: the results stay up until every
 -- connected member clicks (or ResultsDisplaySeconds elapses server-side).
