@@ -65,6 +65,7 @@ local STAT_GRID_HEIGHT = CARD_ROWS * CARD_HEIGHT + (CARD_ROWS - 1) * CARD_GAP
 -- | State Management | --
 local endingService: any = nil
 local runStateService: any = nil
+-- Results-screen widget handles
 local gui: ScreenGui? = nil
 local backdrop: Frame? = nil
 local titleLabels: { TextLabel } = {}
@@ -75,7 +76,7 @@ local cardContainer: Frame? = nil
 local statCards: { { frame: Frame, value: TextLabel, label: TextLabel } } = {}
 local returnButton: TextButton? = nil
 local defeatPanel: Frame? = nil
-local isVictory = false
+local isVictory = false -- tracks which presentation variant is playing
 
 -- // FUNCTIONS // --
 
