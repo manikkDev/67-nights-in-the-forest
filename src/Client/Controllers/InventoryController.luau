@@ -153,6 +153,7 @@ type RowEntry = {
 	lastCount: number,
 }
 
+-- Live widget rows keyed by resource name
 local rowEntries: { [string]: RowEntry } = {}
 
 local bagPanel: Frame? = nil
