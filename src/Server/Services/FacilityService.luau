@@ -72,9 +72,11 @@ local FACILITY_LOOT = {
 local JUNK_PER_FACILITY = { min = 1, max = 3 }
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local runStateService: any = nil
 local worldService: any = nil
 local inventoryService: any = nil
+-- Placed facilities + their junk-spawn anchors and ground bounds
 local facilities: { { model: Model, type: string, junkSpawns: { Vector3 } } } = {}
 local junkModels: { Model } = {}
 local groundBounds: { minX: number, maxX: number, minZ: number, maxZ: number }? = nil
