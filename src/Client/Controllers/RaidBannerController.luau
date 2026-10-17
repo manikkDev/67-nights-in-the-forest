@@ -52,6 +52,7 @@ local PANEL_BG = Color3.fromRGB(38, 38, 46)
 local TRACKER_BG = Color3.fromRGB(20, 18, 26)
 
 -- | State Management | --
+-- Widget handles: warning banner, cutscene overlay, tracker panel
 local screenGui: ScreenGui? = nil
 local warningBanner: Frame? = nil
 local warningLabel: TextLabel? = nil
