@@ -73,11 +73,13 @@ local TREE_MODEL_NAMES = { "Tree", "bigtree", "GiantTree" }
 local AXE_TOOL_NAME = "Axe"
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local worldService: any = nil
 local inventoryService: any = nil
 local spawnService: any = nil
 local playerLifeService: any = nil
 local axeTemplate: Tool? = nil
+-- Tree health/pivot registry and per-player chop debounce
 local treeRegistry: { [Model]: { health: number, part: { Position: Vector3 }, pivot: CFrame, felled: boolean } } = {}
 local chopCooldowns: { [Player]: number } = {}
 
