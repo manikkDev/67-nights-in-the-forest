@@ -40,6 +40,7 @@ local NEXT_ACTION = "LifeSpectateNext"
 local PREVIOUS_ACTION = "LifeSpectatePrevious"
 
 local lifeService: any = nil
+-- Spectate UI handles: target card, health bar, team panel, banner
 local gui: ScreenGui? = nil
 local targetLabel: TextLabel? = nil
 local healthLabel: TextLabel? = nil
@@ -49,6 +50,7 @@ local teamPanel: Frame? = nil
 local eliminatedBanner: Frame? = nil
 local eyebrowLabel: TextLabel? = nil
 local bannerSubLabel: TextLabel? = nil
+-- Local + team life-state snapshot, and the cycle index into targets
 local selfState = "Lobby"
 local memberStates: { [number]: string } = {}
 local targetIndex = 1
