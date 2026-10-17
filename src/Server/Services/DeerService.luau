@@ -113,12 +113,14 @@ local STALKER_DEFS = {
 }
 
 -- | State Management | --
+-- Service refs resolved at KnitStart
 local worldService: any = nil
 local timeService: any = nil
 local campfireService: any = nil
 local spawnService: any = nil
 local playerLifeService: any = nil
 local worldProgressionService: any = nil
+-- Active stalkers keyed by species key ("Deer" / "RamMonster")
 local stalkers: { [string]: any } = {}
 local deerSuppressed = false
 local activeStalkerKey: string? = nil  -- which stalker is active tonight ("Deer" or "RamMonster")
