@@ -23,6 +23,7 @@
     - JunkItemConfig (frozen table of JunkItem defs keyed by id)
 ]]
 
+-- | Type Definitions | --
 export type JunkItem = {
 	Id: string,
 	DisplayName: string,
