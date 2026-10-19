@@ -21,6 +21,7 @@
     - NpcConfig (table of SpeciesConfig keyed by species id)
 ]]
 
+-- | Type Definitions | --
 -- One loot-table row: Chance roll to drop Min-Max of a Resource.
 export type LootEntry = { Resource: string, Min: number, Max: number, Chance: number }
 
