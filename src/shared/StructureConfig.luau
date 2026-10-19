@@ -30,6 +30,7 @@ export type StructureDefinition = {
 	MultiplierPoints: number?,
 }
 
+-- | Structure Definitions | --
 local Structures: { [string]: StructureDefinition } = {
 	-- Beds — each grants +1 multiplier day per night survived
 	OldBed = {
