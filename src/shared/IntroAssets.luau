@@ -16,6 +16,7 @@
 
 -- | Intro Assets | --
 return {
+	-- Intro sequence colors
 	TitleDeerImage = "",
 	WaitingDeerImage = "",
 	TitleColor = Color3.fromRGB(232, 220, 190),
