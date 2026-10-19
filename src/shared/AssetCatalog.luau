@@ -17,6 +17,7 @@
     - AssetCatalog (frozen table: Audio, Animations, Images)
 ]]
 
+-- | Asset Data | --
 return table.freeze({
 	Audio = table.freeze({
 		-- Ambience (ProSoundEffects free pack)
