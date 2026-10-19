@@ -71,6 +71,10 @@ local RUNTIME_FOLDER_NAME = "Runtime"
 -- contents persist across runs and rejoins, matching the reference
 -- game where collected items stay in your inventory.
 local RUN_SCOPED_PROFILE_KEYS = { "Base", "Rescue", "Stats", "Campfire" }
+-- "Resources" and "Inventory" are NOT run-scoped — the player's bag
+-- contents persist across runs and rejoins, matching the reference
+-- game where collected items stay in your inventory.
+local RUN_SCOPED_PROFILE_KEYS = { "Base", "Rescue", "Stats", "Campfire" }
 
 -- | State Management | --
 -- Service refs resolved at KnitStart
