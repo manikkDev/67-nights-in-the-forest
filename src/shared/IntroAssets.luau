@@ -14,6 +14,7 @@
     - IntroAssets (table: image id slots, colors, and story captions)
 ]]
 
+-- | Intro Assets | --
 return {
 	TitleDeerImage = "",
 	WaitingDeerImage = "",
