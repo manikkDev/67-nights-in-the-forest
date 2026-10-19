@@ -21,10 +21,6 @@
 ]]
 
 -- // VARIABLES // --
---test
---TEST AGAIN
--- cuhh
--- fuh
 -- | Services | --
 local CollectionService = game:GetService("CollectionService")
 
