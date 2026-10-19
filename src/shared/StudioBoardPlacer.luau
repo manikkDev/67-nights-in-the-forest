@@ -36,6 +36,8 @@
 
 local workspace = game:GetService("Workspace")
 
+-- | Helper Functions | --
+
 --[[
     @summary  Locate the campfire anchor point for board placement.
     @desc     Tries Workspace.Campfire, then a "Campfire" part inside
