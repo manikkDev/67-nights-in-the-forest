@@ -16,6 +16,7 @@
     - RecipeConfig (frozen table of Recipe defs keyed by recipe id)
 ]]
 
+-- | Type Definitions | --
 export type Recipe = {
 	Id: string,
 	DisplayName: string,
