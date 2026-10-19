@@ -17,6 +17,7 @@
 
 -- | Constants | --
 return {
+	-- Store
 	STORE_NAME = "67Nights_v2",
 	MAX_PLAYERS = 8,
 
@@ -42,7 +43,7 @@ return {
 	MATCH_WAIT_SECONDS = 3599,
 	MATCH_START_FADE_SECONDS = 0.6,
 
-	-- Create-Party intro sequence
+	-- Create-Party intro sequence timing
 	MATCH_COUNTDOWN_SECONDS = 20,
 	MATCH_FASTFORWARD_SECONDS = 3,
 	MATCH_STORY_FADE_SECONDS = 1.2,
