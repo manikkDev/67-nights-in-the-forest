@@ -18,6 +18,7 @@
     - StructureConfig (frozen table of StructureDefinition keyed by id)
 ]]
 
+-- | Type Definitions | --
 export type StructureDefinition = {
 	Id: string,
 	DisplayName: string,
