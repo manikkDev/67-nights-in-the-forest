@@ -41,6 +41,8 @@ return {
 	StoryText = Color3.fromRGB(170, 90, 90),
 
 	-- Title / Story screen
+
+	-- Title / Story screen
 	StoryScreenBackdrop = Color3.fromRGB(22, 22, 22),
 	StoryHeaderColor = Color3.fromRGB(230, 55, 55),
 	StoryPanelBackdrop = Color3.fromRGB(38, 38, 38),
