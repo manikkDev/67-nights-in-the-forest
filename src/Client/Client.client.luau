@@ -30,6 +30,7 @@ local controllers = script.Parent.Controllers
 
 -- // INITIALIZATION // --
 
+-- Require all controllers so they can register with Knit before Start()
 for _, module in ipairs(controllers:GetChildren()) do
 	if module:IsA("ModuleScript") then
 		local ok, err = pcall(require, module)
