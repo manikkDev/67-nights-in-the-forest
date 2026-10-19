@@ -28,6 +28,7 @@ export type Recipe = {
 	Description: string,
 }
 
+-- | Recipe Definitions | --
 local Recipes: { [string]: Recipe } = {
 	-- Tier 1 — starting bench
 	Map = {
