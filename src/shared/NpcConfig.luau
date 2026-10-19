@@ -47,6 +47,7 @@ export type SpeciesConfig = {
 	StatsKey: string?,
 }
 
+-- | Species Definitions | --
 return {
 	Bunny = {
 		ModelName = "BunnyModel",
