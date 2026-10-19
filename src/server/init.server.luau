@@ -16,3 +16,7 @@
     @exports
     - none — Rojo placeholder, not a ModuleScript
 ]]
+
+-- | Placeholder | --
+-- This file intentionally contains no executable code.
+
