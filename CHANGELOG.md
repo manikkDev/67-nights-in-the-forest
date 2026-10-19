@@ -19,6 +19,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `docs/` — controls, state-model, and networking-surface references
 - Inline comments on every Knit remote/signal declaration and the
   constants groups across all services and controllers
+- Additional `docs/` pages: AI systems overview, crafting guide, and
+  per-enemy behavior docs (deer, owl)
 
 ### Changed
 
