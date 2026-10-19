@@ -30,6 +30,8 @@ local ServerRole = {}
 
 local isServer = RunService:IsServer()
 
+-- | Helper Functions | --
+
 -- One-shot diagnostic log so we can see exactly how role detection resolved.
 local detectionLogged = false
 --[[
