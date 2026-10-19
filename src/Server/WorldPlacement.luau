@@ -44,6 +44,8 @@ export type Reservation = {
 
 local reservations: { Reservation } = {}
 
+-- | Helper Functions | --
+
 --[[
     @summary  XZ-plane distance between two positions (ignores Y).
     @param    a  Vector3
