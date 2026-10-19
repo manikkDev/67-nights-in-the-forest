@@ -23,6 +23,7 @@
 
 local RunService = game:GetService("RunService")
 
+-- | Configuration | --
 local StudioTest = {
 	Enabled = true, -- TEMPORARY: enabled for GrantResources testing
 	SkipLobby = false,
@@ -119,6 +120,8 @@ function Config.GetPhaseDuration(phase: string): number
 	end
 	return if phase == "Day" then Config.DayDuration else Config.NightDuration
 end
+
+-- | Helper Functions | --
 
 --[[
     @summary  Clamp an optional party size to [1, Difficulty.MaxPartySize].
