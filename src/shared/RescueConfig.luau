@@ -19,6 +19,7 @@
     - RescueConfig (frozen table of RescueDefinition keyed by rescue id)
 ]]
 
+-- | Type Definitions | --
 export type RescueDefinition = {
 	Id: string,
 	DisplayName: string,
