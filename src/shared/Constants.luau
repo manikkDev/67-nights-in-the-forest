@@ -15,6 +15,7 @@
       cooldowns, and match timing values)
 ]]
 
+-- | Constants | --
 return {
 	STORE_NAME = "67Nights_v2",
 	MAX_PLAYERS = 8,
