@@ -24,6 +24,7 @@
     - Config.GetUnlockLevelForDistance(distance) -> number
 ]]
 
+-- | Configuration | --
 local Config = {
 	-- Map is 3200x3200 studs, center at (-75,-7).
 	-- Distance from center to edge midpoint = 1600.
