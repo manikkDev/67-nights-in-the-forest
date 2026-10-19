@@ -38,6 +38,8 @@ local AssetCatalog = require(script.Parent.AssetCatalog)
 -- | State | --
 local sounds: { [string]: Sound } = {}
 
+-- | Helper Functions | --
+
 --[[
     @summary  Get or create a cached Sound instance for a given asset.
     @param    key     string  -- cache key
