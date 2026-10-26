@@ -40,6 +40,7 @@ export type JunkItem = {
 
 -- | Junk Item Definitions | --
 local JunkItems: { [string]: JunkItem } = {
+	-- 1 Scrap — common small pickups
 	Bolt = {
 		Id = "Bolt",
 		DisplayName = "Bolt",
@@ -58,6 +59,7 @@ local JunkItems: { [string]: JunkItem } = {
 		Material = Enum.Material.Metal,
 		Description = "A flat sheet of rusted metal. Grinds into 1 Scrap.",
 	},
+	-- 2 Scrap — mid-size appliances
 	OldRadio = {
 		Id = "OldRadio",
 		DisplayName = "Old Radio",
@@ -76,6 +78,7 @@ local JunkItems: { [string]: JunkItem } = {
 		Material = Enum.Material.Metal,
 		Description = "A fan with snapped blades. Grinds into 2 Scrap.",
 	},
+	-- 3 Scrap — bulky items worth hauling to the grinder
 	BrokenMicrowave = {
 		Id = "BrokenMicrowave",
 		DisplayName = "Broken Microwave",
