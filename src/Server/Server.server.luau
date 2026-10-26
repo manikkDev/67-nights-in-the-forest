@@ -67,6 +67,7 @@ local services = script.Parent.Services
 
 -- // INITIALIZATION // --
 
+-- Require all services so they can register with Knit before Start()
 local failedServices: { string } = {}
 for _, module in ipairs(services:GetChildren()) do
 	if module:IsA("ModuleScript") then
