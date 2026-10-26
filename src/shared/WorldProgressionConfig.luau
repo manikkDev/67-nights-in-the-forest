@@ -59,6 +59,8 @@ local Config = {
 	},
 }
 
+-- | Helper Functions | --
+
 --[[
     @summary  Access radius in studs for a campfire level (clamped).
     @param    level  number
