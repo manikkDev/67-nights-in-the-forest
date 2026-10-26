@@ -49,6 +49,7 @@ export type SpeciesConfig = {
 
 -- | Species Definitions | --
 return {
+	-- Passive — harmless foragers that flee when approached
 	Bunny = {
 		ModelName = "BunnyModel",
 		Tier = "Passive",
@@ -68,6 +69,7 @@ return {
 			{ Resource = "RabbitMeat", Min = 1, Max = 1, Chance = 1 },
 		},
 	},
+	-- Predator — aggressive species that hunt players on sight
 	WolfModel = {
 		ModelName = "WolfModel",
 		Tier = "Predator",
@@ -106,6 +108,7 @@ return {
 			{ Resource = "RabbitMeat", Min = 2, Max = 3, Chance = 1 },
 		},
 	},
+	-- Solitary — lone apex threats that guard a territory
 	Bear = {
 		ModelName = "Bear",
 		Tier = "Solitary",
