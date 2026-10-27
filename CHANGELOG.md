@@ -21,6 +21,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   constants groups across all services and controllers
 - Additional `docs/` pages: AI systems overview, crafting guide, and
   per-enemy behavior docs (deer, owl)
+- Full `docs/` player-guide set — every major system now has a page
+  (campfire, rescue, loot, combat, hunger, building, match flow, ending,
+  boundary, party/teleport, profiles, glossary, tuning, testing,
+  troubleshooting)
 
 ### Changed
 
