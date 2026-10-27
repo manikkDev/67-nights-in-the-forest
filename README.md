@@ -72,9 +72,13 @@ rojo serve
 
 ## Documentation
 
+- `docs/index.md` — full docs index (player guides + developer reference)
 - `docs/controls.md` — player key bindings
 - `docs/state-model.md` — FlowState / RunPhase / LifeState state machines
 - `docs/networking.md` — full Knit remote/signal inventory
+- `docs/tuning.md` — where gameplay numbers live
+- `docs/testing.md` — build and playtest workflow
+- `docs/troubleshooting.md` — common build/runtime issues
 - `ARCHITECTURE.md` — Phase 1 planning doc (stale; see banner)
 - `ROADMAP.md`, `TASKS.md`, `SETUP_MAC.md` — planning/setup notes
 
