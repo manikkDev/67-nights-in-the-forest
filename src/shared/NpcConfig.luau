@@ -128,6 +128,7 @@ return {
 			{ Resource = "RabbitMeat", Min = 3, Max = 4, Chance = 1 },
 		},
 	},
+	-- Predator (raid) — cultists spawn only during scheduled raids
 	Cultist = {
 		ModelName = "Cultist",
 		Tier = "Predator",
@@ -166,6 +167,7 @@ return {
 			{ Resource = "CultistGem", Min = 1, Max = 1, Chance = 1.0 },
 		},
 	},
+	-- Solitary — the Ram Monster never loses aggro once engaged
 	RamMonster = {
 		ModelName = "Ram Monster",
 		Tier = "Solitary",
