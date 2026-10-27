@@ -39,13 +39,16 @@ local StudioTest = {
 }
 
 local Config = {
+	-- Goal
 	GoalDay = 67,
 
+	-- Phase timing
 	DayDuration = 180,
 	NightDuration = 90,
 	DayStartClock = 6,
 	DayEndClock = 18,
 
+	-- Survival
 	StartingHealth = 100,
 	StartingHunger = 100,
 	ConsumableHeal = {
@@ -55,6 +58,7 @@ local Config = {
 		CookedMeat = 15,
 	},
 
+	-- Scoring and raid cadence
 	BaseMultiplier = 1,
 	MaxMultiplier = 9,
 
@@ -78,6 +82,7 @@ local Config = {
 	BodyDragResponsiveness = 35,
 	BodyDragUpdateInterval = 0.04,
 
+	-- Structure placement
 	PlacementGrid = 2,
 	PlacementRotationDegrees = 15,
 	PlacementMaxRange = 35,
@@ -86,6 +91,7 @@ local Config = {
 	CampBuildRadius = 110,
 	MaxStructures = 48,
 
+	-- Ending / replay timing
 	ResultsDisplaySeconds = 18,
 	ReplayVoteSeconds = 30,
 	ReplayRequestCooldown = 1.5,
