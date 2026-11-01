@@ -21,3 +21,7 @@ Approaching the boundary triggers the `WorldBoundaryController` proximity HUD pl
 ## Containment check
 
 The boundary service re-validates player positions every `CheckInterval` (0.15s).
+
+## See also
+
+- [World progression](progression.md) — [Campfire](campfire.md) — [Caves](caves.md)
