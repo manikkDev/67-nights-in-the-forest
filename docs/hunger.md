@@ -6,7 +6,7 @@ Two meters drive survival pressure: Health and Hunger, both starting at 100.
 
 - Decays continuously over time (`HungerService`)
 - At zero hunger, health drains until you eat or die
-- Eating restores hunger: berries +5, mushrooms +6, raw meat +3, cooked meat +15
+- Eating restores hunger — see the food values table in `docs/cooking.md`
 
 ## Health
 
