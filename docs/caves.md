@@ -23,3 +23,7 @@ Caves land in fixed annular rings (`WorldProgressionConfig.CaveRings`) so each o
 | Koala  | 1150–1250    | Lv5    |
 
 `GetCaveCenter(caveId)` exposes the cave centre for chest placement.
+
+## See also
+
+- [Rescue system](rescue.md) — [Loot & chests](loot.md) — [World progression](progression.md)
