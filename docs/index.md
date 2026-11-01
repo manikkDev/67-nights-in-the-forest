@@ -1,6 +1,6 @@
 # Documentation Index
 
-Developer and player-facing documentation for the 67 Nights in the Forest project.
+This folder contains player guides and developer reference for the 67 Nights in the Forest project.
 
 ## Getting Started
 
