@@ -100,7 +100,7 @@ local DEFAULT_R15_WALK_ID = "rbxassetid://913402848"
 local DEFAULT_R15_IDLE_ID = "rbxassetid://507766388"
 
 -- | State Management | --
--- Service refs resolved at KnitStart
+-- Sibling service handles resolved in KnitStart (world, time, campfire, spawn, animal AI, inventory, deer, player life)
 local worldService: any = nil
 local timeService: any = nil
 local campfireService: any = nil
