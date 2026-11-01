@@ -23,3 +23,7 @@ Enemy health and pack size scale with initial party size (`Config.ScaleEnemyHeal
 ## Studio test flags
 
 `RunConfig.StudioTest` overrides apply only under `RunService:IsStudio()` — e.g. `FastClock`, `ForceNight`, `GrantResources`, `SkipLobby`.
+
+## See also
+
+- [Testing](testing.md) — [Glossary](glossary.md)
