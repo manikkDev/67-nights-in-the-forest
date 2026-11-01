@@ -26,3 +26,7 @@ Defined in `StructureConfig.luau`:
 ## Health
 
 Structures have `MaxHealth` and can be damaged by raiders during cultist attacks.
+
+## See also
+
+- [Crafting guide](crafting-guide.md) — [Resources](resources.md) — [Tuning](tuning.md)
