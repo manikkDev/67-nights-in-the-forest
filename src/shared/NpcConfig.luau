@@ -128,7 +128,7 @@ return {
 			{ Resource = "RabbitMeat", Min = 3, Max = 4, Chance = 1 },
 		},
 	},
-	-- Predator (raid) — cultists spawn only during scheduled raids
+	-- Predator — cultist species spawned by CultistRaidService during scheduled raids
 	Cultist = {
 		ModelName = "Cultist",
 		Tier = "Predator",
