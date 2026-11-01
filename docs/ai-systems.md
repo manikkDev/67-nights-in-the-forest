@@ -33,3 +33,7 @@ The game features three enemy types, each with its own service and behavior mode
 - Pathfinding: Uses `PathfindingService` for navigation
 - Targeting: Prefer nearest player, respect downed state
 - Loot: Deer/Owl drop meat; Cultists drop nothing (raid-only threat)
+
+## See also
+
+- [Deer](ai-deer.md) — [Owl](ai-owl.md) — [Cultists](ai-cultists.md) — [Combat](combat.md)
