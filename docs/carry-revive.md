@@ -27,3 +27,7 @@ Teammates can drag a downed body to safety instead of reviving in place:
 ## Team wipe
 
 If every member is downed or eliminated simultaneously, the run ends in defeat.
+
+## See also
+
+- [Hunger & health](hunger.md) — [Spectating](spectating.md) — [Ending](ending.md)
