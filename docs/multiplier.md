@@ -21,3 +21,7 @@ Difficulty multipliers are derived from initial party size and clamped to `Diffi
 - `CountPerAdditionalPlayer` = 0.15 — enemy pack-size scaling
 
 Enemy damage is intentionally not scaled.
+
+## See also
+
+- [Ending](ending.md) — [Profiles](profiles.md) — [Tuning](tuning.md)
