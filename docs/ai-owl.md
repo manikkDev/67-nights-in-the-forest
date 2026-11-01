@@ -31,3 +31,7 @@ When a flashlight beam hits the owl's face:
 - Watch the eye meter to anticipate owl attacks
 - Use the flashlight to interrupt swoops
 - Stay near the campfire for safety
+
+## See also
+
+- [AI systems overview](ai-systems.md) — [Flashlight stun](flashlight.md) — [Combat](combat.md)
