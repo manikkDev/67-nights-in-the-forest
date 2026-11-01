@@ -27,3 +27,7 @@ Use the map UI's Track button (or `RequestSetWaypoint`) to mark a rescue target 
 ## Portrait Board
 
 The Missing Children board near the campfire shows one portrait per child: red when locked, green when available or rescued, yellow while carried. Portraits render in `ViewportFrame`s — the client rebuilds them locally because ViewportFrame contents do not replicate.
+
+## See also
+
+- [Caves](caves.md) — [World progression](progression.md) — [Map](map-ui.md)
