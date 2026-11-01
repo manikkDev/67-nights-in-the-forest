@@ -12,7 +12,7 @@ The wall is segmented; segment count varies by platform (64 server-side, 48 desk
 
 ## Warning effect
 
-Approaching the boundary triggers the `WorldBoundaryController` proximity HUD plus a ColorCorrection vignette — the old particle fog wall was removed. Crossing too far pushes the player back inside.
+Approaching the boundary triggers the `WorldBoundaryController` proximity HUD plus a ColorCorrection vignette — the old particle fog wall was removed. The physical wall itself blocks further movement; the controller only displays the warning.
 
 ## Placement reservation
 
