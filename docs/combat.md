@@ -22,3 +22,7 @@ All damageable NPCs register in `CombatTargetRegistry` under the `CombatTarget` 
 ## Spear grip note
 
 The spear's `Handle` part is `Spear.handle.Grip` (the red grip cylinder), not the head — see the Weapon Tool Creation section in `AGENTS.md` before adding new weapons.
+
+## See also
+
+- [Weapons](weapons.md) — [Flashlight](flashlight.md) — [AI systems](ai-systems.md)
