@@ -78,7 +78,7 @@ local WANDER_INTERVAL = 4 -- Seconds before picking a new wander target.
 local KID_WALK_SPEED = 8
 
 -- | State Management | --
--- Service refs resolved at KnitStart
+-- Sibling service handles resolved in KnitStart (run state, world, campfire, animal AI, player life)
 local runStateService: any = nil
 local worldService: any = nil
 local campfireService: any = nil
