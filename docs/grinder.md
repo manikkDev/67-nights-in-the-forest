@@ -18,7 +18,7 @@ The bolt-count badge on the item icon mirrors the yield (1–3 🔩).
 
 1. Pick up a junk item (it occupies an inventory slot).
 2. Carry it to the Shredder and use the proximity prompt.
-3. The item grinds with a metal-groan sound; Scrap lands in your inventory.
+3. The item grinds with a metal-groan sound; Scrap is awarded to the player (added to the resource inventory).
 
 ## Notes
 
