@@ -18,3 +18,7 @@ Terms used across the codebase and docs.
 | **LifeState** | Per-player state: Alive / Downed / Eliminated |
 | **Two-place architecture** | Lobby start place + reserved Game sub-place per party |
 | **Knit** | The framework pattern: server `Service` + client `Controller` pairs |
+
+## See also
+
+- [Documentation index](index.md) — [State model](state-model.md)
