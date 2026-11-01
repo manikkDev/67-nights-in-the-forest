@@ -22,3 +22,7 @@ Picked forageables disappear and respawn after a cooldown, so routes can be revi
 - Daytime is safest — hostile species are mostly inactive.
 - Forage while heading between objectives rather than as a dedicated trip.
 - Berries and mushrooms are small heals; cooked meat (15 HP) remains the best food.
+
+## See also
+
+- [Hunger & health](hunger.md) — [Resources](resources.md) — [Cooking](cooking.md)
