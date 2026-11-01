@@ -23,3 +23,7 @@ See the "Weapon Tool Creation" section in `AGENTS.md` — the grip must be `Spea
 ## ViewportFrame portraits are blank
 
 Viewport contents don't replicate server→client. The client must clone the rig and create its own camera inside each ViewportFrame — `RescueController.loadBoardPortraits()` already retries until the board exists.
+
+## See also
+
+- [Testing](testing.md) — [Tuning](tuning.md)
