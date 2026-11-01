@@ -20,3 +20,7 @@ A run ends in victory at Day 67, or in defeat when the whole team is eliminated.
 ## Reserved signals
 
 `RunEnded` exists on the client service surface but is currently unfired — reserved for a future post-results hook.
+
+## See also
+
+- [Match flow](match-flow.md) — [Score multiplier](multiplier.md) — [Profiles](profiles.md)
