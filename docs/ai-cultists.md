@@ -26,3 +26,7 @@ Both drop a guaranteed `CultistGem` plus a chance of wood.
 - Walls and gates from the building catalog absorb cultist hits.
 - The raid banner gives a few seconds to fall back inside defenses.
 - Cultist gems are the raid reward — don't skip them.
+
+## See also
+
+- [AI systems overview](ai-systems.md) — [Building defenses](building.md) — [Combat](combat.md)
