@@ -4,17 +4,29 @@ Player data is stored with ProfileService through `PlayerDataService`.
 
 ## Profile shape
 
-`ProfileTemplate.luau` defines the default tables: `Base`, `Rescue`, `Stats`, `Campfire` (run-scoped) plus `Resources` and `Inventory` (persistent).
+`ProfileTemplate.luau` defines the new-profile shape (`DataVersion = 2`):
 
-## Run scoping
+- `Records` — lifetime bests (HighestDay, Wins, ChildrenRescued, kill counts, playtime)
+- `Unlocks` — permanent unlocks
+- `Settings` — ReducedMotion, MusicVolume, SfxVolume
+- `Internal` — bookkeeping like `LastAppliedRunId`
+- `Resources` — Wood, Scrap, Coal, food, and junk item counts
+- `Survival` — Health/Hunger meters plus DeathCount and HighestNightSurvived
+- `Base` — BedCount, DayMultiplier, UnlockedStructures
+- `Inventory` — HasBag flag and PickupOrder
+- `Rescue` — ChildrenRescued and CavesUnlocked per run
+- `Stats` — per-run counters (TreesChopped, StructuresBuilt, Downs, …)
+- `Campfire` — Level, Progress, Fuel
 
-When a run ends, `RunStateService` resets only the run-scoped keys — `Base`, `Rescue`, `Stats`, `Campfire`. Resources and inventory deliberately persist across runs and rejoins, matching the reference game.
+## What resets per run
+
+`RunStateService.RUN_SCOPED_PROFILE_KEYS` = `{ "Base", "Rescue", "Stats", "Campfire" }` — these tables are replaced with fresh templates when a run starts and ends.
+
+`Survival` is NOT fully wiped: only `Health`, `MaxHealth`, `Hunger`, and `MaxHunger` are reset to the `RunConfig` starting values — `DeathCount` and `HighestNightSurvived` survive.
+
+`Resources` and `Inventory` are deliberately excluded — bag contents persist across runs and rejoins, matching the reference game. `Records`, `Unlocks`, `Settings`, and `Internal` are always persistent.
 
 ## Signals
 
 - `ProfileLoaded` fires server-side when a player's profile is ready; services should wait for it before touching data
 - Load failures are logged and the player is handled safely
-
-## Stats
-
-Kill counts and survival stats accumulate under `Stats` (e.g. `WolvesKilled` via `NpcConfig.StatsKey`) and feed the ending results screen.
