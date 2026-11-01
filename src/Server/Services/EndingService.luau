@@ -45,7 +45,7 @@ local EndingService = Knit.CreateService({
 })
 
 -- | State Management | --
--- Service refs resolved at KnitStart
+-- Sibling service handles resolved in KnitStart (run state, time, player data, player life, rescue, animal AI, deer, owl)
 local runStateService: any = nil
 local timeService: any = nil
 local playerDataService: any = nil
