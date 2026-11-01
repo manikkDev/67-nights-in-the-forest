@@ -87,7 +87,7 @@ local MAX_PARTY = Constants.PARTY_MAX_PLAYERS or 5
 local REQUEST_COOLDOWN = Constants.PARTY_REQUEST_COOLDOWN or 0.35
 
 -- | State Management | --
--- Service refs resolved at KnitStart
+-- Sibling service handles resolved in KnitStart (spawn, time, run state, session routing)
 local spawnService: any = nil
 local timeService: any = nil
 local runStateService: any = nil
