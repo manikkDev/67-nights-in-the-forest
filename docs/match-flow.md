@@ -20,3 +20,7 @@ From joining the lobby to spawning in the forest, the game runs through a fixed 
 ## Client mirror
 
 `GameStateController` mirrors `FlowState` locally; `IntroController` renders the countdown, story panels, and Day-1 reveal.
+
+## See also
+
+- [Parties & teleporting](party.md) — [Ending](ending.md) — [State model](state-model.md)
