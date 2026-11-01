@@ -21,3 +21,7 @@ Hold raw meat near the campfire and use the prompt. `CookingService` converts th
 
 - Cook in batches at dawn before the night threat returns.
 - Cooked meat is the most efficient food — prioritize it over foraged snacks when low on HP.
+
+## See also
+
+- [Hunger & health](hunger.md) — [Campfire](campfire.md) — [Resources](resources.md)
