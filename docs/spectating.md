@@ -18,3 +18,7 @@ Spectate mode activates automatically when `LifeState` becomes `Eliminated` — 
 ## Exit
 
 Spectating ends only when the run ends (results screen) or the player leaves.
+
+## See also
+
+- [Downing & reviving](carry-revive.md) — [Ending](ending.md)
