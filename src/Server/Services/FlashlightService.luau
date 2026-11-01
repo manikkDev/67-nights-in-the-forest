@@ -58,7 +58,7 @@ local BATTERY_RECHARGE_PER_SECOND = 3 -- faster passive recharge
 local STALKER_MODEL_NAMES = { "Deer", "Ram Monster", "Owl" }
 
 -- | State Management | --
--- Service refs resolved at KnitStart
+-- Sibling service handles resolved in KnitStart (deer, owl, player life)
 local deerService: any = nil
 local owlService: any = nil
 local playerLifeService: any = nil
