@@ -34,3 +34,7 @@ Cook raw meat at the campfire to significantly increase its healing value (3 HP 
 - Prioritize the campfire first — it's essential for cooking and warmth.
 - Build beds early to ensure safe spawn points.
 - Collect scrap whenever you see it — it's valuable for advanced structures.
+
+## See also
+
+- [Building](building.md) — [Resources](resources.md) — [Grinder](grinder.md)
