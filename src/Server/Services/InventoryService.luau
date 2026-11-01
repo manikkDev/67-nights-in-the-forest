@@ -121,7 +121,7 @@ local DROP_ASSETS: { [string]: string? } = {
 local MUSHROOM_ASSET_NAME = "Mushroom"
 
 -- | State Management | --
--- Service refs resolved at KnitStart
+-- Sibling service handles resolved in KnitStart (player data, world, spawn, player life)
 local playerDataService: any = nil
 local worldService: any = nil
 local spawnService: any = nil
