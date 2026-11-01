@@ -18,3 +18,7 @@ On the game place, players spawn near the campfire at the base map. Downed bodie
 ## Studio
 
 In Studio, `ServerRole` reports `IsGameServer() = true` so the full game path runs; the lobby character spawn is handled separately.
+
+## See also
+
+- [Parties & teleporting](party.md) — [Match flow](match-flow.md)
