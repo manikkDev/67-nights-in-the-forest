@@ -31,3 +31,7 @@ A wall expands outward as the campfire levels up, marking the edge of the access
 ## Map Size
 
 The full map is 3200×3200 studs, centered near (-75, -7). The distance from the center to the edge is 1600 studs.
+
+## See also
+
+- [Campfire](campfire.md) — [Rescue](rescue.md) — [Boundary](boundary.md)
