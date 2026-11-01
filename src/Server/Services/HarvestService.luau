@@ -73,7 +73,7 @@ local TREE_MODEL_NAMES = { "Tree", "bigtree", "GiantTree" }
 local AXE_TOOL_NAME = "Axe"
 
 -- | State Management | --
--- Service refs resolved at KnitStart
+-- Sibling service handles resolved in KnitStart (world, inventory, spawn, player life)
 local worldService: any = nil
 local inventoryService: any = nil
 local spawnService: any = nil
