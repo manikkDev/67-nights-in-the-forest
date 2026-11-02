@@ -84,7 +84,7 @@ local TWEEN_NOTIF_OUT = TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDi
 
 -- | State Management | --
 local craftingService: any = nil
--- Bench UI handles + last server-pushed state snapshot
+-- Bench UI handles plus the last state snapshot pushed by CraftingService
 local gui: ScreenGui? = nil
 local _panel: Frame? = nil
 local titleLabel: TextLabel? = nil
