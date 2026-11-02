@@ -84,7 +84,7 @@ local spawnService: any = nil
 local campfireService: any = nil
 local animalAIService: any = nil
 
--- Run identity, phase, membership, and multiplier ledger
+-- Run id and phase, the member set, and the named multiplier sources feeding the score
 local runId = ""
 local phase: RunPhase = "Lobby"
 local runStartedAt = 0
