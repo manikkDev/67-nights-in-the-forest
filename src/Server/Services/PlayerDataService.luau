@@ -45,6 +45,7 @@ local PlayerDataService = Knit.CreateService({
 PlayerDataService.ProfileLoaded = Signal.new()
 
 -- | State Management | --
+-- ProfileService store handle and the live per-player profile map
 local profileStore = ProfileService.GetProfileStore(Constants.STORE_NAME, ProfileTemplate)
 local profiles = {}
 
