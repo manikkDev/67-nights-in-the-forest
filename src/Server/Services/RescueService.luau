@@ -93,7 +93,7 @@ local dropCooldowns: { [Player]: number } = {}
 local rescuedCount = 0
 local rescueOrder = 0
 local rescueCheckTimer = 0
--- World object handles: cave/tent folders, poster board + slot widgets
+-- World object handles: cave/tent folders, poster board, and slot widgets
 local cavesFolder: Folder? = nil
 local tentsFolder: Folder? = nil
 local posterBoard: Part? = nil
