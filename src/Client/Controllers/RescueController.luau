@@ -47,7 +47,7 @@ local DROP_ACTION = "DropRescuedChild"
 
 -- | State Management | --
 local rescueService: any = nil
--- Rescue HUD handles: waypoint arrow, progress, carry, banner
+-- Rescue HUD handles — waypoint arrow, progress readout, carry prompt, banner
 local gui: ScreenGui? = nil
 local waypointFrame: Frame? = nil
 local arrowLabel: TextLabel? = nil
