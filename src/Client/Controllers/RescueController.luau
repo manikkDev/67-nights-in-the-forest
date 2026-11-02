@@ -60,7 +60,7 @@ local targetName = ""
 local carryingChild: string? = nil
 local bannerHideAt = 0
 
--- Map UI state
+-- Map UI state: open flag, tracked rescue id, marker caches
 local mapGui: ScreenGui? = nil
 local _mapFrame: Frame? = nil
 local mapCards: { [string]: Frame } = {}
