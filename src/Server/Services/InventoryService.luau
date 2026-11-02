@@ -126,7 +126,7 @@ local playerDataService: any = nil
 local worldService: any = nil
 local spawnService: any = nil
 local playerLifeService: any = nil
--- Cached tool/model templates cloned for pickups
+-- Template cache for tools and models cloned when players pick items up
 local bagTemplate: Tool? = nil
 local flashlightTemplate: Tool? = nil
 local mushroomSource: Model? = nil
