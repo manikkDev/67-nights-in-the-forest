@@ -54,7 +54,7 @@ local DEFEAT_MEMBER_ALIVE = Color3.fromRGB(80, 200, 100)
 local DEFEAT_MEMBER_DOWNED = Color3.fromRGB(210, 160, 50)
 local DEFEAT_MEMBER_ELIM = Color3.fromRGB(180, 65, 60)
 
--- Stat-card grid layout (2 columns x 4 rows)
+-- Stat-card grid layout: two columns by four rows
 local CARD_WIDTH = 180
 local CARD_HEIGHT = 90
 local CARD_GAP = 14
