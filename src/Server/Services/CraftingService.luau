@@ -63,7 +63,7 @@ local worldService: any = nil
 local grinderService: any = nil
 local playerLifeService: any = nil
 
--- Bench state: current tier, placed model, per-run craft ledger
+-- Bench state — current tier, placed model instance, and per-run recipe-craft counts
 local benchTier = 1
 local benchModel: Model? = nil
 local isManualBench = false
