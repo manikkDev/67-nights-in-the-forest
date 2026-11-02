@@ -69,7 +69,7 @@ local PLAY = IntroAssets.PlayButtonColor or Color3.fromRGB(95, 190, 70)
 
 -- | State Management | --
 local player = Players.LocalPlayer
--- One janitor per phase so cleaning up a screen can't kill the next
+-- One janitor per flow phase so tearing down a screen can't kill the next
 local janitor = Janitor.new()
 local waitingJanitor = Janitor.new()
 -- Screen handles (title -> party -> story -> day reveal)
