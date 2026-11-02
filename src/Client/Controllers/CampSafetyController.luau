@@ -70,7 +70,7 @@ local safeZoneRadius = 0
 local isNight = false
 local isFireActive = false
 local currentState: "day" | "safeNight" | "unsafeNight" | "fireOut" = "day"
--- Running tweens and loop handles
+-- Running tween and loop handles cancelled when the warning resets
 local currentCcTween: Tween? = nil
 local currentWarningTween: Tween? = nil
 local checkTimer = 0
