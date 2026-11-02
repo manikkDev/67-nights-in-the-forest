@@ -117,7 +117,7 @@ local playerDataService: any = nil
 local playerLifeService: any = nil
 local runStateService: any = nil
 local worldProgressionService: any = nil
--- Live NPC registry and per-species population tracking
+-- Registry of live NPC models plus the per-species counts used to cap spawns
 local activeNpcs: { [Model]: any } = {}
 local speciesCounts: { [string]: number } = {}
 local lastPhase: string = "Day"
