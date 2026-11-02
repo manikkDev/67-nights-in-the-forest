@@ -110,7 +110,7 @@ local inventoryService: any = nil
 local deerService: any = nil
 local playerLifeService: any = nil
 
--- Single active owl: record, phase tracking, summon debounce
+-- The single active owl record, its phase state, and the summon debounce timer
 local owl: any = nil
 local lastPhase = ""
 local owlActiveTonight = false
