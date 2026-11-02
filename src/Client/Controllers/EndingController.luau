@@ -65,7 +65,7 @@ local STAT_GRID_HEIGHT = CARD_ROWS * CARD_HEIGHT + (CARD_ROWS - 1) * CARD_GAP
 -- | State Management | --
 local endingService: any = nil
 local runStateService: any = nil
--- Results-screen widget handles
+-- Handles for the results screen widgets (stat cards, stamps, buttons)
 local gui: ScreenGui? = nil
 local backdrop: Frame? = nil
 local titleLabels: { TextLabel } = {}
