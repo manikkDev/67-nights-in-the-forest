@@ -54,7 +54,7 @@ local NIGHT_VISIBILITY_BRIGHTNESS = 0.5
 local NIGHT_VISIBILITY_RANGE = 38
 
 -- | State Management | --
--- Effect + warning UI handles
+-- Handles for the safe-zone glow effect and the out-of-zone warning UI
 local colorCorrection: ColorCorrectionEffect? = nil
 local warningGui: ScreenGui? = nil
 local warningLabel: TextLabel? = nil
