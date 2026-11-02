@@ -90,7 +90,7 @@ local function makeButton(parent: Instance, name: string, text: string, position
 	return button
 end
 
--- Map life state to display label and color
+-- Maps each life state to its display label and badge color
 local STATE_COLORS = {
 	Alive    = Color3.fromRGB(78,  184, 99),
 	Downed   = Color3.fromRGB(216, 165, 64),
