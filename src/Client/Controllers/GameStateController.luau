@@ -36,8 +36,10 @@ local GameStateController = Knit.CreateController({
 export type FlowState = "Lobby" | "Waiting" | "Countdown" | "Story" | "Day1" | "InGame"
 
 -- | State Management | --
+-- Local mirror of the server's flow state and the derived in-game flag
 local flowState: FlowState = "Lobby"
 local isInGame = false
+-- Signal handle fired once when the player enters the game
 local gameStartedSignal: any = nil
 
 -- // FUNCTIONS // --
