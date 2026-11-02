@@ -48,9 +48,11 @@ local STARVE_DAMAGE_PER_SEC = 2
 local BROADCAST_INTERVAL = 1
 
 -- | State Management | --
+-- Sibling service handles resolved in KnitStart (player data, spawn, player life)
 local playerDataService: any = nil
 local spawnService: any = nil
 local playerLifeService: any = nil
+-- HUD broadcast accumulator
 local broadcastTimer = 0
 
 -- // FUNCTIONS // --
