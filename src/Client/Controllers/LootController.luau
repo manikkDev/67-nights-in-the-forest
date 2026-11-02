@@ -81,6 +81,7 @@ local ACCENT_COLOR = Color3.fromRGB(80, 200, 120)
 local ACCENT_DIM = Color3.fromRGB(50, 140, 80)
 
 -- | State Management | --
+-- Loot panel widgets and the auto-dismiss timer thread
 local lootGui: ScreenGui? = nil
 local overlay: Frame? = nil
 local panel: Frame? = nil
