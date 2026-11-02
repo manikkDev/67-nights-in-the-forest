@@ -146,7 +146,7 @@ local worldService: any = nil
 local playerDataService: any = nil
 local inventoryService: any = nil
 local spawnService: any = nil
--- Campfire progression state
+-- Campfire level, current fuel, and progress toward the next level
 local stateLoaded = false
 local level = 1
 local levelProgress = 0
