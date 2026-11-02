@@ -51,7 +51,7 @@ local janitor = Janitor.new()
 local toolJanitor = Janitor.new()
 local charJanitor = Janitor.new()
 local gameStateController: any = nil
--- Damage-flash effect and cached spear swing animation
+-- Damage-flash screen effect and the cached spear-swing animation track
 local damageCorrection: ColorCorrectionEffect? = nil
 local spearAnimId: string? = nil
 local cachedSpearTrack: AnimationTrack? = nil
