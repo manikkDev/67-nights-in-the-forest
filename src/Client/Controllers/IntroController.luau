@@ -72,7 +72,7 @@ local player = Players.LocalPlayer
 -- One janitor per flow phase so tearing down a screen can't kill the next
 local janitor = Janitor.new()
 local waitingJanitor = Janitor.new()
--- Screen handles (title -> party -> story -> day reveal)
+-- Screen handles for the title, party, story, and day-reveal screens
 local screenGui: ScreenGui? = nil
 local titleScreen: Frame? = nil
 local createPartyFrame: Frame? = nil
