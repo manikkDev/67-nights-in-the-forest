@@ -44,7 +44,7 @@ local NIGHT_GRADIENT = ColorSequence.new({
 })
 
 -- | State Management | --
--- Top-center day/night banner widgets
+-- Top-center banner widgets showing the current phase and day number
 local phaseGui: ScreenGui? = nil
 local banner: Frame? = nil
 local _shadow: Frame? = nil
