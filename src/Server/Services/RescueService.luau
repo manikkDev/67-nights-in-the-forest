@@ -85,7 +85,7 @@ local campfireService: any = nil
 local animalAIService: any = nil
 local playerLifeService: any = nil
 
--- Cave/kid registry, carry tracking, and key ownership
+-- Cave and missing-child registry, in-progress carry tracking, and key ownership per player
 local caveRecords: { [string]: any } = {}
 local carriedBy: { [Player]: string } = {}
 local keyOwners: { [Player]: { [string]: boolean } } = {}
