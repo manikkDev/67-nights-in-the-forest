@@ -46,6 +46,7 @@ local DAY_NIGHT_VOLUME = 0.24
 local HORROR_VOLUME = 0.11
 
 -- | State Management | --
+-- Ambience and one-shot sound handles loaded lazily on first use
 local nightInsects: Sound? = nil
 local horrorLayer: Sound? = nil
 local impactSound: Sound? = nil
