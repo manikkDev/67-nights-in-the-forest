@@ -63,7 +63,7 @@ local worldService: any = nil
 local gameStateController: any = nil
 local campfireService: any = nil
 local timeService: any = nil
--- Current safety evaluation inputs and resulting state
+-- Inputs fed into the safety check and the resulting in-zone state
 local campfirePosition: Vector3? = nil
 local campfirePositionPending = false
 local safeZoneRadius = 0
