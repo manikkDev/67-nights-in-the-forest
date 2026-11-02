@@ -65,7 +65,7 @@ local statusLabel: TextLabel? = nil
 local warningLabel: TextLabel? = nil
 local hasFuelState = false
 
--- Level-up banner widgets
+-- Level-up banner widgets shown briefly after each campfire upgrade
 local levelUpGui: ScreenGui? = nil
 local levelUpBanner: Frame? = nil
 local levelUpBackground: Frame? = nil
