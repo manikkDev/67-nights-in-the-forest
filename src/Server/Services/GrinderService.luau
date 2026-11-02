@@ -60,7 +60,7 @@ local GRIND_SOUND_ID = "rbxassetid://9116635756"
 local runStateService: any = nil
 local inventoryService: any = nil
 local playerLifeService: any = nil
--- Grinder model handles (placed at runtime or found in the map)
+-- Handles for the grinder model — placed at runtime or reused from the map
 local grinderModel: Model? = nil
 local grinderPosition: Vector3? = nil
 local grinderPrimaryPart: BasePart? = nil
