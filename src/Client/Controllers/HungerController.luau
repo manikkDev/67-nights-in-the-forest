@@ -47,6 +47,7 @@ local HEALTH_COLOR = Color3.fromRGB(230, 75, 75)
 local HUNGER_COLOR = Color3.fromRGB(230, 170, 50)
 
 -- | State Management | --
+-- Survival meter widgets: health/hunger fill bars and value labels
 local healthFill: Frame? = nil
 local hungerFill: Frame? = nil
 local healthValueLabel: TextLabel? = nil
