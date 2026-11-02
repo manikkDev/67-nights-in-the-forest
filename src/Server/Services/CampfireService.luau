@@ -153,14 +153,14 @@ local levelProgress = 0
 local maxFuel = MAX_FUEL_BY_LEVEL[1]
 local fuel = 0
 local isLit = false
--- World object handles
+-- World object handles: campfire part, bonfire model, level signage
 local campfirePart: BasePart? = nil
 local fireCenter: BasePart? = nil
 local groundPart: BasePart? = nil
 local fireInstance: Fire? = nil
 local pointLight: PointLight? = nil
 local fireSound: Sound? = nil
--- Debounce + broadcast timers
+-- Debounce + broadcast timers for fuel ticks and HUD updates
 local feedCooldowns: { [Player]: number } = {}
 local fuelBroadcastTimer = 0
 local logScanTimer = 0
