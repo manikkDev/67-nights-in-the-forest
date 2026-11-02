@@ -45,7 +45,7 @@ local GROUND_RAY_HEIGHT = 500
 local BONFIRE_SCALE = 2
 
 -- | State Management | --
--- Map handles: lobby/base maps, campfire anchor, bonfire, ground plane
+-- World handles — lobby/base map models, campfire anchor, bonfire, and the ground plane
 local lobbyMap: Model? = nil
 local baseMap: Model? = nil
 local campfire: Part? = nil
