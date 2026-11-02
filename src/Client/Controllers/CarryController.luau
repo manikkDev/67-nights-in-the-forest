@@ -75,7 +75,7 @@ local hoveredModel: Model? = nil
 local hoverHighlight: Highlight? = nil
 local hoverNameGui: BillboardGui? = nil
 
--- Active drag: the model/resource/body being dragged and its target part
+-- Active drag — the model, resource, or body being dragged plus its target part
 local draggingModel: Model? = nil
 local draggingResourceName: string? = nil
 local draggingBodyPlayer: Player? = nil
