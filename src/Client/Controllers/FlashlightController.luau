@@ -63,7 +63,7 @@ local beamOn = false
 local batteryPercent = 100
 local lowBatteryWarning = false
 
--- Battery-panel widget handles
+-- Battery-panel widget handles: fill bar, label, low-battery flash
 local panelFrame: Frame? = nil
 local batteryBar: Frame? = nil
 local batteryFill: Frame? = nil
