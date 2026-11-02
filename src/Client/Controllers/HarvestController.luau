@@ -44,7 +44,7 @@ local CHOP_COOLDOWN = 0.5
 local janitor = Janitor.new()
 local toolJanitor = Janitor.new()
 local charJanitor = Janitor.new()
--- Chop debounce and cached swing animation track
+-- Chop debounce timer and the cached axe-swing animation track
 local lastChopTime = 0
 local swingAnimationId: string? = nil
 local cachedAnimTrack: AnimationTrack? = nil
