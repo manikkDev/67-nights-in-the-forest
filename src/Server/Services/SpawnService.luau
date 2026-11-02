@@ -59,9 +59,11 @@ local TOUCH_COOLDOWN = 1
 local CHARACTER_TIMEOUT = 12
 
 -- | State Management | --
+-- Sibling service handles resolved in KnitStart (world, match flow, run state)
 local worldService: any = nil
 local matchFlowService: any = nil
 local runStateService: any = nil
+-- Spawn bookkeeping: completed players, in-flight loads, pad touch debounces
 local spawnedPlayers: { [Player]: boolean } = {}
 local spawningPlayers: { [Player]: boolean } = {}
 local touchCooldowns: { [Player]: number } = {}
