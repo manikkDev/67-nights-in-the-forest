@@ -58,7 +58,7 @@ local charJanitor = Janitor.new()
 local gameStateController: any = nil
 local flashlightService: any = nil
 
--- Beam/battery state pushed by the server
+-- Flashlight beam/battery state as last pushed by FlashlightService
 local beamOn = false
 local batteryPercent = 100
 local lowBatteryWarning = false
