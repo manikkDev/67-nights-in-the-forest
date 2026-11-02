@@ -48,7 +48,9 @@ local DAMAGE_NUMBER_RISE = 3
 local DAMAGE_NUMBER_MAX_OFFSET = 1.5
 
 -- | State Management | --
+-- Per-model billboard health bars: gui, fill, last-hit stamp, cultist flag
 local activeBars: { [Model]: { gui: BillboardGui, fill: Frame, bg: Frame, lastHit: number, isRaidCultist: boolean } } = {}
+-- Whether the cultist raid presentation mode is active
 local raidMode = false
 
 -- // FUNCTIONS // --
