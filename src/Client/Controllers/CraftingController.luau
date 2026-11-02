@@ -104,7 +104,7 @@ local confirmButton: TextButton? = nil
 local cancelButton: TextButton? = nil
 local pendingRecipeId: string? = nil
 
--- Notification state
+-- Transient notification state (queued toasts and timers)
 local notifGui: ScreenGui? = nil
 local notifBanner: Frame? = nil
 local notifTitle: TextLabel? = nil
