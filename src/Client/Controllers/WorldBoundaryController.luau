@@ -28,10 +28,13 @@ local WorldBoundaryController = Knit.CreateController({
 	Name = "WorldBoundaryController",
 })
 
+-- | State Management | --
+-- Service refs resolved at KnitStart plus the cached boundary position/radius
 local worldService: any = nil
 local progressionService: any = nil
 local campfirePosition: Vector3? = nil
 local accessRadius = WorldProgressionConfig.GetAccessRadius(1)
+-- Proximity warning UI handles
 local warningGui: ScreenGui? = nil
 local warningFrame: Frame? = nil
 local warningLabel: TextLabel? = nil
