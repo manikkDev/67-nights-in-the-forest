@@ -66,7 +66,7 @@ local grinderPosition: Vector3? = nil
 local grinderPrimaryPart: BasePart? = nil
 local isManualModel = false
 local cooldowns: { [Player]: number } = {}
--- Blade spin rig: part, hinge, angular velocity, attachments, SFX
+-- Blade spin rig: part, hinge, angular velocity, attachments, and grind SFX
 local bladePart: BasePart? = nil
 local bladeHinge: HingeConstraint? = nil
 local bladeAngularVel: AngularVelocity? = nil
