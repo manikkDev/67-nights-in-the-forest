@@ -57,9 +57,11 @@ local WEAPON_DAMAGE = { Axe = 15, Spear = 25 }
 local WEAPON_COOLDOWN = { Axe = 0.6, Spear = 0.9 }
 
 -- | State Management | --
+-- Sibling service handles resolved in KnitStart (harvest, spawn, player life)
 local harvestService: any = nil
 local spawnService: any = nil
 local playerLifeService: any = nil
+-- Spear template cache and per-player attack rate-limit stamps
 local spearTemplate: Tool? = nil
 local attackCooldowns: { [Player]: number } = {}
 
