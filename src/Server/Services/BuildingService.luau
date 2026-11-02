@@ -72,7 +72,7 @@ local inventoryService: any = nil
 local timeService: any = nil
 local playerLifeService: any = nil
 
--- Placed-structure registry, placement debounce, runtime folder
+-- Registry of placed structures with health, placement-rate debounces, and the runtime folder that holds them
 local structures: { [string]: { model: Model, definition: any, ownerUserId: number, placedCycle: number } } = {}
 local placementCooldowns: { [Player]: number } = {}
 local structuresFolder: Folder? = nil
