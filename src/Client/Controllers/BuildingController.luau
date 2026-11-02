@@ -66,7 +66,7 @@ local Y_LIFT = 0.05 -- tiny lift so the model sits almost exactly on the ground
 -- | State Management | --
 local craftingService: any = nil
 local buildingService: any = nil
--- Active placement session: token, structure id, ghost preview parts
+-- Active placement session — token, structure id, and the ghost preview parts
 local activeToken: string? = nil
 local activeStructureId: string? = nil
 local ghostModel: Model? = nil -- the actual template clone for visual preview
