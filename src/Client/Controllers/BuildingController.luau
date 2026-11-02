@@ -77,7 +77,7 @@ local currentCFrame: CFrame? = nil
 local currentValid = false
 local yaw = 0
 local requestPending = false
--- Status/hint UI shown while placing
+-- Status and hint UI shown while a placement session is active
 local statusGui: ScreenGui? = nil
 local statusLabel: TextLabel? = nil
 local hintLabel: TextLabel? = nil
