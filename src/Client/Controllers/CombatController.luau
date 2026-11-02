@@ -46,7 +46,7 @@ local DAMAGE_FLASH_DURATION = 0.35
 local DAMAGE_FLASH_TINT = Color3.fromRGB(160, 0, 0)
 
 -- | State Management | --
--- Janitors: controller lifetime, per-tool equip, per-character spawn
+-- Janitors scoped to controller lifetime, per-tool equip, and per-character spawn
 local janitor = Janitor.new()
 local toolJanitor = Janitor.new()
 local charJanitor = Janitor.new()
