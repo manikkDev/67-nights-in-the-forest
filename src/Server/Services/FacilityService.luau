@@ -76,7 +76,7 @@ local JUNK_PER_FACILITY = { min = 1, max = 3 }
 local runStateService: any = nil
 local worldService: any = nil
 local inventoryService: any = nil
--- Placed facilities + their junk-spawn anchors and ground bounds
+-- Registry of placed facility models, their junk spawn anchors, and the ground bounds used for placement
 local facilities: { { model: Model, type: string, junkSpawns: { Vector3 } } } = {}
 local junkModels: { Model } = {}
 local groundBounds: { minX: number, maxX: number, minZ: number, maxZ: number }? = nil
