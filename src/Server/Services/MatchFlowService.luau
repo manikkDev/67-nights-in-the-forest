@@ -92,7 +92,7 @@ local spawnService: any = nil
 local timeService: any = nil
 local runStateService: any = nil
 local sessionRoutingService: any = nil
--- Session indexes (by member, by queue pad) + request rate limit
+-- Session lookup indexes (by member and by queue pad) plus the per-player request rate limit
 local sessionsByPlayer: { [Player]: Session } = {}
 local sessionsByQueue: { [string]: Session } = {}
 local lastRequestAt: { [Player]: number } = {}
