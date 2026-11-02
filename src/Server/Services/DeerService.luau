@@ -120,7 +120,7 @@ local campfireService: any = nil
 local spawnService: any = nil
 local playerLifeService: any = nil
 local worldProgressionService: any = nil
--- Active stalkers keyed by species key ("Deer" / "RamMonster")
+-- Active stalker records keyed by species key ("Deer" / "RamMonster"), one entry per spawned instance
 local stalkers: { [string]: any } = {}
 local deerSuppressed = false
 local activeStalkerKey: string? = nil  -- which stalker is active tonight ("Deer" or "RamMonster")
