@@ -69,7 +69,7 @@ local harvestService: any = nil
 local forageService: any = nil
 local inventoryService: any = nil
 local lifeService: any = nil
--- Hover state: what the cursor is over + its highlight/name tag
+-- Hover state — the model under the cursor plus its highlight and name tag
 local lastPickupTime = 0
 local hoveredModel: Model? = nil
 local hoverHighlight: Highlight? = nil
