@@ -94,7 +94,7 @@ local buttons: { [string]: TextButton } = {}
 local currentState: { tier: number, resources: { [string]: number }, recipeCounts: { [string]: number }, unlocks: { [string]: boolean } } = { tier = 1, resources = {}, recipeCounts = {}, unlocks = {} }
 local requestPending = false
 
--- Confirmation dialog state for destructive craft actions
+-- Confirmation dialog state tracking the pending destructive action
 local confirmOverlay: Frame? = nil
 local confirmCard: Frame? = nil
 local confirmTitle: TextLabel? = nil
