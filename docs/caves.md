@@ -24,6 +24,6 @@ Caves land in fixed annular rings (`WorldProgressionConfig.CaveRings`) so each o
 
 `GetCaveCenter(caveId)` exposes the cave centre for chest placement.
 
-## See also
+## Related reading
 
 - [Rescue system](rescue.md) — [Loot & chests](loot.md) — [World progression](progression.md)
