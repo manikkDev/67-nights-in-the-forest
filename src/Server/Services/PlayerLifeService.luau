@@ -76,7 +76,7 @@ type MovementState = {
 	platformStand: boolean,
 }
 
--- One active body-drag constraint pair and its refresh bookkeeping.
+-- The single active body-drag constraint pair plus its refresh bookkeeping.
 type BodyDrag = {
 	target: Player,
 	root: BasePart,
