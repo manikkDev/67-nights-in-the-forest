@@ -40,7 +40,7 @@ local AXE_TOOL_NAME = "Axe"
 local CHOP_COOLDOWN = 0.5
 
 -- | State Management | --
--- Janitors: controller lifetime, per-tool equip, per-character spawn
+-- Janitors scoped to controller lifetime, per-tool equip, and per-character spawn
 local janitor = Janitor.new()
 local toolJanitor = Janitor.new()
 local charJanitor = Janitor.new()
