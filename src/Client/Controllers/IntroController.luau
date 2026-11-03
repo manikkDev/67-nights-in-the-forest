@@ -58,7 +58,7 @@ local CLOSE = IntroAssets.CloseButton or Color3.fromRGB(220, 60, 60)
 local CUSTOMIZE = IntroAssets.CustomizeButton or Color3.fromRGB(80, 80, 80)
 local STORY = IntroAssets.StoryText or Color3.fromRGB(170, 90, 90)
 
--- Story-screen palette
+-- Story-screen color palette
 local TITLE_OUT = 1.0
 local STORY_BACK = IntroAssets.StoryScreenBackdrop or Color3.fromRGB(10, 10, 10)
 local STORY_HEADER = IntroAssets.StoryHeaderColor or Color3.fromRGB(220, 60, 60)
