@@ -72,7 +72,7 @@ local unlocks: { [string]: boolean } = {}
 local placementTokens: { [Player]: { [string]: { structureId: string, runId: string } } } = {}
 local craftCooldowns: { [Player]: number } = {}
 
--- Cached references to the resource counter labels on the
+-- Cached refs to the resource counter labels on the
 -- crafting table (wooden sheet count, scrap/bolt count).
 -- These show the SHARED run total of shredded output, not
 -- individual player inventory.
