@@ -134,7 +134,7 @@ local highlightedGroup: string? = nil
 
 -- // FUNCTIONS // --
 
--- Forward declarations to resolve circular references between UI build functions
+-- Forward declarations for the circular refs between UI builders
 local buildGui: () -> () = nil
 local buildMapIcon: () -> () = nil
 local setMapIconVisible: (visible: boolean) -> () = nil
