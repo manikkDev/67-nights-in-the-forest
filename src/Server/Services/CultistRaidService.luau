@@ -63,7 +63,7 @@ local RAID_CLEANUP_DELAY = 30
 local CULTIST_MODEL_KEYS = { "Cultist", "Cultist2" }
 
 -- | State Management | --
--- Sibling service handles resolved in KnitStart (time, world, animal AI, campfire, deer)
+-- KnitStart-resolved refs to sibling services: time, world, animal AI, campfire, deer
 local timeService: any = nil
 local worldService: any = nil
 local animalAIService: any = nil
