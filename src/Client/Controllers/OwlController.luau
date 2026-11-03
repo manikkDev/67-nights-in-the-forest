@@ -44,7 +44,7 @@ local BANNER_COLOR = Color3.fromRGB(180, 200, 255)
 -- Screen flash effect durations and colors
 local SCREAM_FLASH_DURATION = 0.4
 local DAMAGE_FLASH_DURATION = 0.35
--- Owl eye tint: whites -> red when it locks on
+-- Owl eye tint: fades from white to red as it locks on
 local EYE_BASE_COLOR = Color3.fromRGB(220, 220, 220)
 local EYE_DANGER_COLOR = Color3.fromRGB(220, 40, 40)
 
