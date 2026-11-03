@@ -44,7 +44,7 @@ local PANEL_FADE = 0.3
 local STORY_FADE = Constants.MATCH_STORY_FADE_SECONDS or 1.2
 local REVEAL_SECONDS = Constants.MATCH_REVEAL_SECONDS or 2.5
 
--- Title-screen palette (IntroAssets colors with inline fallbacks)
+-- Title-screen palette — IntroAssets colors with inline fallbacks
 local PANEL = IntroAssets.PanelBackdrop or Color3.fromRGB(25, 25, 25)
 local PANEL_ALPHA = IntroAssets.PanelBackgroundTransparency or 0.25
 local CREAM = IntroAssets.TitleColor or Color3.fromRGB(232, 220, 190)
