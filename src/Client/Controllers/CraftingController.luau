@@ -77,7 +77,7 @@ local COLOR = {
 	NotifItem = Color3.fromRGB(85, 170, 220),
 }
 
--- Tween timings
+-- Tween timing constants for panel open/close animations
 local TWEEN_HOVER = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local TWEEN_NOTIF_IN = TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 local TWEEN_NOTIF_OUT = TweenInfo.new(0.45, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
