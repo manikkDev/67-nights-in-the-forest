@@ -59,7 +59,7 @@ local PlayerLifeService = Knit.CreateService({
 	},
 })
 
--- Server-side lifecycle signals for other services (match/end logic).
+-- Server-side lifecycle signals consumed by other services (match/end logic).
 PlayerLifeService.PlayerDowned = Signal.new()      -- (player, source)
 PlayerLifeService.PlayerRevived = Signal.new()     -- (reviver, target)
 PlayerLifeService.PlayerEliminated = Signal.new()  -- (player)
