@@ -1179,7 +1179,7 @@ function buildGui()
 	buildMapIcon()
 end
 
--- Map quick-access icon that stays on screen when the full map is closed
+-- Quick-access map icon visible while the full map is closed
 --[[
     @summary  Build the small always-on map icon button that opens the
               map panel.
