@@ -132,7 +132,7 @@ local flashlightTemplate: Tool? = nil
 local mushroomSource: Model? = nil
 local mushroomBaseOffset: number? = nil
 
--- Active drags — per-player constraint record plus a reverse index from dragged model to player
+-- Active drags — per-player constraint records plus a reverse index from dragged model to dragger
 local dragging: { [Player]: { model: Model, alignPos: AlignPosition, alignOri: AlignOrientation?, dragTarget: BasePart, dragTargetAttach: Attachment, itemAttach: Attachment, originalCanCollide: { [BasePart]: boolean }, originalAnchored: { [BasePart]: boolean }, noCollisionConstraints: { NoCollisionConstraint } } } = {}
 local draggedBy: { [Model]: Player } = {}
 
