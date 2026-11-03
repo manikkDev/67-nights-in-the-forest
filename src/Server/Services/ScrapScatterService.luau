@@ -49,7 +49,7 @@ local MAX_RETRIES = 200
 local ALL_JUNK_IDS = { "Bolt", "SheetMetal", "OldRadio", "BrokenFan", "BrokenMicrowave", "Tyre", "MetalChair" }
 
 -- | State | --
--- Sibling service handles resolved in KnitStart (run state, world, inventory, world progression, campfire)
+-- KnitStart-resolved refs to sibling services: run state, world, inventory, world progression, campfire
 local runStateService: any = nil
 local worldService: any = nil
 local inventoryService: any = nil
