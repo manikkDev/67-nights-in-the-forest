@@ -153,7 +153,7 @@ local levelProgress = 0
 local maxFuel = MAX_FUEL_BY_LEVEL[1]
 local fuel = 0
 local isLit = false
--- World object handles: campfire part, bonfire model, level signage
+-- World object handles: campfire part, bonfire, signage: campfire part, bonfire model, level signage
 local campfirePart: BasePart? = nil
 local fireCenter: BasePart? = nil
 local groundPart: BasePart? = nil
