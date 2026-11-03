@@ -64,7 +64,7 @@ local STRUCTURE_TAG = "RunStructure"
 local GROUND_LIFT = 0.05 -- tiny lift so the model sits almost exactly on the ground
 
 -- | State Management | --
--- Sibling service handles resolved in KnitStart (run state, crafting, world, inventory, time, player life)
+-- KnitStart-resolved refs to sibling services: run state, crafting, world, inventory, time, player life
 local runStateService: any = nil
 local craftingService: any = nil
 local worldService: any = nil
