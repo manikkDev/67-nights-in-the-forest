@@ -41,7 +41,7 @@ local BANNER_FADE_IN = 0.4
 local BANNER_HOLD = 3.5
 local BANNER_FADE_OUT = 0.8
 local BANNER_COLOR = Color3.fromRGB(180, 200, 255)
--- Screen-flash effects
+-- Screen flash effect durations and colors
 local SCREAM_FLASH_DURATION = 0.4
 local DAMAGE_FLASH_DURATION = 0.35
 -- Owl eye tint: whites -> red when it locks on
