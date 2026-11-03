@@ -34,7 +34,7 @@ local CookingService = Knit.CreateService({
 -- Drop-only cooking no longer needs range/cooldown constants.
 
 -- | State Management | --
--- Cooking logic now lives in CampfireService to support drop-only cooking.
+-- Cooking logic lives in CampfireService for drop-only cooking.
 
 -- // INITIALIZATION // --
 
