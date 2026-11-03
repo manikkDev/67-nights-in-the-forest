@@ -42,7 +42,7 @@ local TEXT_DIM = Color3.fromRGB(170, 170, 180)
 local BAR_BG = Color3.fromRGB(28, 28, 34)
 local BAR_STROKE = Color3.fromRGB(80, 80, 90)
 
--- Bar fill colors
+-- Fill and background colors for the survival bars
 local HEALTH_COLOR = Color3.fromRGB(230, 75, 75)
 local HUNGER_COLOR = Color3.fromRGB(230, 170, 50)
 
