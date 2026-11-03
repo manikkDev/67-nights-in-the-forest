@@ -77,7 +77,7 @@ local RUN_SCOPED_PROFILE_KEYS = { "Base", "Rescue", "Stats", "Campfire" }
 local RUN_SCOPED_PROFILE_KEYS = { "Base", "Rescue", "Stats", "Campfire" }
 
 -- | State Management | --
--- Sibling service handles resolved in KnitStart (player data, time, spawn, campfire, animal AI)
+-- KnitStart-resolved refs to sibling services: player data, time, spawn, campfire, animal AI
 local playerDataService: any = nil
 local timeService: any = nil
 local spawnService: any = nil
