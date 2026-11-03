@@ -105,7 +105,7 @@ local portraitFolder: Folder? = nil
 local wanderingKids: { [Model]: { tentPosition: Vector3, nextWander: number } } = {}
 local wanderTimer = 0
 
--- Forward declaration so unlockForLevel can broadcast poster state changes.
+-- Forward declaration so unlockForLevel can broadcast poster changes.
 local updatePosterStates: (any) -> () = nil
 
 -- // FUNCTIONS // --
