@@ -56,7 +56,7 @@ local GRIND_SPIN_SPEED = 35    -- rad/s, fast grinding rotation
 local GRIND_SOUND_ID = "rbxassetid://9116635756"
 
 -- | State Management | --
--- Sibling service handles resolved in KnitStart (run state, inventory, player life)
+-- KnitStart-resolved refs to sibling services: run state, inventory, player life
 local runStateService: any = nil
 local inventoryService: any = nil
 local playerLifeService: any = nil
