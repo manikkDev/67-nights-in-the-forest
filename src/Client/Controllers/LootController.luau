@@ -76,7 +76,7 @@ local TIER_DISPLAY = {
 	CaveDino = "Dino Cave Chest",
 }
 
--- Green accent palette for a clean, professional look.
+-- Green accent palette for a clean, consistent look.
 local ACCENT_COLOR = Color3.fromRGB(80, 200, 120)
 local ACCENT_DIM = Color3.fromRGB(50, 140, 80)
 
