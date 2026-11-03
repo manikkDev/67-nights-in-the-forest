@@ -59,7 +59,7 @@ local MARKER_SIZE_FACILITY = 12
 local MARKER_SIZE_CAMPFIRE = 20
 local PLAYER_MARKER_SIZE = 12
 
--- Colors
+-- Marker and panel colors
 local COLOR = {
 	Panel = Color3.fromRGB(48, 42, 38),
 	PanelStroke = Color3.fromRGB(30, 26, 24),
