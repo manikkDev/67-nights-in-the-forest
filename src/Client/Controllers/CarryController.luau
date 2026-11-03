@@ -63,7 +63,7 @@ local BAG_TOOL_NAME = "Carry Bag"
 
 -- | State Management | --
 local localPlayer = Players.LocalPlayer
--- Service/controller refs resolved at KnitStart
+-- KnitStart-resolved refs to sibling services and controllers
 local gameStateController: any = nil
 local harvestService: any = nil
 local forageService: any = nil
