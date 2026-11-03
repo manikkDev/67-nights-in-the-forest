@@ -518,7 +518,7 @@ local JUNK_ASSET_NAMES: { [string]: { string } } = {
 	Tyre = { "Tyre", "Tire", "TyreModel" },
 }
 
--- Cache the junk folder so we only search once
+-- Cached junk folder — searched once, then reused
 local junkFolderCache: Instance? = nil
 
 --[[
