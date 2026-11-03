@@ -141,7 +141,7 @@ local LOG_SCAN_INTERVAL = 0.2
 local LOG_SCAN_RADIUS = 14
 
 -- | State Management | --
--- Sibling service handles resolved in KnitStart (world, player data, inventory, spawn)
+-- KnitStart-resolved refs to sibling services: world, player data, inventory, spawn
 local worldService: any = nil
 local playerDataService: any = nil
 local inventoryService: any = nil
