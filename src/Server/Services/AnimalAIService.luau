@@ -108,7 +108,7 @@ local SPECIES_SOUNDS: { [string]: { aggro: string?, attack: string?, hurt: strin
 local NPC_SOUND_MAX_DISTANCE = 90
 
 -- | State Management | --
--- Sibling service handles resolved in KnitStart (world, time, spawn, inventory, player data, life state, run state, world progression)
+-- KnitStart-resolved refs to sibling services: world, time, spawn, inventory, player data, life state, run state, world progression
 local worldService: any = nil
 local timeService: any = nil
 local spawnService: any = nil
