@@ -72,7 +72,7 @@ local FACILITY_LOOT = {
 local JUNK_PER_FACILITY = { min = 1, max = 3 }
 
 -- | State Management | --
--- Sibling service handles resolved in KnitStart (run state, world, inventory)
+-- KnitStart-resolved refs to sibling services: run state, world, inventory
 local runStateService: any = nil
 local worldService: any = nil
 local inventoryService: any = nil
