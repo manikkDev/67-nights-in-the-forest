@@ -91,7 +91,7 @@ local CAVE_CHESTS = {
 }
 
 -- | State Management | --
--- Sibling service handles resolved in KnitStart (run state, inventory, world, rescue, combat, player life)
+-- KnitStart-resolved refs to sibling services: run state, inventory, world, rescue, combat, player life
 local runStateService: any = nil
 local inventoryService: any = nil
 local worldService: any = nil
