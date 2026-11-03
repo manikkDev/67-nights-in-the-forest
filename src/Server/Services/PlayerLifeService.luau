@@ -68,7 +68,7 @@ PlayerLifeService.PlayerEliminated = Signal.new()  -- (player)
 -- timer, revivable) -> Eliminated (spectate only).
 export type LifeState = "Lobby" | "Alive" | "Downed" | "Eliminated"
 
--- Humanoid movement props saved while a player is downed.
+-- Humanoid movement properties saved while a player is downed.
 type MovementState = {
 	walkSpeed: number,
 	jumpPower: number,
