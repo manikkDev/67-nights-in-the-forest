@@ -48,7 +48,7 @@ local UNSAFE_BRIGHTNESS = -0.05
 local UNSAFE_SATURATION = 0
 local UNSAFE_TINT = Color3.fromRGB(255, 255, 255)
 
--- Small light boost near the player when the night is safe
+-- Subtle light boost around the player once the night is safe
 local NIGHT_VISIBILITY_COLOR = Color3.fromRGB(200, 210, 230)
 local NIGHT_VISIBILITY_BRIGHTNESS = 0.5
 local NIGHT_VISIBILITY_RANGE = 38
