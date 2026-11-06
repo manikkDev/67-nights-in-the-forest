@@ -45,7 +45,7 @@ local stalkerData: { [string]: any } = {}
 -- Heartbeat driving the per-frame Motor6D pose updates
 local heartbeatConnection: RBXScriptConnection? = nil
 
--- // CUSTOM KEYFRAME SEQUENCE PLAYER (client-side) // --
+-- // CLIENT-SIDE KEYFRAME SEQUENCE PLAYER // --
 
 --[[
     @summary  Recursively collect poses from a Keyframe, preserving
