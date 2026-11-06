@@ -69,7 +69,7 @@ local worldService: any = nil
 local animalAIService: any = nil
 local campfireService: any = nil
 local deerService: any = nil
--- Raid state — live cultist list, current day number, and kill tally driving the HUD
+-- Raid state — live cultist list, current day, and the kill tally driving the HUD
 local lastPhase: string = "Day"
 local raidActive = false
 local raidCultists: { Model } = {}
