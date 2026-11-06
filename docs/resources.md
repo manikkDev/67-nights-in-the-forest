@@ -19,6 +19,6 @@ Every resource type, where it comes from, and what it's for.
 - Resources stack; tools and junk items take one slot each.
 - Resources and inventory persist across runs — only Base/Rescue/Stats/Campfire profile keys reset.
 
-## See also
+## Related docs
 
 - [Inventory](inventory.md) — [Grinder](grinder.md) — [Harvesting](harvesting.md)
