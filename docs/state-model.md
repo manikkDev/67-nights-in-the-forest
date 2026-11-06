@@ -38,6 +38,6 @@ Lobby -> Alive -> Downed -> Eliminated
 Related server signals: `PlayerDowned(player, source)`,
 `PlayerRevived(reviver, target)`, `PlayerEliminated(player)`.
 
-## Related docs
+## Further reading
 
 - [Match flow](match-flow.md) — [Downing & reviving](carry-revive.md) — [Networking](networking.md)
