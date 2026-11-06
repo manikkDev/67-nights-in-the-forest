@@ -26,6 +26,6 @@ Hold raw meat near the fire to cook it — Cooked Meat heals 15 HP vs 3 HP raw (
 
 `CampfireService` exposes `LevelChanged`, `FuelAdded`, and `CampfireExtinguished`/`CampfireRelit` remotes that drive the HUD gauge and client effects.
 
-## Related reading
+## Further reading
 
 - [World progression](progression.md) — [Cooking](cooking.md) — [Boundary](boundary.md)
