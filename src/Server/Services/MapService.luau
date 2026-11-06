@@ -55,7 +55,7 @@ local facilityService: any = nil
 local worldProgressionService: any = nil
 local campfireService: any = nil
 local craftingService: any = nil
--- The placed map board model and the cached landmark dataset rendered on it
+-- The placed map board model and the cached landmark dataset rendered onto it
 local mapBoard: Part? = nil
 local mapData: { [string]: any } = {}
 
