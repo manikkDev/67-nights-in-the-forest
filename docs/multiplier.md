@@ -22,6 +22,6 @@ Difficulty multipliers are derived from initial party size and clamped to `Diffi
 
 Enemy damage is intentionally not scaled.
 
-## Related docs
+## Further reading
 
 - [Ending](ending.md) — [Profiles](profiles.md) — [Tuning](tuning.md)
