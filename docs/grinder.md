@@ -25,6 +25,6 @@ The bolt-count badge on the item icon mirrors the yield (1–3 🔩).
 - Grinding is handled by `GrinderService` server-side; `GrinderController` plays the client animation and sound.
 - Scrap gates Tier-2 bench upgrades and defenses — grind early and often.
 
-## Related docs
+## Further reading
 
 - [Facilities](facilities.md) — [Resources](resources.md) — [Crafting guide](crafting-guide.md)
