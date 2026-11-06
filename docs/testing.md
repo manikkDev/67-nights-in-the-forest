@@ -29,6 +29,6 @@ Remember to revert temporary values before committing — `StudioTest.DayDuratio
 
 `selene.toml` and `stylua.toml` configure the project's lint/format toolchain.
 
-## Related docs
+## Further reading
 
 - [Tuning](tuning.md) — [Troubleshooting](troubleshooting.md)
