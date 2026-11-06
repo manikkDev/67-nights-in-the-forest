@@ -29,6 +29,6 @@ Conventions for building interfaces that match the game's look.
 
 Major screens: title/story (intro), HUD (phase banner, day counter, meters), map, inventory, crafting, ending results.
 
-## See also
+## Related docs
 
 - [Documentation index](index.md) — [Controls](controls.md)
