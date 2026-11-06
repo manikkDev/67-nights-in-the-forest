@@ -19,6 +19,6 @@ Terms used across the codebase and docs.
 | **Two-place architecture** | Lobby start place + reserved Game sub-place per party |
 | **Knit** | The framework pattern: server `Service` + client `Controller` pairs |
 
-## See also
+## Related docs
 
 - [Documentation index](index.md) — [State model](state-model.md)
