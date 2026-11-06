@@ -40,7 +40,7 @@ local BREATH_AMPLITUDE = 0.035
 local MOVE_SPEED_THRESHOLD = 1
 
 -- | State Management | --
--- Cleanup janitor and the GameStateController ref resolved at KnitStart
+-- Cleanup janitor plus the GameStateController ref resolved at KnitStart
 local janitor = Janitor.new()
 local gameStateController: any = nil
 
