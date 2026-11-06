@@ -22,6 +22,6 @@ Facilities are placed during run setup inside the current access radius, away fr
 
 `FacilityService` keeps a facility registry and a junk registry for cleanup between runs, plus the campfire position used as the placement anchor.
 
-## See also
+## Related docs
 
 - [Grinder](grinder.md) — [Resources](resources.md) — [Map](map-ui.md)
