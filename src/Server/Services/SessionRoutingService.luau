@@ -59,7 +59,7 @@ local TICKET_MAP = MemoryStoreService:GetHashMap("ForestRunReconnectTicketsV1")
 
 -- | State Management | --
 local playerDataService: any = nil
--- Destination-server assembly bookkeeping for in-flight party teleports
+-- Destination-server assembly bookkeeping for in-flight party teleports and reconnects
 local destinationStarted = false
 local destinationMetadata: { [string]: any }? = nil
 local destinationPlayers: { [number]: Player } = {}
