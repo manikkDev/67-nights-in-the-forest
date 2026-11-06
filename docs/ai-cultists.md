@@ -27,6 +27,6 @@ Both drop a guaranteed `CultistGem` plus a chance of wood.
 - The raid banner gives a few seconds to fall back inside defenses.
 - Cultist gems are the raid reward — don't skip them.
 
-## Related reading
+## Further reading
 
 - [AI systems overview](ai-systems.md) — [Building defenses](building.md) — [Combat](combat.md)
