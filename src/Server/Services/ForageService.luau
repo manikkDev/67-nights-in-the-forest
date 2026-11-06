@@ -71,7 +71,7 @@ local inventoryService: any = nil
 local hungerService: any = nil
 local playerLifeService: any = nil
 local runStateService: any = nil
--- Forage scatter anchors (positions and ground bounds) plus the count of live pickups
+-- Forage scatter anchors (positions and bounds) plus the live pickup count
 local treePivots: { CFrame } = {}
 local groundPart: BasePart? = nil
 local groundBounds: { minX: number, maxX: number, minZ: number, maxZ: number }? = nil
