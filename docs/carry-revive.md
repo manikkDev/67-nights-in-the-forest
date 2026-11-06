@@ -28,6 +28,6 @@ Teammates can drag a downed body to safety instead of reviving in place:
 
 If every member is downed or eliminated simultaneously, the run ends in defeat.
 
-## Related reading
+## Further reading
 
 - [Hunger & health](hunger.md) — [Spectating](spectating.md) — [Ending](ending.md)
