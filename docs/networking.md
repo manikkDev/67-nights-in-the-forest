@@ -95,6 +95,6 @@ PlayerRevived / PlayerEliminated`, `RunStateService.PhaseChanged /
 RunStarted / RunEnding / RunCleaned`, `SessionRoutingService.LocalPartyReady /
 DestinationReady / PartyTeleportFailed`, `SpawnService.PlayerSpawned`.
 
-## See also
+## Related docs
 
 - [State model](state-model.md) — [Documentation index](index.md)
