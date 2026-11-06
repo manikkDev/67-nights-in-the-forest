@@ -32,6 +32,6 @@ When a flashlight beam hits the owl's face:
 - Use the flashlight to interrupt swoops
 - Stay near the campfire for safety
 
-## Related reading
+## Further reading
 
 - [AI systems overview](ai-systems.md) — [Flashlight stun](flashlight.md) — [Combat](combat.md)
