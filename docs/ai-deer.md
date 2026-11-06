@@ -32,6 +32,6 @@ When a flashlight beam hits the deer's face:
 - Avoid melee combat during their charge phase
 - Cook meat at the campfire for maximum healing value
 
-## Related reading
+## Further reading
 
 - [AI systems overview](ai-systems.md) — [Flashlight stun](flashlight.md) — [Combat](combat.md)
