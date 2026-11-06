@@ -62,7 +62,7 @@ local STALKER_MODEL_NAMES = { "Deer", "Ram Monster", "Owl" }
 local deerService: any = nil
 local owlService: any = nil
 local playerLifeService: any = nil
--- Per-player flashlight state — beam, battery, and aim — plus timestamps enforcing remote rate limits
+-- Per-player flashlight state — beam, battery, aim — plus remote rate-limit timestamps
 local beamActive: { [Player]: boolean } = {}
 local battery: { [Player]: number } = {}
 local aimDirections: { [Player]: Vector3 } = {}
