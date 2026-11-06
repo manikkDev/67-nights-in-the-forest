@@ -69,7 +69,7 @@ local currentMapStates: { [string]: any } = {}
 local trackedRescueId: string? = nil
 local portraitsLoaded = false
 
--- Forward declaration so loadPortraits can call refreshMapUi and loadBoardPortraits.
+-- Forward declaration so loadPortraits can call refreshMapUi
 local refreshMapUi: ({ [string]: any }) -> () = nil
 local loadBoardPortraits: () -> () = nil
 
