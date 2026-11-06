@@ -41,7 +41,7 @@ local inventoryService: any = nil
 local gui: ScreenGui? = nil
 local listFrame: ScrollingFrame? = nil
 
--- Forward declaration so buildUi's callbacks can reference the later refreshList
+-- Forward declaration so buildUi callbacks can reference refreshList
 -- before it is defined below.
 local refreshList: () -> ()
 
