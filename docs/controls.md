@@ -37,6 +37,6 @@ Bound via `ContextActionService` while a placement is active:
 | Next target | `E` | `ButtonR1` / `DPadRight` |
 | Previous target | `Q` | `ButtonL1` / `DPadLeft` |
 
-## Related reading
+## Further reading
 
 - [Documentation index](index.md) — [UI style](ui-style.md)
