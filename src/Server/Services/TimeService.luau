@@ -66,7 +66,7 @@ local NIGHT_FOG_END = 80
 local TWEEN_DURATION = 8
 
 -- | State Management | --
--- Clock state — current phase, countdown, displayed day number, and the heartbeat handle
+-- Clock state — phase, countdown, displayed day, and the heartbeat handle
 local currentPhase: "Day" | "Night" = "Day"
 local phaseTimer = 0
 local clockTime = DAY_START_CLOCK
