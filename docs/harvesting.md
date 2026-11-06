@@ -19,6 +19,6 @@ Equip the axe and click on a tree. `HarvestController` wires the tool, plays the
 - Campfire fuel (the constant demand)
 - Tier-1 structures and the Crafting Bench II upgrade
 
-## See also
+## Related docs
 
 - [Resources](resources.md) — [Campfire](campfire.md) — [Weapons](weapons.md)
