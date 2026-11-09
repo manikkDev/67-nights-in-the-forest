@@ -43,6 +43,8 @@ local PlayerDataService = Knit.CreateService({
 
 -- Server-side signal: (player) — profile finished loading/session-locking.
 PlayerDataService.ProfileLoaded = Signal.new()
+-- Server-side signal: (player, newBestDay) — Records.HighestDay improved.
+PlayerDataService.HighestDayUpdated = Signal.new()
 
 -- | State Management | --
 -- ProfileService store handle and the live per-player profile map
@@ -116,7 +118,11 @@ function PlayerDataService:ApplyRunRecords(player: Player, runId: string, result
 	local displayedDay = math.max(0, math.floor(tonumber(result.displayedDay) or 0))
 	local elapsedSeconds = math.max(0, tonumber(result.elapsedSeconds) or 0)
 
-	records.HighestDay = math.max(records.HighestDay or 0, displayedDay)
+	local previousBest = records.HighestDay or 0
+	records.HighestDay = math.max(previousBest, displayedDay)
+	if records.HighestDay > previousBest then
+		PlayerDataService.HighestDayUpdated:Fire(player, records.HighestDay)
+	end
 	if result.victory == true then
 		records.Wins = (records.Wins or 0) + 1
 		if elapsedSeconds > 0 and ((records.FastestDay67Seconds or 0) <= 0 or elapsedSeconds < records.FastestDay67Seconds) then
