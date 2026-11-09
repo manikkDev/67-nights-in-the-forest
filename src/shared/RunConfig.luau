@@ -25,10 +25,10 @@ local RunService = game:GetService("RunService")
 
 -- | Configuration | --
 local StudioTest = {
-	Enabled = true, -- TEMPORARY: enabled for GrantResources testing
+	Enabled = false, -- set true only when using Studio test flags below
 	SkipLobby = false,
 	ForceGameMode = false,
-	GrantResources = true,
+	GrantResources = false,
 	InfiniteWood = false,
 	FastClock = false,
 	ForceNight = false,

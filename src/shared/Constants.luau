@@ -51,4 +51,20 @@ return {
 	MATCH_STORY_HOLD_SECONDS = 5,
 	MATCH_DAY1_HOLD_SECONDS = 2,
 	MATCH_REVEAL_SECONDS = 2.5,
+
+	-- Donation stand tiers: Robux price -> repeatable Developer Product ID.
+	-- Create each product on the Creator Dashboard (same name/price) and
+	-- paste its ProductId here. ProductId = 0 means the tier is unconfigured
+	-- and its button will ignore clicks.
+	DONATION_TIERS = {
+		{ Price = 10, ProductId = 3729942139 },
+		{ Price = 50, ProductId = 3729942185 },
+		{ Price = 100, ProductId = 3729942221 },
+		{ Price = 500, ProductId = 3729942275 },
+		{ Price = 1000, ProductId = 3729942316 },
+		{ Price = 5000, ProductId = 3729942356 },
+		{ Price = 10000, ProductId = 3729942385 },
+		{ Price = 100000, ProductId = 3729942446 },
+		{ Price = 1000000, ProductId = 3729942543 },
+	},
 }

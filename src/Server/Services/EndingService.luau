@@ -26,10 +26,14 @@
 -- | Services | --
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
+local Constants = require(ReplicatedStorage.Shared.Constants)
+local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local EndingService = Knit.CreateService({
@@ -124,6 +128,29 @@ local function finalizeResults(reason: string, data)
 end
 
 --[[
+    @summary  Teleport every still-connected player back to the lobby place.
+    @desc     Runs after run cleanup on a production game server — a reserved
+              server cannot host another party, so everyone goes home. Skipped
+              in Studio, where CleanupRun's lobby respawn already handles the
+              return, and on the lobby place where no run can end.
+]]
+local function returnPartyToLobby()
+	if RunService:IsStudio() or not ServerRole.IsGameServer() then
+		return
+	end
+	local targets = Players:GetPlayers()
+	if #targets == 0 then
+		return
+	end
+	local ok, err = pcall(function()
+		TeleportService:TeleportAsync(Constants.LOBBY_PLACE_ID, targets)
+	end)
+	if not ok then
+		warn("[EndingService] Return-to-lobby teleport failed:", err)
+	end
+end
+
+--[[
     @summary  Pause active threats and begin the shared result sequence.
     @param    reason  string
     @param    data    table
@@ -158,6 +185,7 @@ local function onRunEnding(reason: string, data)
 		if runStateService:GetRunId() == capturedRunId then
 			runStateService:CleanupRun(reason)
 			endingRunId = ""
+			returnPartyToLobby()
 		end
 	end)
 end
@@ -206,6 +234,7 @@ function EndingService:KnitStart()
 		if allAcked and runStateService:GetRunId() == capturedRunId then
 			runStateService:CleanupRun("EARLY_RETURN")
 			endingRunId = ""
+			returnPartyToLobby()
 		end
 	end)
 end
