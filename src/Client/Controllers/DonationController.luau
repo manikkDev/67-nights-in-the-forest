@@ -11,8 +11,7 @@
     connects every tier button on its sign SurfaceGui so a click prompts
     the matching repeatable Developer Product.  When the server confirms
     a purchase it fires DonationConfirmed and this controller shows a
-    brief thank-you toast.  Lobby-only — returns early on real game
-    servers (Studio still initialises so the stand is testable there).
+    brief thank-you toast.  Inert wherever the lobby map/stand is absent.
 
     @exports
     - none
@@ -24,13 +23,11 @@
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Constants = require(ReplicatedStorage.Shared.Constants)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local DonationController = Knit.CreateController({
@@ -115,14 +112,9 @@ end
 
 --[[
     @summary  Knit lifecycle start — wires the stand and the thank-you
-              toast.  Inert on real game servers and when the lobby map
-              has no donation stand.
+              toast.  Inert when the lobby map has no donation stand.
 ]]
 function DonationController:KnitStart()
-	if ServerRole.IsGameServer() and not RunService:IsStudio() then
-		return
-	end
-
 	local donationService = Knit.GetService("DonationService")
 	donationService.DonationConfirmed:Connect(showThankYou)
 

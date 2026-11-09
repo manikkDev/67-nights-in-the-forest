@@ -28,11 +28,9 @@
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local LeaderboardService = Knit.CreateService({
@@ -43,7 +41,7 @@ local LeaderboardService = Knit.CreateService({
 local playerDataService
 
 -- | State Management | --
-local MAX_ROWS = 15
+local MAX_ROWS = 10
 local REFRESH_SECONDS = 90
 local POLL_SECONDS = 10
 local daysStore
@@ -311,11 +309,8 @@ function LeaderboardService:KnitStart()
 		LeaderboardService:RecordHighestDay(player, day)
 	end)
 
-	-- The boards only exist on the lobby place; game servers only write.
-	if ServerRole.IsGameServer() and not RunService:IsStudio() then
-		return
-	end
-
+	-- The boards only exist where lobby-map does; findBoards() polls until
+	-- they appear, so this loop is inert on any place without them.
 	task.spawn(function()
 		-- Boards may stream in after service start; poll until found.
 		while not findBoards() do

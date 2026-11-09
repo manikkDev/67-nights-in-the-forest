@@ -71,6 +71,29 @@ local function processReceipt(receipt)
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 
+--[[
+    @summary  Loop the dev NPC's emote beside the donation stand.
+    @desc     Animator playback on the server replicates to every
+              client, so no client-side wiring is needed.  No-op where
+              the lobby map (and the NPC) does not exist.
+]]
+local function startDevNpcEmote()
+	local lobbyMap = workspace:FindFirstChild("lobby-map")
+	local npc = lobbyMap and lobbyMap:FindFirstChild("DevNPC")
+	local humanoid = npc and npc:FindFirstChildOfClass("Humanoid")
+	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+	local anim = npc and npc:FindFirstChild("EmoteAnim")
+	if not (animator and anim) then
+		return
+	end
+	local ok, track = pcall(animator.LoadAnimation, animator, anim)
+	if ok and track then
+		track.Looped = true
+		track.Priority = Enum.AnimationPriority.Action
+		track:Play(0.2)
+	end
+end
+
 -- // INITIALIZATION // --
 
 --[[
@@ -78,6 +101,14 @@ end
 ]]
 function DonationService:KnitInit()
 	MarketplaceService.ProcessReceipt = processReceipt
+end
+
+--[[
+    @summary  Knit lifecycle start — starts the dev NPC's looping emote
+              once the lobby map has replicated.
+]]
+function DonationService:KnitStart()
+	task.defer(startDevNpcEmote)
 end
 
 return DonationService

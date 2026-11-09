@@ -7,11 +7,10 @@
     Detects whether the current server is the lobby place or the game place.
 
     @description
-    Professional two-place architecture: the experience has a Lobby place
-    (start place) and a Game place (sub-place).  Each party gets a reserved
-    server of the Game place.  This module lets every service and controller
-    cheaply determine which role the current server plays so game-only logic
-    can be skipped on the lobby and vice-versa.
+    Single-place architecture: the start place hosts both the lobby map
+    and the run map, so every server acts as a game server.  The legacy
+    two-place place-id checks are kept for compatibility but the lobby
+    place id also resolves to game-server duty.
 
     In Studio, the role is determined by the StudioTest.ForceGameMode flag
     so you can test either place without publishing.  In production, the
@@ -96,14 +95,12 @@ function ServerRole.IsGameServer(): boolean
 
 	-- PlaceId check: the most reliable detection in production.
 	-- In Studio the PlaceId is the lobby place, so skip this check there.
+	-- Single-place build: both known place ids host runs, so both count
+	-- as game-server duty (lobby logic gates on lobby-map presence).
 	if not RunService:IsStudio() then
-		if game.PlaceId == Constants.GAME_PLACE_ID then
-			logDetection("PlaceId==GAME_PLACE_ID", true)
+		if game.PlaceId == Constants.GAME_PLACE_ID or game.PlaceId == Constants.LOBBY_PLACE_ID then
+			logDetection("PlaceId is known game place", true)
 			return true
-		end
-		if game.PlaceId == Constants.LOBBY_PLACE_ID then
-			logDetection("PlaceId==LOBBY_PLACE_ID", false)
-			return false
 		end
 	end
 

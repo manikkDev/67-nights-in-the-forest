@@ -4,14 +4,15 @@
     @date    2025
 
     @summary
-    Securely routes lobby parties into isolated reserved run servers.
+    Routes formed lobby parties into a run on the same server.
 
     @description
-    Lobby servers reserve a server in Constants.GAME_PLACE_ID and attach
-    server-authored party metadata. Reserved destinations validate every
-    arrival and wait for both the expected party and their profiles. Studio
-    uses the same interface but returns the local party instead of calling
-    TeleportService.
+    Single-place architecture: the lobby map and run map live in one
+    place, so RouteParty validates the party, waits for every member's
+    profile to load, and fires LocalPartyReady — no cross-place
+    teleporting. The reserved-server destination machinery below is
+    dormant legacy code kept for reference (IsReservedRunServer can
+    never be true on the main place).
 
     @exports
     - SessionRoutingService:WriteReconnectTicket(partyId, userId, accessCode) -> boolean
@@ -261,57 +262,27 @@ function SessionRoutingService:RouteParty(partyId: string, hostUserId: number, p
 		return false
 	end
 
-	if RunService:IsStudio() then
-		task.spawn(function()
-			local deadline = os.clock() + DESTINATION_WAIT
-			while os.clock() < deadline do
-				local ready = playerDataService ~= nil
-				for _, player in ipairs(livePlayers) do
-					if player.Parent ~= Players or not ready or not playerDataService:GetData(player) then
-						ready = false
-						break
-					end
+	-- Single-place routing: runs start on this same server, so the party
+	-- never teleports between places. Wait for every member's profile to
+	-- load, then hand the party to MatchFlowService via LocalPartyReady.
+	task.spawn(function()
+		local deadline = os.clock() + DESTINATION_WAIT
+		while os.clock() < deadline do
+			local ready = playerDataService ~= nil
+			for _, player in ipairs(livePlayers) do
+				if player.Parent ~= Players or not ready or not playerDataService:GetData(player) then
+					ready = false
+					break
 				end
-				if ready then
-					SessionRoutingService.LocalPartyReady:Fire(livePlayers, metadata)
-					return
-				end
-				task.wait(0.25)
 			end
-			SessionRoutingService.PartyTeleportFailed:Fire(partyId, livePlayers, "Profiles were not ready")
-		end)
-		return true
-	end
-	if self:IsReservedRunServer() then
-		return false
-	end
-
-	local reserveOk, accessCode = pcall(function()
-		return TeleportService:ReserveServerAsync(Constants.GAME_PLACE_ID)
-	end)
-	if not reserveOk or typeof(accessCode) ~= "string" then
-		warn("[SessionRoutingService] Could not reserve run server:", accessCode)
-		return false
-	end
-
-	for _, player in ipairs(livePlayers) do
-		pendingTeleports[player] = partyId
-		self:WriteReconnectTicket(partyId, player.UserId, accessCode)
-	end
-	local options = Instance.new("TeleportOptions")
-	options.ReservedServerAccessCode = accessCode
-	options:SetTeleportData(metadata)
-	local teleportOk, teleportError = pcall(function()
-		TeleportService:TeleportAsync(Constants.GAME_PLACE_ID, livePlayers, options)
-	end)
-	if not teleportOk then
-		for _, player in ipairs(livePlayers) do
-			pendingTeleports[player] = nil
+			if ready then
+				SessionRoutingService.LocalPartyReady:Fire(livePlayers, metadata)
+				return
+			end
+			task.wait(0.25)
 		end
-		warn("[SessionRoutingService] Party teleport failed:", teleportError)
-		SessionRoutingService.PartyTeleportFailed:Fire(partyId, livePlayers, tostring(teleportError))
-		return false
-	end
+		SessionRoutingService.PartyTeleportFailed:Fire(partyId, livePlayers, "Profiles were not ready")
+	end)
 	return true
 end
 

@@ -8,8 +8,9 @@
 
     @description
     Teleporter1/2/3 are independent queues. Each queue owns its capacity,
-    roster, host migration, countdown, and party identity. Published parties
-    route to reserved servers; Studio starts the same party locally.
+    roster, host migration, countdown, and party identity. Parties start
+    their run on this same server (single-place architecture); a second
+    queue bounces back to Waiting while a run is live.
 
     @exports
     - MatchFlowService:EnterWaiting(player, queueId) -> boolean
@@ -311,6 +312,16 @@ end
     @returns  boolean
 ]]
 local function startRun(participants: { Player }, metadata: { [string]: any }, session: Session?): boolean
+	-- Single-place servers host one shared run map, so a second party
+	-- cannot start while a run is live — StartRun would force-clean it.
+	-- Bounce the session back to Waiting; it can retry after RunCleaned.
+	if runStateService and runStateService:GetPhase() ~= "Lobby" then
+		if session then
+			session.routing = false
+			setState(session, "Waiting")
+		end
+		return false
+	end
 	local startedRunId = runStateService and runStateService:StartRun(participants, metadata) or nil
 	if not startedRunId then
 		warn("[MatchFlowService] startRun failed: RunStateService:StartRun returned nil")

@@ -27,14 +27,12 @@
 -- | Services | --
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 -- | Modules | --
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages.Signal)
 local RunConfig = require(ReplicatedStorage.Shared.RunConfig)
 local Constants = require(ReplicatedStorage.Shared.Constants)
-local ServerRole = require(ReplicatedStorage.Shared.ServerRole)
 
 -- | Objects | --
 local SpawnService = Knit.CreateService({
@@ -384,10 +382,10 @@ function SpawnService:KnitStart()
 		Players.PlayerAdded:Connect(function(player)
 			task.spawn(autoSpawnPlayer, player)
 		end)
-	elseif ServerRole.IsLobby() or RunService:IsStudio() then
-		-- In production this is the true Lobby server. In Studio, IsGameServer()
-		-- is always true so IsLobby() is always false — the explicit IsStudio()
-		-- check here ensures players still spawn at the Lobby SpawnLocation.
+	elseif workspace:FindFirstChild("lobby-map") ~= nil then
+		-- Single-place build: the lobby map lives in the same place as the
+		-- run map, so spawn newcomers at the Lobby SpawnLocation wherever a
+		-- lobby-map exists (production start place and Studio alike).
 		--[[
 		    @summary  ReturnToLobby a player, spawned async.
 		    @param    player  Player
