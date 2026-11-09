@@ -52,6 +52,10 @@ return {
 	MATCH_DAY1_HOLD_SECONDS = 2,
 	MATCH_REVEAL_SECONDS = 2.5,
 
+	-- Seconds the "moving to a fresh lobby" alert shows before the
+	-- party is teleported to a reserved server when a run is already live
+	RELOCATE_ALERT_SECONDS = 4,
+
 	-- Donation stand tiers: Robux price -> repeatable Developer Product ID.
 	-- Create each product on the Creator Dashboard (same name/price) and
 	-- paste its ProductId here. ProductId = 0 means the tier is unconfigured

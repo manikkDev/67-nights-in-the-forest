@@ -29,7 +29,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TeleportService = game:GetService("TeleportService")
 local MemoryStoreService = game:GetService("MemoryStoreService")
-local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 
 -- | Modules | --
@@ -216,20 +215,24 @@ end
 
 -- | Routing | --
 --[[
-    @summary  Whether this server is a reserved run server (real
-              PrivateServerId with no VIP owner; never in Studio).
+    @summary  Whether this server is a reserved run server.
+    @desc     Single-place architecture: every server of this place —
+              public or reserved — is a normal unified server.  Relocated
+              parties land on fresh reserved servers as regular lobby
+              players, so this must stay false or arrivals would be
+              rejected by the legacy destination checks.
     @returns  boolean
 ]]
 function SessionRoutingService:IsReservedRunServer(): boolean
-	return not RunService:IsStudio() and game.PrivateServerId ~= "" and game.PrivateServerOwnerId == 0
+	return false
 end
 
 --[[
-    @summary  Route a formed party into a run server.
+    @summary  Route a formed party into a run on this server.
     @desc     Validates party size bounds and that every member is still
-              connected, builds signed party metadata, then teleports the
-              party to a reserved server in production. In Studio it waits
-              for profiles to load and fires LocalPartyReady instead.
+              connected, builds signed party metadata, waits for profiles
+              to load, then fires LocalPartyReady — runs always start on
+              the same server in the single-place architecture.
     @param    partyId     string
     @param    hostUserId  number
     @param    players     { Player }
@@ -284,6 +287,46 @@ function SessionRoutingService:RouteParty(partyId: string, hostUserId: number, p
 		SessionRoutingService.PartyTeleportFailed:Fire(partyId, livePlayers, "Profiles were not ready")
 	end)
 	return true
+end
+
+--[[
+    @summary  Teleport a waiting party to a fresh reserved server of this
+              same place so they can start their own run there.
+    @desc     Used when a run is already live here — one shared map means
+              one run per server.  ShouldReserveServer guarantees a new
+              empty instance; a plain same-place teleport could matchmake
+              the party straight back into this busy server.  Members who
+              leave mid-flight are skipped; per-player failures surface
+              through TeleportInitFailed -> PartyTeleportFailed.
+    @param    partyId  string
+    @param    players  { Player }
+    @returns  boolean  -- false when the teleport call itself failed
+]]
+function SessionRoutingService:RelocateParty(partyId: string, players: { Player }): boolean
+	local livePlayers = {}
+	for _, player in ipairs(players) do
+		if player.Parent == Players then
+			table.insert(livePlayers, player)
+		end
+	end
+	if #livePlayers == 0 then
+		return false
+	end
+	for _, player in ipairs(livePlayers) do
+		pendingTeleports[player] = partyId
+	end
+	local ok, err = pcall(function()
+		local options = Instance.new("TeleportOptions")
+		options.ShouldReserveServer = true
+		TeleportService:TeleportAsync(game.PlaceId, livePlayers, options)
+	end)
+	if not ok then
+		for _, player in ipairs(livePlayers) do
+			pendingTeleports[player] = nil
+		end
+		warn(("[SessionRoutingService] RelocateParty failed: %s"):format(tostring(err)))
+	end
+	return ok
 end
 
 -- | Destination Assembly | --

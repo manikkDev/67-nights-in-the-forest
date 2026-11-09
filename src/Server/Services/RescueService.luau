@@ -651,12 +651,14 @@ local function createPortraitTemplate(rescueId: string): Model?
 	-- Apply variant styling (hat, color tint).
 	styleChildVariant(model, definition)
 	-- Parent to the shared folder so clients can replicate it.
-	if not portraitFolder then
-		portraitFolder = Instance.new("Folder")
-		portraitFolder.Name = "Portraits"
-		portraitFolder.Parent = ReplicatedStorage
+	local folder = portraitFolder
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = "Portraits"
+		folder.Parent = ReplicatedStorage
+		portraitFolder = folder
 	end
-	model.Parent = portraitFolder
+	model.Parent = folder
 	return model
 end
 

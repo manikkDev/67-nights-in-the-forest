@@ -10,7 +10,8 @@
     Teleporter1/2/3 are independent queues. Each queue owns its capacity,
     roster, host migration, countdown, and party identity. Parties start
     their run on this same server (single-place architecture); a second
-    queue bounces back to Waiting while a run is live.
+    queue that finishes while a run is live is relocated to a fresh
+    reserved server of this same place (SessionRoutingService:RelocateParty).
 
     @exports
     - MatchFlowService:EnterWaiting(player, queueId) -> boolean
@@ -54,6 +55,9 @@ local MatchFlowService = Knit.CreateService({
 		RosterChanged = Knit.CreateSignal(),
 		-- (snapshot) — per-player session view changed
 		SessionChanged = Knit.CreateSignal(),
+		-- (payload { state }) — party is being relocated to a fresh server
+		-- because a run is already live here ("relocating" | "failed")
+		Relocating = Knit.CreateSignal(),
 	},
 })
 
@@ -72,6 +76,7 @@ type Session = {
 	capacity: number,
 	endsAt: number,
 	duration: number,
+	relocating: boolean,
 	timerThread: thread?,
 	routing: boolean,
 }
@@ -82,6 +87,7 @@ local COUNTDOWN_SECONDS = Constants.MATCH_COUNTDOWN_SECONDS or 5
 local STORY_FADE_SECONDS = Constants.MATCH_STORY_FADE_SECONDS or 1.2
 local STORY_HOLD_SECONDS = Constants.MATCH_STORY_HOLD_SECONDS or 5
 local DAY1_HOLD_SECONDS = Constants.MATCH_DAY1_HOLD_SECONDS or 2
+local RELOCATE_ALERT_SECONDS = Constants.RELOCATE_ALERT_SECONDS or 4
 -- Party size limits and remote-rate limit
 local MIN_PARTY = Constants.PARTY_MIN_PLAYERS or 1
 local MAX_PARTY = Constants.PARTY_MAX_PLAYERS or 5
@@ -312,15 +318,43 @@ end
     @returns  boolean
 ]]
 local function startRun(participants: { Player }, metadata: { [string]: any }, session: Session?): boolean
-	-- Single-place servers host one shared run map, so a second party
-	-- cannot start while a run is live — StartRun would force-clean it.
-	-- Bounce the session back to Waiting; it can retry after RunCleaned.
+	-- Single-place servers host one shared run map — one live run per
+	-- server, since StartRun would force-clean an active run.  When a run
+	-- is live, relocate the whole session to a fresh reserved server of
+	-- this same place so they can play without waiting.  If the live run
+	-- ends during the alert window, they simply start here instead.
 	if runStateService and runStateService:GetPhase() ~= "Lobby" then
-		if session then
-			session.routing = false
-			setState(session, "Waiting")
+		if not session or session.state ~= "Story" then
+			return false
 		end
-		return false
+		session.relocating = true
+		fireToSession(session, MatchFlowService.Client.Relocating, { state = "relocating" })
+		task.delay(RELOCATE_ALERT_SECONDS, function()
+			if session.state ~= "Story" then
+				return
+			end
+			if not runStateService or runStateService:GetPhase() == "Lobby" then
+				session.routing = false
+				session.relocating = false
+				startRun(participantsFor(session), metadata, session)
+				return
+			end
+			local moved = sessionRoutingService
+				and sessionRoutingService:RelocateParty(session.partyId, participantsFor(session))
+			if not moved then
+				-- Teleport refused (e.g. Studio playtests) — bounce back to
+				-- Waiting first so the "failed" alert lands after the UI reset.
+				session.routing = false
+				session.relocating = false
+				setState(session, "Waiting")
+				fireToSession(session, MatchFlowService.Client.Relocating, { state = "failed" })
+			end
+			-- On success Roblox removes the players and PlayerRemoving
+			-- dissolves the session.  Per-player teleport failures surface
+			-- via TeleportInitFailed -> PartyTeleportFailed, which bounces
+			-- the remaining members back to Waiting.
+		end)
+		return true
 	end
 	local startedRunId = runStateService and runStateService:StartRun(participants, metadata) or nil
 	if not startedRunId then
@@ -481,6 +515,7 @@ function MatchFlowService:EnterWaiting(player: Player, queueId: string): boolean
 			duration = 0,
 			timerThread = nil,
 			routing = false,
+			relocating = false,
 		}
 		sessionsByQueue[queueId] = session
 		sessionsByPlayer[player] = session
@@ -529,6 +564,7 @@ function MatchFlowService:KnitInit()
 		self.Client.Countdown = comm:CreateSignal("Countdown", false)
 		self.Client.RosterChanged = comm:CreateSignal("RosterChanged", false)
 		self.Client.SessionChanged = comm:CreateSignal("SessionChanged", false)
+		self.Client.Relocating = comm:CreateSignal("Relocating", false)
 	end
 end
 
@@ -618,8 +654,15 @@ function MatchFlowService:KnitStart()
 	sessionRoutingService.PartyTeleportFailed:Connect(function(partyId)
 		for _, session in pairs(sessionsByQueue) do
 			if session.partyId == partyId and session.state == "Story" then
+				local wasRelocating = session.relocating
 				session.routing = false
+				session.relocating = false
 				setState(session, "Waiting")
+				-- Only failed relocations see the alert — the profile-timeout
+				-- path never showed one, so flashing it there would confuse.
+				if wasRelocating then
+					fireToSession(session, MatchFlowService.Client.Relocating, { state = "failed" })
+				end
 				break
 			end
 		end

@@ -78,6 +78,10 @@ local titleScreen: Frame? = nil
 local createPartyFrame: Frame? = nil
 local storyFrame: Frame? = nil
 local dayFrame: Frame? = nil
+local relocateOverlay: Frame? = nil
+local relocateTitle: TextLabel? = nil
+local relocateSub: TextLabel? = nil
+local relocateHideAt: number = 0
 local countdownLabel: TextLabel? = nil
 local createButton: TextButton? = nil
 local leaveButton: TextButton? = nil
@@ -984,6 +988,82 @@ local function finishIntro()
 end
 
 --[[
+    @summary  Lazily build the fullscreen relocation alert shown when the
+              party is being moved to a fresh server (a run is live here).
+]]
+local function ensureRelocateOverlay()
+	if relocateOverlay or not screenGui then
+		return
+	end
+	local frame = Instance.new("Frame")
+	frame.Name = "RelocateOverlay"
+	frame.Position = UDim2.fromScale(0, 0)
+	frame.Size = UDim2.fromScale(1, 1)
+	frame.BackgroundColor3 = STORY_BACK
+	frame.BackgroundTransparency = 0.06
+	frame.BorderSizePixel = 0
+	frame.ZIndex = 500
+	frame.Visible = false
+	frame.Parent = screenGui
+
+	local title = makeLabel(frame, "RelocateTitle", "A RUN IS IN PROGRESS", 40, STORY_HEADER,
+		UDim2.fromScale(0.5, 0.42), UDim2.new(0.9, 0, 0, 60))
+	title.AnchorPoint = Vector2.new(0.5, 0.5)
+	title.Font = Enum.Font.PermanentMarker
+	title.TextStrokeTransparency = 0.25
+	title.ZIndex = 501
+	relocateTitle = title
+
+	local sub = makeLabel(frame, "RelocateSub", "moving your party to a fresh lobby...", 22, BODY,
+		UDim2.fromScale(0.5, 0.53), UDim2.new(0.8, 0, 0, 44))
+	sub.AnchorPoint = Vector2.new(0.5, 0.5)
+	sub.Font = Enum.Font.GothamBold
+	sub.TextStrokeTransparency = 0.4
+	sub.ZIndex = 501
+	relocateSub = sub
+
+	relocateOverlay = frame
+end
+
+--[[
+    @summary  Show the relocation alert; "failed" self-hides after a beat.
+    @param    mode  string  -- "relocating" | "failed"
+]]
+local function showRelocate(mode: string)
+	ensureRelocateOverlay()
+	if not relocateOverlay then
+		return
+	end
+	if relocateTitle and relocateSub then
+		if mode == "failed" then
+			relocateTitle.Text = "COULDN'T MOVE YOU"
+			relocateSub.Text = "couldn't reach a fresh lobby — you're still queued here"
+		else
+			relocateTitle.Text = "A RUN IS IN PROGRESS"
+			relocateSub.Text = "moving your party to a fresh lobby — hang tight"
+		end
+	end
+	relocateHideAt = 0
+	relocateOverlay.Visible = true
+	if mode == "failed" then
+		local deadline = os.clock() + 3.5
+		relocateHideAt = deadline
+		task.delay(3.5, function()
+			if relocateOverlay and relocateHideAt == deadline then
+				relocateOverlay.Visible = false
+			end
+		end)
+	end
+end
+
+local function hideRelocate()
+	relocateHideAt = 0
+	if relocateOverlay then
+		relocateOverlay.Visible = false
+	end
+end
+
+--[[
     @summary  Reset all intro state when returning to the lobby —
               clears countdown, snapshot, and hides every frame.
 ]]
@@ -1002,6 +1082,7 @@ local function resetForLobby()
 	if dayFrame then
 		dayFrame.Visible = false
 	end
+	hideRelocate()
 	if countdownLabel then
 		countdownLabel.Visible = false
 	end
@@ -1099,6 +1180,7 @@ function IntroController:KnitStart()
 			end
 		end
 		flowState = state
+		hideRelocate()
 		if state == "Lobby" then
 			resetForLobby()
 		elseif state == "Waiting" then
@@ -1112,6 +1194,12 @@ function IntroController:KnitStart()
 			showDayCard()
 		elseif state == "InGame" then
 			finishIntro()
+		end
+	end)
+
+	matchFlow.Relocating:Connect(function(payload)
+		if typeof(payload) == "table" then
+			showRelocate(if payload.state == "failed" then "failed" else "relocating")
 		end
 	end)
 
