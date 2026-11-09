@@ -205,7 +205,11 @@ local function broadcastPhase(payload: { [string]: any }?)
 	local data = payload or {}
 	data.phase = phase
 	data.runId = runId
-	for _, player in ipairs(Players:GetPlayers()) do
+	-- Single-place servers also host lobby bystanders: live-run phases go
+	-- to members only, but the post-cleanup "Lobby" reset must reach
+	-- everyone since members is already emptied by then.
+	local targets = if phase == "Lobby" then Players:GetPlayers() else RunStateService:GetMembers()
+	for _, player in ipairs(targets) do
 		RunStateService.Client.RunPhaseChanged:Fire(player, data)
 	end
 	RunStateService.PhaseChanged:Fire(phase, data)
@@ -316,7 +320,7 @@ function RunStateService:AddMultiplierSource(key: string, amount: number)
 	multiplierSources[key] = math.max(0, math.floor(amount))
 
 	local multiplier = self:GetMultiplier()
-	for _, player in ipairs(Players:GetPlayers()) do
+	for _, player in ipairs(self:GetMembers()) do
 		RunStateService.Client.MultiplierChanged:Fire(player, {
 			multiplier = multiplier,
 			sources = table.clone(multiplierSources),

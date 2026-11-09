@@ -517,20 +517,14 @@ local function buildTopLevelProgressBar()
 			warn("[CampfireController] Bonfire not found for billboard")
 			return
 		end
-		local firePart = bonfire:WaitForChild("Fire", 60) :: BasePart?
+		-- Single-place build: the player sits in the lobby far outside the
+		-- base map's streaming radius until a run starts, so Fire may not
+		-- replicate for minutes. Wait without a timeout — this spawned
+		-- thread parks harmlessly until it streams in.
+		local firePart = bonfire:WaitForChild("Fire") :: BasePart?
 		if not firePart then
-			-- The Fire part may stream in after a delay; try a slower retry.
-			local start = os.clock()
-			while not firePart and (os.clock() - start) < 60 do
-				firePart = bonfire:FindFirstChild("Fire") :: BasePart?
-				if not firePart then
-					task.wait(1)
-				end
-			end
-			if not firePart then
-				warn("[CampfireController] Could not find campfire Fire part for billboard")
-				return
-			end
+			warn("[CampfireController] Could not find campfire Fire part for billboard")
+			return
 		end
 
 		-- Remove any old placeholder billboard that may exist on the fire part.

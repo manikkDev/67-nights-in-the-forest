@@ -61,6 +61,7 @@ local WEAPON_COOLDOWN = { Axe = 0.6, Spear = 0.9 }
 local harvestService: any = nil
 local spawnService: any = nil
 local playerLifeService: any = nil
+local runStateService: any = nil
 -- Spear template cache and per-player attack rate-limit stamps
 local spearTemplate: Tool? = nil
 local attackCooldowns: { [Player]: number } = {}
@@ -150,7 +151,10 @@ end
     @param    signal  KnitSignal
 ]]
 local function broadcastToAll(signal, ...)
-	for _, player in ipairs(Players:GetPlayers()) do
+	-- Hit feedback only reaches participants; lobby bystanders on the
+	-- shared place must not see combat signals meant for the run.
+	local targets = if runStateService then runStateService:GetMembers() else Players:GetPlayers()
+	for _, player in ipairs(targets) do
 		signal:Fire(player, ...)
 	end
 end
@@ -275,6 +279,7 @@ function CombatService:KnitStart()
 	harvestService = Knit.GetService("HarvestService")
 	spawnService = Knit.GetService("SpawnService")
 	playerLifeService = Knit.GetService("PlayerLifeService")
+	runStateService = Knit.GetService("RunStateService")
 
 	spearTemplate = buildSpearTool()
 end

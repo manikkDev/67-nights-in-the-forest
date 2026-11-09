@@ -109,6 +109,7 @@ local animalAIService: any = nil
 local inventoryService: any = nil
 local deerService: any = nil
 local playerLifeService: any = nil
+local runStateService: any = nil
 
 -- The active owl record, its phase state, and the summon debounce timer
 local owl: any = nil
@@ -125,7 +126,10 @@ local wolfSummoned = false
     @param    signal  KnitSignal
 ]]
 local function broadcastToAll(signal, ...)
-	for _, player in ipairs(Players:GetPlayers()) do
+	-- Run-scoped events only reach participants; lobby bystanders on the
+	-- shared place must not see owl signals meant for the run.
+	local targets = if runStateService then runStateService:GetMembers() else Players:GetPlayers()
+	for _, player in ipairs(targets) do
 		signal:Fire(player, ...)
 	end
 end
@@ -946,6 +950,7 @@ function OwlService:KnitStart()
 	inventoryService = Knit.GetService("InventoryService")
 	deerService = Knit.GetService("DeerService")
 	playerLifeService = Knit.GetService("PlayerLifeService")
+	runStateService = Knit.GetService("RunStateService")
 	playerLifeService.PlayerDowned:Connect(releaseTarget)
 	playerLifeService.PlayerEliminated:Connect(releaseTarget)
 

@@ -69,6 +69,7 @@ local worldService: any = nil
 local animalAIService: any = nil
 local campfireService: any = nil
 local deerService: any = nil
+local runStateService: any = nil
 -- Raid state — live cultist list, current day, and the kill tally driving the HUD
 local lastPhase: string = "Day"
 local raidActive = false
@@ -87,7 +88,10 @@ local preNightWarningFired = false
     @param    signal  KnitSignal
 ]]
 local function broadcastToAll(signal, ...)
-	for _, player in ipairs(Players:GetPlayers()) do
+	-- Run-scoped events only reach participants; lobby bystanders on the
+	-- shared place must not see raid signals meant for the run.
+	local targets = if runStateService then runStateService:GetMembers() else Players:GetPlayers()
+	for _, player in ipairs(targets) do
 		signal:Fire(player, ...)
 	end
 end
@@ -321,6 +325,7 @@ function CultistRaidService:KnitStart()
 	animalAIService = Knit.GetService("AnimalAIService")
 	campfireService = Knit.GetService("CampfireService")
 	deerService = Knit.GetService("DeerService")
+	runStateService = Knit.GetService("RunStateService")
 
 	RunService.Heartbeat:Connect(onHeartbeat)
 

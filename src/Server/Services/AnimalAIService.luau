@@ -413,7 +413,10 @@ end
     @param    signal  KnitSignal
 ]]
 local function broadcastToAll(signal, ...)
-	for _, player in ipairs(Players:GetPlayers()) do
+	-- Run-scoped events only reach participants; lobby bystanders on the
+	-- shared place must not see combat/raid signals meant for the run.
+	local targets = if runStateService then runStateService:GetMembers() else Players:GetPlayers()
+	for _, player in ipairs(targets) do
 		signal:Fire(player, ...)
 	end
 end

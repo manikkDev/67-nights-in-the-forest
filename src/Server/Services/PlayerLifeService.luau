@@ -956,6 +956,11 @@ function PlayerLifeService:KnitStart()
 
 	runStateService.RunCleaned:Connect(function()
 		for _, player in ipairs(Players:GetPlayers()) do
+			-- Single-place servers also host lobby bystanders — only run
+			-- members (any non-Lobby life state) get reset and respawned.
+			if lifeStates[player] == nil or lifeStates[player] == "Lobby" then
+				continue
+			end
 			lifeStates[player] = "Lobby"
 			downTokens[player] = nil
 			graceUntil[player] = nil

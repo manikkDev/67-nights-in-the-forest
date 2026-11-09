@@ -298,7 +298,9 @@ local function processLevelUps()
 		fuel = math.clamp(fuel, 0, maxFuel)
 		currentSafeZoneRadius = if isLit then SAFE_ZONE_RADIUS_BY_LEVEL[level] else 0
 		for _, player in ipairs(Players:GetPlayers()) do
-			CampfireService.Client.LevelUp:Fire(player, level, level - 1, currentSafeZoneRadius, maxFuel)
+			if spawnService and spawnService:IsPlayerSpawned(player) then
+				CampfireService.Client.LevelUp:Fire(player, level, level - 1, currentSafeZoneRadius, maxFuel)
+			end
 		end
 		CampfireService.LevelChangedServer:Fire(level, level - 1)
 	end
@@ -356,8 +358,12 @@ end
     @summary  Save the shared campfire state to every player's profile.
 ]]
 local function saveCampfireState()
+	-- Single-place build: bystanders in the lobby must not inherit the
+	-- running party's campfire progress into their profile.
 	for _, player in ipairs(Players:GetPlayers()) do
-		saveCampfireStateToPlayer(player)
+		if spawnService and spawnService:IsPlayerSpawned(player) then
+			saveCampfireStateToPlayer(player)
+		end
 	end
 end
 
@@ -576,7 +582,9 @@ local function addFuel(woodAmount: number)
 	-- gets clear feedback the campfire is now burning.
 	if not wasLit and level == previousLevel then
 		for _, player in ipairs(Players:GetPlayers()) do
-			CampfireService.Client.LevelUp:Fire(player, level, level - 1, currentSafeZoneRadius, maxFuel)
+			if spawnService and spawnService:IsPlayerSpawned(player) then
+				CampfireService.Client.LevelUp:Fire(player, level, level - 1, currentSafeZoneRadius, maxFuel)
+			end
 		end
 	end
 
