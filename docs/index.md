@@ -61,7 +61,7 @@ See also:
 - [AGENTS.md](../AGENTS.md) — Project notes and build instructions
 - [TASKS.md](../TASKS.md) — Pending development tasks
 
-## Further reading
+## Related reading
 
 - [README.md](../README.md) — project overview and quickstart
 - [AGENTS.md](../AGENTS.md) — project notes and build instructions
