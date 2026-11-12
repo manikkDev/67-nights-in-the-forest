@@ -39,7 +39,7 @@ local CraftingController = Knit.CreateController({
 })
 
 -- | Configuration | --
--- Cohesive palette: calm blue-greys with purposeful accent colors
+-- Palette — calm blue-greys with purposeful accent colors
 local COLOR = {
 	Panel = Color3.fromRGB(38, 38, 46),
 	PanelGradientTop = Color3.fromRGB(45, 45, 54),
