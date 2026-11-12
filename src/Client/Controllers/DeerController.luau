@@ -39,7 +39,7 @@ local DeerController = Knit.CreateController({
 })
 
 -- | State Management | --
--- Per-stalker animation data: model, loaded tracks, and Motor6D map
+-- Per-stalker animation state — model, loaded tracks, Motor6D map
 -- { [stalkerKey] = { model = Model, tracks = { [name] = track }, motorMap = {...} } }
 local stalkerData: { [string]: any } = {}
 -- Heartbeat driving the per-frame Motor6D pose updates
