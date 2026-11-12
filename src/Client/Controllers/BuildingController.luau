@@ -46,7 +46,7 @@ local janitor = Janitor.new()
 local placementJanitor = Janitor.new()
 
 -- | Configuration | --
--- Bound ContextActionService names for placement inputs
+-- ContextActionService binding names for placement inputs
 local ACTION_ROTATE_CW = "RotateStructureCW"
 local ACTION_ROTATE_CCW = "RotateStructureCCW"
 local ACTION_PLACE = "PlaceStructure"
