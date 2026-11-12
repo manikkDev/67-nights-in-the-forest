@@ -65,7 +65,7 @@ local EAT_HUNGER_RESTORE = {
 }
 
 -- | State Management | --
--- KnitStart-resolved refs to sibling services: world, inventory, hunger, player life, run state
+-- KnitStart-resolved sibling service handles: world, inventory, hunger, player life, run state
 local worldService: any = nil
 local inventoryService: any = nil
 local hungerService: any = nil
