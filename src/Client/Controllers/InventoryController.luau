@@ -40,7 +40,7 @@ local InventoryController = Knit.CreateController({
 -- | Configuration | --
 local BAG_TOOL_NAME = "Carry Bag"
 
--- Panel dimensions
+-- Inventory panel dimension constants
 local PANEL_WIDTH = 280
 local PANEL_MARGIN = 32
 local ROW_HEIGHT = 46
