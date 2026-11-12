@@ -26,6 +26,6 @@ A proximity prompt on the chest triggers the open: bounce/scale tween, gold part
 
 Cave chests spawn deferred (`task.defer` + short wait) because `RescueService.buildCaves()` also defers on `RunStarted` — caves must exist before chest placement runs.
 
-## Further reading
+## Related reading
 
 - [Caves](caves.md) — [Weapons](weapons.md) — [Resources](resources.md)
