@@ -23,6 +23,6 @@ Picked forageables disappear and respawn after a cooldown, so routes can be revi
 - Forage while heading between objectives rather than as a dedicated trip.
 - Berries and mushrooms are small heals; cooked meat (15 HP) remains the best food.
 
-## Further reading
+## Related reading
 
 - [Hunger & health](hunger.md) — [Resources](resources.md) — [Cooking](cooking.md)
