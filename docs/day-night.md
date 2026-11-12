@@ -24,6 +24,6 @@ Values live in `src/shared/RunConfig.luau` (`DayDuration`, `NightDuration`, `Day
 - `FastClock` — use `StudioTest.DayDuration` / `StudioTest.NightDuration`
 - `ForceNight` — jump straight to the night phase
 
-## Further reading
+## Related reading
 
 - [AI systems](ai-systems.md) — [Tuning](tuning.md) — [Progression](progression.md)
