@@ -39,7 +39,7 @@ local LootController = Knit.CreateController({
 local CHEST_OPEN_SOUND_ID = "rbxassetid://9120873624"
 local PANEL_AUTO_DISMISS = 8
 
--- Item display data: colors and descriptions for loot UI rows.
+-- Item display data — colors and descriptions for the loot UI rows.
 local ITEM_COLORS = {
 	Wood = Color3.fromRGB(170, 110, 65),
 	WoodenSheet = Color3.fromRGB(200, 175, 120),
