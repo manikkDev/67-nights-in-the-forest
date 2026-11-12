@@ -47,7 +47,7 @@ local PICKUP_RANGE = 10
 local BOARD_OFFSET = -28 -- opposite side from the rescue board (which is at +28)
 
 -- | State Management | --
--- KnitStart-resolved refs to sibling services: run state, world, rescue, facility, world progression, campfire, crafting
+-- KnitStart-resolved sibling service handles: run state, world, rescue, facility, world progression, campfire, crafting
 local runStateService: any = nil
 local worldService: any = nil
 local rescueService: any = nil
