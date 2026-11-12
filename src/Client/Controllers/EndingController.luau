@@ -36,7 +36,7 @@ local EndingController = Knit.CreateController({
 })
 
 -- | Configuration | --
--- Palette: backdrop, victory/defeat accents, stat cards, and buttons
+-- Palette — backdrop, victory and defeat accents, stat cards, buttons
 local BACKDROP_COLOR = Color3.fromRGB(5, 7, 9)
 local VICTORY_COLOR = Color3.fromRGB(240, 220, 165)
 local DEFEAT_COLOR = Color3.fromRGB(210, 55, 50)
