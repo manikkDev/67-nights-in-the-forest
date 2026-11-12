@@ -20,6 +20,6 @@ Cross-server payloads carry a schema version (`PARTY_TELEPORT_DATA_VERSION` = 1)
 
 Assembles reserved servers, validates expected member lists (`metadataMatches` compares expected user IDs as a set), and tracks `LocalPartyReady` / `DestinationReady` / `PartyTeleportFailed` signals.
 
-## Further reading
+## Related reading
 
 - [Match flow](match-flow.md) — [Spawning](spawning.md)
