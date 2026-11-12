@@ -21,6 +21,6 @@ Each player carries a bag of resources and items that persists across runs and r
 
 Inventory lives under the player's profile (`Resources` + `Inventory` keys) and is deliberately excluded from the run-scoped reset list in `RunStateService`.
 
-## Further reading
+## Related reading
 
 - [Resources](resources.md) — [Profiles](profiles.md) — [Grinder](grinder.md)
