@@ -32,7 +32,7 @@ local GameStateController = Knit.CreateController({
 	Name = "GameStateController",
 })
 
--- The mirror of MatchFlowService's lobby→game flow states.
+-- Mirror of MatchFlowService's lobby-to-game flow states.
 export type FlowState = "Lobby" | "Waiting" | "Countdown" | "Story" | "Day1" | "InGame"
 
 -- | State Management | --
