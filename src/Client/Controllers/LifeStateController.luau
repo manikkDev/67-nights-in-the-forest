@@ -35,7 +35,7 @@ local janitor = Janitor.new()
 local localPlayer = Players.LocalPlayer
 
 local lifeService: any = nil
--- Downed card + notification banner handles
+-- Downed card and notification banner widget handles
 local gui: ScreenGui? = nil
 local card: Frame? = nil
 local timerLabel: TextLabel? = nil
