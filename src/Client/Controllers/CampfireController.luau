@@ -35,7 +35,7 @@ local CampfireController = Knit.CreateController({
 })
 
 -- | Configuration | --
--- Fuel/level panel and BillboardGui sizing
+-- Fuel and level panel plus BillboardGui sizing constants
 local PANEL_WIDTH = 250
 local PANEL_HEIGHT = 130
 local PANEL_MARGIN = 14
