@@ -55,7 +55,7 @@ local CRAFT_COOLDOWN = 0.2
 local BENCH_OFFSET = CFrame.new(14, 0, 0)
 
 -- | State Management | --
--- KnitStart-resolved refs to sibling services: run state, player data, inventory, world, grinder, player life
+-- KnitStart-resolved sibling service handles: run state, player data, inventory, world, grinder, player life
 local runStateService: any = nil
 local playerDataService: any = nil
 local inventoryService: any = nil
