@@ -113,7 +113,7 @@ local STALKER_DEFS = {
 }
 
 -- | State Management | --
--- KnitStart-resolved refs to sibling services: world, time, campfire, spawn, player life, world progression
+-- KnitStart-resolved sibling service handles: world, time, campfire, spawn, player life, world progression
 local worldService: any = nil
 local timeService: any = nil
 local campfireService: any = nil
