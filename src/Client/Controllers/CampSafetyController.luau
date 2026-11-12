@@ -58,7 +58,7 @@ local NIGHT_VISIBILITY_RANGE = 38
 local colorCorrection: ColorCorrectionEffect? = nil
 local warningGui: ScreenGui? = nil
 local warningLabel: TextLabel? = nil
--- KnitStart-resolved refs to sibling services and controllers
+-- KnitStart-resolved sibling service and controller handles
 local worldService: any = nil
 local gameStateController: any = nil
 local campfireService: any = nil
