@@ -39,7 +39,7 @@ local IntroController = Knit.CreateController({
 })
 
 -- | Configuration | --
--- Fade and reveal timing constants
+-- Fade and reveal timing constants for screen transitions
 local PANEL_FADE = 0.3
 local STORY_FADE = Constants.MATCH_STORY_FADE_SECONDS or 1.2
 local REVEAL_SECONDS = Constants.MATCH_REVEAL_SECONDS or 2.5
