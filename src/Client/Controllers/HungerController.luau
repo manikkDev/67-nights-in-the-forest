@@ -32,7 +32,7 @@ local HungerController = Knit.CreateController({
 })
 
 -- | Configuration | --
--- Bar fill tween info for smooth meter updates
+-- Bar fill tween info driving smooth meter updates
 local TWEEN_INFO = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 local CARD_BG = Color3.fromRGB(38, 40, 48)
