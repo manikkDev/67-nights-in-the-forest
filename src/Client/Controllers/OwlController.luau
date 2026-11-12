@@ -36,7 +36,7 @@ local OwlController = Knit.CreateController({
 })
 
 -- | Configuration | --
--- Screech-banner fade-in/hold/fade-out timing and color
+-- Screech-banner fade in, hold, fade out timing and color
 local BANNER_FADE_IN = 0.4
 local BANNER_HOLD = 3.5
 local BANNER_FADE_OUT = 0.8
