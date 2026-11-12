@@ -45,7 +45,7 @@ local MapController = Knit.CreateController({
 })
 
 -- | Configuration | --
--- Panel/minimap layout dimensions (pixels)
+-- Panel and minimap layout dimensions in pixels
 local PANEL_WIDTH = 980
 local PANEL_HEIGHT = 660
 local TITLE_BAR_HEIGHT = 52
