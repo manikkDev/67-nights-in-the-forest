@@ -52,7 +52,7 @@ local TITLE_BAR_HEIGHT = 52
 local SIDEBAR_WIDTH = 340
 local MINIMAP_SIZE = 520
 local COMPASS_RING_SIZE = 560
--- Marker icon sizes keyed by landmark type
+-- Marker icon sizes keyed by landmark kind
 local MARKER_SIZE_CAVE = 16
 local MARKER_SIZE_BUILDING = 14
 local MARKER_SIZE_FACILITY = 12
