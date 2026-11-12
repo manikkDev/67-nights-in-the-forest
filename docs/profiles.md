@@ -31,6 +31,6 @@ Player data is stored with ProfileService through `PlayerDataService`.
 - `ProfileLoaded` fires server-side when a player's profile is ready; services should wait for it before touching data
 - Load failures are logged and the player is handled safely
 
-## Further reading
+## Related reading
 
 - [Inventory](inventory.md) — [Ending](ending.md) — [Score multiplier](multiplier.md)
