@@ -57,7 +57,7 @@ local TOUCH_COOLDOWN = 1
 local CHARACTER_TIMEOUT = 12
 
 -- | State Management | --
--- Sibling service handles resolved in KnitStart (world, match flow, run state)
+-- KnitStart-resolved sibling service handles: world, match flow, run state
 local worldService: any = nil
 local matchFlowService: any = nil
 local runStateService: any = nil
