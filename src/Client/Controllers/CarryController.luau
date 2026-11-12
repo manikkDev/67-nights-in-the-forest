@@ -39,7 +39,7 @@ local CarryController = Knit.CreateController({
 })
 
 -- | Configuration | --
--- Pickup interaction rules
+-- Rules deciding what counts as a pickup target
 local PICKUP_KEY = Enum.KeyCode.F
 local PICKUP_RANGE = 12
 local PICKUP_COOLDOWN = 0.2
