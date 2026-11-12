@@ -36,7 +36,7 @@ local HealthBarController = Knit.CreateController({
 })
 
 -- | Configuration | --
--- Floating overhead bar: size and auto-hide behaviour
+-- Floating overhead bar — size and auto-hide behaviour
 local BAR_WIDTH = 6
 local BAR_HEIGHT = 0.7
 local BAR_OFFSET = Vector3.new(0, 4, 0)
