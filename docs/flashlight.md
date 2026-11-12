@@ -21,6 +21,6 @@ The stun cone parameters were widened during tuning — see the deer task in `TA
 
 Equip from the hotbar, hold to aim. The beam direction follows the camera/mouse.
 
-## Further reading
+## Related reading
 
 - [Deer](ai-deer.md) — [Owl](ai-owl.md) — [Combat](combat.md)
