@@ -39,7 +39,7 @@ local CampSafetyController = Knit.CreateController({
 
 -- | Configuration | --
 local CHECK_INTERVAL = 0.25
--- ColorCorrection tweens: slow ease-in to safe, faster snap to unsafe
+-- ColorCorrection tweens — slow ease-in when safe, faster snap back to unsafe
 local SAFE_TWEEN_INFO = TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 local UNSAFE_TWEEN_INFO = TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 local SAFE_BRIGHTNESS = 0.12
