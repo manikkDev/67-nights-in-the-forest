@@ -22,6 +22,6 @@ Use a food item from the inventory hotbar. `HungerService.RequestEat` validates 
 
 `HungerController`/`HealthBarController` render the meters and flash them when low.
 
-## Further reading
+## Related reading
 
 - [Cooking](cooking.md) — [Foraging](foraging.md) — [Downing & reviving](carry-revive.md)
