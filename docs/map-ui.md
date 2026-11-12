@@ -24,6 +24,6 @@ Both the physical board and the UI use `ViewportFrame`s for child portraits — 
 
 The physical board's SurfaceGui mirrors a simplified minimap built by `MapService.createMapBoard`.
 
-## Further reading
+## Related reading
 
 - [Rescue](rescue.md) — [Caves](caves.md) — [Controls](controls.md)
