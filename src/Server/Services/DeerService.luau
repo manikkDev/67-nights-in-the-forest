@@ -57,7 +57,7 @@ local DeerService = Knit.CreateService({
 -- | Configuration | --
 local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
 local DORMANT_HOLDING_POSITION = Vector3.new(0, 300, 0) -- park dormant stalkers above the map
--- Hunt behaviour tuning
+-- Hunt behaviour tuning constants
 local DECISION_INTERVAL = 0.2
 local CONTACT_RANGE = 14
 local CONTACT_COOLDOWN = 2.5
