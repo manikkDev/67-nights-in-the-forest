@@ -344,7 +344,7 @@ local function cleanManualBench(): Model?
 	local originalCFrame = original:GetPivot()
 	original:Destroy()
 
-	-- Sanitize the clone BEFORE parenting it anywhere, so its own
+	-- Sanitize the clone before parenting so its own
 	-- PackageLink (if any) cannot execute.
 	sanitizeBench(clone)
 
