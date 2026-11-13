@@ -71,7 +71,7 @@ end
 if not CampfireService.Client then
 	CampfireService.Client = {}
 end
--- Fuel/maxFuel/fraction/isLit pushed on every change.
+-- Fuel, maxFuel, fraction, and isLit pushed on every change.
 if not CampfireService.Client.FuelChanged then
 	CampfireService.Client.FuelChanged = Knit.CreateSignal()
 end
