@@ -708,7 +708,7 @@ local function placeBench()
 	benchModel = bench
 	woodenSheetCounter, scrapCounter = findTableCounters(bench)
 
-	-- Reset all numeric TextLabels from package defaults (e.g. "9999")
+	-- Reset numeric TextLabels from package defaults (e.g. "9999")
 	-- to "0" since no shredding has happened yet this run.
 	for _, desc in ipairs(bench:GetDescendants()) do
 		if desc:IsA("TextLabel") and desc.Text:match("^%s*%d+%s*$") then
