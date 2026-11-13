@@ -85,7 +85,7 @@ local LOS_RAY_OFFSET = 2 -- raycast from 2 studs above root part
 local DIRECT_CHASE_DIST = 60 -- if player within this dist and visible, run straight at them
 local OBSTACLE_AVOID_DIST = 12 -- how far to steer around an obstacle when stuck
 local PATH_COMPUTING_TIMEOUT = 1.5 -- max time to wait for a path computation before giving up
--- Procedural gait animation
+-- Procedural gait animation (disabled for Deer)
 local GAIT_AMPLITUDE = math.rad(35)
 local GAIT_ARM_AMPLITUDE = math.rad(22)
 local IDLE_LERP_SPEED = 6
