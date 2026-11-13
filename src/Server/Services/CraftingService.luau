@@ -333,7 +333,7 @@ local function cleanManualBench(): Model?
 		return nil
 	end
 
-	-- Clone FIRST so we keep the visuals.
+	-- Clone first so the visuals are preserved.
 	local clone = original:Clone()
 	clone.Name = "CraftingBench"
 	clone:BreakJoints()
