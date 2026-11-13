@@ -68,7 +68,7 @@ local BUNNY_MAX_SPAWN_DIST = 200
 -- Bear spawn rule — level 3+ distance, far out
 local BEAR_MIN_SPAWN_DIST = 250
 local BEAR_MAX_SPAWN_DIST = 400
--- Procedural gait animation
+-- Procedural gait animation tuning
 local GAIT_AMPLITUDE = math.rad(35)
 local GAIT_ARM_AMPLITUDE = math.rad(22)
 local IDLE_LERP_SPEED = 6
