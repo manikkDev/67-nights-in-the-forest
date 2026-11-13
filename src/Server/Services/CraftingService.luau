@@ -540,7 +540,7 @@ end
     @param    model  Model
 ]]
 local function attachPrompt(model: Model)
-	-- The package's crafting table already ships with a ProximityPrompt
+	-- The packaged crafting table already ships with a ProximityPrompt
 	-- (named "Interact") positioned correctly on the bench.  We hook into
 	-- that existing prompt instead of creating our own, so we don't end
 	-- up with two prompts at different positions.
