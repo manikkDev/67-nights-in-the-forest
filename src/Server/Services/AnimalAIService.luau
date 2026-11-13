@@ -79,7 +79,7 @@ local PATH_AGENT_HEIGHT = 6
 -- Attack lunge tuning
 local LUNGE_DISTANCE = 2.5
 local LUNGE_DURATION = 0.18
--- Combat feedback effects
+-- Combat feedback effects tuning
 local DEATH_FADE_DELAY = 4
 local HIT_FLASH_DURATION = 0.12
 -- Wolf pack tuning
