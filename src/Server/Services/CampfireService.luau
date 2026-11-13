@@ -64,7 +64,7 @@ local createSuccess, CampfireService = pcall(Knit.CreateService, {
 })
 
 if not createSuccess then
-	-- Rojo hot-reload: grab the existing service and continue so the new code runs
+	-- Rojo hot-reload path — reuse the existing service so new code runs
 	CampfireService = Knit.GetService("CampfireService") :: any
 end
 
