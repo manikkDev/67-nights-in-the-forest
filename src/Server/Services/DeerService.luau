@@ -635,7 +635,7 @@ local function updateStalkerState(stalker)
 
 	local currentPhase = timeService and timeService:GetCurrentPhase() or "Day"
 
-	-- Phase transition: decide which stalker is active tonight
+	-- Phase transition — pick which stalker hunts tonight
 	if currentPhase ~= lastPhase then
 		lastPhase = currentPhase
 		if currentPhase == "Night" then
