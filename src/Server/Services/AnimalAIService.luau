@@ -72,7 +72,7 @@ local BEAR_MAX_SPAWN_DIST = 400
 local GAIT_AMPLITUDE = math.rad(35)
 local GAIT_ARM_AMPLITUDE = math.rad(22)
 local IDLE_LERP_SPEED = 6
--- Pathfinding
+-- Pathfinding tuning
 local PATH_RECOMPUTE_INTERVAL = 0.6
 local PATH_AGENT_RADIUS = 3.5
 local PATH_AGENT_HEIGHT = 6
