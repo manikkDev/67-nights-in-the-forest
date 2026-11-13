@@ -62,7 +62,7 @@ local NPC_SOURCE_PATH = ServerStorage.Assets["Assets Npcs"]
 local DECISION_INTERVAL = 0.15
 local MIN_SPAWN_DIST = 20
 local MAX_SPAWN_DIST = 60
--- Bunnies spawn far from campfire, scattered across all levels
+-- Bunny spawn rules — far from campfire, scattered across all levels
 local BUNNY_MIN_SPAWN_DIST = 100
 local BUNNY_MAX_SPAWN_DIST = 200
 -- Bears spawn at level 3+ distance (far out)
