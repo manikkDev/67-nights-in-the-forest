@@ -51,7 +51,7 @@ local CultistRaidService = Knit.CreateService({
 })
 
 -- | Configuration | --
--- Raid cadence: every N nights, size grows with each raid
+-- Raid cadence — every N nights, size grows each raid
 local RAID_INTERVAL_DAYS = 4
 local BASE_RAID_SIZE = 3
 local RAID_SIZE_GROWTH_PER_INTERVAL = 1
