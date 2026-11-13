@@ -659,7 +659,7 @@ local function updateStalkerState(stalker)
 		return
 	end
 
-	-- Only the active stalker for tonight is allowed to hunt
+	-- Only tonight's active stalker is allowed to hunt
 	if stalker.key ~= activeStalkerKey then
 		if stalker.state ~= "Dormant" then
 			enterDormant(stalker)
