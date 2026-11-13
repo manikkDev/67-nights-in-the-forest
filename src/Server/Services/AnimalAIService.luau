@@ -76,7 +76,7 @@ local IDLE_LERP_SPEED = 6
 local PATH_RECOMPUTE_INTERVAL = 0.6
 local PATH_AGENT_RADIUS = 3.5
 local PATH_AGENT_HEIGHT = 6
--- Attack lunge
+-- Attack lunge tuning
 local LUNGE_DISTANCE = 2.5
 local LUNGE_DURATION = 0.18
 -- Combat feedback effects
