@@ -65,7 +65,7 @@ local MAX_SPAWN_DIST = 60
 -- Bunny spawn rules — far from campfire, scattered across all levels
 local BUNNY_MIN_SPAWN_DIST = 100
 local BUNNY_MAX_SPAWN_DIST = 200
--- Bears spawn at level 3+ distance (far out)
+-- Bear spawn rule — level 3+ distance, far out
 local BEAR_MIN_SPAWN_DIST = 250
 local BEAR_MAX_SPAWN_DIST = 400
 -- Procedural gait animation
