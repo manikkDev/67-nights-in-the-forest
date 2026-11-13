@@ -82,7 +82,7 @@ local LUNGE_DURATION = 0.18
 -- Combat feedback effects tuning
 local DEATH_FADE_DELAY = 4
 local HIT_FLASH_DURATION = 0.12
--- Wolf pack tuning
+-- Wolf pack behaviour tuning
 local WOLF_BASE_COUNT = 3
 local WOLF_DAY_SCALING = 3
 local ALPHA_START_DAY = 3
