@@ -86,7 +86,7 @@ local HIT_FLASH_DURATION = 0.12
 local WOLF_BASE_COUNT = 3
 local WOLF_DAY_SCALING = 3
 local ALPHA_START_DAY = 3
--- Wolves spawn at level 2+ distance
+-- Wolf spawn rule — level 2+ distance
 local WOLF_MIN_SPAWN_DIST = 150
 local WOLF_MAX_SPAWN_DIST = 250
 -- Population upkeep: target live counts per species
