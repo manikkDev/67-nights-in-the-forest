@@ -56,7 +56,7 @@ local createSuccess, CampfireService = pcall(Knit.CreateService, {
 		SafeZoneChanged = Knit.CreateSignal(),
 		-- (level, previousLevel, radius, maxFuel) — one-shot level-up event
 		LevelUp = Knit.CreateSignal(),
-		-- Replicated current safe-zone radius for late joiners
+		-- Replicated safe-zone radius snapshot for late joiners
 		SafeZoneRadius = Knit.CreateProperty(0),
 		-- Replicated lit state for late joiners
 		IsLit = Knit.CreateProperty(false),
