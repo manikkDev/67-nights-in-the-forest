@@ -62,7 +62,7 @@ local harvestService: any = nil
 local spawnService: any = nil
 local playerLifeService: any = nil
 local runStateService: any = nil
--- Spear template cache and per-player attack rate-limit stamps
+-- Spear template cache plus per-player attack rate-limit stamps
 local spearTemplate: Tool? = nil
 local attackCooldowns: { [Player]: number } = {}
 
