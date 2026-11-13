@@ -58,7 +58,7 @@ local createSuccess, CampfireService = pcall(Knit.CreateService, {
 		LevelUp = Knit.CreateSignal(),
 		-- Replicated safe-zone radius snapshot for late joiners
 		SafeZoneRadius = Knit.CreateProperty(0),
-		-- Replicated lit state for late joiners
+		-- Replicated lit-state snapshot for late joiners
 		IsLit = Knit.CreateProperty(false),
 	},
 })
