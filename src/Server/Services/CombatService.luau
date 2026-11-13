@@ -46,7 +46,7 @@ local CombatService = Knit.CreateService({
 })
 
 -- | Configuration | --
--- Weapon tool references
+-- Cached weapon tool references
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local AXE_TOOL_NAME = "Axe"
 local SPEAR_TOOL_NAME = "Spear"
