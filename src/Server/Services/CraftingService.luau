@@ -348,7 +348,7 @@ local function cleanManualBench(): Model?
 	-- PackageLink (if any) cannot execute.
 	sanitizeBench(clone)
 
-	-- Parent the clean clone back to Workspace at the same position.
+	-- Re-parent the clean clone to Workspace at the same position.
 	-- A Model has no parent until first set, so it didn't execute yet.
 	clone:PivotTo(originalCFrame)
 	clone.Parent = workspace
