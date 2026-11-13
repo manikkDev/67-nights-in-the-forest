@@ -88,7 +88,7 @@ local totalScrapShredded = 0
 
 -- | Private | --
 
--- Forward declaration so deductCost can call updateTableCounters
+-- Forward declaration so deductCost can reach updateTableCounters
 -- before it is defined later in the file.
 local updateTableCounters
 
