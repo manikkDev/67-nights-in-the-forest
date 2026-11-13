@@ -75,7 +75,7 @@ end
 if not CampfireService.Client.FuelChanged then
 	CampfireService.Client.FuelChanged = Knit.CreateSignal()
 end
--- Level/progress/requirement/levelFraction pushed on every change.
+-- Level, progress, requirement, and levelFraction pushed on every change.
 if not CampfireService.Client.LevelChanged then
 	CampfireService.Client.LevelChanged = Knit.CreateSignal()
 end
