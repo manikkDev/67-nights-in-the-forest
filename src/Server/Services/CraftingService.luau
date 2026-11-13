@@ -79,7 +79,7 @@ local craftCooldowns: { [Player]: number } = {}
 local woodenSheetCounter: TextLabel? = nil
 local scrapCounter: TextLabel? = nil
 
--- Shared run totals: how much WoodenSheet and Scrap have been
+-- Shared run totals — how much WoodenSheet and Scrap have been
 -- produced by ALL team members via the shredder this run.
 local totalWoodenSheetShredded = 0
 local totalScrapShredded = 0
