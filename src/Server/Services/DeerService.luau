@@ -90,7 +90,7 @@ local GAIT_AMPLITUDE = math.rad(35)
 local GAIT_ARM_AMPLITUDE = math.rad(22)
 local IDLE_LERP_SPEED = 6
 
--- Ram Monster starts appearing from night 8 onwards, with a 30% chance
+-- Ram Monster appears from night 8 onward at a 30% chance
 -- to replace the Deer on any given night (mirrors the 99 Nights wiki:
 -- "there is a chance for the Ram to spawn each night; if it does,
 -- the Deer will not spawn")
