@@ -78,7 +78,7 @@ local function isDummyTree(treeModel: Model): boolean
 		end
 	end
 	-- Real trees have multiple parts or mesh geometry
-	-- Dummy trees have 1-5 simple parts with no meshes (block-built)
+	-- Dummy trees are 1-5 simple block-built parts with no meshes
 	if partCount <= 5 and not hasMesh then
 		return true
 	end
