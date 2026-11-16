@@ -283,7 +283,7 @@ local function updateBoundary()
 	local height = WorldProgressionConfig.Boundary.Height
 	local segmentsPerSide = math.floor(count / 4)
 
-	-- At max radius (Level 6 / MapRadius), place the progression wall exactly
+	-- At max radius (Level 6 / MapRadius), place the progression wall right
 	-- at the real ground-tile edges rather than campfire-offset.  The campfire
 	-- anchor can be slightly off the ground centre, so this guarantees no gap.
 	local isMaxRadius = accessRadius >= WorldProgressionConfig.MapRadius
