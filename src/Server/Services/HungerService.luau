@@ -43,7 +43,7 @@ local HungerService = Knit.CreateService({
 local HUNGER_DRAIN_PER_SEC = 100 / 600
 local SPRINT_DRAIN_MULTIPLIER = 2
 local SPRINT_SPEED_THRESHOLD = 20
--- Starvation damage and HUD broadcast cadence
+-- Starvation damage plus HUD broadcast cadence
 local STARVE_DAMAGE_PER_SEC = 2
 local BROADCAST_INTERVAL = 1
 
