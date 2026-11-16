@@ -117,7 +117,7 @@ local function relocateBuildings()
 	for index, building in ipairs(buildings) do
 		local ringMin, ringMax
 		if index <= 2 then
-			-- First 2 buildings: far edge of level 1 area (not near campfire)
+			-- First two buildings go to the far edge of the level 1 area
 			ringMin = level1Radius - 60
 			ringMax = level1Radius - 20
 		else
