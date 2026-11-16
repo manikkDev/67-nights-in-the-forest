@@ -86,7 +86,7 @@ local function relocateBuildings()
 	if not bounds then
 		return
 	end
-	-- Use all ground parts (original + ExpandedGround tiles) so buildings
+	-- Use every ground part (original plus ExpandedGround tiles) so buildings
 	-- can be placed across the full expanded map, not just the original terrain.
 	local allGroundParts = worldService:GetAllGroundParts()
 	local buildingNames = {
