@@ -189,7 +189,7 @@ local function scatterTrees()
 	local maxDistance = WorldProgressionConfig.MapRadius - 50
 	local seedBase = WorldPlacement.Hash(runStateService:GetRunId()) + WorldPlacement.Hash("TreeScatter")
 
-	-- Find real tree templates
+	-- Locate the real tree templates
 	local treeTemplate, bigtreeTemplate = findTreeTemplates()
 	if not treeTemplate and not bigtreeTemplate then
 		warn("[TreeScatterService] No real tree templates found in Base-map")
