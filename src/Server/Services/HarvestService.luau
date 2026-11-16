@@ -52,7 +52,7 @@ local TREE_HEALTH = 6
 local GIANT_TREE_HEALTH = 12
 local CHOP_COOLDOWN = 0.5
 local CHOP_RANGE = 12
--- Felled-tree animation and respawn timing
+-- Felled-tree animation plus respawn timing
 local FELL_TWEEN_DURATION = 1.2
 local FELL_LIE_DURATION = 3
 local FELL_FADE_DURATION = 2
