@@ -309,7 +309,7 @@ function LeaderboardService:KnitStart()
 		LeaderboardService:RecordHighestDay(player, day)
 	end)
 
-	-- The boards only exist where lobby-map does; findBoards() polls until
+	-- The boards only exist where lobby-map does, so findBoards() polls until
 	-- they appear, so this loop is inert on any place without them.
 	task.spawn(function()
 		-- Boards may stream in after service start; poll until found.
