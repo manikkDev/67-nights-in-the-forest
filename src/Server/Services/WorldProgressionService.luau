@@ -233,7 +233,7 @@ local function ensureBoundary()
 	table.clear(boundaryParts)
 	table.clear(boundaryTrims)
 	for index = 1, WorldProgressionConfig.Boundary.ServerSegments do
-		-- Main wall part — tall and opaque to block view and movement
+		-- Main wall part — tall, opaque — blocks view and movement
 		local part = Instance.new("Part")
 		part.Name = "BoundaryCollider" .. index
 		part.Anchored = true
