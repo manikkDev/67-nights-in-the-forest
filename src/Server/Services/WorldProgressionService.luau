@@ -298,7 +298,7 @@ local function updateBoundary()
 		local segmentLength: number
 
 		if isMaxRadius and bounds then
-			-- Use the exact map-edge coordinates
+			-- Use exact map-edge coordinates
 			local halfX = (bounds.maxX - bounds.minX) * 0.5
 			local halfZ = (bounds.maxZ - bounds.minZ) * 0.5
 			local midX = (bounds.minX + bounds.maxX) * 0.5
