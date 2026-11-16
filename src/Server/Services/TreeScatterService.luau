@@ -157,7 +157,7 @@ local function cloneTreeAt(template: Model, placement: CFrame): Model?
 			desc.Anchored = true
 		end
 	end
-	-- Calculate bottom offset so tree sits on the ground
+	-- Compute the bottom offset so the tree sits on the ground
 	local bboxCFrame, bboxSize = clone:GetBoundingBox()
 	local modelBottomY = bboxCFrame.Position.Y - bboxSize.Y * 0.5
 	local pivotY = clone:GetPivot().Position.Y
