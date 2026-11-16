@@ -115,7 +115,7 @@ end
 ]]
 local function findBladePart(model: Model): BasePart?
 	local bladeNames = { "blade", "cylinder", "drum", "grinder", "spinner", "rotor", "gear", "teeth" }
-	-- First, search by name
+	-- First search by name
 	for _, desc in ipairs(model:GetDescendants()) do
 		if desc:IsA("BasePart") then
 			local lowerName = desc.Name:lower()
