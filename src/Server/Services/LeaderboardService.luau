@@ -312,7 +312,7 @@ function LeaderboardService:KnitStart()
 	-- The boards only exist where lobby-map does, so findBoards() polls until
 	-- they appear, so this loop is inert on any place without them.
 	task.spawn(function()
-		-- Boards may stream in after service start; poll until found.
+		-- Boards may stream in after service start — poll until found.
 		while not findBoards() do
 			task.wait(POLL_SECONDS)
 		end
