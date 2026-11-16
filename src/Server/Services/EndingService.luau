@@ -56,7 +56,7 @@ local deerService: any = nil
 local owlService: any = nil
 -- Run id being finalized plus the member set that acknowledged the results screen
 local endingRunId = ""
--- Return-to-lobby is an acknowledgement: the results stay up until every
+-- Return-to-lobby acts as an acknowledgement — results stay up until every
 -- connected member clicks (or ResultsDisplaySeconds elapses server-side).
 local returnAcks: { [Player]: boolean } = {}
 
