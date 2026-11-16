@@ -51,7 +51,7 @@ local RESPAWN_TIME = 90
 local JUNK_LIFETIME = 600
 local GROUND_RAY_HEIGHT = 500
 
--- How many of each facility type to place
+-- Count of each facility type to place
 local FACILITY_COUNTS = {
 	Playground = { min = 4, max = 6 },
 	Restroom = { min = 2, max = 3 },
