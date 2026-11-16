@@ -35,7 +35,7 @@ local Constants = require(ReplicatedStorage.Shared.Constants)
 local DonationService = Knit.CreateService({
 	Name = "DonationService",
 	Client = {
-		-- Fired to the buying player once their product is granted.
+		-- Fired to the purchasing player once their product is granted.
 		DonationConfirmed = Knit.CreateSignal(),
 	},
 })
