@@ -43,7 +43,7 @@ local FacilityService = Knit.CreateService({
 })
 
 -- | Configuration | --
--- Placement band: facilities spawn outside the camp ring
+-- Placement band — facilities spawn outside the camp ring
 local CAMP_RADIUS = 80
 local MIN_FACILITY_DISTANCE = 60
 local MAX_FACILITY_DISTANCE = 950
