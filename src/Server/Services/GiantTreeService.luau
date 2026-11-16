@@ -163,7 +163,7 @@ local function spawnGiantTrees()
 		})
 
 		if not placement then
-			-- Fallback: direct random placement without collision check
+			-- Fallback to direct random placement with no collision check
 			-- This ensures we always get trees on the map even if FindPosition is too strict
 			local angle = random:NextNumber(0, math.pi * 2)
 			local distance = random:NextNumber(MIN_DISTANCE, maxDistance)
