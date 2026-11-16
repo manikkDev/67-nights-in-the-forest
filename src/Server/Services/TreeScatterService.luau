@@ -145,7 +145,7 @@ end
 ]]
 local function cloneTreeAt(template: Model, placement: CFrame): Model?
 	local clone = template:Clone()
-	-- Remove scripts
+	-- Strip scripts
 	for _, desc in ipairs(clone:GetDescendants()) do
 		if desc:IsA("BaseScript") or desc:IsA("ModuleScript") then
 			desc:Destroy()
