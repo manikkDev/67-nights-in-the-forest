@@ -38,7 +38,7 @@ local WorldProgressionService = Knit.CreateService({
 	Client = {
 		-- (level, accessRadius) — world boundary unlocked to a new radius
 		BoundaryExpanded = Knit.CreateSignal(),
-		-- Replicated current access radius for UIs
+		-- Replicated access-radius snapshot for UIs
 		AccessRadius = Knit.CreateProperty(WorldProgressionConfig.GetAccessRadius(1)),
 	},
 })
