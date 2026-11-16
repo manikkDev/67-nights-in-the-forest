@@ -109,7 +109,7 @@ local function relocateBuildings()
 	end
 	-- Distribute buildings across the map —
 	-- No buildings near campfire; two sit in the level 1 area but far from it.
-	-- Rest spread from level 2 to map edge.
+	-- The rest spread from level 2 out to the map edge.
 	local level1Radius = WorldProgressionConfig.GetAccessRadius(1)
 	local maxRadius = WorldProgressionConfig.MapRadius - 40
 	local seedBase = WorldPlacement.Hash("BuildingDistribution")
