@@ -63,7 +63,7 @@ local function processReceipt(receipt)
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	DonationService.Client.DonationConfirmed:Fire(player, price)
-	-- Bump the donor leaderboard; resolved lazily to avoid service-order coupling.
+	-- Bump the donor leaderboard — resolved lazily to avoid service-order coupling.
 	local ok, leaderboardService = pcall(Knit.GetService, "LeaderboardService")
 	if ok then
 		leaderboardService:RecordDonation(player, price)
