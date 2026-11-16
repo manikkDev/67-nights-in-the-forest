@@ -179,7 +179,7 @@ local function relocateBuildings()
 			if bottomOffset < 0 then
 				bottomOffset = 0
 			end
-			-- Now place at the correct Y so the bottom sits on the ground
+			-- Then place at the correct Y so the bottom sits on the ground
 			local placeY = placement.Position.Y + bottomOffset
 			building:PivotTo(CFrame.new(placement.Position.X, placeY, placement.Position.Z) * CFrame.Angles(0, yaw, 0))
 			WorldPlacement.Reserve(Vector3.new(placement.Position.X, 0, placement.Position.Z), clearanceRadius, "Building_" .. building.Name)
