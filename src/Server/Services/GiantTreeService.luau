@@ -88,7 +88,7 @@ local function createGiantTree(template: Model): Model?
 		end
 	end
 
-	-- Remove any scripts that might cause issues
+	-- Strip any scripts that might interfere with placement
 	for _, desc in ipairs(clone:GetDescendants()) do
 		if desc:IsA("BaseScript") or desc:IsA("ModuleScript") then
 			desc:Destroy()
