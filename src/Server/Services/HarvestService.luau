@@ -67,7 +67,7 @@ local GIANT_WOOD_DROP_MIN = 10
 local GIANT_WOOD_DROP_MAX = 15
 local PICKUP_RANGE = 12
 local LOG_LIFETIME = 300
--- Asset/model references
+-- Asset and model references
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local TREE_MODEL_NAMES = { "Tree", "bigtree", "GiantTree" }
 local AXE_TOOL_NAME = "Axe"
