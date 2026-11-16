@@ -47,7 +47,7 @@ local HarvestService = Knit.CreateService({
 })
 
 -- | Configuration | --
--- Chop rules and tree health
+-- Chop rules plus per-tree health
 local TREE_HEALTH = 6
 local GIANT_TREE_HEALTH = 12
 local CHOP_COOLDOWN = 0.5
