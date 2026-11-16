@@ -41,7 +41,7 @@ local DonationService = Knit.CreateService({
 })
 
 -- | State Management | --
--- Reverse lookup so receipts can be validated without scanning the table.
+-- Reverse lookup so receipts validate without scanning the table.
 local priceByProductId = {}
 for _, tier in ipairs(Constants.DONATION_TIERS) do
 	if tier.ProductId > 0 then
