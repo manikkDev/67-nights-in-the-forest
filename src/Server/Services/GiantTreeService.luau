@@ -95,7 +95,7 @@ local function createGiantTree(template: Model): Model?
 		end
 	end
 
-	-- Anchor all parts
+	-- Anchor every part
 	for _, desc in ipairs(clone:GetDescendants()) do
 		if desc:IsA("BasePart") then
 			desc.Anchored = true
