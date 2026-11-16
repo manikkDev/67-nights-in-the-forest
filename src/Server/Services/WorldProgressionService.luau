@@ -139,7 +139,7 @@ local function relocateBuildings()
 		local extents = building:GetExtentsSize()
 		local footprint = Vector3.new(extents.X + 15, extents.Y + 6, extents.Z + 15)
 		local clearanceRadius = math.max(extents.X, extents.Z) * 0.5 + 12
-		-- Ensure all parts are anchored so they don't fall after placement
+		-- Anchor all parts so nothing falls after placement
 		for _, desc in ipairs(building:GetDescendants()) do
 			if desc:IsA("BasePart") then
 				desc.Anchored = true
