@@ -133,7 +133,7 @@ local function spawnGiantTrees()
 	local random = Random.new(seedBase)
 	local spawned = 0
 
-	-- Collect all existing Tree/bigtree models to exclude from overlap checks
+	-- Gather existing Tree and bigtree models so new placements skip them
 	local treeExclusions = table.clone(allGroundParts)
 	for _, desc in ipairs(baseMap:GetDescendants()) do
 		if desc:IsA("Model") and (desc.Name == "Tree" or desc.Name == "bigtree") then
