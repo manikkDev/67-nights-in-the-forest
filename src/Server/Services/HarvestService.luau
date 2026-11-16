@@ -79,7 +79,7 @@ local inventoryService: any = nil
 local spawnService: any = nil
 local playerLifeService: any = nil
 local axeTemplate: Tool? = nil
--- Per-tree health and pivot data, plus a per-player chop debounce to rate-limit hits
+-- Per-tree health and pivot data plus per-player chop debounces
 local treeRegistry: { [Model]: { health: number, part: { Position: Vector3 }, pivot: CFrame, felled: boolean } } = {}
 local chopCooldowns: { [Player]: number } = {}
 
