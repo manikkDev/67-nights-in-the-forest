@@ -107,7 +107,7 @@ local function relocateBuildings()
 	if #buildings == 0 then
 		return
 	end
-	-- Distribute buildings across the map:
+	-- Distribute buildings across the map —
 	-- No buildings near campfire. 2 buildings in level 1 area but far from campfire.
 	-- Rest spread from level 2 to map edge.
 	local level1Radius = WorldProgressionConfig.GetAccessRadius(1)
