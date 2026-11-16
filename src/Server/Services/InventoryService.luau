@@ -91,7 +91,7 @@ local DROP_LIFETIME = 300
 
 local DRAG_MAX_DISTANCE = 50
 
--- Resources that are bench-only and must never be dropped from the carry bag.
+-- Bench-only resources that must never drop from the carry bag.
 -- They exist only in the shared crafting totals, not in personal inventory.
 local NO_DROP_RESOURCES = { WoodenSheet = true, SheetMetal = true, Scrap = true }
 
