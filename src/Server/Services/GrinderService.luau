@@ -126,7 +126,7 @@ local function findBladePart(model: Model): BasePart?
 			end
 		end
 	end
-	-- Fallback: find a part that has a Motor6D or HingeConstraint (already spinning)
+	-- Fallback — find a part with a Motor6D or HingeConstraint already spinning
 	for _, desc in ipairs(model:GetDescendants()) do
 		if desc:IsA("HingeConstraint") or desc:IsA("Motor6D") or desc:IsA("AngularConstraint") then
 			local att0 = desc.Attachment0
