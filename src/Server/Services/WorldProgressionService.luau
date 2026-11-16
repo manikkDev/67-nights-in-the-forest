@@ -190,7 +190,7 @@ local function relocateBuildings()
 			local yaw = select(2, pivot:ToEulerAnglesYXZ())
 			local groundCFrame = WorldPlacement.GetGroundCFrame(allGroundParts, pivot.Position, 0)
 			if groundCFrame then
-				-- Move to temp position with yaw-only, then find lowest part
+				-- Move to a temp position with yaw-only, then find the lowest part
 				building:PivotTo(CFrame.new(groundCFrame.Position.X, groundCFrame.Position.Y + 500, groundCFrame.Position.Z) * CFrame.Angles(0, yaw, 0))
 				local pivotY = building:GetPivot().Position.Y
 				local lowestY = math.huge
