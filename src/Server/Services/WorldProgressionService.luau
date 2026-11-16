@@ -164,7 +164,7 @@ local function relocateBuildings()
 			-- at a temporary Y, then find the actual lowest part to get an accurate bottom offset.
 			local yaw = select(2, placement:ToEulerAnglesYXZ())
 			building:PivotTo(CFrame.new(placement.Position.X, placement.Position.Y + 500, placement.Position.Z) * CFrame.Angles(0, yaw, 0))
-			-- Find the actual lowest part by iterating through all parts
+			-- Find the true lowest part by iterating through every part
 			-- This is more reliable than GetBoundingBox for models with unusual pivots
 			local pivotY = building:GetPivot().Position.Y
 			local lowestY = math.huge
