@@ -160,7 +160,7 @@ local function relocateBuildings()
 			faceCenter = true,
 		})
 		if placement then
-			-- First, move the building to the target position with yaw-only orientation
+			-- First move the building to the target position using yaw-only orientation
 			-- at a temporary Y, then find the actual lowest part to get an accurate bottom offset.
 			local yaw = select(2, placement:ToEulerAnglesYXZ())
 			building:PivotTo(CFrame.new(placement.Position.X, placement.Position.Y + 500, placement.Position.Z) * CFrame.Angles(0, yaw, 0))
