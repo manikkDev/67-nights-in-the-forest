@@ -115,7 +115,7 @@ local function collectTreePivots()
 		return
 	end
 
-	-- Remove edit-mode preview forage items before spawning real ones.
+	-- Strip edit-mode preview forage items before spawning real ones.
 	local preview = baseMap:FindFirstChild("ForagePreview")
 	if preview then
 		preview:Destroy()
