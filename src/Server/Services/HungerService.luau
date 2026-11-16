@@ -39,7 +39,7 @@ local HungerService = Knit.CreateService({
 })
 
 -- | Configuration | --
--- Passive hunger drain (~10 minutes to empty), doubled while sprinting
+-- Passive hunger drain (about 10 minutes to empty), doubled while sprinting
 local HUNGER_DRAIN_PER_SEC = 100 / 600
 local SPRINT_DRAIN_MULTIPLIER = 2
 local SPRINT_SPEED_THRESHOLD = 20
