@@ -121,7 +121,7 @@ local function relocateBuildings()
 			ringMin = level1Radius - 60
 			ringMax = level1Radius - 20
 		else
-			-- Remaining buildings: spread evenly from level 2 radius to map edge
+			-- Remaining buildings spread evenly from level 2 radius to the map edge
 			local remaining = #buildings - 2
 			local remainingIndex = index - 2
 			local level2Radius = WorldProgressionConfig.GetAccessRadius(2)
