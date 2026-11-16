@@ -211,7 +211,7 @@ local function scatterTrees()
 
 	local spawned = 0
 
-	-- Scatter regular Trees
+	-- Scatter the regular Trees
 	if treeTemplate then
 		for index = 1, SCATTER_TREE_COUNT do
 			local placement = WorldPlacement.FindPosition({
