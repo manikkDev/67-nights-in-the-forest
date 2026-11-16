@@ -46,7 +46,7 @@ local MAX_TREE_SCATTER_RADIUS = 45
 local MAP_SCATTER_CHANCE = 0.4
 local PICKUP_RANGE = 12
 local RESPAWN_TIME = 60
--- How deep each pickup sinks into foliage
+-- Depth each pickup sinks into the foliage
 local MIN_SUBMERGE = 0.65
 local MAX_SUBMERGE = 1.15
 local MUSHROOM_SUBMERGE_MAX = 0.15
