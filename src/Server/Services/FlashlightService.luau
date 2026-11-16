@@ -44,7 +44,7 @@ local FlashlightService = Knit.CreateService({
 
 -- | Configuration | --
 local FLASHLIGHT_TOOL_NAME = "Flashlight"
--- Beam cone: range/angle scale with battery level
+-- Beam cone — range and angle scale with battery level
 local BEAM_MIN_RANGE = 80
 local BEAM_MAX_RANGE = 140
 local BEAM_MIN_ANGLE = 80
