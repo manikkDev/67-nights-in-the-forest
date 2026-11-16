@@ -147,7 +147,7 @@ local function spawnGiantTrees()
 			continue
 		end
 
-		-- Try FindPosition first (collision-free placement)
+		-- Try FindPosition first for collision-free placement
 		local placement = WorldPlacement.FindPosition({
 			center = center,
 			groundPart = allGroundParts,
