@@ -240,7 +240,7 @@ local function scatterTrees()
 		end
 	end
 
-	-- Scatter BigTrees
+	-- Scatter the BigTrees
 	if bigtreeTemplate then
 		for index = 1, SCATTER_BIGTREE_COUNT do
 			local placement = WorldPlacement.FindPosition({
