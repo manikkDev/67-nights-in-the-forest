@@ -97,7 +97,7 @@ local function relocateBuildings()
 		["Tower"] = true,
 		["Crashed Plane"] = true,
 	}
-	-- Collect ALL buildings from the base map
+	-- Collect all buildings from the base map
 	local buildings = {}
 	for _, desc in ipairs(baseMap:GetDescendants()) do
 		if desc:IsA("Model") and buildingNames[desc.Name] then
