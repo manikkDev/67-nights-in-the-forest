@@ -49,7 +49,7 @@ local BEAM_MIN_RANGE = 80
 local BEAM_MAX_RANGE = 140
 local BEAM_MIN_ANGLE = 80
 local BEAM_MAX_ANGLE = 110
--- Aim-throttling so remote spam can't starve the loop
+-- Aim throttling so remote spam cannot starve the loop
 local AIM_TIMEOUT = 1.0
 local AIM_UPDATE_MIN_INTERVAL = 0.05
 local CHECK_INTERVAL = 0.15
