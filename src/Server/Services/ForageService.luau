@@ -38,7 +38,7 @@ local ForageService = Knit.CreateService({
 -- | Configuration | --
 local ITEMS_PATH = ServerStorage.Assets[Constants.ITEMS_PATH]
 local TREE_MODEL_NAMES = { "Tree", "bigtree", "GiantTree" }
--- Scatter targets: bushes under trees, some chance across the map
+-- Scatter targets — bushes under trees, some chance across the map
 local BERRY_TARGET_COUNT = 35
 local MUSHROOM_TARGET_COUNT = 25
 local MIN_TREE_SCATTER_RADIUS = 4
