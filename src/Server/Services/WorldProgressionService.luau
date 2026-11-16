@@ -247,7 +247,7 @@ local function ensureBoundary()
 		part.Reflectance = 0
 		part.Parent = folder
 		table.insert(boundaryParts, part)
-		-- Neon trim at the top — makes the wall visible from far away
+		-- Neon trim along the top so the wall stays visible from far away
 		-- even at night and through atmospheric fog
 		local trim = Instance.new("Part")
 		trim.Name = "BoundaryTrim" .. index
