@@ -50,7 +50,7 @@ local RESPAWN_TIME = 60
 local MIN_SUBMERGE = 0.65
 local MAX_SUBMERGE = 1.15
 local MUSHROOM_SUBMERGE_MAX = 0.15
--- Hunger restored per food type
+-- Hunger restored for each food type
 local BERRY_HUNGER_RESTORE = 12
 local MUSHROOM_HUNGER_RESTORE = 10
 local RAW_MEAT_HUNGER_RESTORE = 15
