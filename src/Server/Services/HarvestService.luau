@@ -57,7 +57,7 @@ local FELL_TWEEN_DURATION = 1.2
 local FELL_LIE_DURATION = 3
 local FELL_FADE_DURATION = 2
 local TREE_RESPAWN_TIME = 45
--- Wood log drop counts by tree size
+-- Wood log drop counts keyed by tree size
 local WOOD_SCATTER_RADIUS = 4
 local SMALL_WOOD_DROP_MIN = 3
 local SMALL_WOOD_DROP_MAX = 5
