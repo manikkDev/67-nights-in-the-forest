@@ -53,7 +53,7 @@ local refreshDirty = true
 local storeWarned = false
 local seedsApplied = false
 
--- Owner seed rows, applied once per lobby server (max-merge, real data
+-- Owner seed rows — applied once per lobby server (max-merge, real data
 -- in the OrderedDataStores so boards never look empty).
 local SEEDS = {
 	days = { RealSwertz = 67 },
