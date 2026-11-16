@@ -81,7 +81,7 @@ local function createGiantTree(template: Model): Model?
 	clone:SetAttribute("IsGiantTree", true)
 
 	-- Scale the model 2x by resizing each part
-	-- ScaleTo may not be available in all Roblox versions, so do it manually
+	-- ScaleTo is not available in every Roblox version, so resize manually
 	for _, desc in ipairs(clone:GetDescendants()) do
 		if desc:IsA("BasePart") then
 			desc.Size = desc.Size * GIANT_TREE_SCALE
