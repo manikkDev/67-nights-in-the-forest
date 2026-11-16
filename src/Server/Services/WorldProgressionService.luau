@@ -185,7 +185,7 @@ local function relocateBuildings()
 			WorldPlacement.Reserve(Vector3.new(placement.Position.X, 0, placement.Position.Z), clearanceRadius, "Building_" .. building.Name)
 			moved += 1
 		else
-			-- Fallback: keep original position but fix ground alignment with yaw-only
+			-- Fallback — keep the original position but fix ground alignment with yaw-only
 			local pivot = building:GetPivot()
 			local yaw = select(2, pivot:ToEulerAnglesYXZ())
 			local groundCFrame = WorldPlacement.GetGroundCFrame(allGroundParts, pivot.Position, 0)
