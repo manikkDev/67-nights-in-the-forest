@@ -58,7 +58,7 @@ local FACILITY_COUNTS = {
 	Clinic = { min = 1, max = 2 },
 }
 
--- Loot tables per facility type (sourced from the 99 Nights wiki)
+-- Per-facility loot tables (sourced from the 99 Nights wiki)
 -- Playground (common): Bolt, Sheet Metal, Old Radio, Broken Fan, Broken Microwave, Tyre
 -- Restroom (uncommon): Old Radio, Bolt, Broken Fan
 -- Clinic (rare): healing items, plus Bolt, Sheet Metal, Tyre, Old Radio,
